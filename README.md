@@ -1,6 +1,6 @@
 <td><a href="https://m.youtube.com/watch?v=L1u6AkSpR98&t=2s" title="Youtube" rel="noopener"><img src="https://i.imgur.com/eEX1qmB.png"></a></td>
 
-Welcome to openpilot 💦 0.7.1_OC_WATER 💦
+Welcome to openpilot 0.7.1_OC_WATER 💦
 ======
 
 [openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS).  It's about on par with Tesla Autopilot.
@@ -8,9 +8,18 @@ This OLD_CAR Branch brings openpilot to almost every car. Follow this readme to 
 
 Big thank you goes to @wocsor. He developed the whole thing and modified the code.
 
-SPECS AND CHANGES
+⚙️ CHANGES COMPAIR TO STOCK COMMA 
 ======================
 
+WATER 💦 means it's a stock comma with just things added you need to run on old_cars. 
+
+1. OLD_CAR is in selfdrive/car/toyota (use /Toyota/interface.py for tuning)
+2. CanValid was set to True to avoid can / communication error messages.
+3. It uses the SteeringRatio which is set in interface.py. Vehicle_model.py does not change it anymore.
+4. CAMERA offset is set to 0.00. (Set it back to what ever your EON is mounted in lane_planner.py)
+6. Steering Angle sensor is flipped because it is mounted upside down in my van. 
+   (If yours is mounted the normal way: Delete "-" in Toyota/carstate.py line 166) 
+7. It is forced to send GAS_PEDAL command on canID 0x200
 
 OVERVIEW
 ======================
