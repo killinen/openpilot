@@ -1,6 +1,8 @@
 <td><a href="https://m.youtube.com/watch?v=L1u6AkSpR98&t=2s" title="Youtube" rel="noopener"><img src="https://i.imgur.com/eEX1qmB.png"></a></td>
 
-Welcome to openpilot 0.6.4 DEVEL with OLD_CAR support and ZORRO CurvatureFactorLearner
+Welcome to openpilot 0.7.1 With OLD_CAR support
+
+OC_water is basically a stock comma fork with just add everything you need to run on OLD_CARS
 ======
 
 [openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS).  It's about on par with Tesla Autopilot and GM Super Cruise, and better than [all other manufacturers](http://www.thedrive.com/tech/5707/the-war-for-autonomous-driving-part-iii-us-vs-germany-vs-japan).
