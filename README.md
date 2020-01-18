@@ -26,7 +26,7 @@ CHANGES FOR OLD_CAR:
 7. 💧It is forced to send GAS_PEDAL command on canID 0x200
 
 
-OVERVIEW
+🚌 OVERVIEW 🚌
 ======================
 
 I think retrofitting and #old_car is the hidden future of openpilot.
@@ -44,7 +44,7 @@ Let's see where our journey will end. I can think of like a dev-kit with some ac
 Thank you <@Wocsor> for spending so much effort.
 He is doing fundamental research and hacking! 🚙🚌🚎🚐🏎🚗🚛🚚
 
-HOW TO START
+🛠 HOW TO START 🛠
 ======================
 
 To make openpilot work in an old car, we need to retrofit actuators from supported cars like toyota corolla 2018. Some small ECU needs to be build DIY.
