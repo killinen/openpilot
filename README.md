@@ -8,10 +8,10 @@ This OLD_CAR Branch brings openpilot to almost every car. Follow this readme to 
 
 Big thank you goes to @wocsor. He developed the whole thing and modified the code.
 
-⚙️ CHANGES COMPAIR TO STOCK COMMA 
+⚙️ CODE CHANGES ⚙️
 ======================
 
-WATER 💦 means it's a stock comma with just things added you need to run on old_cars. 
+💦 WATER 💦 means it's a stock comma with just things added you need to run on old_cars. 
 
 1. OLD_CAR is in selfdrive/car/toyota (use /Toyota/interface.py for tuning)
 2. CanValid was set to True to avoid can / communication error messages.
