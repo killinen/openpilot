@@ -1,297 +1,276 @@
-[![](https://i.imgur.com/UetIFyH.jpg)](#)
+<td><a href="https://m.youtube.com/watch?v=L1u6AkSpR98&t=2s" title="Youtube" rel="noopener"><img src="https://i.imgur.com/eEX1qmB.png"></a></td>
 
-Table of Contents
-=======================
+Welcome to openpilot 0.6.4 DEVEL with OLD_CAR support and ZORRO CurvatureFactorLearner
+======
 
-* [What is openpilot?](#what-is-openpilot)
-* [Integration with Stock Features](#integration-with-stock-features)
-* [Supported Hardware](#supported-hardware)
-* [Supported Cars](#supported-cars)
-* [Community Maintained Cars and Features](#community-maintained-cars-and-features)
-* [Installation Instructions](#installation-instructions)
-* [Limitations of openpilot ALC and LDW](#limitations-of-openpilot-alc-and-ldw)
-* [Limitations of openpilot ACC and FCW](#limitations-of-openpilot-acc-and-fcw)
-* [Limitations of openpilot DM](#limitations-of-openpilot-dm)
-* [User Data and comma Account](#user-data-and-comma-account)
-* [Safety and Testing](#safety-and-testing)
-* [Testing on PC](#testing-on-pc)
-* [Community and Contributing](#community-and-contributing)
-* [Directory Structure](#directory-structure)
-* [Licensing](#licensing)
+[openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS).  It's about on par with Tesla Autopilot and GM Super Cruise, and better than [all other manufacturers](http://www.thedrive.com/tech/5707/the-war-for-autonomous-driving-part-iii-us-vs-germany-vs-japan).
+
+This OLD_CAR Branch brings openpilot to almost every car. Follow this readme to get an overview how it works.
+
+Big thank you goes to @wocsor. He developed the whole thing and modified the code.
+
+The openpilot codebase has been written to be concise and to enable rapid prototyping. We look forward to your contributions - improving real vehicle automation has never been easier.
+
+OVERVIEW
+======================
+
+I think retrofitting and #old_car is the hidden future of openpilot.
+Eon and openpilot, like it is expected to be used, is limited to a few makes and type of cars which are build in 2018-2021.
+In a few years cars will have better selfdriving on stock, than comma can ever deliver - due to better hardware an software.
+All older cars will not be plug and play.
+That's where #old_cars comes in.
+Plus, there is no limitation due to brands or types.
+There are billions of cars which can be upgraded.
+Right now we are using the same actuators in completely different types of cars.
+(Celica 2003, VW Vanagon 1988, Ford E350 1994).
+We upgrade cars from zero assistant to level 2 self driving.
+We make driving safe and chill. That's really impressive!
+Let's see where our journey will end. I can think of like a dev-kit with some actuators and interceptors for easy DIY projects.
+Thank you <@Wocsor> for spending so much effort.
+He is doing fundamental research and hacking! 🚙🚌🚎🚐🏎🚗🚛🚚
+
+HOW TO START
+======================
+
+To make openpilot work in an old car, we need to retrofit actuators from supported cars like toyota corolla 2018. Some small ECU needs to be build DIY.
+
+Brain:
+* [EON and Pada](#eon-and-panda)
+
+
+Steering:
+* [EPS - electric power steering](#eps)
+* [VSS - vehicle speed sensor](#vss)
+* [Buttons](#buttons)
+* [Cruise_ECU](#cruise_ecu)
+* [Steering angle sensor](#steering-angle-sensor)
+
+Throttle:
+* [Cruise Control Actuator](#cruise-control-actuator)
+* [Potentiometer](#potentiometer)
+* [Throttle_ECU](#throttle_ecu)
+
+Radar: 
+* [Radar sensor](#radar)
+
+Brake (not finished yet):
+* [ABS PUMP / OSCC Module](#POLYSYNC-OSCC-Brake-module-and-Prius-Actuator)
+
+Community
+ * [Community](#commutity)
+
+# BRAIN
+
+## EON and Panda
+
+![enter image description here](https://i.imgur.com/RBqQvoZ.jpg)
+
+First, we need a brain to control everything. 
+This is EON. An extremely powerful piece of hardware which runs openpilot. 
+We also need Panda, which connects EON to the OBD2 port of the car. So that EON can talk to the car via CAN-Bus. 
+Oh wait! - we do not have a CAN-Bus network in our car. Don't worry we will build it DIY.
+For more informations to EON or PANDA visit [comma.ai.](https://comma.ai)
+
+I have used a cheap [OBD2 wire connector](https://www.amazon.com/iKKEGOL-Connector-Diagnostic-Extension-Pigtail/dp/B07F16HC12/ref=sr_1_15?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=obd2%20cable&qid=1560506720&s=gateway&sr=8-15) to pinout the panda. 
+
+
+# STEERING
+
+
+## Eps
+
+I have used an EPS (electronic power steering) out of a Toyota corolla 2018.
+This is already supported by Openpilot so we do not have to port it from sketch.
+
+![electric steering column out of a corolla](https://i.imgur.com/PUOQNph.png)
+
+It is  important, that it provides LKAS (lane keep assistent). The steering column and motor might be the same like in older corollas. But the ECU is different. So make sure to buy the ECU with LKAS ( "KV" on the sticker).
+![EPS ECU COROLLA 2018 WITH LKAS](https://i.imgur.com/Bl3FpBX.png)
+
+This is how to wire the steering ECU:
+
+![enter image description here](https://i.imgur.com/w6tnlDq.png)
+
+z11 and z7 connectors will be connected to the EPS Motor.
+
+Now it's time to retrofit the steering column. Since every car is slightly different, you need to be a little creative. 
+Im my case, I have cut my stock column in half and welded both ends to the corolla steering column.
+If you already have a hydraulic power steering, you might want to disable that. Otherwise you would have a power steering on top of a power steering, and your steering wheel will never return to center by itself.
+
+This is how my conversion looks like: 
+
+![enter image description here](https://i.imgur.com/TTxdILC.jpg)
+
+![enter image description here](https://i.imgur.com/349kMvt.png)
+
+Now we have a working power steering in our car! 
+Unfortunately it goes into failsafe, which means that it will disable LKAS. 
+Cruise_ECU will take care of this issue.
+
+----
+## Vss
+
+Eon needs to know how fast we are driving. Therefore we need to add a sensor which measure the "speed" of the car. Most cars already provide such a signal already. For example for the radio. If you have such a signal, you can grab that. In my case I have added a hall sensor to the rotary disc of the speedometer. This counts 4000 signal each km. Cruis_Ecu will calculate that signal with some math. NOTE: you need to adjust the "counts per km" of your specific sensor in Cruise_ECU code.
+
+
+----
+## Buttons
+
+Since we do not have original toyota buttons, - guess what - we need to build it ourself.
+Be creative, it is simple task. Pull-down buttons, which will be connected to Cruise_ECU.
+
+![enter image description here](https://i.imgur.com/V3gqlWY.png)
+
+![enter image description here](https://i.imgur.com/LdcZqPN.jpg)
+
+----
+## Cruise_Ecu
+
+Cruise_ECU Hardware is an [Arduino Uno](https://www.amazon.com/Elegoo-EL-CB-001-ATmega328P-ATMEGA16U2-Arduino/dp/B01EWOE0UU/ref=sr_1_2?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=arduino%20uno&qid=1560514638&s=gateway&sr=8-2) with a [CAN bus shield](https://www.amazon.com/MakerFocus-CAN-Bus-Shield-V1-2/dp/B06XWQ4WF9/ref=sr_1_2?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=arduino%20uno%20canbus%20shield&qid=1560514663&s=gateway&sr=8-2) attached to it.
+![CRUISE_ECU](https://i.imgur.com/CnysIXP.png)
+
+
+It handles the following functions: 
+
+ 1. Cruise_ECU sends some CAN messages on the bus, which let the EPS thinks that it is still in a corolla.
+ The EPS is happy and does not go into failsafe. LKAS is ready to take control of it !!! 
+ 
+ 2. Cruise_ECU calculates the current speed by reading the VSS. It sends a 0xb4 and 0xaa message on the CAN-Bus. EON and Throttle_ECU can read and use those messages.
+ 
+ 3. Cruise_ECU digitalReads the buttons and sends the associated CAN messages to the bus. It let's us enable and disable
+ Openpilot. We can also increase or decrease the set speed.
+ 
+ 5. It provides some safety function. It will disable immediately, if it looses CAN safety checksum.
+ 
+ This is how you wire Cruise_ECU: 
+![CRUISE_ECU_PINOUT](https://i.imgur.com/9Mnr5qg.jpg)
+
+Note: The LED stuff is optional. "Interrupt to Throttle_ecu" is an extra safety feature, not necessary but recommended.
+
+Attach a switch to the brake pedal and wire it to D7 (button_cancel). Openpilot will disengage when pressing the brake pedal.
+If you have a manual transmition, do the same for clutch pedal.
+
+[Download Cruise ECU Code.](https://github.com/Lukilink/Cruise_ECU)
+
+
+----
+## Steering Angle Sensor
+
+I am using the stock steering angle sensor out of a toyota corolla / rav4.
+I highly recommend buying it with the hair spring attached. Also we do not need the hair spring, it takes care of the sensor while shipping.
+Fortunatley the sensor provides it's own ECU. Therefor it is like plug and play. 
+
+![enter image description here](https://i.imgur.com/8hsyrax.png)
+
+
+![enter image description here](https://i.imgur.com/CwXuUUv.jpg)
+	
+The stock Toyota sensor is laggy and not very precise. 
+Zorrobyte has started to build a high precision, fast like hell, sensor.
+It´s cheap and provides a stunning performance. Zorrobyte invented a super clever mounting position. 
+Check out his [Github](https://github.com/zorrobyte/betterToyotaAngleSensorForOP). 
+I will definetely upgrade to zorro_angle_sensor.
 
 ---
 
-What is openpilot?
-------
+# THROTTLE
 
-[openpilot](http://github.com/commaai/openpilot) is an open source driver assistance system. Currently, openpilot performs the functions of Adaptive Cruise Control (ACC), Automated Lane Centering (ALC), Forward Collision Warning (FCW) and Lane Departure Warning (LDW) for a growing variety of supported [car makes, models and model years](#supported-cars). In addition, while openpilot is engaged, a camera based Driver Monitoring (DM) feature alerts distracted and asleep drivers.
+## Cruise Control Actuator
 
-<table>
-  <tr>
-    <td><a href="https://www.youtube.com/watch?v=mgAbfr42oI8" title="YouTube" rel="noopener"><img src="https://i.imgur.com/kAtT6Ei.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=394rJKeh76k" title="YouTube" rel="noopener"><img src="https://i.imgur.com/lTt8cS2.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=1iNOc3cq8cs" title="YouTube" rel="noopener"><img src="https://i.imgur.com/ANnuSpe.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=Vr6NgrB-zHw" title="YouTube" rel="noopener"><img src="https://i.imgur.com/Qypanuq.png"></a></td>
-  </tr>
-  <tr>
-    <td><a href="https://www.youtube.com/watch?v=Ug41KIKF0oo" title="YouTube" rel="noopener"><img src="https://i.imgur.com/3caZ7xM.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=NVR_CdG1FRg" title="YouTube" rel="noopener"><img src="https://i.imgur.com/bAZOwql.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=tkEvIdzdfUE" title="YouTube" rel="noopener"><img src="https://i.imgur.com/EFINEzG.png"></a></td>
-    <td><a href="https://www.youtube.com/watch?v=_P-N1ewNne4" title="YouTube" rel="noopener"><img src="https://i.imgur.com/gAyAq22.png"></a></td>
-  </tr>
-</table>
+Add an electric cruise control actuator to your throttle.
+Choose what ever brand you like. They are all very similar and it is easy to get one cheap out of a 90th car on ebay. 
+It needs to have an electric motor, and something similar to a clutch.
+The "clutch" is basically a solenoid, which disconnects everything mechanically. Pretty nice safety feature :) 
+If you already have stock cruise control in your car, take that one!
 
-Integration with Stock Features
-------
 
-In all supported cars:
-* Stock Lane Keep Assist (LKA) and stock ALC are replaced by openpilot ALC, which only functions when openpilot is engaged by the user.
-* Stock LDW is replaced by openpilot LDW.
+## Potentiometer
 
-Additionally, on specific supported cars (see ACC column in [supported cars](#supported-cars)):
-* Stock ACC is replaced by openpilot ACC.
-* openpilot FCW operates in addition to stock FCW.
+To measure the position of the throttle we use the stock potentiometer. Almost every throttle has a potentiometer attached.
+We read that amount in Throttle_ECU. 
 
-openpilot should preserve all other vehicle's stock features, including, but are not limited to: FCW, Automatic Emergency Braking (AEB), auto high-beam, blind spot warning, and side collision warning.
+Note: Throttle_ECU sketch must be adjusted for your specific potentiometer. Therefore you need to "measure" the min and max value of your potentiometer with analog_read_to_serial. If you have your min and max values you can set those in Throttle_ECU sketch.
 
-Supported Hardware
-------
+## Throttle_ECU
 
-At the moment, openpilot supports the [EON DevKit](https://comma.ai/shop/products/eon-dashcam-devkit) and the [comma two](https://comma.ai/shop/products/comma-two-devkit). A [car harness](https://comma.ai/shop/products/car-harness) is recommended to connect the EON or comma two to the car. In the future, we'd like to support other platforms as well, like gaming PCs.
+Throttle ECU hardware is an [Arduino Uno](https://www.amazon.com/Elegoo-EL-CB-001-ATmega328P-ATMEGA16U2-Arduino/dp/B01EWOE0UU/ref=sr_1_3?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=arduino%20uno&qid=1560516407&s=gateway&sr=8-3) with a [CAN-bus shield](https://www.amazon.com/MakerFocus-CAN-Bus-Shield-V1-2/dp/B06XWQ4WF9/ref=sr_1_2?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=arduino%20uno%20canbus%20shield&qid=1560514663&s=gateway&sr=8-2) and a [H-bridge](https://www.amazon.com/CJRSLRB-3Packs-Controller-H-Bridge-Arduino/dp/B07BMTQMKN/ref=sr_1_2_sspa?__mk_de_DE=%C3%85M%C3%85%C5%BD%C3%95%C3%91&keywords=H-bridge&qid=1560516427&s=gateway&sr=8-2-spons&psc=1) attached.
 
-Supported Cars
-------
+![enter image description here](https://i.imgur.com/EClutor.png)
 
-| Make      | Model (US Market Reference)   | Supported Package | ACC              | No ACC accel below | No ALC below |
-| ----------| ------------------------------| ------------------| -----------------| -------------------| -------------|
-| Acura     | ILX 2016-18                   | AcuraWatch Plus   | openpilot        | 25mph<sup>5</sup>  | 25mph        |
-| Acura     | RDX 2016-18                   | AcuraWatch Plus   | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Chrysler  | Pacifica 2017-18              | Adaptive Cruise   | Stock            | 0mph               | 9mph         |
-| Chrysler  | Pacifica Hybrid 2017-18       | Adaptive Cruise   | Stock            | 0mph               | 9mph         |
-| Chrysler  | Pacifica Hybrid 2019          | Adaptive Cruise   | Stock            | 0mph               | 39mph        |
-| Honda     | Accord 2018-19                | All               | Stock            | 0mph               | 3mph         |
-| Honda     | Accord Hybrid 2018-19         | All               | Stock            | 0mph               | 3mph         |
-| Honda     | Civic Sedan/Coupe 2016-18     | Honda Sensing     | openpilot        | 0mph               | 12mph        |
-| Honda     | Civic Sedan/Coupe 2019        | Honda Sensing     | Stock            | 0mph               | 2mph         |
-| Honda     | Civic Hatchback 2017-19       | Honda Sensing     | Stock            | 0mph               | 12mph        |
-| Honda     | CR-V 2015-16                  | Touring           | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Honda     | CR-V 2017-19                  | Honda Sensing     | Stock            | 0mph               | 12mph        |
-| Honda     | CR-V Hybrid 2017-2019         | Honda Sensing     | Stock            | 0mph               | 12mph        |
-| Honda     | Fit 2018-19                   | Honda Sensing     | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Honda     | Odyssey 2018-20               | Honda Sensing     | openpilot        | 25mph<sup>5</sup>  | 0mph         |
-| Honda     | Passport 2019                 | All               | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Honda     | Pilot 2016-18                 | Honda Sensing     | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Honda     | Pilot 2019                    | All               | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Honda     | Ridgeline 2017-19             | Honda Sensing     | openpilot        | 25mph<sup>5</sup>  | 12mph        |
-| Hyundai   | Santa Fe 2019<sup>1</sup>     | All               | Stock            | 0mph               | 0mph         |
-| Hyundai   | Elantra 2017-19<sup>1</sup>   | SCC + LKAS        | Stock            | 19mph              | 34mph        |
-| Hyundai   | Genesis 2018<sup>1</sup>      | All               | Stock            | 19mph              | 34mph        |
-| Jeep      | Grand Cherokee 2016-18        | Adaptive Cruise   | Stock            | 0mph               | 9mph         |
-| Jeep      | Grand Cherokee 2019           | Adaptive Cruise   | Stock            | 0mph               | 39mph        |
-| Kia       | Optima 2019<sup>1</sup>       | SCC + LKAS        | Stock            | 0mph               | 0mph         |
-| Kia       | Sorento 2018<sup>1</sup>      | All               | Stock            | 0mph               | 0mph         |
-| Kia       | Stinger 2018<sup>1</sup>      | SCC + LKAS        | Stock            | 0mph               | 0mph         |
-| Lexus     | CT Hybrid 2017-18             | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Lexus     | ES Hybrid 2019                | All               | openpilot        | 0mph               | 0mph         |
-| Lexus     | RX Hybrid 2016-19             | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Lexus     | IS 2017-2019                  | All               | Stock            | 22mph              | 0mph         |
-| Lexus     | IS Hybrid 2017                | All               | Stock            | 0mph               | 0mph         |
-| Subaru    | Crosstrek 2018-19             | EyeSight          | Stock            | 0mph               | 0mph         |
-| Subaru    | Impreza 2019-20               | EyeSight          | Stock            | 0mph               | 0mph         |
-| Toyota    | Avalon 2016                   | TSS-P             | Stock<sup>4</sup>| 20mph<sup>5</sup>  | 0mph         |
-| Toyota    | Avalon 2017-18                | All               | Stock<sup>4</sup>| 20mph<sup>5</sup>  | 0mph         |
-| Toyota    | Camry 2018-19                 | All               | Stock            | 0mph<sup>2</sup>   | 0mph         |
-| Toyota    | Camry Hybrid 2018-19          | All               | Stock            | 0mph<sup>2</sup>   | 0mph         |
-| Toyota    | C-HR 2017-19                  | All               | Stock            | 0mph               | 0mph         |
-| Toyota    | C-HR Hybrid 2017-19           | All               | Stock            | 0mph               | 0mph         |
-| Toyota    | Corolla 2017-19               | All               | Stock<sup>4</sup>| 20mph<sup>5</sup>  | 0mph         |
-| Toyota    | Corolla 2020                  | All               | openpilot        | 0mph               | 0mph         |
-| Toyota    | Corolla Hatchback 2019        | All               | openpilot        | 0mph               | 0mph         |
-| Toyota    | Corolla Hybrid 2020           | All               | openpilot        | 0mph               | 0mph         |
-| Toyota    | Highlander 2017-19            | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Highlander Hybrid 2017-19     | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Prius 2016                    | TSS-P             | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Prius 2017-19                 | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Prius Prime 2017-20           | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Rav4 2016                     | TSS-P             | Stock<sup>4</sup>| 20mph<sup>5</sup>  | 0mph         |
-| Toyota    | Rav4 2017-18                  | All               | Stock<sup>4</sup>| 20mph<sup>5</sup>  | 0mph         |
-| Toyota    | Rav4 2019                     | All               | openpilot        | 0mph               | 0mph         |
-| Toyota    | Rav4 Hybrid 2016              | TSS-P             | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Rav4 Hybrid 2017-18           | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Toyota    | Sienna 2018                   | All               | Stock<sup>4</sup>| 0mph               | 0mph         |
-| Volkswagen| Golf 2016-19<sup>3</sup>      | Driver Assistance | Stock            | 0mph               | 0mph         |
+It handles the following functions: 
 
-<sup>1</sup>Requires a [panda](https://comma.ai/shop/products/panda-obd-ii-dongle) and open sourced [Hyundai giraffe](https://github.com/commaai/neo/tree/master/giraffe/hyundai), designed for the 2019 Sante Fe; pinout may differ for other Hyundai and Kia models. <br />
-<sup>2</sup>28mph for Camry 4CYL L, 4CYL LE and 4CYL SE which don't have Full-Speed Range Dynamic Radar Cruise Control. <br />
-<sup>3</sup>Requires a [custom connector](https://community.comma.ai/wiki/index.php/Volkswagen#Integration_at_R242_Camera) for the [car harness](https://comma.ai/shop/products/car-harness) <br />
+ 1. Throttle_ECU receives the angle_requests from EON and runs the cruise actuator motor and solenoid.
+ 
+ 2. It calculates the acceleration amount depending on the current speed. That means it accelerates faster when driving fast, and more smooth and carefully when driving slow. 
+ 
+ 4. It provides some safety function. It will disengage immediately, if it looses CAN-safety messages. 
 
-Community Maintained Cars and Features
-------
+Download [Throttle_ECU Code](https://github.com/Lukilink/Cruise_ECU).
 
-| Make      | Model (US Market Reference)   | Supported Package | ACC              | No ACC accel below | No ALC below |
-| ----------| ------------------------------| ------------------| -----------------| -------------------| -------------|
-| Buick     | Regal 2018<sup>6</sup>        | Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
-| Chevrolet | Malibu 2017<sup>6</sup>       | Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
-| Chevrolet | Volt 2017-18<sup>6</sup>      | Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
-| Cadillac  | ATS 2018<sup>6</sup>          | Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
-| GMC       | Acadia Denali 2018<sup>6</sup>| Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
-| Holden    | Astra 2017<sup>6</sup>        | Adaptive Cruise   | openpilot        | 0mph               | 7mph         |
+![Throttle_ECU](https://i.imgur.com/FgJhgx8.png)
 
-<sup>4</sup>When disconnecting the Driver Support Unit (DSU), openpilot ACC will replace stock ACC. For DSU locations, see [Toyota Wiki page](https://community.comma.ai/wiki/index.php/Toyota). ***NOTE: disconnecting the DSU disables Automatic Emergency Braking (AEB).*** <br />
-<sup>5</sup>[Comma Pedal](https://community.comma.ai/wiki/index.php/Comma_Pedal) is used to provide stop-and-go capability to some of the openpilot-supported cars that don't currently support stop-and-go. Here is how to [build a Comma Pedal](https://medium.com/@jfrux/comma-pedal-building-with-macrofab-6328bea791e8). ***NOTE: The Comma Pedal is not officially supported by [comma](https://comma.ai).*** <br />
-<sup>6</sup>Requires a [panda](https://comma.ai/shop/products/panda-obd-ii-dongle) and [community built giraffe](https://zoneos.com/volt/). ***NOTE: disconnecting the ASCM disables Automatic Emergency Braking (AEB).*** <br />
+![Throttle_ECU_Wiring](https://i.imgur.com/vZJ0PvW.png)
 
-Community Maintained Cars and Features are not verified by comma to meet our [safety model](SAFETY.md). Be extra cautious using them. They are only available after enabling the toggle in `Settings->Developer->Enable Community Features`.
+---
+# RADAR
 
-Installation Instructions
-------
+## Radar
 
-Install openpilot on a EON by entering ``https://openpilot.comma.ai`` during the installer setup.
 
-Follow this [video instructions](https://youtu.be/3nlkomHathI) to properly mount the EON on the windshield. Note: openpilot features an automatic pose calibration routine and openpilot performance should not be affected by small pitch and yaw misalignments caused by imprecise EON mounting.
+![enter image description here](https://i.imgur.com/0dD9zPy.png)
 
-Before placing the device on your windshield, check the state and local laws and ordinances where you drive. Some state laws prohibit or restrict the placement of objects on the windshield of a motor vehicle.
+Similar to the steering angle sensor, the radar out of a corolla / rav4 provides its own ECU. 
+Therefore it is pretty easy to install. 
 
-You will be able to engage openpilot after reviewing the onboarding screens and finishing the calibration procedure.
+![enter image description here](https://i.imgur.com/soMhXAJ.png)
 
-Limitations of openpilot ALC and LDW
-------
+![enter image description here](https://i.imgur.com/qrvZv66.jpg)
 
-openpilot ALC and openpilot LDW do not automatically drive the vehicle or reduce the amount of attention that must be paid to operate your vehicle. The driver must always keep control of the steering wheel and be ready to correct the openpilot ALC action at all times.
+You may need to fingerprint after you have installed the radar. 
 
-While changing lanes, openpilot is not capable of looking next to you or checking your blind spot. Only nudge the wheel to initiate a lane change after you have confirmed it's safe to do so.
+---
 
-Many factors can impact the performance of openpilot ALC and openpilot LDW, causing them to be unable to function as intended. These include, but are not limited to:
+# BRAKE
 
-* Poor visibility (heavy rain, snow, fog, etc.) or weather conditions that may interfere with sensor operation.
-* The road facing camera is obstructed, covered or damaged by mud, ice, snow, etc.
-* Obstruction caused by applying excessive paint or adhesive products (such as wraps, stickers, rubber coating, etc.) onto the vehicle.
-* The EON is mounted incorrectly.
-* When in sharp curves, like on-off ramps, intersections etc...; openpilot is designed to be limited in the amount of steering torque it can produce.
-* In the presence of restricted lanes or construction zones.
-* When driving on highly banked roads or in presence of strong cross-wind.
-* Extremely hot or cold temperatures.
-* Bright light (due to oncoming headlights, direct sunlight, etc.).
-* Driving on hills, narrow, or winding roads.
+Brake is not finished yet. Therefore I will not go to much in detail. 
 
-The list above does not represent an exhaustive list of situations that may interfere with proper operation of openpilot components. It is the driver's responsibility to be in control of the vehicle at all times.
+## POLYSYNC OSCC Brake module and Prius Actuator
 
-Limitations of openpilot ACC and FCW
-------
+![enter image description here](https://i.imgur.com/fcA75LR.png)
 
-openpilot ACC and openpilot FCW are not systems that allow careless or inattentive driving. It is still necessary for the driver to pay close attention to the vehicle’s surroundings and to be ready to re-take control of the gas and the brake at all times.
+[Polysync /oscc](https://github.com/PolySync/oscc)  build a board with an Arduino mega attached to control a toyota prius ABS actuator. 
 
-Many factors can impact the performance of openpilot ACC and openpilot FCW, causing them to be unable to function as intended. These include, but are not limited to:
+This actuator will be placed on top of the stock brake system.
 
-* Poor visibility (heavy rain, snow, fog, etc.) or weather conditions that may interfere with sensor operation.
-* The road facing camera or radar are obstructed, covered, or damaged by mud, ice, snow, etc.
-* Obstruction caused by applying excessive paint or adhesive products (such as wraps, stickers, rubber coating, etc.) onto the vehicle.
-* The EON is mounted incorrectly.
-* Approaching a toll booth, a bridge or a large metal plate.
-* When driving on roads with pedestrians, cyclists, etc...
-* In presence of traffic signs or stop lights, which are not detected by openpilot at this time.
-* When the posted speed limit is below the user selected set speed. openpilot does not detect speed limits at this time.
-* In presence of vehicles in the same lane that are not moving.
-* When abrupt braking maneuvers are required. openpilot is designed to be limited in the amount of deceleration and acceleration that it can produce.
-* When surrounding vehicles perform close cut-ins from neighbor lanes.
-* Driving on hills, narrow, or winding roads.
-* Extremely hot or cold temperatures.
-* Bright light (due to oncoming headlights, direct sunlight, etc.).
-* Interference from other equipment that generates radar waves.
+To do:  merge / port the OSCC DBC to openpilot
 
-The list above does not represent an exhaustive list of situations that may interfere with proper operation of openpilot components. It is the driver's responsibility to be in control of the vehicle at all times.
+[ossc.dbc](https://github.com/PolySync/oscc/blob/master/api/include/can_protocols/oscc.dbc)
 
-Limitations of openpilot DM
-------
+I would appreciate if someone could help us with that.
+If you want to know more about that. Feel free to contact us on Github.
 
-openpilot DM should not be considered an exact measurements of the status of alertness of the driver.
+---
 
-Many factors can impact the performance of openpilot DM, causing it to be unable to function as intended. These include, but are not limited to:
+# COMMUNITY
 
-* Low light conditions, such as driving at night or in dark tunnels.
-* Bright light (due to oncoming headlights, direct sunlight, etc.).
-* The driver face is partially or completely outside field of view of the driver facing camera.
-* Right hand driving vehicles.
-* The driver facing camera is obstructed, covered, or damaged.
+Community is the most important thing on this project.
 
-The list above does not represent an exhaustive list of situations that may interfere with proper operation of openpilot components. A driver should not rely on openpilot DM to assess their level of attention.
+The [legendary Arne Fork] does support old_cars now.
+Big thanks to Arne182 for his awesome work. 
 
-User Data and comma Account
-------
 
-By default, openpilot uploads the driving data to our servers. You can also access your data by pairing with the comma connect app ([iOS](https://apps.apple.com/us/app/comma-connect/id1456551889), [Android](https://play.google.com/store/apps/details?id=ai.comma.connect&hl=en_US)). We use your data to train better models and improve openpilot for everyone.
+Comma [Twitter you should follow](https://twitter.com/comma_ai).
 
-openpilot is open source software: the user is free to disable data collection if they wish to do so.
+Also, we have a several thousand people community on [Discord](https://discord.comma.ai).
 
-openpilot logs the road facing camera, CAN, GPS, IMU, magnetometer, thermal sensors, crashes, and operating system logs.
-The driver facing camera is only logged if you explicitly opt-in in settings. The microphone is not recorded.
 
-By using openpilot, you agree to [our Privacy Policy](https://my.comma.ai/privacy). You understand that use of this software or its related services will generate certain types of user data, which may be logged and stored at the sole discretion of comma. By accepting this agreement, you grant an irrevocable, perpetual, worldwide right to comma for the use of this data.
-
-Safety and Testing
-----
-
-* openpilot observes ISO26262 guidelines, see [SAFETY.md](SAFETY.md) for more detail.
-* openpilot has software in the loop [tests](run_docker_tests.sh) that run on every commit.
-* The safety model code lives in panda and is written in C, see [code rigor](https://github.com/commaai/panda#code-rigor) for more details.
-* panda has software in the loop [safety tests](https://github.com/commaai/panda/tree/master/tests/safety).
-* Internally, we have a hardware in the loop Jenkins test suite that builds and unit tests the various processes.
-* panda has additional hardware in the loop [tests](https://github.com/commaai/panda/blob/master/Jenkinsfile).
-* We run the latest openpilot in a testing closet containing 10 EONs continuously replaying routes.
-
-Testing on PC
-------
-
-Check out [openpilot-tools](https://github.com/commaai/openpilot-tools): lots of tools you can use to replay driving data, test and develop openpilot from your pc.
-
-Community and Contributing
-------
-
-openpilot is developed by [comma](https://comma.ai/) and by users like you. We welcome both pull requests and issues on [GitHub](http://github.com/commaai/openpilot). Bug fixes and new car ports are encouraged.
-
-You can add support for your car by following guides we have written for [Brand](https://medium.com/@comma_ai/how-to-write-a-car-port-for-openpilot-7ce0785eda84) and [Model](https://medium.com/@comma_ai/openpilot-port-guide-for-toyota-models-e5467f4b5fe6) ports. Generally, a car with adaptive cruise control and lane keep assist is a good candidate. [Join our Discord](https://discord.comma.ai) to discuss car ports: most car makes have a dedicated channel.
-
-Want to get paid to work on openpilot? [comma is hiring](https://comma.ai/jobs/). We also have a [bounty program](https://comma.ai/bounties.html).
-
-And [follow us on Twitter](https://twitter.com/comma_ai).
-
-Directory Structure
-------
-    .
-    ├── apk                 # The apk files used for the UI
-    ├── cereal              # The messaging spec and libs used for all logs on EON
-    ├── common              # Library like functionality we've developed here
-    ├── installer/updater   # Manages auto-updates of openpilot
-    ├── opendbc             # Files showing how to interpret data from cars
-    ├── panda               # Code used to communicate on CAN
-    ├── phonelibs           # Libraries used on EON
-    ├── pyextra             # Libraries used on EON
-    └── selfdrive           # Code needed to drive the car
-        ├── assets          # Fonts and images for UI
-        ├── athena          # Allows communication with the app
-        ├── boardd          # Daemon to talk to the board
-        ├── camerad         # Driver to capture images from the camera sensors
-        ├── car             # Car specific code to read states and control actuators
-        ├── common          # Shared C/C++ code for the daemons
-        ├── controls        # Perception, planning and controls
-        ├── debug           # Tools to help you debug and do car ports
-        ├── locationd       # Soon to be home of precise location
-        ├── logcatd         # Android logcat as a service
-        ├── loggerd         # Logger and uploader of car data
-        ├── modeld          # Driving and monitoring model runners
-        ├── proclogd        # Logs information from proc
-        ├── sensord         # IMU / GPS interface code
-        ├── tests           # Unit tests, system tests and a car simulator
-        └── ui              # The UI
-
-To understand how the services interact, see `cereal/service_list.yaml`.
 
 Licensing
 ------
 
 openpilot is released under the MIT license. Some parts of the software are released under other licenses as specified.
 
-Any user of this software shall indemnify and hold harmless comma.ai, Inc. and its directors, officers, employees, agents, stockholders, affiliates, subcontractors and customers from and against all allegations, claims, actions, suits, demands, damages, liabilities, obligations, losses, settlements, judgments, costs and expenses (including without limitation attorneys’ fees and costs) which arise out of, relate to or result from any use of this software by user.
+Any user of this software shall indemnify and hold harmless Comma.ai, Inc. and its directors, officers, employees, agents, stockholders, affiliates, subcontractors and customers from and against all allegations, claims, actions, suits, demands, damages, liabilities, obligations, losses, settlements, judgments, costs and expenses (including without limitation attorneys’ fees and costs) which arise out of, relate to or result from any use of this software by user.
 
 **THIS IS ALPHA QUALITY SOFTWARE FOR RESEARCH PURPOSES ONLY. THIS IS NOT A PRODUCT.
 YOU ARE RESPONSIBLE FOR COMPLYING WITH LOCAL LAWS AND REGULATIONS.
