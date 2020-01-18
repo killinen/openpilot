@@ -1,17 +1,16 @@
 <td><a href="https://m.youtube.com/watch?v=L1u6AkSpR98&t=2s" title="Youtube" rel="noopener"><img src="https://i.imgur.com/eEX1qmB.png"></a></td>
 
-Welcome to openpilot 0.7.1 With OLD_CAR support
-
-OC_water is basically a stock comma fork with just add everything you need to run on OLD_CARS
+Welcome to openpilot 💦 0.7.1_OC_WATER 💦
 ======
 
-[openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS).  It's about on par with Tesla Autopilot and GM Super Cruise, and better than [all other manufacturers](http://www.thedrive.com/tech/5707/the-war-for-autonomous-driving-part-iii-us-vs-germany-vs-japan).
-
+[openpilot](http://github.com/commaai/openpilot) is an open source driving agent. Currently, it performs the functions of Adaptive Cruise Control (ACC) and Lane Keeping Assist System (LKAS).  It's about on par with Tesla Autopilot.
 This OLD_CAR Branch brings openpilot to almost every car. Follow this readme to get an overview how it works.
 
 Big thank you goes to @wocsor. He developed the whole thing and modified the code.
 
-The openpilot codebase has been written to be concise and to enable rapid prototyping. We look forward to your contributions - improving real vehicle automation has never been easier.
+SPECS AND CHANGES
+======================
+
 
 OVERVIEW
 ======================
