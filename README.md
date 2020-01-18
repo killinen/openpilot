@@ -42,7 +42,7 @@ We upgrade cars from zero assistant to level 2 self driving.
 We make driving safe and chill. That's really impressive!
 Let's see where our journey will end. I can think of like a dev-kit with some actuators and interceptors for easy DIY projects.
 Thank you <@Wocsor> for spending so much effort.
-He is doing fundamental research and hacking! 🚙🚌🚎🚐🏎🚗🚛🚚
+He is doing fundamental research and hacking!
 
 🛠 HOW TO START 🛠
 ======================
