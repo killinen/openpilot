@@ -231,6 +231,7 @@ Download [Throttle_ECU Code](https://github.com/Lukilink/Cruise_ECU).
 
 ## Radar
 
+Part Number:  88210-07010
 
 ![enter image description here](https://i.imgur.com/0dD9zPy.png)
 
