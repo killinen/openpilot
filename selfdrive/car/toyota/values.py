@@ -31,8 +31,11 @@ class CAR:
   LEXUS_IS = "LEXUS IS300 2018"
   LEXUS_CTH = "LEXUS CT 200H 2018"
 <<<<<<< HEAD
+<<<<<<< HEAD
   RAV4H_TSS2 = "TOYOTA RAV4 HYBRID 2019"
   LEXUS_NXH = "LEXUS NX300H 2018"
+=======
+>>>>>>> parent of 5c71cbf3... Merge branch '073_OC_WATER' into 071_OC_WATER
 =======
 >>>>>>> parent of 5c71cbf3... Merge branch '073_OC_WATER' into 071_OC_WATER
   OLD_CAR = "OLD_CARS"
