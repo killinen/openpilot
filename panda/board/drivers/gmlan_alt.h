@@ -122,12 +122,7 @@ int get_bit_message(char *out, CAN_FIFOMailBox_TypeDef *to_bang) {
   return len;
 }
 
-void TIM4_IRQ_Handler(void);
-
 void setup_timer4(void) {
-  // register interrupt
-  REGISTER_INTERRUPT(TIM4_IRQn, TIM4_IRQ_Handler, 40000U, FAULT_INTERRUPT_RATE_GMLAN)
-
   // setup
   register_set(&(TIM4->PSC), (48-1), 0xFFFFU);    // Tick on 1 us
   register_set(&(TIM4->CR1), TIM_CR1_CEN, 0x3FU); // Enable
@@ -241,6 +236,7 @@ void TIM4_IRQ_Handler(void) {
         gmlan_sendmax = -1;   // exit
       }
     }
+    TIM4->SR = 0;
   } else if (gmlan_alt_mode == GPIO_SWITCH) {
     if ((TIM4->SR & TIM_SR_UIF) && (gmlan_switch_below_timeout != -1)) {
       if ((can_timeout_counter == 0) && gmlan_switch_timeout_enable) {
@@ -263,10 +259,10 @@ void TIM4_IRQ_Handler(void) {
         }
       }
     }
+    TIM4->SR = 0;
   } else {
-    // Invalid GMLAN mode. Do not put a print statement here, way too fast to keep up with
+    puts("invalid gmlan_alt_mode\n");
   }
-  TIM4->SR = 0;
 }
 
 bool bitbang_gmlan(CAN_FIFOMailBox_TypeDef *to_bang) {
@@ -284,6 +280,7 @@ bool bitbang_gmlan(CAN_FIFOMailBox_TypeDef *to_bang) {
     set_gpio_mode(GPIOB, 13, MODE_OUTPUT);
 
     // 33kbps
+    REGISTER_INTERRUPT(TIM4_IRQn, TIM4_IRQ_Handler, 40000U, FAULT_INTERRUPT_RATE_GMLAN)
     setup_timer4();
   }
   return gmlan_send_ok;

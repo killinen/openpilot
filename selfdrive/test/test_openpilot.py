@@ -1,4 +1,3 @@
-# flake8: noqa
 import os
 os.environ['FAKEUPLOAD'] = "1"
 
@@ -73,6 +72,26 @@ def with_apks():
     return wrap
   return wrapper
 
+#@phone_only
+#@with_processes(['controlsd', 'radard'])
+#def test_controls():
+#  from selfdrive.test.longitudinal_maneuvers.plant import Plant
+#
+#  # start the fake car for 2 seconds
+#  plant = Plant(100)
+#  for i in range(200):
+#    if plant.rk.frame >= 20 and plant.rk.frame <= 25:
+#      cruise_buttons = CruiseButtons.RES_ACCEL
+#      # rolling forward
+#      assert plant.speed > 0
+#    else:
+#      cruise_buttons = 0
+#    plant.step(cruise_buttons = cruise_buttons)
+#  plant.close()
+#
+#  # assert that we stopped
+#  assert plant.speed == 0.0
+
 @phone_only
 @with_processes(['loggerd', 'logmessaged', 'tombstoned', 'proclogd', 'logcatd'])
 def test_logging():
@@ -80,7 +99,7 @@ def test_logging():
   time.sleep(1.0)
 
 @phone_only
-@with_processes(['camerad', 'modeld', 'dmonitoringmodeld'])
+@with_processes(['camerad', 'modeld', 'monitoringd'])
 def test_visiond():
   print("VISIOND IS SET UP")
   time.sleep(5.0)

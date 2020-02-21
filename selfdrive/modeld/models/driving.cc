@@ -7,9 +7,9 @@
 
 
 #define PATH_IDX 0
-#define LL_IDX PATH_IDX + MODEL_PATH_DISTANCE*2 + 1
-#define RL_IDX LL_IDX + MODEL_PATH_DISTANCE*2 + 2
-#define LEAD_IDX RL_IDX + MODEL_PATH_DISTANCE*2 + 2
+#define LL_IDX PATH_IDX + MODEL_PATH_DISTANCE*2
+#define RL_IDX LL_IDX + MODEL_PATH_DISTANCE*2 + 1
+#define LEAD_IDX RL_IDX + MODEL_PATH_DISTANCE*2 + 1
 #define LONG_X_IDX LEAD_IDX + MDN_GROUP_SIZE*LEAD_MDN_N + SELECTION 
 #define LONG_V_IDX LONG_X_IDX + TIME_DISTANCE*2
 #define LONG_A_IDX LONG_V_IDX + TIME_DISTANCE*2
@@ -70,7 +70,7 @@ ModelDataRaw model_eval_frame(ModelState* s, cl_command_queue q,
   float *new_frame_buf = frame_prepare(&s->frame, q, yuv_cl, width, height, transform);
   memmove(&s->input_frames[0], &s->input_frames[MODEL_FRAME_SIZE], sizeof(float)*MODEL_FRAME_SIZE);
   memmove(&s->input_frames[MODEL_FRAME_SIZE], new_frame_buf, sizeof(float)*MODEL_FRAME_SIZE);
-  s->m->execute(s->input_frames, MODEL_FRAME_SIZE*2);
+  s->m->execute(s->input_frames);
 
   #ifdef DUMP_YUV
     FILE *dump_yuv_file = fopen("/sdcard/dump.yuv", "wb");
@@ -133,20 +133,13 @@ void fill_path(cereal::ModelData::PathData::Builder path, const float * data, bo
   float poly_arr[POLYFIT_DEGREE];
   float std;
   float prob;
-  float valid_len;
 
-  valid_len =  data[MODEL_PATH_DISTANCE*2];
   for (int i=0; i<MODEL_PATH_DISTANCE; i++) {
     points_arr[i] = data[i] + offset;
-    // Always do at least 5 points
-    if (i < 5 || i < valid_len) {
-      stds_arr[i] = softplus(data[MODEL_PATH_DISTANCE + i]);
-    } else {
-      stds_arr[i] = 1.0e3; 
-    }
+    stds_arr[i] = softplus(data[MODEL_PATH_DISTANCE + i]);
   }
   if (has_prob) {
-    prob =  sigmoid(data[MODEL_PATH_DISTANCE*2 + 1]);
+    prob =  sigmoid(data[MODEL_PATH_DISTANCE*2]);
   } else {
     prob = 1.0;
   }

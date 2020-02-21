@@ -475,8 +475,6 @@ msg_types = {
   UBloxDescriptor('AID_ALM', '<II', '_remaining', 'I', ['dwrd']),
   (CLASS_RXM, MSG_RXM_ALM):
   UBloxDescriptor('RXM_ALM', '<II , 8I', ['svid', 'week', 'dwrd[8]']),
-  (CLASS_CFG, MSG_CFG_ANT):
-  UBloxDescriptor('CFG_ANT', '<HH', ['flags', 'pins']),
   (CLASS_CFG, MSG_CFG_ODO):
   UBloxDescriptor('CFG_ODO', '<B3BBB6BBB2BBB2B', [
     'version', 'reserved1[3]', 'flags', 'odoCfg', 'reserverd2[6]', 'cogMaxSpeed',
@@ -496,9 +494,9 @@ msg_types = {
     'reserved12', 'reserved13', 'aopOrbMaxErr', 'reserved3', 'reserved4'
   ]),
   (CLASS_MON, MSG_MON_HW):
-  UBloxDescriptor('MON_HW', '<IIIIHHBBBBIB17BHIII', [
+  UBloxDescriptor('MON_HW', '<IIIIHHBBBBIB25BHIII', [
     'pinSel', 'pinBank', 'pinDir', 'pinVal', 'noisePerMS', 'agcCnt', 'aStatus', 'aPower',
-    'flags', 'reserved1', 'usedMask', 'VP[17]', 'jamInd', 'reserved3', 'pinInq', 'pullH',
+    'flags', 'reserved1', 'usedMask', 'VP[25]', 'jamInd', 'reserved3', 'pinInq', 'pullH',
     'pullL'
   ]),
   (CLASS_MON, MSG_MON_HW2):
@@ -829,10 +827,7 @@ class UBlox:
     if not self.read_only:
       if self.use_sendrecv:
         return self.dev.send(buf)
-      if type(buf) == str:
-        return self.dev.write(str.encode(buf))
-      else:
-        return self.dev.write(buf)
+      return self.dev.write(buf)
 
   def read(self, n):
     '''read some bytes'''
@@ -978,7 +973,7 @@ class UBlox:
     payload = struct.pack('<IIIB', clearMask, saveMask, loadMask, deviceMask)
     self.send_message(CLASS_CFG, MSG_CFG_CFG, payload)
 
-  def configure_poll(self, msg_class, msg_id, payload=b''):
+  def configure_poll(self, msg_class, msg_id, payload=''):
     '''poll a configuration message'''
     self.send_message(msg_class, msg_id, payload)
 

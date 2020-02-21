@@ -155,6 +155,8 @@ struct Updater {
   TouchState touch;
 
   int fb_w, fb_h;
+  EGLDisplay display;
+  EGLSurface surface;
 
   FramebufferState *fb = NULL;
   NVGcontext *vg = NULL;
@@ -196,7 +198,7 @@ struct Updater {
     touch_init(&touch);
 
     fb = framebuffer_init("updater", 0x00001000, false,
-                          &fb_w, &fb_h);
+                          &display, &surface, &fb_w, &fb_h);
     assert(fb);
 
     vg = nvgCreateGLES3(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
@@ -706,7 +708,7 @@ struct Updater {
 
       glDisable(GL_BLEND);
 
-      framebuffer_swap(fb);
+      eglSwapBuffers(display, surface);
 
       assert(glGetError() == GL_NO_ERROR);
 

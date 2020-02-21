@@ -29,7 +29,7 @@ import fcntl
 import tempfile
 import threading
 from enum import Enum
-from common.basedir import PARAMS
+
 
 def mkdirs_exists_ok(path):
   try:
@@ -54,7 +54,6 @@ keys = {
   "AthenadPid": [TxType.PERSISTENT],
   "CalibrationParams": [TxType.PERSISTENT],
   "CarParams": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
-  "CarParamsCache": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
   "CarVin": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
   "CommunityFeaturesToggle": [TxType.PERSISTENT],
   "CompletedTrainingVersion": [TxType.PERSISTENT],
@@ -81,7 +80,6 @@ keys = {
   "LiveParameters": [TxType.PERSISTENT],
   "LongitudinalControl": [TxType.PERSISTENT],
   "OpenpilotEnabledToggle": [TxType.PERSISTENT],
-  "LaneChangeEnabled": [TxType.PERSISTENT],
   "PandaFirmware": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
   "PandaFirmwareHex": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
   "PandaDongleId": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
@@ -94,7 +92,6 @@ keys = {
   "TermsVersion": [TxType.PERSISTENT],
   "TrainingVersion": [TxType.PERSISTENT],
   "UpdateAvailable": [TxType.CLEAR_ON_MANAGER_START],
-  "UpdateFailedCount": [TxType.CLEAR_ON_MANAGER_START],
   "Version": [TxType.PERSISTENT],
   "Offroad_ChargeDisabled": [TxType.CLEAR_ON_MANAGER_START, TxType.CLEAR_ON_PANDA_DISCONNECT],
   "Offroad_ConnectivityNeeded": [TxType.CLEAR_ON_MANAGER_START],
@@ -322,18 +319,13 @@ def write_db(params_path, key, value):
     lock.release()
 
 class Params():
-  def __init__(self, db=PARAMS):
+  def __init__(self, db='/data/params'):
     self.db = db
 
     # create the database if it doesn't exist...
     if not os.path.exists(self.db+"/d"):
       with self.transaction(write=True):
         pass
-
-  def clear_all(self):
-    shutil.rmtree(self.db, ignore_errors=True)
-    with self.transaction(write=True):
-      pass
 
   def transaction(self, write=False):
     if write:

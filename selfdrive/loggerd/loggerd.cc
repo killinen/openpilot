@@ -23,6 +23,7 @@
 #include <ftw.h>
 
 #include <zmq.h>
+#include <yaml-cpp/yaml.h>
 #include <capnp/serialize.h>
 
 #ifdef QCOM
@@ -39,7 +40,6 @@
 
 #include "logger.h"
 #include "messaging.hpp"
-#include "services.h"
 
 #ifndef QCOM
 // no encoder on PC
@@ -453,22 +453,21 @@ kj::Array<capnp::word> gen_init_data() {
   }
 
   char* git_commit = NULL;
-  size_t size;
-  read_db_value(NULL, "GitCommit", &git_commit, &size);
+  read_db_value(NULL, "GitCommit", &git_commit, NULL);
   if (git_commit) {
-    init.setGitCommit(capnp::Text::Reader(git_commit, size));
+    init.setGitCommit(capnp::Text::Reader(git_commit));
   }
 
   char* git_branch = NULL;
-  read_db_value(NULL, "GitBranch", &git_branch, &size);
+  read_db_value(NULL, "GitBranch", &git_branch, NULL);
   if (git_branch) {
-    init.setGitBranch(capnp::Text::Reader(git_branch, size));
+    init.setGitBranch(capnp::Text::Reader(git_branch));
   }
 
   char* git_remote = NULL;
-  read_db_value(NULL, "GitRemote", &git_remote, &size);
+  read_db_value(NULL, "GitRemote", &git_remote, NULL);
   if (git_remote) {
-    init.setGitRemote(capnp::Text::Reader(git_remote, size));
+    init.setGitRemote(capnp::Text::Reader(git_remote));
   }
 
   char* passive = NULL;
@@ -578,6 +577,9 @@ int main(int argc, char** argv) {
   s.ctx = Context::create();
   Poller * poller = Poller::create();
 
+  std::string exe_dir = util::dir_name(util::readlink("/proc/self/exe"));
+  std::string service_list_path = exe_dir + "/../../cereal/service_list.yaml";
+
   // subscribe to all services
 
   SubSocket *frame_sock = NULL;
@@ -586,10 +588,13 @@ int main(int argc, char** argv) {
   std::map<SubSocket*, int> qlog_counter;
   std::map<SubSocket*, int> qlog_freqs;
 
-  for (const auto& it : services) {
-    std::string name = it.name;
+  YAML::Node service_list = YAML::LoadFile(service_list_path);
+  for (const auto& it : service_list) {
+    auto name = it.first.as<std::string>();
+    bool should_log = it.second[1].as<bool>();
+    int qlog_freq = it.second[3] ? it.second[3].as<int>() : 0;
 
-    if (it.should_log) {
+    if (should_log) {
       SubSocket * sock = SubSocket::create(s.ctx, name);
       assert(sock != NULL);
 
@@ -600,8 +605,8 @@ int main(int argc, char** argv) {
         frame_sock = sock;
       }
 
-      qlog_counter[sock] = (it.decimation == -1) ? -1 : 0;
-      qlog_freqs[sock] = it.decimation;
+      qlog_counter[sock] = (qlog_freq == 0) ? -1 : 0;
+      qlog_freqs[sock] = qlog_freq;
     }
   }
 

@@ -1,6 +1,5 @@
 from cereal import car
 from selfdrive.car import dbc_dict
-Ecu = car.CarParams.Ecu
 
 class CAR:
   HOLDEN_ASTRA = "HOLDEN ASTRA RS-V BK 2017"
@@ -14,7 +13,6 @@ class CAR:
 SUPERCRUISE_CARS = [CAR.CADILLAC_CT6]
 
 class CruiseButtons:
-  INIT        = 0
   UNPRESS     = 1
   RES_ACCEL   = 2
   DECEL_SET   = 3
@@ -34,6 +32,18 @@ def is_eps_status_ok(eps_status, car_fingerprint):
   else:
     valid_eps_status += [0, 1]
   return eps_status in valid_eps_status
+
+def parse_gear_shifter(can_gear):
+  if can_gear == 0:
+    return car.CarState.GearShifter.park
+  elif can_gear == 1:
+    return car.CarState.GearShifter.neutral
+  elif can_gear == 2:
+    return car.CarState.GearShifter.drive
+  elif can_gear == 3:
+    return car.CarState.GearShifter.reverse
+  else:
+    return car.CarState.GearShifter.unknown
 
 FINGERPRINTS = {
   # Astra BK MY17, ASCM unplugged
@@ -76,8 +86,11 @@ FINGERPRINTS = {
 
 STEER_THRESHOLD = 1.0
 
+class ECU:
+  CAM = 0
+
 ECU_FINGERPRINT = {
-  Ecu.fwdCamera: [384, 715]  # 384 = "ASCMLKASteeringCmd", 715 = "ASCMGasRegenCmd"
+  ECU.CAM: [384, 715]  # 384 = "ASCMLKASteeringCmd", 715 = "ASCMGasRegenCmd"
 }
 
 DBC = {

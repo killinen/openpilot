@@ -110,7 +110,7 @@ ALERTS = [
 
   Alert(
       "preDriverDistracted",
-      "KEEP EYES ON ROAD: Driver Appears Distracted",
+      "KEEP EYES ON ROAD: User Appears Distracted",
       "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.steerRequired, AudibleAlert.none, .0, .1, .1, alert_rate=0.75),
@@ -118,14 +118,14 @@ ALERTS = [
   Alert(
       "promptDriverDistracted",
       "KEEP EYES ON ROAD",
-      "Driver Appears Distracted",
+      "User Appears Distracted",
       AlertStatus.userPrompt, AlertSize.mid,
       Priority.MID, VisualAlert.steerRequired, AudibleAlert.chimeWarning2, .1, .1, .1),
 
   Alert(
       "driverDistracted",
       "DISENGAGE IMMEDIATELY",
-      "Driver Was Distracted",
+      "User Was Distracted",
       AlertStatus.critical, AlertSize.full,
       Priority.HIGH, VisualAlert.steerRequired, AudibleAlert.chimeWarningRepeat, .1, .1, .1),
 
@@ -139,23 +139,30 @@ ALERTS = [
   Alert(
       "promptDriverUnresponsive",
       "TOUCH STEERING WHEEL",
-      "Driver Is Unresponsive",
+      "User Is Unresponsive",
       AlertStatus.userPrompt, AlertSize.mid,
       Priority.MID, VisualAlert.steerRequired, AudibleAlert.chimeWarning2, .1, .1, .1),
 
   Alert(
       "driverUnresponsive",
       "DISENGAGE IMMEDIATELY",
-      "Driver Was Unresponsive",
+      "User Was Unresponsive",
       AlertStatus.critical, AlertSize.full,
       Priority.HIGH, VisualAlert.steerRequired, AudibleAlert.chimeWarningRepeat, .1, .1, .1),
 
   Alert(
-      "driverMonitorLowAcc",
-      "CHECK DRIVER FACE VISIBILITY",
-      "Driver Monitor Model Output Uncertain",
+      "driverMonitorOff",
+      "DRIVER MONITOR IS UNAVAILABLE",
+      "Accuracy Is Low",
       AlertStatus.normal, AlertSize.mid,
-      Priority.LOW, VisualAlert.steerRequired, AudibleAlert.none, .4, 0., 1.),
+      Priority.LOW, VisualAlert.none, AudibleAlert.none, .4, 0., 4.),
+
+  Alert(
+      "driverMonitorOn",
+      "DRIVER MONITOR IS AVAILABLE",
+      "Accuracy Is High",
+      AlertStatus.normal, AlertSize.mid,
+      Priority.LOW, VisualAlert.none, AudibleAlert.none, .4, 0., 4.),
 
   Alert(
       "geofence",
@@ -169,13 +176,6 @@ ALERTS = [
       "Be ready to take over at any time",
       "Always keep hands on wheel and eyes on road",
       AlertStatus.normal, AlertSize.mid,
-      Priority.LOW_LOWEST, VisualAlert.none, AudibleAlert.none, 0., 0., 15.),
-
-  Alert(
-      "startupMaster",
-      "WARNING: This branch is not tested",
-      "Always keep hands on wheel and eyes on road",
-      AlertStatus.userPrompt, AlertSize.mid,
       Priority.LOW_LOWEST, VisualAlert.none, AudibleAlert.none, 0., 0., 15.),
 
   Alert(
@@ -328,7 +328,7 @@ ALERTS = [
   Alert(
       "sensorDataInvalidNoEntry",
       "openpilot Unavailable",
-      "No Data from Device Sensors",
+      "No Data from EON Sensors",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW, VisualAlert.none, AudibleAlert.chimeError, .4, 2., 3.),
 
@@ -364,7 +364,7 @@ ALERTS = [
   Alert(
       "calibrationInvalid",
       "TAKE CONTROL IMMEDIATELY",
-      "Calibration Invalid: Reposition Device and Recalibrate",
+      "Calibration Invalid: Reposition EON and Recalibrate",
       AlertStatus.critical, AlertSize.full,
       Priority.MID, VisualAlert.steerRequired, AudibleAlert.chimeWarningRepeat, .1, 2., 2.),
 
@@ -435,7 +435,7 @@ ALERTS = [
   Alert(
       "lowMemory",
       "TAKE CONTROL IMMEDIATELY",
-      "Low Memory: Reboot Your Device",
+      "Low Memory: Reboot Your EON",
       AlertStatus.critical, AlertSize.full,
       Priority.MID, VisualAlert.steerRequired, AudibleAlert.chimeWarningRepeat, .1, 2., 2.),
 
@@ -536,7 +536,7 @@ ALERTS = [
   Alert(
       "calibrationInvalidNoEntry",
       "openpilot Unavailable",
-      "Calibration Invalid: Reposition Device and Recalibrate",
+      "Calibration Invalid: Reposition EON and Recalibrate",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW, VisualAlert.none, AudibleAlert.chimeError, .4, 2., 3.),
 
@@ -683,7 +683,7 @@ ALERTS = [
   Alert(
       "lowMemoryNoEntry",
       "openpilot Unavailable",
-      "Low Memory: Reboot Your Device",
+      "Low Memory: Reboot Your EON",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW, VisualAlert.none, AudibleAlert.chimeDisengage, .4, 2., 3.),
 
@@ -739,22 +739,22 @@ ALERTS = [
 
   Alert(
       "sensorDataInvalidPermanent",
-      "No Data from Device Sensors",
-      "Reboot your Device",
+      "No Data from EON Sensors",
+      "Reboot your EON",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW_LOWEST, VisualAlert.none, AudibleAlert.none, 0., 0., .2),
 
   Alert(
       "soundsUnavailablePermanent",
       "Speaker not found",
-      "Reboot your Device",
+      "Reboot your EON",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW_LOWEST, VisualAlert.none, AudibleAlert.none, 0., 0., .2),
 
   Alert(
       "lowMemoryPermanent",
       "RAM Critically Low",
-      "Reboot your Device",
+      "Reboot your EON",
       AlertStatus.normal, AlertSize.mid,
       Priority.LOW_LOWEST, VisualAlert.none, AudibleAlert.none, 0., 0., .2),
 

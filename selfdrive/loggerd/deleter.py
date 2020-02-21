@@ -3,19 +3,15 @@ import os
 import shutil
 import threading
 from selfdrive.swaglog import cloudlog
-from selfdrive.loggerd.config import ROOT, get_available_bytes, get_available_percent
+from selfdrive.loggerd.config import ROOT, get_available_bytes
 from selfdrive.loggerd.uploader import listdir_by_creation
-
-MIN_BYTES = 5 * 1024 * 1024 * 1024
-MIN_PERCENT = 10
 
 
 def deleter_thread(exit_event):
   while not exit_event.is_set():
-    out_of_bytes = get_available_bytes(default=MIN_BYTES + 1) < MIN_BYTES
-    out_of_percent = get_available_percent(default=MIN_PERCENT + 1) < MIN_PERCENT
+    available_bytes = get_available_bytes()
 
-    if out_of_percent or out_of_bytes:
+    if available_bytes is not None and available_bytes < (5 * 1024 * 1024 * 1024):
       # remove the earliest directory we can
       dirs = listdir_by_creation(ROOT)
       for delete_dir in dirs:

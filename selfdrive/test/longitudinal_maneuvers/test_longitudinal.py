@@ -3,7 +3,9 @@ import os
 os.environ['OLD_CAN'] = '1'
 os.environ['NOCRASH'] = '1'
 
+import time
 import unittest
+import shutil
 import matplotlib
 matplotlib.use('svg')
 
@@ -327,8 +329,8 @@ class LongitudinalControl(unittest.TestCase):
 
     setup_output()
 
+    shutil.rmtree('/data/params', ignore_errors=True)
     params = Params()
-    params.clear_all()
     params.put("Passive", "1" if os.getenv("PASSIVE") else "0")
     params.put("OpenpilotEnabledToggle", "1")
     params.put("CommunityFeaturesToggle", "1")
@@ -337,7 +339,6 @@ class LongitudinalControl(unittest.TestCase):
     manager.prepare_managed_process('radard')
     manager.prepare_managed_process('controlsd')
     manager.prepare_managed_process('plannerd')
-    manager.prepare_managed_process('dmonitoringd')
 
   @classmethod
   def tearDownClass(cls):
@@ -347,39 +348,30 @@ class LongitudinalControl(unittest.TestCase):
   def test_longitudinal_setup(self):
     pass
 
-
 def run_maneuver_worker(k):
   man = maneuvers[k]
   output_dir = os.path.join(os.getcwd(), 'out/longitudinal')
 
   def run(self):
     print(man.title)
-    valid = False
+    manager.start_managed_process('radard')
+    manager.start_managed_process('controlsd')
+    manager.start_managed_process('plannerd')
 
-    for retries in range(3):
-      manager.start_managed_process('radard')
-      manager.start_managed_process('controlsd')
-      manager.start_managed_process('plannerd')
-      manager.start_managed_process('dmonitoringd')
+    plot, valid = man.evaluate()
+    plot.write_plot(output_dir, "maneuver" + str(k+1).zfill(2))
 
-      plot, valid = man.evaluate()
-      plot.write_plot(output_dir, "maneuver" + str(k + 1).zfill(2))
-
-      manager.kill_managed_process('radard')
-      manager.kill_managed_process('controlsd')
-      manager.kill_managed_process('plannerd')
-      manager.kill_managed_process('dmonitoringd')
-
-      if valid:
-        break
+    manager.kill_managed_process('radard')
+    manager.kill_managed_process('controlsd')
+    manager.kill_managed_process('plannerd')
+    time.sleep(5)
 
     self.assertTrue(valid)
 
   return run
 
-
 for k in range(len(maneuvers)):
-  setattr(LongitudinalControl, "test_longitudinal_maneuvers_%d" % (k + 1), run_maneuver_worker(k))
+  setattr(LongitudinalControl, "test_longitudinal_maneuvers_%d" % (k+1), run_maneuver_worker(k))
 
 if __name__ == "__main__":
   unittest.main(failfast=True)

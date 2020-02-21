@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import os
-import sys
 import threading
 import importlib
+import shutil
 
 if "CI" in os.environ:
   tqdm = lambda x: x
@@ -19,15 +19,6 @@ from collections import namedtuple
 
 ProcessConfig = namedtuple('ProcessConfig', ['proc_name', 'pub_sub', 'ignore', 'init_callback', 'should_recv_callback'])
 
-def wait_for_event(evt):
-  if not evt.wait(15):
-    if threading.currentThread().getName() == "MainThread":
-      # tested process likely died. don't let test just hang
-      raise Exception("Timeout reached. Tested process likely crashed.")
-    else:
-      # done testing this process, let it die
-      sys.exit(0)
-
 class FakeSocket:
   def __init__(self, wait=True):
     self.data = []
@@ -41,13 +32,13 @@ class FakeSocket:
 
     if self.wait:
       self.recv_called.set()
-      wait_for_event(self.recv_ready)
+      self.recv_ready.wait()
       self.recv_ready.clear()
     return self.data.pop()
 
   def send(self, data):
     if self.wait:
-      wait_for_event(self.recv_called)
+      self.recv_called.wait()
       self.recv_called.clear()
 
     self.data.append(data)
@@ -56,7 +47,7 @@ class FakeSocket:
       self.recv_ready.set()
 
   def wait_for_recv(self):
-    wait_for_event(self.recv_called)
+    self.recv_called.wait()
 
 class DumbSocket:
   def __init__(self, s=None):
@@ -84,23 +75,23 @@ class FakeSubMaster(messaging.SubMaster):
     # hack to know when fingerprinting is done
     if self.wait_on_getitem:
       self.update_called.set()
-      wait_for_event(self.update_ready)
+      self.update_ready.wait()
       self.update_ready.clear()
     return self.data[s]
 
   def update(self, timeout=-1):
     self.update_called.set()
-    wait_for_event(self.update_ready)
+    self.update_ready.wait()
     self.update_ready.clear()
 
   def update_msgs(self, cur_time, msgs):
-    wait_for_event(self.update_called)
+    self.update_called.wait()
     self.update_called.clear()
     super(FakeSubMaster, self).update_msgs(cur_time, msgs)
     self.update_ready.set()
 
   def wait_for_update(self):
-    wait_for_event(self.update_called)
+    self.update_called.wait()
 
 class FakePubMaster(messaging.PubMaster):
   def __init__(self, services):
@@ -125,11 +116,11 @@ class FakePubMaster(messaging.PubMaster):
     else:
       self.data[s] = dat.as_reader()
     self.send_called.set()
-    wait_for_event(self.get_called)
+    self.get_called.wait()
     self.get_called.clear()
 
   def wait_for_msg(self):
-    wait_for_event(self.send_called)
+    self.send_called.wait()
     self.send_called.clear()
     dat = self.data[self.last_updated]
     self.get_called.set()
@@ -141,14 +132,14 @@ def fingerprint(msgs, fsm, can_sock):
 
   # populate fake socket with data for fingerprinting
   canmsgs = [msg for msg in msgs if msg.which() == "can"]
-  wait_for_event(can_sock.recv_called)
+  can_sock.recv_called.wait()
   can_sock.recv_called.clear()
   can_sock.data = [msg.as_builder().to_bytes() for msg in canmsgs[:300]]
   can_sock.recv_ready.set()
   can_sock.wait = False
 
   # we know fingerprinting is done when controlsd sets sm['pathPlan'].sensorValid
-  wait_for_event(fsm.update_called)
+  fsm.update_called.wait()
   fsm.update_called.clear()
 
   fsm.wait_on_getitem = False
@@ -197,7 +188,7 @@ CONFIGS = [
     proc_name="controlsd",
     pub_sub={
       "can": ["controlsState", "carState", "carControl", "sendcan", "carEvents", "carParams"],
-      "thermal": [], "health": [], "liveCalibration": [], "dMonitoringState": [], "plan": [], "pathPlan": [], "gpsLocation": [],
+      "thermal": [], "health": [], "liveCalibration": [], "driverMonitoring": [], "plan": [], "pathPlan": [], "gpsLocation": [],
       "model": [],
     },
     ignore=[("logMonoTime", 0), ("valid", True), ("controlsState.startMonoTime", 0), ("controlsState.cumLagMs", 0)],
@@ -233,16 +224,6 @@ CONFIGS = [
     init_callback=get_car_params,
     should_recv_callback=calibration_rcv_callback,
   ),
-  ProcessConfig(
-    proc_name="dmonitoringd",
-    pub_sub={
-      "driverState": ["dMonitoringState"],
-      "liveCalibration": [], "carState": [], "model": [], "gpsLocation": [],
-    },
-    ignore=[("logMonoTime", 0), ("valid", True)],
-    init_callback=get_car_params,
-    should_recv_callback=None,
-  ),
 ]
 
 def replay_process(cfg, lr):
@@ -259,8 +240,8 @@ def replay_process(cfg, lr):
   all_msgs = sorted(lr, key=lambda msg: msg.logMonoTime)
   pub_msgs = [msg for msg in all_msgs if msg.which() in list(cfg.pub_sub.keys())]
 
+  shutil.rmtree('/data/params', ignore_errors=True)
   params = Params()
-  params.clear_all()
   params.manager_start()
   params.put("OpenpilotEnabledToggle", "1")
   params.put("Passive", "0")

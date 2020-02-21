@@ -654,9 +654,7 @@ void *hardware_control_thread(void *crap) {
   if (hw_type != cereal::HealthData::HwType::UNO) return NULL;
 
 
-  uint64_t last_front_frame_t = 0;
   uint16_t prev_fan_speed = 999;
-  uint16_t ir_pwr = 0;
   uint16_t prev_ir_pwr = 999;
   unsigned int cnt = 0;
 
@@ -686,31 +684,24 @@ void *hardware_control_thread(void *crap) {
         }
       } else if (type == cereal::Event::FRONT_FRAME){
         float cur_front_gain = event.getFrontFrame().getGainFrac();
-        last_front_frame_t = event.getLogMonoTime();
+        uint16_t ir_pwr;
+          if (cur_front_gain <= CUTOFF_GAIN) {
+            ir_pwr = 100.0 * MIN_IR_POWER;
+          } else if (cur_front_gain > SATURATE_GAIN) {
+            ir_pwr = 100.0 * MAX_IR_POWER;
+          } else {
+            ir_pwr = 100.0 * (MIN_IR_POWER + ((cur_front_gain - CUTOFF_GAIN) * (MAX_IR_POWER - MIN_IR_POWER) / (SATURATE_GAIN - CUTOFF_GAIN)));
+          }
 
-        if (cur_front_gain <= CUTOFF_GAIN) {
-          ir_pwr = 100.0 * MIN_IR_POWER;
-        } else if (cur_front_gain > SATURATE_GAIN) {
-          ir_pwr = 100.0 * MAX_IR_POWER;
-        } else {
-          ir_pwr = 100.0 * (MIN_IR_POWER + ((cur_front_gain - CUTOFF_GAIN) * (MAX_IR_POWER - MIN_IR_POWER) / (SATURATE_GAIN - CUTOFF_GAIN)));
+        if (ir_pwr != prev_ir_pwr || cnt % 100 == 0 || ir_pwr >= 50.0){
+          pthread_mutex_lock(&usb_lock);
+          libusb_control_transfer(dev_handle, 0x40, 0xb0, ir_pwr, 0, NULL, 0, TIMEOUT);
+          pthread_mutex_unlock(&usb_lock);
+
+          prev_ir_pwr = ir_pwr;
         }
       }
     }
-
-    // Disable ir_pwr on front frame timeout
-    uint64_t cur_t = nanos_since_boot();
-    if (cur_t - last_front_frame_t > 1e9){
-      ir_pwr = 0;
-    }
-
-    if (ir_pwr != prev_ir_pwr || cnt % 100 == 0 || ir_pwr >= 50.0){
-      pthread_mutex_lock(&usb_lock);
-      libusb_control_transfer(dev_handle, 0x40, 0xb0, ir_pwr, 0, NULL, 0, TIMEOUT);
-      pthread_mutex_unlock(&usb_lock);
-      prev_ir_pwr = ir_pwr;
-    }
-
   }
 
   delete poller;
@@ -789,7 +780,6 @@ void pigeon_init() {
   usleep(100*1000);
 
   // init from ubloxd
-  // To generate this data, run test/ubloxd.py with the print statements enabled in the write function in panda/python/serial.py 
   pigeon_send("\xB5\x62\x06\x00\x14\x00\x03\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x1E\x7F");
   pigeon_send("\xB5\x62\x06\x3E\x00\x00\x44\xD2");
   pigeon_send("\xB5\x62\x06\x00\x14\x00\x00\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19\x35");
@@ -808,7 +798,6 @@ void pigeon_init() {
   pigeon_send("\xB5\x62\x06\x01\x03\x00\x01\x07\x01\x13\x51");
   pigeon_send("\xB5\x62\x06\x01\x03\x00\x02\x15\x01\x22\x70");
   pigeon_send("\xB5\x62\x06\x01\x03\x00\x02\x13\x01\x20\x6C");
-  pigeon_send("\xB5\x62\x06\x01\x03\x00\x0A\x09\x01\x1E\x70");
 
   LOGW("panda GPS on");
 }

@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <GLES3/gl3.h>
+
 #include "glutil.h"
 
 GLuint load_shader(GLenum shaderType, const char *src) {
