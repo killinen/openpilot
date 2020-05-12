@@ -60,10 +60,10 @@ class CarState(CarStateBase):
           self.needs_angle_offset = False
           self.angle_offset = ret.steeringAngle - angle_wheel
 
-      if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is mounted Upside-Dwon on OLD_CAR
-        ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
-      else:
-        ret.steeringAngle = (cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is mounted Upside-Dwon on OLD_CAR
+      ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+    else:
+      ret.steeringAngle = (cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
 
     ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
     can_gear = int(cp.vl["GEAR_PACKET"]['GEAR'])
