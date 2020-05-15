@@ -238,10 +238,6 @@ class CarInterface(CarInterfaceBase):
       ret.steerRatio = 12.5
       tire_stiffness_factor = 0.444
       ret.mass = 6200.0
-      ret.longitudinalTuning.kpBP = [0., 5., 45.]
-      ret.longitudinalTuning.kiBP = [0., 35., 55.]
-      ret.gasMaxBP = [0., 9., 35]
-      ret.gasMaxV = [0.05, 0.05, 0.7]
 
       ret.lateralTuning.init('lqr')
       ret.lateralTuning.lqr.scale = 1500.0
@@ -288,14 +284,16 @@ class CarInterface(CarInterfaceBase):
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
-    ret.longitudinalTuning.kpBP = [0., 5., 35.]
-    ret.longitudinalTuning.kiBP = [0., 35.]
+    ret.longitudinalTuning.kpBP = [0., 5., 45.]
+    ret.longitudinalTuning.kiBP = [0., 35., 55.]
 
     if ret.enableGasInterceptor:
       ret.gasMaxBP = [0., 9., 35]
-      ret.gasMaxV = [0.2, 0.5, 0.7]
-      ret.longitudinalTuning.kpV = [1.2, 0.8, 0.5]
-      ret.longitudinalTuning.kiV = [0.18, 0.12]
+      ret.gasMaxV = [0.05, 0.05, 0.7]
+      ret.longitudinalTuning.kpV = [0.2, 0.2, 0.5]
+      ret.longitudinalTuning.kiV = [0.01, 0.025 ,0.06]
+
+
     else:
       ret.gasMaxBP = [0.]
       ret.gasMaxV = [0.5]
