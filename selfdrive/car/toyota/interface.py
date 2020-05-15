@@ -242,7 +242,6 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiBP = [0., 35., 55.]
       ret.gasMaxBP = [0., 9., 35]
       ret.gasMaxV = [0.05, 0.05, 0.7]
-      ret.enableGasInterceptor = True #OLD_CAR USES ALWAYS INTERCEPTOR MESSAGE FOR GAS
 
       ret.lateralTuning.init('lqr')
       ret.lateralTuning.lqr.scale = 1500.0
@@ -272,7 +271,7 @@ class CarInterface(CarInterfaceBase):
     smartDsu = 0x2FF in fingerprint[0]
     # In TSS2 cars the camera does long control
     ret.enableDsu = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.dsu) and candidate not in TSS2_CAR
-    ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    ret.enableGasInterceptor = True #0x201 in fingerprint[0]
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
     ret.openpilotLongitudinalControl = ret.enableCamera and (smartDsu or ret.enableDsu or candidate in TSS2_CAR)
     cloudlog.warning("ECU Camera Simulated: %r", ret.enableCamera)
