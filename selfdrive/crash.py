@@ -20,7 +20,7 @@ if os.getenv("NOLOG") or os.getenv("NOCRASH") or not ANDROID:
 else:
   from raven import Client
   from raven.transport.http import HTTPTransport
-  client = Client('https://137e8e621f114f858f4c392c52e18c6d:8aba82f49af040c8aac45e95a8484970@sentry.io/1404547',
+  client = Client('https://4b660d221577422aba9fcc337813a54a@o374486.ingest.sentry.io/5192596',
                   install_sys_hook=False, transport=HTTPTransport, release=version, tags={'dirty': dirty})
 
   def capture_exception(*args, **kwargs):
