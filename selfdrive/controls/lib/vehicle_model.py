@@ -104,7 +104,7 @@ class VehicleModel():
     self.aR = CP.wheelbase - CP.centerToFront
     self.chi = CP.steerRatioRear
 
-    self.sR = CP.steer_ratio
+    self.sR = CP.steerRatio
     self.cF_orig = CP.tireStiffnessFront
     self.cR_orig = CP.tireStiffnessRear
     self.update_params(1.0, CP.steerRatio)
