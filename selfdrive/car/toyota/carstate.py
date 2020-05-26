@@ -29,23 +29,23 @@ class CarState(CarStateBase):
                         cp.vl["SEATS_DOORS"]['DOOR_OPEN_RL'], cp.vl["SEATS_DOORS"]['DOOR_OPEN_RR']])
     ret.seatbeltUnlatched = cp.vl["SEATS_DOORS"]['SEATBELT_DRIVER_UNLATCHED'] != 0
 
-    ret.brakePressed = cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] != 0
+    ret.brakePressed = cp.vl["BRAKE_MODULE"]['BRAKE_PRESSED'] != 0
     ret.brakeLights = bool(cp.vl["ESP_CONTROL"]['BRAKE_LIGHTS_ACC'] or ret.brakePressed)
     if self.CP.enableGasInterceptor:
       ret.gas = (cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
       ret.gasPressed = ret.gas > 15
     else:
-      ret.gas = cp.vl["DME_2"]['LOAD']
+      ret.gas = cp.vl["GAS_PEDAL"]['GAS_PEDAL']
       ret.gasPressed = cp.vl["PCM_CRUISE"]['GAS_RELEASED'] == 0
 
-    ret.wheelSpeeds.fl = cp.vl["DSC_2"]['WHEEL_SPEED_1'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = cp.vl["DSC_2"]['WHEEL_SPEED_2'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = cp.vl["DSC_2"]['WHEEL_SPEED_3'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = cp.vl["DSC_2"]['WHEEL_SPEED_4'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RL'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RR'] * CV.KPH_TO_MS
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
-    ret.standstill = ret.vEgoRaw < 0.1    #Modified this from 0.001 to 0.1 is 0.36 kmh
+    ret.standstill = ret.vEgoRaw < 0.001
 
     # Some newer models have a more accurate angle measurement in the TORQUE_SENSOR message. Use if non-zero
     if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
@@ -117,12 +117,12 @@ class CarState(CarStateBase):
       # sig_name, sig_address, default
       ("STEER_ANGLE", "STEER_ANGLE_SENSOR", 0),
       ("GEAR", "GEAR_PACKET", 0),
-      ("BRAKE_LIGHT_SIGNAL", "DME_2", 0),
-      ("LOAD", "DME_2", 0),
-      ("WHEEL_SPEED_1", "DSC_2", 0),
-      ("WHEEL_SPEED_2", "DSC_2", 0),
-      ("WHEEL_SPEED_3", "DSC_2", 0),
-      ("WHEEL_SPEED_4", "DSC_2", 0),
+      ("BRAKE_PRESSED", "BRAKE_MODULE", 0),
+      ("GAS_PEDAL", "GAS_PEDAL", 0),
+      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),
       ("DOOR_OPEN_FL", "SEATS_DOORS", 1),
       ("DOOR_OPEN_FR", "SEATS_DOORS", 1),
       ("DOOR_OPEN_RL", "SEATS_DOORS", 1),
