@@ -38,10 +38,10 @@ class CarState(CarStateBase):
       ret.gas = cp.vl["GAS_PEDAL"]['GAS_PEDAL']
       ret.gasPressed = cp.vl["PCM_CRUISE"]['GAS_RELEASED'] == 0
 
-    ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RL'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RR'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_1'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_2'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_3'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_4'] * CV.KPH_TO_MS
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
@@ -119,10 +119,10 @@ class CarState(CarStateBase):
       ("GEAR", "GEAR_PACKET", 0),
       ("BRAKE_PRESSED", "BRAKE_MODULE", 0),
       ("GAS_PEDAL", "GAS_PEDAL", 0),
-      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_1", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_2", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_3", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_4", "WHEEL_SPEEDS", 0),
       ("DOOR_OPEN_FL", "SEATS_DOORS", 1),
       ("DOOR_OPEN_FR", "SEATS_DOORS", 1),
       ("DOOR_OPEN_RL", "SEATS_DOORS", 1),
