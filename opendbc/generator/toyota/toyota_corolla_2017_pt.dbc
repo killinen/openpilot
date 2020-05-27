@@ -1,6 +1,12 @@
 CM_ "IMPORT _toyota_2017.dbc"
 CM_ "IMPORT _comma.dbc"
 
+BO_ 339 DSC_1: 8 XXX
+ SG_ ASC_STATUS : 0|1@1+ (1,0) [0|3] "" XXX
+ SG_ DSC_OFF : 2|1@1+ (1,0) [0|3] "" XXX
+ SG_ DSC_STATUS : 3|1@0+ (1,0) [0|3] "" XXX
+ SG_ BRAKE_LIGHT_SIGNAL : 4|1@0+ (1,0) [0|3] "" XXX
+
 BO_ 548 BRAKE_MODULE: 8 XXX
  SG_ BRAKE_PRESSURE : 43|12@0+ (1,0) [0|4047] "" XXX
  SG_ BRAKE_PRESSED : 5|1@0+ (1,0) [0|1] "" XXX
@@ -25,6 +31,9 @@ BO_ 610 EPS_STATUS: 5 EPS
 BO_ 956 GEAR_PACKET: 8 XXX
  SG_ GEAR : 13|6@0+ (1,0) [0|63] "" XXX
  SG_ SPORT_ON : 3|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 1557 IKE_2: 8 XXX
+ SG_ BLINKERS : 42|2@0+ (1,0) [0|3] "" XXX
 
 CM_ SG_ 548 BRAKE_PRESSURE "seems prop to pedal force";
 CM_ SG_ 548 BRAKE_POSITION "seems proportional to pedal displacement, unclear the max value of 0x1c8";
