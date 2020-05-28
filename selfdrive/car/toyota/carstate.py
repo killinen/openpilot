@@ -63,8 +63,8 @@ class CarState(CarStateBase):
     if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
       if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
         ret.steeringAngle = (cp.vl["SZL_1"]['STEERING_ANGLE']
-      if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 1:
-        ret.steeringAngle = -(cp.vl["SZL_1"]['STEERING_ANGLE']
+    #  if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 1:
+    #   ret.steeringAngle = -(cp.vl["SZL_1"]['STEERING_ANGLE']
     #  ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
     else:
       ret.steeringAngle = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
