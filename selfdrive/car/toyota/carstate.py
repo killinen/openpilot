@@ -74,8 +74,9 @@ class CarState(CarStateBase):
       if cp.vl["SZL_1"]['VELOCITY_DIRECTION'] == 0:
         ret.steeringRate = (cp.vl["SZL_1"]['STEERING_VELOCITY']
       else:
-        ret.steeringRate = -(cp.vl["SZL_1"]['STEERING_VELOCITY']                              
-    #ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
+        ret.steeringRate = -(cp.vl["SZL_1"]['STEERING_VELOCITY']
+    else:
+      ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
     can_gear = int(cp.vl["GEAR_PACKET"]['GEAR'])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
