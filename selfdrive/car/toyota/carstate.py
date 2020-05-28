@@ -11,7 +11,7 @@ class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint]['pt'])
-    self.shifter_values = can_define.dv["GEAR_PACKET"]['GEAR']
+    self.shifter_values = can_define.dv["AGS_1"]['GEAR_SELECTOR']
 
     # All TSS2 car have the accurate sensor
     self.accurate_steer_angle_seen = CP.carFingerprint in TSS2_CAR
@@ -77,7 +77,7 @@ class CarState(CarStateBase):
         ret.steeringRate = -(cp.vl["SZL_1"]['STEERING_VELOCITY'])
     else:
       ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
-    can_gear = int(cp.vl["GEAR_PACKET"]['GEAR'])
+    can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
     ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
@@ -127,7 +127,7 @@ class CarState(CarStateBase):
     signals = [
       # sig_name, sig_address, default
       ("STEERING_ANGLE", "SZL_1", 0),     #Imported from BMW
-      ("GEAR", "GEAR_PACKET", 0),
+      ("GEAR_SELECTOR", "AGS_1", 0),      #Imported from BMW
       ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
       ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
       ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),      #Imported from BMW
