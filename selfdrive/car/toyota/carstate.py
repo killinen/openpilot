@@ -170,10 +170,10 @@ class CarState(CarStateBase):
       ]
     else:
       checks = [
-        ("BRAKE_MODULE", 40),
-        ("GAS_PEDAL", 33),
+        ("DSC_1", 40),
+        ("DME_2", 33),
         ("WHEEL_SPEEDS", 80),
-        ("PCM_CRUISE", 33)
+        ("IKE_2", 33)
       ]
 
     if CP.carFingerprint == CAR.LEXUS_IS:
