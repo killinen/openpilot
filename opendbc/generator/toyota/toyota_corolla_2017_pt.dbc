@@ -50,6 +50,19 @@ BO_ 956 GEAR_PACKET: 8 XXX
  SG_ GEAR : 13|6@0+ (1,0) [0|63] "" XXX
  SG_ SPORT_ON : 3|1@0+ (1,0) [0|1] "" XXX
 
+BO_ 1087 AGS_1: 8 XXX
+ SG_ NEW_SIGNAL_8 : 63|8@0+ (1,0) [0|1] "" XXX
+ SG_ GEAR_SELECTOR : 11|4@0+ (1,0) [0|1] "" XXX
+ SG_ GEARBOX_RUNNING : 12|1@0+ (1,0) [0|3] "" XXX
+ SG_ TORQ_REDUCTION_REQ : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ GEARBOX_MODE : 23|3@0+ (1,0) [0|1] "" XXX
+ SG_ GEARBOX_READY_START : 15|2@0+ (1,0) [0|1] "" XXX
+ SG_ GEAR : 0|3@1+ (1,0) [0|7] "" XXX
+ SG_ GEAR_CHANGE : 3|1@1+ (1,0) [0|7] "" XXX
+ SG_ LOCKUP_CLUTCH : 6|1@0+ (1,0) [0|3] "" XXX
+ SG_ SPEED : 39|8@0+ (1.37,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 46|10@1+ (1,0) [0|255] "" XXX
+
 BO_ 1557 IKE_2: 8 XXX
  SG_ BLINKERS : 42|2@0+ (1,0) [0|3] "" XXX
  SG_ DOOR_OPEN_RL : 56|1@0+ (1,0) [0|1] "" XXX
@@ -61,6 +74,7 @@ BO_ 1557 IKE_2: 8 XXX
 CM_ SG_ 548 BRAKE_PRESSURE "seems prop to pedal force";
 CM_ SG_ 548 BRAKE_POSITION "seems proportional to pedal displacement, unclear the max value of 0x1c8";
 CM_ SG_ 610 TYPE "seems 1 on Corolla, 0 on all others";
+VAL_ 1087 GEAR_SELECTOR 5 "D" 1 "S" 6 "N" 7 "R" 8 "P";
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 610 IPAS_STATE 5 "override" 3 "enabled" 1 "disabled";
 VAL_ 610 LKA_STATE 25 "temporary_fault" 9 "temporary_fault2" 5 "active" 1 "standby";
