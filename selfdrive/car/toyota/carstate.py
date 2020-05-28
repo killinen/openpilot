@@ -100,7 +100,7 @@ class CarState(CarStateBase):
       ret.genericToggle = bool(cp.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
     ret.stockAeb = bool(cp_cam.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_cam.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
-    ret.espDisabled = cp.vl["ESP_CONTROL"]['TC_DISABLED'] != 0
+    ret.espDisabled = cp.vl["DSC_1"]['DSC_OFF'] != 0
     # 2 is standby, 10 is active. TODO: check that everything else is really a faulty state
     self.steer_state = cp.vl["EPS_STATUS"]['LKA_STATE']
 
@@ -128,7 +128,7 @@ class CarState(CarStateBase):
       ("DOOR_OPEN_RL", "IKE_2", 1),     #Imported from BMW
       ("DOOR_OPEN_RR", "IKE_2", 1),     #Imported from BMW
       ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),      #Imported from BMW
-      ("TC_DISABLED", "ESP_CONTROL", 1),
+      ("DSC_OFF", "DSC_1", 1),      #Imported from BMW
       ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),
       ("STEER_RATE", "STEER_ANGLE_SENSOR", 0),
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
