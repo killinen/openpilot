@@ -158,23 +158,23 @@ class CarState(CarStateBase):
       ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
     ]
 
-  if CP.carFingerprint not in NO_EPS_CAR:
-    checks = [
-      ("BRAKE_MODULE", 40),
-      ("GAS_PEDAL", 33),
-      ("WHEEL_SPEEDS", 80),
-      ("STEER_ANGLE_SENSOR", 80),
-      ("PCM_CRUISE", 33),
-      ("STEER_TORQUE_SENSOR", 50),
-      ("EPS_STATUS", 25),
-    ]
-  else:
-    checks = [
-      ("BRAKE_MODULE", 40),
-      ("GAS_PEDAL", 33),
-      ("WHEEL_SPEEDS", 80),
-      ("PCM_CRUISE", 33)
-    ]
+    if CP.carFingerprint not in NO_EPS_CAR:
+      checks = [
+        ("BRAKE_MODULE", 40),
+        ("GAS_PEDAL", 33),
+        ("WHEEL_SPEEDS", 80),
+        ("STEER_ANGLE_SENSOR", 80),
+        ("PCM_CRUISE", 33),
+        ("STEER_TORQUE_SENSOR", 50),
+        ("EPS_STATUS", 25),
+      ]
+    else:
+      checks = [
+        ("BRAKE_MODULE", 40),
+        ("GAS_PEDAL", 33),
+        ("WHEEL_SPEEDS", 80),
+        ("PCM_CRUISE", 33)
+      ]
 
     if CP.carFingerprint == CAR.LEXUS_IS:
       signals.append(("MAIN_ON", "DSU_CRUISE", 0))
