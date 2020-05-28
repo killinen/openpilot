@@ -2,7 +2,7 @@
 from cereal import car
 from selfdrive.config import Conversions as CV
 from selfdrive.controls.lib.drive_helpers import EventTypes as ET, create_event
-from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, FINGERPRINTS
+from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, FINGERPRINTS, NO_EPS_CAR
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint
 from selfdrive.swaglog import cloudlog
 from selfdrive.car.interfaces import CarInterfaceBase
@@ -329,7 +329,10 @@ class CarInterface(CarInterfaceBase):
       if ret.vEgo < 0.001:
         # while in standstill, send a user alert
         events.append(create_event('manualRestart', [ET.WARNING]))
-
+   
+    #if self.CP.carFingerprint in NO_EPS_CAR:
+    #  events.append(create_event('manualSteeringRequired', [ET.WARNING]))
+    
     ret.events = events
 
     self.CS.out = ret.as_reader()
