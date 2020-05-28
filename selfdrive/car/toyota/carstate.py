@@ -25,18 +25,18 @@ class CarState(CarStateBase):
   def update(self, cp, cp_cam):
     ret = car.CarState.new_message()
 
-    ret.doorOpen = any([cp.vl["IKE_2"]['DOOR_OPEN_FL'], cp.vl["IKE_2"]['DOOR_OPEN_FR'],
-                        cp.vl["IKE_2"]['DOOR_OPEN_RL'], cp.vl["IKE_2"]['DOOR_OPEN_RR']])
-    ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
+    ret.doorOpen = any([cp.vl["SEATS_DOORS"]['DOOR_OPEN_FL'], cp.vl["SEATS_DOORS"]['DOOR_OPEN_FR'],
+                        cp.vl["SEATS_DOORS"]['DOOR_OPEN_RL'], cp.vl["SEATS_DOORS"]['DOOR_OPEN_RR']])
+    ret.seatbeltUnlatched = cp.vl["SEATS_DOORS"]['SEATBELT_DRIVER_UNLATCHED'] != 0
 
-    ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0
-    ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_PRESSED'] or ret.brakePressed)
+    ret.brakePressed = cp.vl["BRAKE_MODULE"]['BRAKE_PRESSED'] != 0
+    ret.brakeLights = bool(cp.vl["ESP_CONTROL"]['BRAKE_LIGHTS_ACC'] or ret.brakePressed)
     if self.CP.enableGasInterceptor:
       ret.gas = (cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
       ret.gasPressed = ret.gas > 15
     else:
-      ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
-      ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+      ret.gas = cp.vl["GAS_PEDAL"]['GAS_PEDAL']
+      ret.gasPressed = cp.vl["PCM_CRUISE"]['GAS_RELEASED'] == 0
 
     ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
     ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
@@ -45,7 +45,7 @@ class CarState(CarStateBase):
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
-    ret.standstill = ret.vEgoRaw < 0.1    #Changed this from 0.001 to 0.1
+    ret.standstill = ret.vEgoRaw < 0.001
 
     # Some newer models have a more accurate angle measurement in the TORQUE_SENSOR message. Use if non-zero
     if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
@@ -68,8 +68,8 @@ class CarState(CarStateBase):
     ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
     can_gear = int(cp.vl["GEAR_PACKET"]['GEAR'])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
-    ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
+    ret.leftBlinker = cp.vl["STEERING_LEVERS"]['TURN_SIGNALS'] == 1
+    ret.rightBlinker = cp.vl["STEERING_LEVERS"]['TURN_SIGNALS'] == 2
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_EPS']
@@ -100,7 +100,7 @@ class CarState(CarStateBase):
       ret.genericToggle = bool(cp.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
     ret.stockAeb = bool(cp_cam.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_cam.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
-    ret.espDisabled = cp.vl["DSC_1"]['DSC_OFF'] != 0
+    ret.espDisabled = cp.vl["ESP_CONTROL"]['TC_DISABLED'] != 0
     # 2 is standby, 10 is active. TODO: check that everything else is really a faulty state
     self.steer_state = cp.vl["EPS_STATUS"]['LKA_STATE']
 
@@ -117,29 +117,29 @@ class CarState(CarStateBase):
       # sig_name, sig_address, default
       ("STEER_ANGLE", "STEER_ANGLE_SENSOR", 0),
       ("GEAR", "GEAR_PACKET", 0),
-      ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
-      ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
-      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("DOOR_OPEN_FL", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_FR", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_RL", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_RR", "IKE_2", 1),     #Imported from BMW
-      ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),      #Imported from BMW
-      ("DSC_OFF", "DSC_1", 1),      #Imported from BMW
+      ("BRAKE_PRESSED", "BRAKE_MODULE", 0),
+      ("GAS_PEDAL", "GAS_PEDAL", 0),
+      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),
+      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),
+      ("DOOR_OPEN_FL", "SEATS_DOORS", 1),
+      ("DOOR_OPEN_FR", "SEATS_DOORS", 1),
+      ("DOOR_OPEN_RL", "SEATS_DOORS", 1),
+      ("DOOR_OPEN_RR", "SEATS_DOORS", 1),
+      ("SEATBELT_DRIVER_UNLATCHED", "SEATS_DOORS", 1),
+      ("TC_DISABLED", "ESP_CONTROL", 1),
       ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),
       ("STEER_RATE", "STEER_ANGLE_SENSOR", 0),
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
-      ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
+      ("GAS_RELEASED", "PCM_CRUISE", 1),
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
       ("STEER_TORQUE_EPS", "STEER_TORQUE_SENSOR", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
-      ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
+      ("TURN_SIGNALS", "STEERING_LEVERS", 3),   # 3 is no blinkers
       ("LKA_STATE", "EPS_STATUS", 0),
-      ("BRAKE_PRESSED", "DME_2", 0),      #Imported from BMW
+      ("BRAKE_LIGHTS_ACC", "ESP_CONTROL", 0),
       ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
     ]
 
