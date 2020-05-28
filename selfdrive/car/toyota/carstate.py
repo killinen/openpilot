@@ -117,29 +117,29 @@ class CarState(CarStateBase):
       # sig_name, sig_address, default
       ("STEER_ANGLE", "STEER_ANGLE_SENSOR", 0),
       ("GEAR", "GEAR_PACKET", 0),
-      ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),
-      ("GAS_PEDAL", "DME_2", 0),
-      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),
-      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),
-      ("DOOR_OPEN_FL", "IKE_2", 1),
-      ("DOOR_OPEN_FR", "IKE_2", 1),
-      ("DOOR_OPEN_RL", "IKE_2", 1),
-      ("DOOR_OPEN_RR", "IKE_2", 1),
-      ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),
+      ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
+      ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
+      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),      #Imported from BMW
+      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),      #Imported from BMW
+      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),      #Imported from BMW
+      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),      #Imported from BMW
+      ("DOOR_OPEN_FL", "IKE_2", 1),     #Imported from BMW
+      ("DOOR_OPEN_FR", "IKE_2", 1),     #Imported from BMW
+      ("DOOR_OPEN_RL", "IKE_2", 1),     #Imported from BMW
+      ("DOOR_OPEN_RR", "IKE_2", 1),     #Imported from BMW
+      ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),      #Imported from BMW
       ("TC_DISABLED", "ESP_CONTROL", 1),
       ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),
       ("STEER_RATE", "STEER_ANGLE_SENSOR", 0),
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
-      ("GAS_RELEASED", "PCM_CRUISE", 1),
+      ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
       ("STEER_TORQUE_EPS", "STEER_TORQUE_SENSOR", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
-      ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers
+      ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
       ("LKA_STATE", "EPS_STATUS", 0),
-      ("BRAKE_PRESSED", "DME_2", 0),
+      ("BRAKE_PRESSED", "DME_2", 0),      #Imported from BMW
       ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
     ]
 
