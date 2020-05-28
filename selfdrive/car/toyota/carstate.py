@@ -60,12 +60,22 @@ class CarState(CarStateBase):
           self.needs_angle_offset = False
           self.angle_offset = ret.steeringAngle - angle_wheel
 
-    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is mounted Upside-Dwon on OLD_CAR
-      ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
+      if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
+        ret.steeringAngle = (cp.vl["SZL_1"]['STEERING_ANGLE']
+      else:
+        ret.steeringAngle = -(cp.vl["SZL_1"]['STEERING_ANGLE']
+    #  ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
     else:
       ret.steeringAngle = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
-    ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
+    
+    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering rate sensor is code differently on BMW
+      if cp.vl["SZL_1"]['VELOCITY_DIRECTION'] == 0:
+        ret.steeringRate = (cp.vl["SZL_1"]['STEERING_VELOCITY']
+      else:
+        ret.steeringRate = -(cp.vl["SZL_1"]['STEERING_VELOCITY']                              
+    #ret.steeringRate = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
     can_gear = int(cp.vl["GEAR_PACKET"]['GEAR'])
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
@@ -115,7 +125,7 @@ class CarState(CarStateBase):
 
     signals = [
       # sig_name, sig_address, default
-      ("STEER_ANGLE", "STEER_ANGLE_SENSOR", 0),
+      ("STEERING_ANGLE", "SZL_1", 0),     #Imported from BMW
       ("GEAR", "GEAR_PACKET", 0),
       ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
       ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
@@ -129,8 +139,8 @@ class CarState(CarStateBase):
       ("DOOR_OPEN_RR", "IKE_2", 1),     #Imported from BMW
       ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),      #Imported from BMW
       ("DSC_OFF", "DSC_1", 1),      #Imported from BMW
-      ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),
-      ("STEER_RATE", "STEER_ANGLE_SENSOR", 0),
+      ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),      #Unneccasary?
+      ("STEERING_VELOCITY", "SZL_1", 0),      #Imported from BMW
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
