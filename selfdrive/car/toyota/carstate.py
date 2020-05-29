@@ -202,8 +202,8 @@ class CarState(CarStateBase):
       checks.append(("PCM_CRUISE_2", 33))
 
 
-    if CP.carFingerprint == CAR.PRIUS:
-      signals += [("STATE", "AUTOPARK_STATUS", 0)]
+    # if CP.carFingerprint == CAR.PRIUS:
+    #  signals += [("STATE", "AUTOPARK_STATUS", 0)]
 
     # add gas interceptor reading if we are using it
     if CP.enableGasInterceptor:
@@ -211,9 +211,9 @@ class CarState(CarStateBase):
       signals.append(("INTERCEPTOR_GAS2", "GAS_SENSOR", 0))
       checks.append(("GAS_SENSOR", 50))
 
-    if CP.carFingerprint in TSS2_CAR:
-      signals += [("L_ADJACENT", "BSM", 0)]
-      signals += [("R_ADJACENT", "BSM", 0)]
+    # if CP.carFingerprint in TSS2_CAR:
+    #   signals += [("L_ADJACENT", "BSM", 0)]
+    #   signals += [("R_ADJACENT", "BSM", 0)]
 
     return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, 0)
 
