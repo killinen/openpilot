@@ -568,8 +568,23 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
       events.append(create_event('internetConnectivityNeeded', [ET.NO_ENTRY, ET.PERMANENT]))
     if community_feature_disallowed:
       events.append(create_event('communityFeatureDisallowed', [ET.PERMANENT]))
-    if read_only and not passive:
-      events.append(create_event('carUnrecognized', [ET.PERMANENT]))
+    
+    #Here starts testing!!!!
+    
+    #if read_only and not passive:                                           <-------- Keep THIS ORIGINAL!!!
+    #  events.append(create_event('carUnrecognized', [ET.PERMANENT]))
+    if not car_recognized or not controller_available:
+      events.append(create_event('carUnrecognized', [ET.PERMANENT]))    
+    #if self.CP.dashcamOnly or community_feature_disallowed:
+    #  events.append(create_event('carUnrecognized', [ET.PERMANENT]))
+    #if not car_recognized:
+    #  events.append(create_event('carUnrecognized', [ET.PERMANENT]))
+    #if not controller_available:
+    #  events.append(create_event('carUnrecognized', [ET.PERMANENT]))
+    
+    
+    
+    
     if log.HealthData.FaultType.relayMalfunction in sm['health'].faults:
       events.append(create_event('relayMalfunction', [ET.NO_ENTRY, ET.PERMANENT, ET.IMMEDIATE_DISABLE]))
 
