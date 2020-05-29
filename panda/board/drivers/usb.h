@@ -693,7 +693,7 @@ void usb_irqhandler(void) {
   }
 
   if ((gintsts & USB_OTG_GINTSTS_ESUSP) != 0) {
-    puts("ESUSP detected\n");
+    puts("ESUSP detected, and maybe its running my FW\n");
   }
 
   if ((gintsts & USB_OTG_GINTSTS_USBRST) != 0) {
