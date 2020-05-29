@@ -159,8 +159,8 @@ class CarState(CarStateBase):
       ("DSC_OFF", "DSC_1", 1),      #Imported from BMW
       ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),      #Unneccasary?
       ("STEERING_VELOCITY", "SZL_1", 0),      #Imported from BMW
-      ("ANGLE_DIRECTION", "SZL_1", 0),
-      ("VELOCITY_DIRECTION", "SZL_1", 0),
+      ("ANGLE_DIRECTION", "SZL_1", 0),      #Imported from BMW
+      ("VELOCITY_DIRECTION", "SZL_1", 0),     #Imported from BMW
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
@@ -185,10 +185,10 @@ class CarState(CarStateBase):
       ]
     else:
       checks = [
-        ("DSC_1", 40),
-        ("DME_2", 33),
-        ("WHEEL_SPEEDS", 80),
-        ("IKE_2", 33)
+        # ("DSC_1", 40),
+        # ("DME_2", 33),
+        # ("WHEEL_SPEEDS", 80),
+        # ("IKE_2", 33)
       ]
 
     if CP.carFingerprint == CAR.LEXUS_IS:
