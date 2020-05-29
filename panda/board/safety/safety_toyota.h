@@ -117,7 +117,7 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
       vehicle_moving = ABS(speed / 4) > TOYOTA_STANDSTILL_THRSLD;
       if (vehicle_moving == true) {
         #ifdef DEBUG_USB
-          puts(" set address\n");
+          puts("Moving the AAASS\n");
         #endif
       }
     }
