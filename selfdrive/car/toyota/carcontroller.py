@@ -71,7 +71,8 @@ class CarController():
     self.steer_rate_limited = new_steer != apply_steer
 
     # only cut torque when steer state is a known fault
-    if self.CS.carFingerprint not in NO_EPS_CAR and CS.steer_state in [9, 25]:
+    if CS.CP.carFingerprint not in NO_EPS_CAR and CS.steer_state in [9, 25]:
+    #if self.CS.carFingerprint not in NO_EPS_CAR and CS.steer_state in [9, 25]:
     #if CS.steer_state in [9, 25]:
       self.last_fault_frame = frame
 
