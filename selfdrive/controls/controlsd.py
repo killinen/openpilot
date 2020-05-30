@@ -574,14 +574,14 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
     
     if read_only and not passive:                                        #   <-------- Keep THIS ORIGINAL!!!
       events.append(create_event('carUnrecognized', [ET.PERMANENT]))
-    if CI.CC is not None and not passive:
-      print("CI.CC is not non und not passive")    
+    if not controller_available:
+      print("Controller unavailable")    
     if CP.dashcamOnly:
       print("Dash Only") 
     if not car_recognized:
       print("not car recognized") 
-    if not CP.enableCamera:
-      print("Camera unavailable") 
+    #if not CP.enableCamera:
+    #  print("Camera unavailable") 
     
     
     
