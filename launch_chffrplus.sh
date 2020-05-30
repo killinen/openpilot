@@ -91,8 +91,7 @@ function launch {
 
   # start manager
   cd selfdrive
-  DRIVELOG_DATE=$(date +"%F--%H-%M-%S")
-  ./manager.py > /data/drivelog-$DRIVELOG_DATE.txt
+  ./manager.py > tmux.log
 
   # if broken, keep on screen error
   while true; do sleep 1; done
