@@ -33,12 +33,17 @@ class CarState(CarStateBase):
 
     ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0
     ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_PRESSED'] or ret.brakePressed)
-    if self.CP.enableGasInterceptor:
-      ret.gas = (cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
-      ret.gasPressed = ret.gas > 15
-    else:
-      ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
-      ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+    
+    # Testing of getting gas values to report to logs
+    #if self.CP.enableGasInterceptor:
+    #  ret.gas = (cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
+    #  ret.gasPressed = ret.gas > 15
+    #else:
+    #  ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
+    #  ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+    
+    ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
+    ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
 
     ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
     ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
