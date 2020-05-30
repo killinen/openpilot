@@ -114,7 +114,7 @@ class CarState(CarStateBase):
       self.low_speed_lockout = False
     else:
       ret.cruiseState.available = cp.vl["PCM_CRUISE_2"]['MAIN_ON'] != 0
-      ret.cruiseState.speed = cp.vl["PCM_CRUISE_2"]['SET_SPEED'] * CV.KPH_TO_MS
+      # ret.cruiseState.speed = cp.vl["PCM_CRUISE_2"]['SET_SPEED'] * CV.KPH_TO_MS   <---- Commmented out this because make SET_SPEED happen elsewhere
       self.low_speed_lockout = cp.vl["PCM_CRUISE_2"]['LOW_SPEED_LOCKOUT'] == 2
     self.pcm_acc_status = cp.vl["PCM_CRUISE"]['CRUISE_STATE']
     
@@ -125,6 +125,14 @@ class CarState(CarStateBase):
     else:
       ret.cruiseState.standstill = self.pcm_acc_status == 7
     ret.cruiseState.enabled = bool(cp.vl["PCM_CRUISE"]['CRUISE_ACTIVE'])
+
+        
+    # Trying to make CRUISE SET_SPEED happen inside here, maybe have to mod the arduino code
+    if ret.cruiseState.enabled and not self.last_cruise_enabled:
+      ret.cruiseState.speed = ret.vEgoRaw
+    
+    self.last_cruise_enabled = ret.cruiseState.enabled
+    
 
     if self.CP.carFingerprint == CAR.PRIUS:
       ret.genericToggle = cp.vl["AUTOPARK_STATUS"]['STATE'] != 0
