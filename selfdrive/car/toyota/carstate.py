@@ -44,6 +44,9 @@ class CarState(CarStateBase):
     
     ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
     ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+    print(ret.gas)
+    if ret.gasPressed == true:
+      print("Gas Pressed")
 
     ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
     ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
