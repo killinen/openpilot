@@ -575,7 +575,7 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
       events.append(create_event('carUnrecognized', [ET.PERMANENT]))
     if community_feature_disallowed:
       print("Comm feat dissallowed")    
-    if self.CP.dashcamOnly:
+    if CP.dashcamOnly:
       print("Dash Only") 
     if not car_recognized:
       print("not car recognized") 
