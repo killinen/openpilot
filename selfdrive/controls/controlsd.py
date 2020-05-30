@@ -574,13 +574,13 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
     if read_only and not passive:                                        #   <-------- Keep THIS ORIGINAL!!!
       events.append(create_event('carUnrecognized', [ET.PERMANENT]))
     if community_feature_disallowed:
-      print (“Comm feat dissallowed”)    
+      print("Comm feat dissallowed")    
     if self.CP.dashcamOnly:
-      print (“Dash Only”) 
+      print("Dash Only") 
     if not car_recognized:
-      print (“not car recognized”) 
+      print("not car recognized") 
     if not controller_available:
-      print (“Controller unavailable”) 
+      print("Controller unavailable") 
     
     
     
