@@ -128,10 +128,11 @@ class CarState(CarStateBase):
 
         
     # Trying to make CRUISE SET_SPEED happen inside here, maybe have to mod the arduino code
-    if ret.cruiseState.enabled and not last_cruise_enabled:
-      ret.cruiseState.speed = ret.vEgoRaw
+    if ret.cruiseState.enabled and not self.last_cruise_enabled:
+      ownsetspeed = ret.vEgoRaw
     
-    last_cruise_enabled = ret.cruiseState.enabled
+    ret.cruiseState.speed = ownsetspeed
+    self.last_cruise_enabled = ret.cruiseState.enabled
     
 
     if self.CP.carFingerprint == CAR.PRIUS:
