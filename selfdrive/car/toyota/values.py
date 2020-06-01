@@ -2,6 +2,16 @@ from selfdrive.car import dbc_dict
 from cereal import car
 Ecu = car.CarParams.Ecu
 
+# Button states
+BUTTON_STATES = {
+  "accelCruise": False,
+  "decelCruise": False,
+  #"cancel": False,
+  #"setCruise": False,
+  #"resumeCruise": False,
+}
+
+
 # Steer torque limits
 class SteerLimitParams:
   STEER_MAX = 1500
