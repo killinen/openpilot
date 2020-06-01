@@ -314,8 +314,25 @@ class CarInterface(CarInterfaceBase):
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
     ret.buttonEvents = []
 
+    
+    
+     # Check for and process state-change events (button press or release) from
+    # the turn stalk switch or ACC steering wheel/control stalk buttons.
+    for button in self.CS.buttonStates:
+      if self.CS.buttonStates[button] != self.buttonStatesPrev[button]:
+        be = car.CarState.ButtonEvent.new_message()
+        be.type = button
+        be.pressed = self.CS.buttonStates[button]
+        buttonEvents.append(be)
+
     # events
     events = self.create_common_events(ret)
+
+
+    
+    
+ 
+
 
 #    if self.cp_cam.can_invalid_cnt >= 200 and self.CP.enableCamera:
 #      events.append(create_event('invalidGiraffeToyota', [ET.PERMANENT]))
@@ -335,6 +352,16 @@ class CarInterface(CarInterfaceBase):
     
     ret.events = events
 
+    
+    
+    #ret.events = events.to_msg()
+    ret.buttonEvents = buttonEvents
+    #ret.canMonoTimes = canMonoTimes
+
+    self.buttonStatesPrev = self.CS.buttonStates.copy()   
+    
+    
+    
     self.CS.out = ret.as_reader()
     return self.CS.out
 
