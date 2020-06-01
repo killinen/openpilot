@@ -75,6 +75,7 @@ BO_ 1557 IKE_2: 8 XXX
 CM_ SG_ 548 BRAKE_PRESSURE "seems prop to pedal force";
 CM_ SG_ 548 BRAKE_POSITION "seems proportional to pedal displacement, unclear the max value of 0x1c8";
 CM_ SG_ 610 TYPE "seems 1 on Corolla, 0 on all others";
+CM_ SG_ 809 RESUME_BTN "1 is UP 2 is DOWN and 3 is RESUME";
 VAL_ 1087 GEAR_SELECTOR 5 "D" 1 "S" 6 "N" 7 "R" 8 "P";
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 610 IPAS_STATE 5 "override" 3 "enabled" 1 "disabled";
