@@ -44,9 +44,9 @@ class CarState(CarStateBase):
     
     ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
     ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
-    print(ret.gas)
-    if ret.gasPressed:
-      print("Gas Pressed")
+    # print(ret.gas)
+    # if ret.gasPressed:
+    #   print("Gas Pressed")
 
     ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
     ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
@@ -138,7 +138,7 @@ class CarState(CarStateBase):
     if self.CP.carFingerprint == CAR.PRIUS:
       ret.genericToggle = cp.vl["AUTOPARK_STATUS"]['STATE'] != 0
     else:
-      ret.genericToggle = bool(cp.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
+      ret.genericToggle = bool(cp.vl["DME_2"]['RESUME_BTN']) == 3
     ret.stockAeb = bool(cp_cam.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_cam.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
     ret.espDisabled = cp.vl["DSC_1"]['DSC_OFF'] != 0
@@ -181,6 +181,7 @@ class CarState(CarStateBase):
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
+      ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
       ("STEER_TORQUE_EPS", "STEER_TORQUE_SENSOR", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
