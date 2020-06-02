@@ -135,8 +135,8 @@ class CarState(CarStateBase):
 #     self.last_cruise_enabled = ret.cruiseState.enabled
     
     # Test if buttonstates work
-    self.buttonStates["accelCruise"] = bool(pt_cp.vl["DME_2"]['RESUME_BTN']) == 1
-    self.buttonStates["decelCruise"] = bool(pt_cp.vl["DME_2"]['RESUME_BTN']) == 2
+    self.buttonStates["accelCruise"] = bool(cp.vl["DME_2"]['RESUME_BTN']) == 1
+    self.buttonStates["decelCruise"] = bool(cp.vl["DME_2"]['RESUME_BTN']) == 2
 
     if self.CP.carFingerprint == CAR.PRIUS:
       ret.genericToggle = cp.vl["AUTOPARK_STATUS"]['STATE'] != 0
