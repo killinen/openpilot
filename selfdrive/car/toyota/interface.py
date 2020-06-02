@@ -9,6 +9,11 @@ from selfdrive.car.interfaces import CarInterfaceBase
 
 
 class CarInterface(CarInterfaceBase):
+  def __init__(self, CP, CarController, CarState):
+    super().__init__(CP, CarController, CarState)
+
+    self.buttonStatesPrev = BUTTON_STATES.copy()
+  
   @staticmethod
   def compute_gb(accel, speed):
     return float(accel) / 3.0
