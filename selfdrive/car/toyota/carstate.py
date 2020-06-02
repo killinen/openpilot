@@ -32,7 +32,7 @@ class CarState(CarStateBase):
     ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
 
     ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0
-    ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_PRESSED'] or ret.brakePressed)
+    ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] or ret.brakePressed)
     
     # Testing of getting gas values to report to logs
     #if self.CP.enableGasInterceptor:
@@ -187,7 +187,7 @@ class CarState(CarStateBase):
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
       ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
       ("LKA_STATE", "EPS_STATUS", 0),
-      ("BRAKE_PRESSED", "DME_2", 0),      #Imported from BMW
+      ("BRAKE_LIGHT_SIGNAL", "DME_2", 0),      #Imported from BMW
       ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
     ]
 
