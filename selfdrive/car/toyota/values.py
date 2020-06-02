@@ -5,10 +5,11 @@ Ecu = car.CarParams.Ecu
 # Button states
 BUTTON_STATES = {
   "accelCruise": False,
-  "decelCruise": False,
+  "decelCruise": False
   #"cancel": False,
   #"setCruise": False,
   #"resumeCruise": False,
+  #"gapAdjustCruise": False
 }
 
 
