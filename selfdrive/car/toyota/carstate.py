@@ -12,6 +12,9 @@ class CarState(CarStateBase):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint]['pt'])
     self.shifter_values = can_define.dv["AGS_1"]['GEAR_SELECTOR']
+    
+    # Added to make buttonstates work
+    self.buttonStates = BUTTON_STATES.copy()
 
     # I don' think I need these, should delete to avoid confusion?
     
