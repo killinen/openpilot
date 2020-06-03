@@ -146,6 +146,12 @@ def state_transition(frame, CS, CP, state, events, soft_disable_timer, v_cruise_
     v_cruise_kph = update_v_cruise(v_cruise_kph, CS.buttonEvents, enabled)
   elif CP.enableCruise and CS.cruiseState.enabled:
     v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
+   
+  # Try own cruise logik
+  if CP.enableCruise and CS.cruiseState.enabled:
+    v_cruise_kph = update_v_cruise(v_cruise_kph, CS.buttonEvents, enabled)
+  elif not CP.enableCruise:
+    v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
 
   # decrease the soft disable timer at every step, as it's reset on
   # entrance in SOFT_DISABLING state
