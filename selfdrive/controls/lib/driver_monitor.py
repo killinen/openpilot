@@ -224,8 +224,8 @@ class DriverStatus():
     driver_attentive = self.driver_distraction_filter.x < 0.37
     awareness_prev = self.awareness
 
-    if self.face_detected and self.hi_stds * DT_DMON > _HI_STD_TIMEOUT:
-      events.append(create_event('driverMonitorLowAcc', [ET.WARNING]))
+#     if self.face_detected and self.hi_stds * DT_DMON > _HI_STD_TIMEOUT:
+#       events.append(create_event('driverMonitorLowAcc', [ET.WARNING]))
 
     if (driver_attentive and self.face_detected and self.pose.low_std and self.awareness > 0):
       # only restore awareness when paying attention and alert is not red
