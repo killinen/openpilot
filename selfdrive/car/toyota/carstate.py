@@ -43,7 +43,8 @@ class CarState(CarStateBase):
     #  ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
     
     ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
-    ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+    # ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+    ret.gasPressed = cp.vl["DME_2"]['CRUISE_I_O'] != 0
     # print(ret.gas)
     # if ret.gasPressed:
     #   print("Gas Pressed")
@@ -164,6 +165,7 @@ class CarState(CarStateBase):
       ("GEAR_SELECTOR", "AGS_1", 0),      #Imported from BMW
       ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
       ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
+      ("CRUISE_I_O", "DME_2", 0),
       ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),      #Imported from BMW
       ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),      #Imported from BMW
       ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),      #Imported from BMW
