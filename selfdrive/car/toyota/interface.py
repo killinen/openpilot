@@ -269,7 +269,8 @@ class CarInterface(CarInterfaceBase):
     ret.enableDsu = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.dsu) and candidate not in TSS2_CAR
     ret.enableGasInterceptor = True #0x201 in fingerprint[0]
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
-    ret.openpilotLongitudinalControl = ret.enableCamera and (smartDsu or ret.enableDsu or candidate in TSS2_CAR)
+    # ret.openpilotLongitudinalControl = ret.enableCamera and (smartDsu or ret.enableDsu or candidate in TSS2_CAR)
+    ret.openpilotLongitudinalControl = ret.enableCamera
     cloudlog.warning("ECU Camera Simulated: %r", ret.enableCamera)
     cloudlog.warning("ECU DSU Simulated: %r", ret.enableDsu)
     cloudlog.warning("ECU Gas Interceptor: %r", ret.enableGasInterceptor)
