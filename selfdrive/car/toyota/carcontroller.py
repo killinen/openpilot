@@ -112,8 +112,10 @@ class CarController():
     # toyota can trace shows this message at 42Hz, with counter adding alternatively 1 and 2;
     # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
     # on consecutive messages
-    if Ecu.fwdCamera in self.fake_ecus:
-      can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
+
+    # Disable this CAN message so not to spam my CAN bus, try to find how to put this on different bus
+#     if Ecu.fwdCamera in self.fake_ecus:
+#       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
 
     # we can spam can to cancel the system even if we are using lat only control
     if (frame % 3 == 0 and CS.CP.openpilotLongitudinalControl) or (pcm_cancel_cmd and Ecu.fwdCamera in self.fake_ecus):
