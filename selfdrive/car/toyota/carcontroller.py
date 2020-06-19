@@ -2,9 +2,11 @@ from cereal import car
 from common.numpy_fast import clip
 from selfdrive.car import apply_toyota_steer_torque_limits, create_gas_command, make_can_msg
 from selfdrive.car.toyota.toyotacan import create_steer_command, create_ui_command, \
-                                           create_accel_command, create_acc_cancel_command, create_fcw_command
+                                           create_accel_command, create_acc_cancel_command, create_fcw_command, \
+                                           create_lead_command
 from selfdrive.car.toyota.values import Ecu, CAR, STATIC_MSGS, SteerLimitParams, NO_DSU_CAR, NO_EPS_CAR
 from opendbc.can.packer import CANPacker
+import cereal.messaging as messaging
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -44,11 +46,23 @@ class CarController():
     if CP.enableCamera: self.fake_ecus.add(Ecu.fwdCamera)
     if CP.enableDsu: self.fake_ecus.add(Ecu.dsu)
 
+    self.sm = messaging.SubMaster(['radarState'])
+    self.lead_rel_speed = 255
+    self.lead_long_dist = 255      
+      
     self.packer = CANPacker(dbc_name)
 
   def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
              left_line, right_line, lead, left_lane_depart, right_lane_depart):
 
+    #MGS Lead car
+    
+    self.sm.update(0)
+    if self.sm.updated['radarState']:
+      self.lead_rel_speed = self.sm['radarState'].leadOne.vRel
+      self.lead_long_dist = self.sm['radarState'].leadOne.dRel
+        
+    
     # *** compute control surfaces ***
 
     # gas and brake
@@ -126,6 +140,7 @@ class CarController():
         can_sends.append(create_acc_cancel_command(self.packer))
       elif CS.CP.openpilotLongitudinalControl:
         can_sends.append(create_accel_command(self.packer, apply_accel, pcm_cancel_cmd, self.standstill_req, lead))
+        can_sends.append(create_lead_command(self.packer, self.lead_rel_speed, self.lead_long_dist))
       else:
         can_sends.append(create_accel_command(self.packer, 0, pcm_cancel_cmd, False, lead))
 
