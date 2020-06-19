@@ -234,10 +234,10 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.OLD_CAR:
       stop_and_go = True
       ret.safetyParam = 100
-      ret.wheelbase = 2.830
-      ret.steerRatio = 12.5
+      ret.wheelbase = 2.830   # This is updated for BMW
+      ret.steerRatio = 17.9   # This is updated for BMW
       tire_stiffness_factor = 0.444
-      ret.mass = 1750 + STD_CARGO_KG
+      ret.mass = 1750 + STD_CARGO_KG   # This is updated for BMW
 
       ret.lateralTuning.init('lqr')
       ret.lateralTuning.lqr.scale = 1500.0
