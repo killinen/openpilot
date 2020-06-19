@@ -7,7 +7,7 @@ def create_steer_command(packer, steer, steer_req, raw_cnt):
     "COUNTER": raw_cnt,
     "SET_ME_1": 1,
   }
-  return packer.make_can_msg("STEERING_LKA", 0, values)
+  return packer.make_can_msg("STEERING_LKA", 0, values, 2)
 
 
 def create_lta_steer_command(packer, steer, steer_req, raw_cnt, angle):
