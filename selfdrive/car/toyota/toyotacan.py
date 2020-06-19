@@ -7,7 +7,7 @@ def create_steer_command(packer, steer, steer_req, raw_cnt):
     "COUNTER": raw_cnt,
     "SET_ME_1": 1,
   }
-  return packer.make_can_msg("STEERING_LKA", 0, values, 2)
+  return packer.make_can_msg("STEERING_LKA", 0, values)
 
 
 def create_lta_steer_command(packer, steer, steer_req, raw_cnt, angle):
@@ -85,4 +85,4 @@ def create_ui_command(packer, steer, chime, left_line, right_line, left_lane_dep
     "TWO_BEEPS": chime,
     "LDA_ALERT": steer,
   }
-  return packer.make_can_msg("LKAS_HUD", 0, values)
+  return packer.make_can_msg("LKAS_HUD", 2, values)
