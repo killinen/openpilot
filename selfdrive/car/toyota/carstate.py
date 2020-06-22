@@ -31,7 +31,9 @@ class CarState(CarStateBase):
                         cp.vl["IKE_2"]['DOOR_OPEN_RL'], cp.vl["IKE_2"]['DOOR_OPEN_RR']])
     ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
 
-    ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0 and cp.vl["ACC_CONTROL"]['ACCEL_CMD'] > -0.05
+    ret.brakeAllowed = cp.vl["ACC_CONTROL"]['ACCEL_CMD']
+    print(ret.brakeAllowed)
+    ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0 and ret.brakeAllowed > -0.05
     ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] or ret.brakePressed)
     
     # Testing of getting gas values to report to logs
