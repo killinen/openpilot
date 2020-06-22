@@ -21,6 +21,8 @@ const int TOYOTA_ISO_MIN_ACCEL = -3500;       // -3.5 m/s2
 
 const int TOYOTA_STANDSTILL_THRSLD = 32;  // 1kph
 
+bool allow_brake;
+
 // Roughly calculated using the offsets in openpilot +5%:
 // In openpilot: ((gas1_norm + gas2_norm)/2) > 15
 // gas_norm1 = ((gain_dbc*gas1) + offset1_dbc)
@@ -65,7 +67,7 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
   bool valid = addr_safety_check(to_push, toyota_rx_checks, TOYOTA_RX_CHECKS_LEN,
                                  toyota_get_checksum, toyota_compute_checksum, NULL);
   bool unsafe_allow_gas = unsafe_mode & UNSAFE_DISABLE_DISENGAGE_ON_GAS;
-  //bool allow_brake;
+
 
   if (valid && (GET_BUS(to_push) == 0)) {
     int addr = GET_ADDR(to_push);
@@ -188,12 +190,12 @@ static int toyota_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
           tx = 0;
         }  
       }
-      /*if (desired_accel < 0){
+      if (desired_accel < 0){
         allow_brake = 1;
       }
       else {
         allow_brake = 0;
-      }*/
+      }
       bool violation = (unsafe_mode & UNSAFE_RAISE_LONGITUDINAL_LIMITS_TO_ISO_MAX)?
         max_limit_check(desired_accel, TOYOTA_ISO_MAX_ACCEL, TOYOTA_ISO_MIN_ACCEL) :
         max_limit_check(desired_accel, TOYOTA_MAX_ACCEL, TOYOTA_MIN_ACCEL);
