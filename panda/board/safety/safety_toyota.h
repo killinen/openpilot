@@ -21,8 +21,6 @@ const int TOYOTA_ISO_MIN_ACCEL = -3500;       // -3.5 m/s2
 
 const int TOYOTA_STANDSTILL_THRSLD = 32;  // 1kph
 
-bool allow_brake;
-
 // Roughly calculated using the offsets in openpilot +5%:
 // In openpilot: ((gas1_norm + gas2_norm)/2) > 15
 // gas_norm1 = ((gain_dbc*gas1) + offset1_dbc)
@@ -127,10 +125,10 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
 
     // exit controls on rising edge of brake pedal
     // most cars have brake_pressed on 0x329, corolla and rav4 on 0x224
-    if ((addr == 0x224) || (addr == 0x329)) {
-      int byte = (addr == 0x224) ? 0 : 6;
+    if ((addr == 0x224) || (addr == 0x1D3)) {
+      int byte = (addr == 0x224) ? 0 : 3;
       bool brake_pressed = ((GET_BYTE(to_push, byte) << 7) & 0x80) != 0;
-      if (brake_pressed && (!brake_pressed_prev || vehicle_moving || !allow_brake)) {
+      if (brake_pressed && (!brake_pressed_prev || vehicle_moving) {
         controls_allowed = 0;
       }
       brake_pressed_prev = brake_pressed;
@@ -190,12 +188,7 @@ static int toyota_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
           tx = 0;
         }  
       }
-      if (desired_accel < 0){
-        allow_brake = 1;
-      }
-      else {
-        allow_brake = 0;
-      }
+  
       bool violation = (unsafe_mode & UNSAFE_RAISE_LONGITUDINAL_LIMITS_TO_ISO_MAX)?
         max_limit_check(desired_accel, TOYOTA_ISO_MAX_ACCEL, TOYOTA_ISO_MIN_ACCEL) :
         max_limit_check(desired_accel, TOYOTA_MAX_ACCEL, TOYOTA_MIN_ACCEL);
