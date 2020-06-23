@@ -34,7 +34,7 @@ class CarState(CarStateBase):
     ret.brakeAllowed = cp.vl["ACC_CONTROL"]['ACCEL_CMD']
     #print(ret.brakeAllowed)
     #ret.brakePressed = cp.vl["DSC_1"]['BRAKE_LIGHT_SIGNAL'] != 0
-    ret.brakePressed = cp.vl["PCM_CRUISE_2"]['BRK_ST_OP'] != 0
+    ret.brakePressed = cp.vl["PCM_CRUISE"]['BRK_ST_OP'] != 0
     ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] or ret.brakePressed)
     
     # Testing of getting gas values to report to logs
@@ -185,7 +185,7 @@ class CarState(CarStateBase):
       ("VELOCITY_DIRECTION", "SZL_1", 0),     #Imported from BMW
       ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
       ("CRUISE_STATE", "PCM_CRUISE", 0),
-      ("BRK_ST_OP", "PCM_CRUISE_2", 0),
+      ("BRK_ST_OP", "PCM_CRUISE", 0),
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
       ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
