@@ -126,7 +126,7 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
     // exit controls on rising edge of brake pedal
     // most cars have brake_pressed on 0x329, corolla and rav4 on 0x224
     if ((addr == 0x224) || (addr == 0x1D2)) {
-      int byte = (addr == 0x224) ? 0 : 3;
+      int byte = (addr == 0x224) ? 0 : 4;
       bool brake_pressed = ((GET_BYTE(to_push, byte) << 7) & 0x80) != 0;
       if (brake_pressed && (!brake_pressed_prev || vehicle_moving)) {
         controls_allowed = 0;
