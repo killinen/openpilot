@@ -127,7 +127,7 @@ def data_sample(CI, CC, sm, can_sock, state, mismatch_counter, can_error_counter
     mismatch_counter = 0
 
   controls_allowed = sm['health'].controlsAllowed
-  if not controls_allowed and enabled and CS.brakeAllowed > -0.05:
+  if not controls_allowed and enabled:
     mismatch_counter += 1
   if mismatch_counter >= 200:
     events.append(create_event('controlsMismatch', [ET.IMMEDIATE_DISABLE]))
