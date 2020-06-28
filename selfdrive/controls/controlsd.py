@@ -148,6 +148,12 @@ def state_transition(frame, CS, CP, state, events, soft_disable_timer, v_cruise_
   elif CP.enableCruise and CS.cruiseState.enabled:
     v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
 
+  # Try own cruise logik
+#   if CP.enableCruise and CS.cruiseState.enabled:
+#     v_cruise_kph = update_v_cruise(v_cruise_kph, CS.buttonEvents, enabled)
+#   elif not CP.enableCruise:
+#     v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
+
   # decrease the soft disable timer at every step, as it's reset on
   # entrance in SOFT_DISABLING state
   soft_disable_timer = max(0, soft_disable_timer - 1)
@@ -482,7 +488,8 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
 
   car_recognized = CP.carName != 'mock'
   # If stock camera is disconnected, we loaded car controls and it's not chffrplus
-  controller_available = CP.enableCamera and CI.CC is not None and not passive
+  # controller_available = CP.enableCamera and CI.CC is not None and not passive
+  controller_available = CI.CC is not None and not passive
   community_feature_disallowed = CP.communityFeature and not community_feature_toggle
   read_only = not car_recognized or not controller_available or CP.dashcamOnly or community_feature_disallowed
   if read_only:
@@ -570,9 +577,20 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
       events.append(create_event('internetConnectivityNeeded', [ET.NO_ENTRY, ET.PERMANENT]))
     if community_feature_disallowed:
       events.append(create_event('communityFeatureDisallowed', [ET.PERMANENT]))
-    if read_only and not passive:
+    
+    #Here starts testing!!!!
+    
+    if read_only and not passive:                                        #   <-------- Keep THIS ORIGINAL!!!
       events.append(create_event('carUnrecognized', [ET.PERMANENT]))
-    if log.HealthData.FaultType.relayMalfunction in sm['health'].faults:
+    if not controller_available:
+      print("Controller unavailable")    
+    if CP.dashcamOnly:
+      print("Dash Only") 
+    if not car_recognized:
+      print("not car recognized") 
+    #if not CP.enableCamera:
+    #  print("Camera unavailable") 
+        if log.HealthData.FaultType.relayMalfunction in sm['health'].faults:
       events.append(create_event('relayMalfunction', [ET.NO_ENTRY, ET.PERMANENT, ET.IMMEDIATE_DISABLE]))
 
 
