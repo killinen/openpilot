@@ -121,6 +121,7 @@ struct CarState {
 
   # brake pedal, 0.0-1.0
   brake @5 :Float32;      # this is user pedal only
+  brakeAllowed @37 :Float32;      # this is my own value only
   brakePressed @6 :Bool;  # this is user pedal only
   brakeLights @19 :Bool;
 
