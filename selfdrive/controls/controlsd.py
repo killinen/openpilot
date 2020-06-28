@@ -590,7 +590,7 @@ def controlsd_thread(sm=None, pm=None, can_sock=None):
       print("not car recognized") 
     #if not CP.enableCamera:
     #  print("Camera unavailable") 
-        if log.HealthData.FaultType.relayMalfunction in sm['health'].faults:
+    if log.HealthData.FaultType.relayMalfunction in sm['health'].faults:
       events.append(create_event('relayMalfunction', [ET.NO_ENTRY, ET.PERMANENT, ET.IMMEDIATE_DISABLE]))
 
 
