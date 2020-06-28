@@ -2,7 +2,7 @@
 from cereal import car
 from selfdrive.config import Conversions as CV
 from selfdrive.controls.lib.drive_helpers import EventTypes as ET, create_event
-from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, FINGERPRINTS
+from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, FINGERPRINTS, NO_EPS_CAR
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint
 from selfdrive.swaglog import cloudlog
 from selfdrive.car.interfaces import CarInterfaceBase
@@ -23,7 +23,7 @@ class CarInterface(CarInterfaceBase):
     ret.steerActuatorDelay = 0.12  # Default delay, Prius has larger delay
     ret.steerLimitTimer = 0.4
 
-    if candidate not in [CAR.PRIUS, CAR.RAV4, CAR.RAV4H]: # These cars use LQR/INDI
+    if candidate not in [CAR.PRIUS, CAR.RAV4, CAR.OLD_CAR, CAR.RAV4H]: # These cars use LQR/INDI
       ret.lateralTuning.init('pid')
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[0.], [0.]]
 
@@ -74,10 +74,10 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.OLD_CAR:
       stop_and_go = True
       ret.safetyParam = 100
-      ret.wheelbase = 2.455
-      ret.steerRatio = 12.5
-      tire_stiffness_factor = 0.444  # not optimized yet
-      ret.mass = 6200.
+      ret.wheelbase = 2.830   # This is updated for BMW
+      ret.steerRatio = 17.9   # This is updated for BMW
+      tire_stiffness_factor = 0.444
+      ret.mass = 1750 + STD_CARGO_KG   # This is updated for BMW
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2], [0.05]]
       ret.lateralTuning.pid.kf = 0.00003   # full torque for 20 deg at 80mph means 0.00007818594
 
@@ -253,14 +253,15 @@ class CarInterface(CarInterfaceBase):
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
                                                                          tire_stiffness_factor=tire_stiffness_factor)
 
-    ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera) or has_relay
+    ret.enableCamera = True #is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera) or has_relay
     # Detect smartDSU, which intercepts ACC_CMD from the DSU allowing openpilot to send it
     smartDsu = 0x2FF in fingerprint[0]
     # In TSS2 cars the camera does long control
     ret.enableDsu = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.dsu) and candidate not in TSS2_CAR
     ret.enableGasInterceptor = True #0x201 in fingerprint[0]
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
-    ret.openpilotLongitudinalControl = ret.enableCamera and (smartDsu or ret.enableDsu or candidate in TSS2_CAR)
+    # ret.openpilotLongitudinalControl = ret.enableCamera and (smartDsu or ret.enableDsu or candidate in TSS2_CAR)
+    ret.openpilotLongitudinalControl = ret.enableCamera
     cloudlog.warning("ECU Camera Simulated: %r", ret.enableCamera)
     cloudlog.warning("ECU DSU Simulated: %r", ret.enableDsu)
     cloudlog.warning("ECU Gas Interceptor: %r", ret.enableGasInterceptor)
@@ -275,14 +276,21 @@ class CarInterface(CarInterfaceBase):
 
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
-    ret.longitudinalTuning.kpBP = [0., 5., 45.]
-    ret.longitudinalTuning.kiBP = [0., 35., 55.]
+    ret.longitudinalTuning.kpBP = [0., 8., 15.]
+    ret.longitudinalTuning.kiBP = [0., 15.]
+#     ret.longitudinalTuning.kpBP = [0., 5., 45.]   # Original values
+#     ret.longitudinalTuning.kiBP = [0., 35., 55.]    # Original values
 
     if ret.enableGasInterceptor:
-      ret.gasMaxBP = [0., 9., 35]
-      ret.gasMaxV = [0.05, 0.05, 0.7]
-      ret.longitudinalTuning.kpV = [0.2, 0.2, 0.5]
-      ret.longitudinalTuning.kiV = [0.01, 0.025 ,0.06]
+      ret.gasMaxBP = [0., 15., 25]
+      ret.gasMaxV = [0.05, 0.3, 0.7]
+      ret.longitudinalTuning.kpV = [1.0, 0.8, 0.6]
+      ret.longitudinalTuning.kiV = [0.15, 0.1]
+#       ret.gasMaxBP = [0., 9., 35]   # Original values
+#       ret.gasMaxV = [0.05, 0.05, 0.7]   # Original values
+#       ret.longitudinalTuning.kpV = [0.2, 0.2, 0.5]   # Original values
+#       ret.longitudinalTuning.kiV = [0.01, 0.025 ,0.06]   # Original values
+
     else:
       ret.gasMaxBP = [0.]
       ret.gasMaxV = [0.5]

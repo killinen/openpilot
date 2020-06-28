@@ -2,9 +2,11 @@ from cereal import car
 from common.numpy_fast import clip
 from selfdrive.car import apply_toyota_steer_torque_limits, create_gas_command, make_can_msg
 from selfdrive.car.toyota.toyotacan import create_steer_command, create_ui_command, \
-                                           create_accel_command, create_acc_cancel_command, create_fcw_command
-from selfdrive.car.toyota.values import Ecu, CAR, STATIC_MSGS, SteerLimitParams
+                                           create_accel_command, create_acc_cancel_command, create_fcw_command, \
+                                           create_lead_command
+from selfdrive.car.toyota.values import Ecu, CAR, STATIC_MSGS, SteerLimitParams, NO_DSU_CAR, NO_EPS_CAR
 from opendbc.can.packer import CANPacker
+import cereal.messaging as messaging
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -44,11 +46,23 @@ class CarController():
     if CP.enableCamera: self.fake_ecus.add(Ecu.fwdCamera)
     if CP.enableDsu: self.fake_ecus.add(Ecu.dsu)
 
+    self.sm = messaging.SubMaster(['radarState'])
+    self.lead_rel_speed = 255
+    self.lead_long_dist = 255      
+      
     self.packer = CANPacker(dbc_name)
 
   def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
              left_line, right_line, lead, left_lane_depart, right_lane_depart):
 
+    #MGS Lead car
+    
+    self.sm.update(0)
+    if self.sm.updated['radarState']:
+      self.lead_rel_speed = self.sm['radarState'].leadOne.vRel
+      self.lead_long_dist = self.sm['radarState'].leadOne.dRel
+        
+    
     # *** compute control surfaces ***
 
     # gas and brake
@@ -71,11 +85,16 @@ class CarController():
     self.steer_rate_limited = new_steer != apply_steer
 
     # only cut torque when steer state is a known fault
-    if CS.steer_state in [9, 25]:
+    if CS.CP.carFingerprint not in NO_EPS_CAR and CS.steer_state in [9, 25]:
+    #if self.CS.carFingerprint not in NO_EPS_CAR and CS.steer_state in [9, 25]:
+    #if CS.steer_state in [9, 25]:
       self.last_fault_frame = frame
 
     # Cut steering for 2s after fault
-    if not enabled or (frame - self.last_fault_frame < 200):
+    #if not enabled or self.CS.CP.carFingerprint in NO_EPS_CAR or (frame - self.last_fault_frame < 200):
+    if not enabled or CS.CP.carFingerprint in NO_EPS_CAR or (frame - self.last_fault_frame < 200):
+    #if not enabled or self.CS.carFingerprint in NO_EPS_CAR or (frame - self.last_fault_frame < 200):
+    #if not enabled or (frame - self.last_fault_frame < 200):
       apply_steer = 0
       apply_steer_req = 0
     else:
@@ -104,8 +123,10 @@ class CarController():
     # toyota can trace shows this message at 42Hz, with counter adding alternatively 1 and 2;
     # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
     # on consecutive messages
-    if Ecu.fwdCamera in self.fake_ecus:
-      can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
+
+    # Disable this CAN message so not to spam my CAN bus, try to find how to put this on different bus
+#     if Ecu.fwdCamera in self.fake_ecus:
+#       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
 
     # we can spam can to cancel the system even if we are using lat only control
     if (frame % 3 == 0 and CS.CP.openpilotLongitudinalControl) or (pcm_cancel_cmd and Ecu.fwdCamera in self.fake_ecus):
@@ -116,6 +137,7 @@ class CarController():
         can_sends.append(create_acc_cancel_command(self.packer))
       elif CS.CP.openpilotLongitudinalControl:
         can_sends.append(create_accel_command(self.packer, apply_accel, pcm_cancel_cmd, self.standstill_req, lead))
+        can_sends.append(create_lead_command(self.packer, self.lead_rel_speed, self.lead_long_dist))
       else:
         can_sends.append(create_accel_command(self.packer, 0, pcm_cancel_cmd, False, lead))
 
