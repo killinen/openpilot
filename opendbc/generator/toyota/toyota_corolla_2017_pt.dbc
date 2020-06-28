@@ -1,13 +1,21 @@
 CM_ "IMPORT _toyota_2017.dbc"
 CM_ "IMPORT _comma.dbc"
 
+BO_ 339 DSC_1: 8 XXX
+ SG_ ASC_STATUS : 0|1@1+ (1,0) [0|3] "" XXX
+ SG_ DSC_OFF : 2|1@1+ (1,0) [0|3] "" XXX
+ SG_ DSC_STATUS : 3|1@0+ (1,0) [0|3] "" XXX
+ SG_ BRAKE_LIGHT_SIGNAL : 4|1@0+ (1,0) [0|3] "" XXX
+
+BO_ 501 SZL_1: 8 XXX
+ SG_ VELOCITY_DIRECTION : 31|1@0+ (1,0) [0|1] "" XXX
+ SG_ STEERING_VELOCITY : 16|15@1+ (0.045,0) [0|1] "deg/s" XXX
+ SG_ ANGLE_DIRECTION : 15|1@0+ (1,0) [0|1] "" XXX
+ SG_ STEERING_ANGLE : 0|15@1+ (0.045,0) [0|1] "deg" XXX
+
 BO_ 548 BRAKE_MODULE: 8 XXX
  SG_ BRAKE_PRESSURE : 43|12@0+ (1,0) [0|4047] "" XXX
  SG_ BRAKE_PRESSED : 5|1@0+ (1,0) [0|1] "" XXX
-
-BO_ 705 GAS_PEDAL: 8 XXX
- SG_ GAS_RELEASED : 3|1@0+ (1,0) [0|1] "" XXX
- SG_ GAS_PEDAL : 55|8@0+ (0.005,0) [0|1] "" XXX
 
 BO_ 608 STEER_TORQUE_SENSOR: 8 XXX
  SG_ STEER_TORQUE_EPS : 47|16@0- (1.0,0) [-20000|20000] "" XXX
@@ -22,13 +30,53 @@ BO_ 610 EPS_STATUS: 5 EPS
  SG_ TYPE : 24|1@0+ (1,0) [0|1] "" XXX
  SG_ CHECKSUM : 39|8@0+ (1,0) [0|255] "" XXX
 
+BO_ 809 DME_2: 8 XXX
+ SG_ CRUISE_CONTROL_REQUESTED_LOAD : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ CRUISE_CONTROL_ENABLED : 51|1@0+ (1,0) [0|1] "" XXX
+ SG_ BRAKE_LIGHT_SIGNAL_ERROR : 49|1@0+ (1,0) [0|1] "" XXX
+ SG_ BRAKE_LIGHT_SIGNAL : 48|1@0+ (1,0) [0|1] "" XXX
+ SG_ ATMOSPHERIC_PRESSURE : 23|8@0+ (2,597) [0|255] "mbar" XXX
+ SG_ MULTIPLEXD_MSG : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ COOLANT_TEMP : 15|8@0+ (0.75,-48) [0|255] "" XXX
+ SG_ CRUISE_I_O : 31|1@0+ (1,0) [0|1] "" XXX
+ SG_ CRUISE_AC_DECELARATION : 53|2@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL : 25|1@1+ (1,0) [0|3] "" XXX
+ SG_ KICK_DOWN : 50|1@0+ (1,0) [0|1] "" XXX
+ SG_ GAS_PEDAL : 47|8@0+ (0.005,0) [0|1] "" XXX
+ SG_ CRUISE_CONTROL_UP : 29|1@0+ (1,0) [0|1] "" XXX
+ SG_ CRUISE_CONTROL_DOWN : 30|1@0+ (1,0) [0|1] "" XXX
+ SG_ RESUME_BTN : 30|2@0+ (1,0) [0|3] "" XXX
+
 BO_ 956 GEAR_PACKET: 8 XXX
  SG_ GEAR : 13|6@0+ (1,0) [0|63] "" XXX
  SG_ SPORT_ON : 3|1@0+ (1,0) [0|1] "" XXX
 
+BO_ 1087 AGS_1: 8 XXX
+ SG_ NEW_SIGNAL_8 : 63|8@0+ (1,0) [0|1] "" XXX
+ SG_ GEAR_SELECTOR : 11|4@0+ (1,0) [0|1] "" XXX
+ SG_ GEARBOX_RUNNING : 12|1@0+ (1,0) [0|3] "" XXX
+ SG_ TORQ_REDUCTION_REQ : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ GEARBOX_MODE : 23|3@0+ (1,0) [0|1] "" XXX
+ SG_ GEARBOX_READY_START : 15|2@0+ (1,0) [0|1] "" XXX
+ SG_ GEAR : 0|3@1+ (1,0) [0|7] "" XXX
+ SG_ GEAR_CHANGE : 3|1@1+ (1,0) [0|7] "" XXX
+ SG_ LOCKUP_CLUTCH : 6|1@0+ (1,0) [0|3] "" XXX
+ SG_ SPEED : 39|8@0+ (1.37,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 46|10@1+ (1,0) [0|255] "" XXX
+
+BO_ 1557 IKE_2: 8 XXX
+ SG_ BLINKERS : 42|2@0+ (1,0) [0|3] "" XXX
+ SG_ DOOR_OPEN_RL : 56|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_RR : 57|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_FR : 58|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_FL : 59|1@0+ (1,0) [0|1] "" XXX
+ SG_ SEATBELT_DRIVER_UNLATCHED : 60|1@0+ (1,0) [0|1] "" XXX
+
 CM_ SG_ 548 BRAKE_PRESSURE "seems prop to pedal force";
 CM_ SG_ 548 BRAKE_POSITION "seems proportional to pedal displacement, unclear the max value of 0x1c8";
 CM_ SG_ 610 TYPE "seems 1 on Corolla, 0 on all others";
+CM_ SG_ 809 RESUME_BTN "1 is UP 2 is DOWN and 3 is RESUME";
+VAL_ 1087 GEAR_SELECTOR 5 "D" 1 "S" 6 "N" 7 "R" 8 "P";
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 610 IPAS_STATE 5 "override" 3 "enabled" 1 "disabled";
 VAL_ 610 LKA_STATE 25 "temporary_fault" 9 "temporary_fault2" 5 "active" 1 "standby";
