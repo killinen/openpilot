@@ -29,7 +29,7 @@ const int TOYOTA_STANDSTILL_THRSLD = 32;  // 1kph
 const int TOYOTA_GAS_INTERCEPTOR_THRSLD = 845;
 #define TOYOTA_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2) // avg between 2 tracks
 
-const AddrBus TOYOTA_TX_MSGS[] = {{0x283, 0}, {0x2E6, 0}, {0x2E7, 0}, {0x33E, 0}, {0x344, 0}, {0x365, 0}, {0x366, 0}, {0x4CB, 0},  // DSU bus 0
+const AddrBus TOYOTA_TX_MSGS[] = {{0x283, 0}, {0x2E6, 2}, {0x2E7, 0}, {0x33E, 0}, {0x344, 0}, {0x365, 0}, {0x366, 0}, {0x4CB, 0},  // DSU bus 0
                                   {0x128, 1}, {0x141, 1}, {0x160, 1}, {0x161, 1}, {0x470, 1},  // DSU bus 1
                                   {0x2E4, 0}, {0x411, 0}, {0x412, 0}, {0x343, 0}, {0x1D2, 0},  // LKAS + ACC
                                   {0x200, 0}, {0x750, 0}, {0x1F0, 0}, {0x153, 0}, {0x43F, 0}, {0x329, 0}, {0x615, 0}};  // interceptor + Blindspot monitor
