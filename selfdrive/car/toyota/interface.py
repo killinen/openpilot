@@ -336,7 +336,7 @@ class CarInterface(CarInterfaceBase):
     fuck = ret.gear
     
     self.CS.out = ret.as_reader()
-    return self.CS.out
+    return (self.CS.out, fuck)
 
   # pass in a car.CarControl
   # to be called @ 100hz
