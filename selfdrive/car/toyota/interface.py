@@ -273,8 +273,6 @@ class CarInterface(CarInterfaceBase):
     # removing the DSU disables AEB and it's considered a community maintained feature
     # intercepting the DSU is a community feature since it requires unofficial hardware
     ret.communityFeature = ret.enableGasInterceptor or ret.enableDsu or smartDsu
-
-    print(self.CS.gear)
     
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
@@ -331,6 +329,8 @@ class CarInterface(CarInterfaceBase):
         events.append(create_event('manualRestart', [ET.WARNING]))
 
     ret.events = events
+    
+    print(CS.gear)
 
     self.CS.out = ret.as_reader()
     return self.CS.out
