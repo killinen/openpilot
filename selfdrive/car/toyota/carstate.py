@@ -132,6 +132,7 @@ class CarState(CarStateBase):
     
     # Try to make variable Kp to gear
     ret.gear = cp.vl["AGS_1"]['GEAR']
+    print(ret.gear)
 
         
     # Trying to make CRUISE SET_SPEED happen inside here, maybe have to mod the arduino code
