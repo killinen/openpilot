@@ -330,7 +330,7 @@ class CarInterface(CarInterfaceBase):
 
     ret.events = events
     
-    print(CS.gear)
+    print(ret.gear)
 
     self.CS.out = ret.as_reader()
     return self.CS.out
