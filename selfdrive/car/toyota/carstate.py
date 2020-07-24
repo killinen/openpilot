@@ -129,6 +129,9 @@ class CarState(CarStateBase):
     else:
       ret.cruiseState.standstill = self.pcm_acc_status == 7
     ret.cruiseState.enabled = bool(cp.vl["PCM_CRUISE"]['CRUISE_ACTIVE'])
+    
+    # Try to make variable Kp to gear
+    ret.gear = cp.vl["AGS_1"]['GEAR']
 
         
     # Trying to make CRUISE SET_SPEED happen inside here, maybe have to mod the arduino code
@@ -166,6 +169,7 @@ class CarState(CarStateBase):
       # sig_name, sig_address, default
       ("STEERING_ANGLE", "SZL_1", 0),     #Imported from BMW
       ("GEAR_SELECTOR", "AGS_1", 0),      #Imported from BMW
+      ("GEAR", "AGS_1", 0),      #Imported from BMW
       ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
       ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
       ("CRUISE_I_O", "DME_2", 0),
