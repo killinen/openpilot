@@ -16,7 +16,7 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), has_relay=False, car_fw=[]):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint, has_relay)
-    bet = self.CS.update(self.cp, self.cp_cam)
+    # bet = self.CS.update(self.cp, self.cp_cam)
 
     ret.carName = "toyota"
     ret.safetyModel = car.CarParams.SafetyModel.allOutput
@@ -275,7 +275,7 @@ class CarInterface(CarInterfaceBase):
     # intercepting the DSU is a community feature since it requires unofficial hardware
     ret.communityFeature = ret.enableGasInterceptor or ret.enableDsu or smartDsu
     
-    print(bet.gear)
+    # print(bet.gear)
     
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
