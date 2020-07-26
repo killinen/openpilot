@@ -131,7 +131,7 @@ class CarState(CarStateBase):
     ret.cruiseState.enabled = bool(cp.vl["PCM_CRUISE"]['CRUISE_ACTIVE'])
     
     # Try to make variable Kp to gear
-    ret.gear = cp.vl["AGS_1"]['GEAR']
+    self.gear = cp.vl["AGS_1"]['GEAR']
     # print(ret.gear)
 
         
