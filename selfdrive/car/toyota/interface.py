@@ -274,7 +274,7 @@ class CarInterface(CarInterfaceBase):
     # intercepting the DSU is a community feature since it requires unofficial hardware
     ret.communityFeature = ret.enableGasInterceptor or ret.enableDsu or smartDsu
     
-    print(self.fuck)
+    print(self.CS.gear)
     
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
@@ -333,10 +333,10 @@ class CarInterface(CarInterfaceBase):
     ret.events = events
     
     #print(ret.gear)
-    self.fuck = ret.gear
+    #self.fuck = ret.gear
     
     self.CS.out = ret.as_reader()
-    return (self.CS.out, self.fuck)
+    return self.CS.out
 
   # pass in a car.CarControl
   # to be called @ 100hz
