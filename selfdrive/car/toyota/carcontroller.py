@@ -126,7 +126,7 @@ class CarController():
 
     # Start to see what this CAN stuff does so yu can control the steering, on long term try to get it to another bus OK
      if Ecu.fwdCamera in self.fake_ecus:
-       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
+      can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
 
     # we can spam can to cancel the system even if we are using lat only control
     if (frame % 3 == 0 and CS.CP.openpilotLongitudinalControl) or (pcm_cancel_cmd and Ecu.fwdCamera in self.fake_ecus):
