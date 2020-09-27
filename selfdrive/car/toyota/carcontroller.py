@@ -123,14 +123,17 @@ class CarController():
     # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
     # on consecutive messages
 
-    # Start to see what this CAN stuff does so yu can control the steering, on long term try to get it to another bus OK -> this is torque based, try angle based steering
+    # Start to see what this CAN stuff does so yu can control the steering, on long term try to get it to another bus OK -> this is torque based, below is angle based steering
+    if Ecu.fwdCamera in self.fake_ecus and frame % 2 == 0:
+      can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
+    # This is original, try to not to spam bus soo muchos
     #if Ecu.fwdCamera in self.fake_ecus:
     #  can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
 
-    # LTA mode. Set ret.steerControlType = car.CarParams.SteerControlType.angle and whitelist 0x191 in the panda
-    if frame % 2 == 0:
-      can_sends.append(create_steer_command(self.packer, 0, 0, frame // 2))
-      can_sends.append(create_lta_steer_command(self.packer, actuators.steerAngle, apply_steer_req, frame // 2))
+    # LTA mode. Set ret.steerControlType = car.CarParams.SteerControlType.angle and whitelist 0x191 in the panda (no need for panda change controlType in car/interfaces.py
+    #if frame % 2 == 0:
+    #  can_sends.append(create_steer_command(self.packer, 0, 0, frame // 2))
+    #  can_sends.append(create_lta_steer_command(self.packer, actuators.steerAngle, apply_steer_req, frame // 2))
       
       
     # we can spam can to cancel the system even if we are using lat only control
