@@ -28,7 +28,8 @@ from common.op_params import opParams
 
 LANE_DEPARTURE_THRESHOLD = 0.1
 STEER_ANGLE_SATURATION_TIMEOUT = 1.0 / DT_CTRL
-STEER_ANGLE_SATURATION_THRESHOLD = 2.5  # Degrees
+# STEER_ANGLE_SATURATION_THRESHOLD = 2.5  # Degrees <- This is the deviation threshold for desired steer angle and actual, too big difference gives steerSaturated alert 
+STEER_ANGLE_SATURATION_THRESHOLD = 10  # Degrees
 
 ThermalStatus = log.ThermalData.ThermalStatus
 State = log.ControlsState.OpenpilotState
