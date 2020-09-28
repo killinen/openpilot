@@ -67,7 +67,7 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, following, CP):
     a_y = v_ego**2 * angle_steers * CV.DEG_TO_RAD / (CP.steerRatio * CP.wheelbase)
     a_x_allowed = math.sqrt(max(a_total_max**2 - a_y**2, 0.))  
   else:
-    a_x_allowed = a_target
+    a_x_allowed = a_target[1]
   
   # Below is original "function"
   #a_total_max = interp(v_ego, _A_TOTAL_MAX_BP, _A_TOTAL_MAX_V)
