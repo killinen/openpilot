@@ -11,7 +11,8 @@ STARTING_TARGET_SPEED = 0.5
 BRAKE_THRESHOLD_TO_PID = 0.2
 
 STOPPING_BRAKE_RATE = 0.2  # brake_travel/s while trying to stop
-STARTING_BRAKE_RATE = 0.8  # brake_travel/s while releasing on restart
+#STARTING_BRAKE_RATE = 0.8  # brake_travel/s while releasing on restart  <- Original value
+STARTING_BRAKE_RATE = 5.0  # brake_travel/s while releasing on restart
 BRAKE_STOPPING_TARGET = 0.5  # apply at least this amount of brake to maintain the vehicle stationary
 
 _MAX_SPEED_ERROR_BP = [0., 30.]  # speed breakpoints
@@ -112,7 +113,8 @@ class LongControl():
       # Keep applying brakes until the car is stopped
       if not standstill or output_gb > -BRAKE_STOPPING_TARGET:
         output_gb -= STOPPING_BRAKE_RATE / RATE
-      output_gb = clip(output_gb, -brake_max, gas_max)
+      # output_gb = clip(output_gb, -brake_max, gas_max)  <- Original value
+      output_gb = clip(output_gb, -1.0, gas_max)
 
       self.v_pid = v_ego
       self.pid.reset()
