@@ -22,8 +22,8 @@ class MPC_COST_LONG:
   DISTANCE = 0.1    # <- Original value
   # DISTANCE = 0.2
   ACCELERATION = 10.0
-  # JERK = 20.0 <- Original value
-  JERK = 2
+  JERK = 20.0   # <- Original value
+  # JERK = 2
 
 
 class EventTypes:
