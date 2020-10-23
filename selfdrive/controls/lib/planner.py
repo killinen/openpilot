@@ -43,12 +43,14 @@ _A_TOTAL_MAX_BP = [20., 40.]
 SPEED_PERCENTILE_IDX = 7
 
 
-def calc_cruise_accel_limits(v_ego, following):
+def calc_cruise_accel_limits(v_ego, following, lead_following):
   #a_cruise_min = interp(v_ego, _A_CRUISE_MIN_BP, _A_CRUISE_MIN_V)
 
   if following:
     a_cruise_max = interp(v_ego, _A_CRUISE_MAX_BP, _A_CRUISE_MAX_V_FOLLOWING)
     a_cruise_min = interp(v_ego, _A_CRUISE_MIN_BP, _A_CRUISE_MIN_V)
+  elif lead_following:
+    a_cruise_max = interp(v_ego, _A_CRUISE_MAX_BP, _A_CRUISE_MAX_V_FOLLOWING)
   else:
     a_cruise_max = interp(v_ego, _A_CRUISE_MAX_BP, _A_CRUISE_MAX_V)
     a_cruise_min = interp(v_ego, _A_CRUISE_MIN_BP, _A_CRUISE_MIN_V_NF)
@@ -144,7 +146,7 @@ class Planner():
 
     enabled = (long_control_state == LongCtrlState.pid) or (long_control_state == LongCtrlState.stopping)
     following = lead_1.status and lead_1.dRel < 45.0 and lead_1.vLeadK > v_ego and lead_1.aLeadK > 0.0    # <- Original statement
-    # following = lead_1.status and lead_1.dRel < 45.0
+    lead_following = lead_1.status
 
     if len(sm['model'].path.poly):
       path = list(sm['model'].path.poly)
@@ -166,7 +168,7 @@ class Planner():
 
     # Calculate speed for normal cruise control
     if enabled and not self.first_loop:
-      accel_limits = [float(x) for x in calc_cruise_accel_limits(v_ego, following)]
+      accel_limits = [float(x) for x in calc_cruise_accel_limits(v_ego, following, lead_following)]
       jerk_limits = [min(-0.1, accel_limits[0]), max(0.05, accel_limits[1])]  # TODO: make a separate lookup for jerk tuning
       #jerk_limits = [min(-0.1, accel_limits[0]), max(0.1, accel_limits[1])]  # TODO: make a separate lookup for jerk tuning
       accel_limits_turns = limit_accel_in_turns(v_ego, sm['carState'].steeringAngle, accel_limits, following, self.CP)
