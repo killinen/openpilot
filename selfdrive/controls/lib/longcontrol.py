@@ -114,7 +114,7 @@ class LongControl():
       if not standstill or output_gb > -BRAKE_STOPPING_TARGET:
         output_gb -= STOPPING_BRAKE_RATE / RATE
       #output_gb = clip(output_gb, -brake_max, gas_max)  # <- Original value
-      output_gb = clip(output_gb, -0.7, gas_max)
+      output_gb = clip(output_gb, -0.5, gas_max)
 
       self.v_pid = v_ego
       self.pid.reset()
