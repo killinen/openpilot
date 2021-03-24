@@ -145,8 +145,8 @@ class Controls:
       self.events.add(EventName.communityFeatureDisallowed, static=True)
     if not car_recognized:
       self.events.add(EventName.carUnrecognized, static=True)
-    if hw_type == PandaType.whitePanda:
-      self.events.add(EventName.whitePandaUnsupported, static=True)
+    #if hw_type == PandaType.whitePanda:
+    #  self.events.add(EventName.whitePandaUnsupported, static=True)
 
     # controlsd is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
