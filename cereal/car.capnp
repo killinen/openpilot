@@ -200,6 +200,8 @@ struct CarState {
   # autoHold Active Information
   autoHoldActivated @42 :Bool;
 
+  epsDisabled @35 :Bool;
+
   struct WheelSpeeds {
     # optional wheel speeds
     fl @0 :Float32;
