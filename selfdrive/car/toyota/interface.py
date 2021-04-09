@@ -96,6 +96,48 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2], [0.05]]
       ret.lateralTuning.pid.kf = 0.00003   # full torque for 20 deg at 80mph means 0.00007818594
 
+    elif candidate == CAR.OLD_CAR:
+      stop_and_go = True
+      ret.safetyParam = 100
+      ret.wheelbase = 4.35
+      ret.steerRatio = 12.5
+      tire_stiffness_factor = 0.444
+      ret.mass = 5000.0
+      ret.longitudinalTuning.kpBP = [0., 15., 22.]
+      ret.longitudinalTuning.kiBP = [0., 15., 22.]
+      ret.gasMaxBP = [0., 5., 12., 25.]
+      ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
+      #+      ret.gasMaxV = [0.1, 0.4, 0.8]
+
+      ret.longitudinalTuning.deadzoneBP = [0.]
+      ret.longitudinalTuning.deadzoneV = [0.]
+
+      ret.enableGasInterceptor = True #OLD_CAR USES ALWAYS INTERCEPTOR MESSAGE FOR GAS
+
+      # old(er)      ret.longitudinalTuning.kpBP = [0., 15., 20., 25.]
+      # old(er)      ret.longitudinalTuning.kiBP = [0., 10., 16., 25.]
+      # old(er)       ret.gasMaxBP = [0., 5., 15., 25.]
+      # old(er)       ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
+      # old        ret.longitudinalTuning.kpV = [1.0, 2.0, 2.0, 2.0]
+      # old        ret.longitudinalTuning.kiV = [0.2, 0.8, 0.8, 0.8]
+      # older       ret.longitudinalTuning.kpV = [1.0, 1.5, 1.8, 2.0]
+      # older       ret.longitudinalTuning.kiV = [0.2, 0.45, 0.55, 0.6]
+
+      if ret.enableGasInterceptor:
+        ret.longitudinalTuning.kpV = [1.2, 2, 2.4]
+        ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
+
+      ret.lateralTuning.init('lqr')
+      ret.lateralTuning.lqr.scale = 1500.0
+      ret.lateralTuning.lqr.ki = 0.07
+
+      ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
+      ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
+      ret.lateralTuning.lqr.c = [1., 0.]
+      ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
+      ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
+      ret.lateralTuning.lqr.dcGain = 0.002237852961363602
+
     elif candidate == CAR.LEXUS_RX:
       stop_and_go = True
       ret.safetyParam = 73
@@ -347,14 +389,19 @@ class CarInterface(CarInterfaceBase):
 
     ret = self.CS.update(self.cp, self.cp_cam)
 
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    if self.CP.carFingerprint == CAR.OLD_CAR:
+      ret.canValid = True  # self.cp.can_valid and self.cp_cam.can_valid
+    else:
+      ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     # events
     events = self.create_common_events(ret)
 
-    if self.cp_cam.can_invalid_cnt >= 200 and self.CP.enableCamera and not self.CP.isPandaBlack:
-      events.add(EventName.invalidGiraffeToyota)
+    #if self.cp_cam.can_invalid_cnt >= 200 and self.CP.enableCamera and not self.CP.isPandaBlack:
+    #  events.add(EventName.invalidGiraffeToyota)
+
     if self.CS.low_speed_lockout and self.CP.openpilotLongitudinalControl:
       events.add(EventName.lowSpeedLockout)
     if ret.vEgo < self.CP.minEnableSpeed and self.CP.openpilotLongitudinalControl:
