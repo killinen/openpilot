@@ -381,7 +381,7 @@ class CarInterface(CarInterfaceBase):
 
     return ret
 
-  # returns a car.CarState
+  # returns a car.CarState (called from controlsd (CS = self.CI.update(self.CC, can_strs))
   def update(self, c, can_strings):
     # ******************* do can recv *******************
     self.cp.update_strings(can_strings)
@@ -412,6 +412,7 @@ class CarInterface(CarInterfaceBase):
       if ret.vEgo < 0.001:
         # while in standstill, send a user alert
         events.add(EventName.manualRestart)
+
 
     ret.events = events.to_msg()
 

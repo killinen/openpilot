@@ -29,7 +29,7 @@ STEER_ANGLE_SATURATION_TIMEOUT = 1.0 / DT_CTRL
 STEER_ANGLE_SATURATION_THRESHOLD = 2.5  # Degrees
 
 SIMULATION = "SIMULATION" in os.environ
-NOSENSOR = "NOSENSOR" in os.environ
+NOSENSOR = True # no GPS for white panda ... "NOSENSOR" in os.environ
 IGNORE_PROCESSES = set(["rtshield", "uploader", "deleter", "loggerd", "logmessaged", "tombstoned", "logcatd", "proclogd", "clocksd", "updated", "timezoned"])
 
 ThermalStatus = log.DeviceState.ThermalStatus
@@ -152,6 +152,9 @@ class Controls:
     self.rk = Ratekeeper(100, print_delay_threshold=None)
     self.prof = Profiler(False)  # off by default
 
+    self.lead_rel_speed = 255
+    self.lead_long_dist = 255
+
   def update_events(self, CS):
     """Compute carEvents from carState"""
 
@@ -244,7 +247,7 @@ class Controls:
       if not NOSENSOR:
         if not self.sm.alive['ubloxRaw'] and (self.sm.frame > 10. / DT_CTRL):
           self.events.add(EventName.gpsMalfunction)
-        elif not self.sm['liveLocationKalman'].gpsOK and (self.distance_traveled > 1000) and not TICI:
+        elif not self.sm['liveLocationKalman'].gpsOK and (self.distance_trNOSENSORaveled > 1000) and not TICI:
           # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
           self.events.add(EventName.noGps)
       if not self.sm.all_alive(['roadCameraState', 'driverCameraState']) and (self.sm.frame > 5 / DT_CTRL):
@@ -261,6 +264,16 @@ class Controls:
     if CS.brakePressed and self.sm['longitudinalPlan'].vTargetFuture >= STARTING_TARGET_SPEED \
       and self.CP.openpilotLongitudinalControl and CS.vEgo < 0.3:
       self.events.add(EventName.noTarget)
+
+    # vision-only fcw, can be disabled if radar is present
+    if self.sm.updated['radarState']:
+      self.lead_rel_speed = self.sm['radarState'].leadOne.vRel
+      self.lead_long_dist = self.sm['radarState'].leadOne.dRel
+    if CS.cruiseState.enabled and self.lead_long_dist > 5 and self.lead_long_dist < 100 and self.lead_rel_speed <= -0.5 and CS.vEgo >= 5 and \
+            ((self.lead_long_dist/abs(self.lead_rel_speed) < 2.) or (self.lead_long_dist/abs(self.lead_rel_speed) < 4. and self.lead_rel_speed < -10) or \
+             (self.lead_long_dist/abs(self.lead_rel_speed) < 5. and self.lead_long_dist/CS.vEgo < 1.5)):
+      self.events.add(EventName.fcw)
+
 
   def data_sample(self):
     """Receive data from sockets and update carState"""
@@ -502,7 +515,7 @@ class Controls:
     controlsState.vPid = float(self.LoC.v_pid)
     controlsState.vCruise = float(self.v_cruise_kph)
     controlsState.upAccelCmd = float(self.LoC.pid.p)
-    controlsState.uiAccelCmd = float(self.LoC.pid.i)
+    controlsState.uiAccelCmd = float(self.LoC.pid.id)
     controlsState.ufAccelCmd = float(self.LoC.pid.f)
     controlsState.steeringAngleDesiredDeg = float(self.LaC.angle_steers_des)
     controlsState.vTargetLead = float(v_acc)
