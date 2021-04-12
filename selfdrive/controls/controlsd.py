@@ -249,7 +249,7 @@ class Controls:
       if not NOSENSOR:
         if not self.sm.alive['ubloxRaw'] and (self.sm.frame > 10. / DT_CTRL):
           self.events.add(EventName.gpsMalfunction)
-        elif not self.sm['liveLocationKalman'].gpsOK and (self.distance_trNOSENSORaveled > 1000) and not TICI:
+        elif not self.sm['liveLocationKalman'].gpsOK and (self.distance_traveled > 1000) and not TICI:
           # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
           self.events.add(EventName.noGps)
       if not self.sm.all_alive(['roadCameraState', 'driverCameraState']) and (self.sm.frame > 5 / DT_CTRL):
