@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import time
 from opendbc.can.parser import CANParser
 from cereal import car
 from selfdrive.car.toyota.values import NO_DSU_CAR, DBC, TSS2_CAR
@@ -49,7 +50,8 @@ class RadarInterface(RadarInterfaceBase):
 
   def update(self, can_strings):
     if self.no_radar:
-      return super().update(None)
+      time.sleep(self.radar_ts)
+      return car.RadarData.new_message()
 
     vls = self.rcp.update_strings(can_strings)
     self.updated_messages.update(vls)
