@@ -118,6 +118,7 @@ FINGERPRINTS = {
   }],
   CAR.OLD_CAR: [
     {274: 8, 466: 8, 170: 8, 467: 8, 951: 8, 956: 8, 548: 8, 1568: 8, 705: 8, 1556: 8, 1570: 8}, # bare retropilot ecu
+    {951: 8, 956: 8, 1568: 8, 548: 8, 705: 8, 1556: 8, 1570: 8, 274: 8, 466: 8, 170: 8, 467: 8, 608: 8, 610: 8}, # bare retropilot ecu with EPS_NONE & no steer angle sensor activated
     {466: 8, 170: 8, 467: 8, 274: 8, 608: 8, 916: 2, 951: 8, 956: 8, 1568: 8, 548: 8, 705: 8, 1556: 8, 1570: 8, 610: 5, 849: 4, 1224: 8}, # retropilot ecu + stock eps + stock SAS
     {467: 8, 170: 8, 274: 8, 608: 8, 916: 2, 37: 8, 128: 5, 466: 8, 849: 4, 951: 8, 956: 8, 1568: 8, 548: 8, 705: 8, 1570: 8, 610: 5, 1556: 8, 1224: 8}, # retropilot ecu + stock eps + ford fusion SAS with emulated toyota SAS
   ],
