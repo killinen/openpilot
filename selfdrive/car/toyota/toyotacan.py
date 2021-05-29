@@ -43,8 +43,9 @@ def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
   return packer.make_can_msg("ACC_CONTROL", 0, values)
 
 
-def create_lead_command(packer, lead_rel_speed, lead_long_dist):
+def create_lead_command(packer, lead_rel_speed, lead_acceleration, lead_long_dist):
   values = {
+    "LEAD_ACCELERATION": lead_acceleration,
     "LEAD_REL_SPEED": lead_rel_speed,
     "LEAD_LONG_DIST": lead_long_dist,
   }
