@@ -28,6 +28,8 @@
 
 extern ExitHandler do_exit;
 
+#define ARRAYSIZE(x) (sizeof(x)/sizeof(x[0]))
+
 // global var for AE/AF ops
 std::atomic<CameraExpInfo> road_cam_exp{{0}};
 std::atomic<CameraExpInfo> driver_cam_exp{{0}};
