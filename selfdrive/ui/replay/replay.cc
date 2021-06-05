@@ -45,7 +45,7 @@ Replay::Replay(QString route, SubMaster *sm_, QObject *parent) : sm(sm_), QObjec
     pm = new PubMaster(s);
   }
 
-  const QString url = "https://api.commadotai.com/v1/route/" + route + "/files";
+  const QString url = "https://api.retropilot.org/v1/route/" + route + "/files";
   http = new HttpRequest(this, url, "", !Hardware::PC());
   QObject::connect(http, &HttpRequest::receivedResponse, this, &Replay::parseResponse);
 }
@@ -83,8 +83,8 @@ void Replay::addSegment(int n) {
   });
   QObject::connect(frame_thread, &QThread::finished, frame_thread, &QThread::deleteLater);
   frame_thread->start();
-  
-  
+
+
 }
 
 void Replay::removeSegment(int n) {
