@@ -19,12 +19,20 @@
 #define FRAME_BUF_COUNT 4
 #define METADATA_BUF_COUNT 4
 
+#define DEVICE_OP3 0
+#define DEVICE_OP3T 1
+#define DEVICE_LP3 2
+
 #define NUM_FOCUS 8
 
 #define LP3_AF_DAC_DOWN 366
 #define LP3_AF_DAC_UP 634
 #define LP3_AF_DAC_M 440
 #define LP3_AF_DAC_3SIG 52
+#define OP3T_AF_DAC_DOWN 224
+#define OP3T_AF_DAC_UP 456
+#define OP3T_AF_DAC_M 300
+#define OP3T_AF_DAC_3SIG 96
 
 #define FOCUS_RECOVER_PATIENCE 50 // 2.5 seconds of complete blur
 #define FOCUS_RECOVER_STEPS 240 // 6 seconds
@@ -43,7 +51,7 @@ typedef struct StreamState {
 typedef struct CameraState {
   int camera_num;
   int camera_id;
-
+  int device;
   int fps;
   CameraInfo ci;
 
@@ -60,7 +68,7 @@ typedef struct CameraState {
   std::mutex frame_info_lock;
   FrameMetadata frame_metadata[METADATA_BUF_COUNT];
   int frame_metadata_idx;
-
+  
   // exposure
   uint32_t pixel_clock, line_length_pclk;
   uint32_t max_gain;
@@ -71,7 +79,7 @@ typedef struct CameraState {
   camera_apply_exposure_func apply_exposure;
 
   // rear camera only,used for focusing
-  unique_fd actuator_fd, eeprom_fd;
+  unique_fd actuator_fd, ois_fd, eeprom_fd;
   std::atomic<float> focus_err;
   std::atomic<float> last_sag_acc_z;
   std::atomic<float> lens_true_pos;
@@ -87,6 +95,8 @@ typedef struct CameraState {
 
 
 typedef struct MultiCameraState {
+  int device;
+
   unique_fd ispif_fd;
   unique_fd msmcfg_fd;
   unique_fd v4l_fd;

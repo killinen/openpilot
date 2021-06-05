@@ -211,13 +211,14 @@ def thermald_thread():
       if handle_fan is None and pandaState.pandaState.pandaType != log.PandaState.PandaType.unknown:
         is_uno = pandaState.pandaState.pandaType == log.PandaState.PandaType.uno
 
-        if (not EON) or is_uno:
-          cloudlog.info("Setting up UNO fan handler")
-          handle_fan = handle_fan_uno
-        else:
-          cloudlog.info("Setting up EON fan handler")
-          setup_eon_fan()
-          handle_fan = handle_fan_eon
+        handle_fan = handle_fan_uno
+        #if (not EON) or is_uno:
+        #  cloudlog.info("Setting up UNO fan handler")
+        #  handle_fan = handle_fan_uno
+        #else:
+        #  cloudlog.info("Setting up EON fan handler")
+        #  setup_eon_fan()
+        #  handle_fan = handle_fan_eon
 
       # Handle disconnect
       if pandaState_prev is not None:

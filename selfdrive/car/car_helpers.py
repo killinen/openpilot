@@ -5,6 +5,7 @@ from selfdrive.version import comma_remote, tested_branch
 from selfdrive.car.fingerprints import eliminate_incompatible_cars, all_legacy_fingerprint_cars
 from selfdrive.car.vin import get_vin, VIN_UNKNOWN
 from selfdrive.car.fw_versions import get_fw_versions, match_fw_to_car
+from selfdrive.hardware import EON
 from selfdrive.swaglog import cloudlog
 import cereal.messaging as messaging
 from selfdrive.car import gen_empty_fingerprint
@@ -25,6 +26,8 @@ def get_startup_event(car_recognized, controller_available, fuzzy_fingerprint):
     event = EventName.startupNoControl
   elif car_recognized and fuzzy_fingerprint:
     event = EventName.startupFuzzyFingerprint
+  elif EON and "letv" not in open("/proc/cmdline").read():
+    event = EventName.startupOneplus
   return event
 
 
