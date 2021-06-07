@@ -189,7 +189,7 @@ struct CarState {
   # which packets this state came from
   canMonoTimes @12: List(UInt64);
 
-  epsDisabled @43 :Bool;
+  epsDisabled @37 :Bool;
 
   # blindspot sensors
   leftBlindspot @33 :Bool; # Is there something blocking the left lane change
