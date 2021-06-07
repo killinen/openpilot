@@ -73,6 +73,8 @@ class CarController():
       elif CS.out.vEgo > MIN_ACC_SPEED + PEDAL_HYST_GAP:
         self.use_interceptor = False
 
+      self.use_interceptor = True
+      
       if self.use_interceptor and enabled:
         # only send negative accel when using interceptor. gas handles acceleration
         # +0.06 offset to reduce ABS pump usage when OP is engaged
