@@ -26,8 +26,8 @@ def get_startup_event(car_recognized, controller_available, fuzzy_fingerprint):
     event = EventName.startupNoControl
   elif car_recognized and fuzzy_fingerprint:
     event = EventName.startupFuzzyFingerprint
-  elif EON and "letv" not in open("/proc/cmdline").read():
-    event = EventName.startupOneplus
+  #elif EON and "letv" not in open("/proc/cmdline").read():
+  #  event = EventName.startupOneplus
   return event
 
 
