@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 import math
 import numpy as np
-from common.params import Params
 from common.numpy_fast import interp
 
 import cereal.messaging as messaging
-from common.realtime import sec_since_boot
+from common.realtime import DT_MDL
 from selfdrive.swaglog import cloudlog
 from selfdrive.config import Conversions as CV
 from selfdrive.controls.lib.speed_smoother import speed_smoother
 from selfdrive.controls.lib.longcontrol import LongCtrlState
-from selfdrive.controls.lib.fcw import FCWChecker
 from selfdrive.controls.lib.long_mpc import LongitudinalMpc
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 
@@ -62,9 +60,10 @@ class Planner():
 
     self.mpc1 = LongitudinalMpc(1)
     self.mpc2 = LongitudinalMpc(2)
+    self.fcw = False
 
-    self.v_acc_start = 0.0
-    self.a_acc_start = 0.0
+    self.v_desired = 0.0
+    self.a_desired = 0.0
     self.v_acc_next = 0.0
     self.a_acc_next = 0.0
 
@@ -75,20 +74,16 @@ class Planner():
     self.a_cruise = 0.0
 
     self.longitudinalPlanSource = 'cruise'
-    self.fcw_checker = FCWChecker()
-    self.path_x = np.arange(192)
 
-    self.fcw = False
 
-    self.params = Params()
     self.first_loop = True
 
   def choose_solution(self, v_cruise_setpoint, enabled):
     if enabled:
       solutions = {'cruise': self.v_cruise}
-      if self.mpc1.prev_lead_status:
+      if self.mpc1.lead_status:
         solutions['mpc1'] = self.mpc1.v_mpc
-      if self.mpc2.prev_lead_status:
+      if self.mpc2.lead_status:
         solutions['mpc2'] = self.mpc2.v_mpc
 
       slowest = min(solutions, key=solutions.get)
@@ -108,28 +103,25 @@ class Planner():
     self.v_acc_future = min([self.mpc1.v_mpc_future, self.mpc2.v_mpc_future, v_cruise_setpoint])
 
   def update(self, sm, CP):
-    """Gets called when new radarState is available"""
-    cur_time = sec_since_boot()
     v_ego = sm['carState'].vEgo
+    self.v_desired = np.clip(self.v_desired, v_ego - 3.0, v_ego + 3.0)
+
+    v_cruise_kph = sm['controlsState'].vCruise
+    v_cruise_kph = min(v_cruise_kph, V_CRUISE_MAX)
+    v_cruise = v_cruise_kph * CV.KPH_TO_MS
 
     long_control_state = sm['controlsState'].longControlState
-    v_cruise_kph = sm['controlsState'].vCruise
     force_slow_decel = sm['controlsState'].forceDecel
 
-    v_cruise_kph = min(v_cruise_kph, V_CRUISE_MAX)
-    v_cruise_setpoint = v_cruise_kph * CV.KPH_TO_MS
 
-    lead_1 = sm['radarState'].leadOne
-    lead_2 = sm['radarState'].leadTwo
+    lead_0 = sm['modelV2'].leads[0]
+    lead_1 = sm['modelV2'].leads[1]
 
     enabled = (long_control_state == LongCtrlState.pid) or (long_control_state == LongCtrlState.stopping)
-    following = lead_1.status and lead_1.dRel < 45.0 and lead_1.vLeadK > v_ego and lead_1.aLeadK > 0.0
-
-    self.v_acc_start = self.v_acc_next
-    self.a_acc_start = self.a_acc_next
+    following = lead_0.prob > .5 and lead_0.x[0] < 45.0 and lead_0.v[0] > v_ego and lead_0.a[0] > 0.0
 
     # Calculate speed for normal cruise control
-    if enabled and not self.first_loop and not sm['carState'].gasPressed:
+    if enabled and not sm['carState'].gasPressed:
       accel_limits = [float(x) for x in calc_cruise_accel_limits(v_ego, following)]
       jerk_limits = [min(-0.1, accel_limits[0]), max(0.1, accel_limits[1])]  # TODO: make a separate lookup for jerk tuning
       accel_limits_turns = limit_accel_in_turns(v_ego, sm['carState'].steeringAngleDeg, accel_limits, self.CP)
@@ -139,8 +131,8 @@ class Planner():
         accel_limits_turns[1] = min(accel_limits_turns[1], AWARENESS_DECEL)
         accel_limits_turns[0] = min(accel_limits_turns[0], accel_limits_turns[1])
 
-      self.v_cruise, self.a_cruise = speed_smoother(self.v_acc_start, self.a_acc_start,
-                                                    v_cruise_setpoint,
+      self.v_cruise, self.a_cruise = speed_smoother(self.v_desired, self.a_desired,
+                                                    v_cruise,
                                                     accel_limits_turns[1], accel_limits_turns[0],
                                                     jerk_limits[1], jerk_limits[0],
                                                     LON_MPC_STEP)
@@ -154,64 +146,48 @@ class Planner():
       reset_accel = self.CP.startAccel if starting else a_ego
       self.v_acc = reset_speed
       self.a_acc = reset_accel
-      self.v_acc_start = reset_speed
-      self.a_acc_start = reset_accel
+      self.v_desired = reset_speed
+      self.a_desired = reset_accel
       self.v_cruise = reset_speed
       self.a_cruise = reset_accel
 
-    self.mpc1.set_cur_state(self.v_acc_start, self.a_acc_start)
-    self.mpc2.set_cur_state(self.v_acc_start, self.a_acc_start)
+    self.mpc1.set_cur_state(self.v_desired, self.a_desired)
+    self.mpc2.set_cur_state(self.v_desired, self.a_desired)
+    self.mpc1.update(sm['carState'], lead_0)
+    self.mpc2.update(sm['carState'], lead_1)
 
-    self.mpc1.update(sm['carState'], lead_1)
-    self.mpc2.update(sm['carState'], lead_2)
+    self.choose_solution(v_cruise, enabled)
 
-    self.choose_solution(v_cruise_setpoint, enabled)
-
-    # determine fcw
-    if self.mpc1.new_lead:
-      self.fcw_checker.reset_lead(cur_time)
-
-    blinkers = sm['carState'].leftBlinker or sm['carState'].rightBlinker
-    self.fcw = self.fcw_checker.update(self.mpc1.mpc_solution, cur_time,
-                                       sm['controlsState'].active,
-                                       v_ego, sm['carState'].aEgo,
-                                       lead_1.dRel, lead_1.vLead, lead_1.aLeadK,
-                                       lead_1.yRel, lead_1.vLat,
-                                       lead_1.fcw, blinkers) and not sm['carState'].brakePressed
+    # TODO throw FCW if brake predictions exceed capability
+    self.fcw = False
     if self.fcw:
-      cloudlog.info("FCW triggered %s", self.fcw_checker.counters)
+      cloudlog.info("FCW triggered")
 
     # Interpolate 0.05 seconds and save as starting point for next iteration
-    a_acc_sol = self.a_acc_start + (CP.radarTimeStep / LON_MPC_STEP) * (self.a_acc - self.a_acc_start)
-    v_acc_sol = self.v_acc_start + CP.radarTimeStep * (a_acc_sol + self.a_acc_start) / 2.0
-    self.v_acc_next = v_acc_sol
-    self.a_acc_next = a_acc_sol
+    self.a_desired = self.a_desired + (DT_MDL / LON_MPC_STEP) * (self.a_acc - self.a_desired)
+    self.v_desired = self.v_desired + DT_MDL * self.a_desired
 
-    self.first_loop = False
 
   def publish(self, sm, pm):
-    self.mpc1.publish(pm)
-    self.mpc2.publish(pm)
-
     plan_send = messaging.new_message('longitudinalPlan')
 
-    plan_send.valid = sm.all_alive_and_valid(service_list=['carState', 'controlsState', 'radarState'])
+    plan_send.valid = sm.all_alive_and_valid(service_list=['carState', 'controlsState'])
 
     longitudinalPlan = plan_send.longitudinalPlan
     longitudinalPlan.mdMonoTime = sm.logMonoTime['modelV2']
-    longitudinalPlan.radarStateMonoTime = sm.logMonoTime['radarState']
+    longitudinalPlan.radarStateMonoTime = 0
 
     longitudinalPlan.vCruise = float(self.v_cruise)
     longitudinalPlan.aCruise = float(self.a_cruise)
-    longitudinalPlan.vStart = float(self.v_acc_start)
-    longitudinalPlan.aStart = float(self.a_acc_start)
+    longitudinalPlan.vStart = float(self.v_desired)
+    longitudinalPlan.aStart = float(self.a_desired)
     longitudinalPlan.vTarget = float(self.v_acc)
     longitudinalPlan.aTarget = float(self.a_acc)
     longitudinalPlan.vTargetFuture = float(self.v_acc_future)
-    longitudinalPlan.hasLead = self.mpc1.prev_lead_status
+    longitudinalPlan.hasLead = self.mpc1.lead_status
     longitudinalPlan.longitudinalPlanSource = self.longitudinalPlanSource
     longitudinalPlan.fcw = self.fcw
 
-    longitudinalPlan.processingDelay = (plan_send.logMonoTime / 1e9) - sm.rcv_time['radarState']
+    longitudinalPlan.processingDelay = (plan_send.logMonoTime / 1e9) - sm.logMonoTime['modelV2']
 
     pm.send('longitudinalPlan', plan_send)

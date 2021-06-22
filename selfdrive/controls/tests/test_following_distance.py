@@ -32,7 +32,6 @@ def run_following_distance_simulation(v_lead, t_end=200.0):
 
   v_cruise_setpoint = v_lead + 10.
 
-  pm = FakePubMaster()
   mpc = LongitudinalMpc(1)
 
   first = True
@@ -51,20 +50,18 @@ def run_following_distance_simulation(v_lead, t_end=200.0):
     CS.carState.aEgo = a_ego
 
     # Setup lead packet
-    lead = log.RadarState.LeadData.new_message()
-    lead.status = True
-    lead.dRel = x_lead - x_ego
-    lead.vLead = v_lead
-    lead.aLeadK = 0.0
+    lead = log.ModelDataV2.LeadDataV3.new_message()
+    lead.prob = .75
+    lead.x = [x_lead - x_ego + i*v_lead + 2.0 for i in range(0,12,2)]
+    lead.v = [v_lead for i in range(6)]
+    lead.a = [0.0 for i in range(6)]
 
     # Run MPC
     mpc.set_cur_state(v_ego, a_ego)
     if first:  # Make sure MPC is converged on first timestep
       for _ in range(20):
         mpc.update(CS.carState, lead)
-        mpc.publish(pm)
     mpc.update(CS.carState, lead)
-    mpc.publish(pm)
 
     # Choose slowest of two solutions
     if v_cruise < mpc.v_mpc:
@@ -90,3 +87,7 @@ class TestFollowingDistance(unittest.TestCase):
       correct_steady_state = RW(v_lead, v_lead) + 4.0
 
       self.assertAlmostEqual(simulation_steady_state, correct_steady_state, delta=0.1)
+
+
+if __name__ == "__main__":
+  unittest.main()
