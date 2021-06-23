@@ -220,14 +220,6 @@ EVENTS: Dict[int, Dict[str, Union[Alert, Callable[[Any, messaging.SubMaster, boo
 
   # ********** events only containing alerts displayed in all states **********
 
-  EventName.joystickDebug: {
-    ET.PERMANENT: Alert(
-      "DEBUG ALERT",
-      "",
-      AlertStatus.userPrompt, AlertSize.mid,
-      Priority.LOW, VisualAlert.none, AudibleAlert.none, .1, .1, .1),
-  },
-
   EventName.controlsInitializing: {
     ET.NO_ENTRY: NoEntryAlert("Controls Initializing"),
   },
