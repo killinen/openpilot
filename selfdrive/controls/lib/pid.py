@@ -136,6 +136,8 @@ class PIDController:
 
   def reset(self):
     self.p = 0.0
+    self.i = 0.0
+    self.d = 0.0
     self.id = 0.0
     self.f = 0.0
     self.sat_count = 0.0
@@ -155,23 +157,23 @@ class PIDController:
     if override:
       self.id -= self.i_unwind_rate * float(np.sign(self.id))
     else:
-      i = self.id + error * self.k_i * self.rate
-      control = self.p + self.f + i
+      self.i = self.id + error * self.k_i * self.rate
+      control = self.p + self.f + self.i
 
       if self.convert is not None:
         control = self.convert(control, speed=self.speed)
 
-      # Update when changing i will move the control away from the limits
-      # or when i will move towards the sign of the error
-      if ((error >= 0 and (control <= self.pos_limit or i < 0.0)) or \
-          (error <= 0 and (control >= self.neg_limit or i > 0.0))) and \
+      # Update when changing self.i will move the control away from the limits
+      # or when self.i will move towards the sign of the error
+      if ((error >= 0 and (control <= self.pos_limit or self.i < 0.0)) or \
+          (error <= 0 and (control >= self.neg_limit or self.i > 0.0))) and \
          not freeze_integrator:
-        self.id = i
+        self.id = self.i
 
     if abs(setpoint - self.last_setpoint) / self.rate < self.max_accel_d:
-      d = self.k_d * (error - self.last_error)
-      if (self.id > 0 and self.id + d >= 0) or (self.id < 0 and self.id + d <= 0):
-        self.id += d
+      self.d = self.k_d * (error - self.last_error)
+      if (self.id > 0 and self.id + self.d >= 0) or (self.id < 0 and self.id + self.d <= 0):
+        self.id += self.d
 
     control = self.p + self.f + self.id
     if self.convert is not None:
