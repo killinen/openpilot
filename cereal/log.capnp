@@ -516,13 +516,9 @@ struct ControlsState @0x97ff69c53601abf1 {
 
   longControlState @30 :LongControlState;
   vPid @2 :Float32;
-  vTargetLead @3 :Float32;
-  vCruise @22 :Float32;
   upAccelCmd @4 :Float32;
   uiAccelCmd @5 :Float32;
   ufAccelCmd @33 :Float32;
-  aTarget @35 :Float32;
-  steeringAngleDesiredDeg @29 :Float32;
   curvature @37 :Float32;  # path curvature from vehicle model
   forceDecel @51 :Bool;
 
