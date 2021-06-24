@@ -130,15 +130,14 @@ class Cluster():
       "aLeadTau": float(self.aLeadTau)
     }
 
-  def get_RadarState_from_vision(self, lead_msg, v_ego, a_ego):
+  def get_RadarState_from_vision(self, lead_msg, v_ego):
     return {
       "dRel": float(lead_msg.xyva[0] - RADAR_TO_CAMERA),
       "yRel": float(-lead_msg.xyva[1]),
-      "vRel": float(lead_msg.xyva[2] - lead_msg.xyvaStd[2]),
-      "aRel": float(lead_msg.xyva[3]),
-      "vLead": float(max(0.0, v_ego + lead_msg.xyva[2] - lead_msg.xyvaStd[2])),
-      "vLeadK": float(max(0.0, v_ego + lead_msg.xyva[2] - lead_msg.xyvaStd[2])),
-      "aLeadK": float(a_ego + lead_msg.xyva[3] - lead_msg.xyvaStd[3]),
+      "vRel": float(lead_msg.xyva[2]),
+      "vLead": float(v_ego + lead_msg.xyva[2]),
+      "vLeadK": float(v_ego + lead_msg.xyva[2]),
+      "aLeadK": float(0),
       "aLeadTau": _LEAD_ACCEL_TAU,
       "fcw": False,
       "modelProb": float(lead_msg.prob),
