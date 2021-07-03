@@ -81,11 +81,12 @@ class CarController():
     apply_accel = actuators.gas - actuators.brake
 
     if CS.CP.enableGasInterceptor and enabled:
+      apply_gas = clip(actuators.gas, 0., 1.)
       # converts desired acceleration to gas percentage for pedal
-      if apply_accel * CarControllerParams.ACCEL_SCALE > coast_accel(CS.out.vEgo):
-        apply_gas = clip(compute_gb_pedal(apply_accel * CarControllerParams.ACCEL_SCALE, CS.out.vEgo), 0., 1.)
-      elif apply_accel > 0: # if the potential acceleration is still above 0, apply 5% gas to keep the bowden actuator engaged and reduce its clutch wear
-        apply_gas = 0.05
+      #if apply_accel * CarControllerParams.ACCEL_SCALE > coast_accel(CS.out.vEgo):
+      #  apply_gas = clip(compute_gb_pedal(apply_accel * CarControllerParams.ACCEL_SCALE, CS.out.vEgo), 0., 1.)
+      #elif apply_accel > 0: # if the potential acceleration is still above 0, apply 5% gas to keep the bowden actuator engaged and reduce its clutch wear
+      #  apply_gas = 0.05
 
     apply_accel, self.accel_steady = accel_hysteresis(apply_accel, self.accel_steady, enabled)
     apply_accel = clip(apply_accel * CarControllerParams.ACCEL_SCALE, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
