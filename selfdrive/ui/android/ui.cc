@@ -75,6 +75,7 @@ static bool handle_df_touch(UIState *s, int touch_x, int touch_y) {
 }
 
 static bool handle_ml_touch(UIState *s, int touch_x, int touch_y) {
+  return false;
   //mlButton manager
   int padding = 40;
   int btn_w = 500;
