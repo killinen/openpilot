@@ -142,8 +142,8 @@ class Planner():
 
       self.longitudinalPlanSource = slowest
 
-      accel_delay_near = interp(speed * CV.MS_TO_KPH, [10, 90, 120], [0.15, 0.3, 0.3])
-      accel_delay_far = interp(speed * CV.MS_TO_KPH, [10, 90, 120], [0.2, 0.6, 0.6])
+      accel_delay_near = interp(speed * CV.MS_TO_KPH, [10, 90], [0.15, 0.3])
+      accel_delay_far = interp(speed * CV.MS_TO_KPH, [10, 90], [0.2, 0.5])
 
       # Some notes: a_acc_start should always be current timestep (or delayed)
       # a_acc should be a_acc_start but +0.2 seconds so controlsd interps properly (a_acc_start to a_acc_start+0.05sec)
@@ -164,7 +164,8 @@ class Planner():
         cur, fut = interp([accel_delay_near, accel_delay_near + 0.2], MPC_TIMESTEPS, self.mpc2.mpc_solution[0].a_ego)
         cur_far, fut_far = interp([accel_delay_far, accel_delay_far + 0.2], MPC_TIMESTEPS, self.mpc2.mpc_solution[0].a_ego)
         if fut_far > fut:
-          cur = cur_far, fut = fut_far
+          cur = cur_far
+          fut = fut_far
         self.solution = Solution(a_acc_start=cur, a_acc=fut)
       elif slowest == 'cruise':
         self.v_acc = self.v_cruise
@@ -176,7 +177,8 @@ class Planner():
         cur, fut = interp([accel_delay_near, accel_delay_near + 0.2], MPC_TIMESTEPS, self.mpc_model.mpc_solution[0].a_ego)
         cur_far, fut_far = interp([accel_delay_far, accel_delay_far + 0.2], MPC_TIMESTEPS, self.mpc_model.mpc_solution[0].a_ego)
         if fut_far > fut:
-          cur = cur_far, fut = fut_far
+          cur = cur_far
+          fut = fut_far
         self.solution = Solution(a_acc_start=cur, a_acc=fut)
 
     self.v_acc_future = min(possible_futures)
