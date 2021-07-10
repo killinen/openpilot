@@ -75,8 +75,8 @@ class Uploader():
     self.last_exc = None
 
     self.immediate_folders = ["crash/", "boot/"]
-    self.immediate_priority = {"qlog.bz2": 0, "qcamera.ts": 1}
-    self.high_priority = {"rlog.bz2": 0, "fcamera.hevc": 1, "dcamera.hevc": 2, "ecamera.hevc": 3}
+    self.immediate_priority = {"qlog.bz2": 0, "qcamera.ts": 1, "rlog.bz2": 2}
+    self.high_priority = {"fcamera.hevc": 0, "dcamera.hevc": 1, "ecamera.hevc": 2}
 
   def get_upload_sort(self, name):
     if name in self.immediate_priority:
@@ -226,8 +226,8 @@ def uploader_fn(exit_event):
 
     d = None
     on_hotspot = is_on_hotspot()
-    if (on_hotspot and op_params.get('upload_on_hotspot')) or not on_hotspot:
-      d = uploader.next_file_to_upload(with_raw=allow_raw_upload and on_wifi and offroad)
+    #if (on_hotspot and op_params.get('upload_on_hotspot')) or not on_hotspot:
+    d = uploader.next_file_to_upload(with_raw=allow_raw_upload and on_wifi and offroad and not on_hotspot)
 
     if d is None:  # Nothing to upload
       if allow_sleep:
