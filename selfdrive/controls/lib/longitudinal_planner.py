@@ -142,8 +142,8 @@ class Planner():
 
       self.longitudinalPlanSource = slowest
 
-      accel_delay_near = interp(speed * CV.MS_TO_KPH, [10, 90], [0.15, 0.3])
-      accel_delay_far = interp(speed * CV.MS_TO_KPH, [10, 90], [0.2, 0.5])
+      accel_delay_near = interp(speed * CV.MS_TO_KPH, [10, 90], [0.15, 0.35])
+      accel_delay_far = interp(speed * CV.MS_TO_KPH, [10, 90], [0.3, 0.7])
 
       # Some notes: a_acc_start should always be current timestep (or delayed)
       # a_acc should be a_acc_start but +0.2 seconds so controlsd interps properly (a_acc_start to a_acc_start+0.05sec)
@@ -156,7 +156,8 @@ class Planner():
         cur, fut = interp([accel_delay_near, accel_delay_near + 0.2], MPC_TIMESTEPS, self.mpc1.mpc_solution[0].a_ego)
         cur_far, fut_far = interp([accel_delay_far, accel_delay_far + 0.2], MPC_TIMESTEPS, self.mpc1.mpc_solution[0].a_ego)
         if fut_far>fut:
-          cur = cur_far, fut = fut_far
+          cur = cur_far
+          fut = fut_far
         self.solution = Solution(a_acc_start=cur, a_acc=fut)
       elif slowest == 'mpc2':
         self.v_acc = self.mpc2.v_mpc
