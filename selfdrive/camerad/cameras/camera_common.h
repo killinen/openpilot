@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>
-#include <cstdlib>
+#include <stdint.h>
+#include <stdlib.h>
+
 #include <memory>
 #include <thread>
 
@@ -27,7 +28,7 @@
 #define CAMERA_ID_MAX 9
 
 #define UI_BUF_COUNT 4
-#define YUV_COUNT 100
+#define YUV_COUNT 40
 #define LOG_CAMERA_ID_FCAMERA 0
 #define LOG_CAMERA_ID_DCAMERA 1
 #define LOG_CAMERA_ID_ECAMERA 2
@@ -67,24 +68,16 @@ typedef struct LogCameraInfo {
 
 typedef struct FrameMetadata {
   uint32_t frame_id;
-  unsigned int frame_length;
-
-  // Timestamps
   uint64_t timestamp_sof; // only set on tici
   uint64_t timestamp_eof;
-
-  // Exposure
+  unsigned int frame_length;
   unsigned int integ_lines;
-  bool high_conversion_gain;
-  float gain;
-  float measured_grey_fraction;
-  float target_grey_fraction;
-
-  // Focus
+  unsigned int global_gain;
   unsigned int lens_pos;
   float lens_sag;
   float lens_err;
   float lens_true_pos;
+  float gain_frac;
 } FrameMetadata;
 
 typedef struct CameraExpInfo {
