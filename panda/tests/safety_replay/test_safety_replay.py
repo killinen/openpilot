@@ -4,7 +4,7 @@ import os
 import requests
 
 from panda import Panda
-from panda.tests.safety_replay.replay_drive import replay_drive
+from replay_drive import replay_drive
 from tools.lib.logreader import LogReader  # pylint: disable=import-error
 
 BASE_URL = "https://commadataci.blob.core.windows.net/openpilotci/"
@@ -23,7 +23,6 @@ logs = [
   ("5b7c365c50084530_2020-04-15--16-13-24--3--rlog.bz2", Panda.SAFETY_HYUNDAI, 0),  # HYUNDAI.SONATA
   ("610ebb9faaad6b43|2020-06-13--15-28-36.bz2", Panda.SAFETY_HYUNDAI_LEGACY, 0),  # HYUNDAI.IONIQ_EV_LTD
   ("5ab784f361e19b78_2020-06-08--16-30-41.bz2", Panda.SAFETY_SUBARU_LEGACY, 0),  # SUBARU.OUTBACK
-  ("bb50caf5f0945ab1|2021-06-19--17-20-18.bz2", Panda.SAFETY_TESLA, 0),  # TESLA.AP2_MODELS
 ]
 
 

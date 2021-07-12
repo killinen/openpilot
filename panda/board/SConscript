@@ -1,6 +1,10 @@
 import os
 import subprocess
 
+EON = os.path.isfile('/EON')
+TICI = os.path.isfile('/TICI')
+PC = not (EON or TICI)
+
 PREFIX = "arm-none-eabi-"
 BUILDER = "DEV"
 
@@ -31,6 +35,10 @@ else:
     "-Os",
     "-g",
   ]
+
+  if not PC:
+    PROJECT_FLAGS += ["-DEON"]
+    BUILDER = "EON"
 
 
 def get_version(builder, build_type):

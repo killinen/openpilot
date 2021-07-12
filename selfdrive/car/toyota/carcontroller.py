@@ -3,10 +3,12 @@ from common.numpy_fast import clip
 from selfdrive.car import apply_toyota_steer_torque_limits, create_gas_command, make_can_msg
 from selfdrive.car.toyota.toyotacan import create_steer_command, create_ui_command, \
                                            create_accel_command, create_acc_cancel_command, \
-                                           create_fcw_command, create_lta_steer_command
-from selfdrive.car.toyota.values import CAR, STATIC_DSU_MSGS, NO_STOP_TIMER_CAR, TSS2_CAR, \
+                                           create_fcw_command, create_lta_steer_command, create_lead_command
+
+from selfdrive.car.toyota.values import Ecu, CAR, STATIC_DSU_MSGS, NO_STOP_TIMER_CAR, TSS2_CAR, \
                                         MIN_ACC_SPEED, PEDAL_HYST_GAP, CarControllerParams
 from opendbc.can.packer import CANPacker
+import cereal.messaging as messaging
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -38,8 +40,19 @@ class CarController():
 
     self.packer = CANPacker(dbc_name)
 
+    self.lead_v = 100
+    self.lead_a = 0
+    self.lead_d = 250
+    self.sm = messaging.SubMaster(['radarState'])
+
   def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
              left_line, right_line, lead, left_lane_depart, right_lane_depart):
+
+    self.sm.update(0)
+    if self.sm.updated['radarState']:
+      self.lead_v = self.sm['radarState'].leadOne.vRel
+      self.lead_a = self.sm['radarState'].leadOne.aRel
+      self.lead_d = self.sm['radarState'].leadOne.dRel
 
     # *** compute control surfaces ***
 
@@ -53,6 +66,8 @@ class CarController():
         self.use_interceptor = True
       elif CS.out.vEgo > MIN_ACC_SPEED + PEDAL_HYST_GAP:
         self.use_interceptor = False
+
+      self.use_interceptor = True
 
       if self.use_interceptor and enabled:
         # only send negative accel when using interceptor. gas handles acceleration
@@ -69,7 +84,7 @@ class CarController():
     self.steer_rate_limited = new_steer != apply_steer
 
     # Cut steering while we're in a known fault state (2s)
-    if not enabled or CS.steer_state in [9, 25]:
+    if not enabled or CS.steer_state in [9, 25] or CS.out.epsDisabled==1:
       apply_steer = 0
       apply_steer_req = 0
     else:
@@ -91,6 +106,9 @@ class CarController():
     self.last_standstill = CS.out.standstill
 
     can_sends = []
+
+    if (frame%2==0):
+      can_sends.append(create_lead_command(self.packer, self.lead_v, self.lead_a, self.lead_d))
 
     #*** control msgs ***
     #print("steer {0} {1} {2} {3}".format(apply_steer, min_lim, max_lim, CS.steer_torque_motor)

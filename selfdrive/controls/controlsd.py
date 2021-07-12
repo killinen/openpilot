@@ -167,6 +167,9 @@ class Controls:
     self.rk = Ratekeeper(100, print_delay_threshold=None)
     self.prof = Profiler(False)  # off by default
 
+    self.lead_rel_speed = 255
+    self.lead_long_dist = 255
+
   def update_events(self, CS):
     """Compute carEvents from carState"""
 
@@ -313,6 +316,16 @@ class Controls:
     if CS.brakePressed and v_future >= STARTING_TARGET_SPEED \
       and self.CP.openpilotLongitudinalControl and CS.vEgo < 0.3:
       self.events.add(EventName.noTarget)
+
+    # vision-only fcw (very sensitive for old cars with bad brakes)
+    if self.sm.updated['radarState']:
+      self.lead_rel_speed = self.sm['radarState'].leadOne.vRel
+      self.lead_long_dist = self.sm['radarState'].leadOne.dRel
+    if CS.cruiseState.enabled and self.lead_long_dist > 5 and self.lead_long_dist < 100 and self.lead_rel_speed <= -0.5 and CS.vEgo >= 5 and \
+      ((self.lead_long_dist / abs(self.lead_rel_speed) < 2.) or (
+        self.lead_long_dist / abs(self.lead_rel_speed) < 4. and self.lead_rel_speed < -10) or \
+       (self.lead_long_dist / abs(self.lead_rel_speed) < 5. and self.lead_long_dist / CS.vEgo < 1.5)):
+      self.events.add(EventName.fcw)
 
   def data_sample(self):
     """Receive data from sockets and update carState"""
@@ -532,7 +545,7 @@ class Controls:
 
     recent_blinker = (self.sm.frame - self.last_blinker_frame) * DT_CTRL < 5.0  # 5s blinker cooldown
     ldw_allowed = self.is_ldw_enabled and CS.vEgo > LDW_MIN_SPEED and not recent_blinker \
-                    and not self.active and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
+                    and (not self.active or CS.epsDisabled == True) and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
 
     meta = self.sm['modelV2'].meta
     if len(meta.desirePrediction) and ldw_allowed:
@@ -589,7 +602,7 @@ class Controls:
     controlsState.vPid = float(self.LoC.v_pid)
     controlsState.vCruise = float(self.v_cruise_kph)
     controlsState.upAccelCmd = float(self.LoC.pid.p)
-    controlsState.uiAccelCmd = float(self.LoC.pid.i)
+    controlsState.uiAccelCmd = float(self.LoC.pid.id)
     controlsState.ufAccelCmd = float(self.LoC.pid.f)
     controlsState.cumLagMs = -self.rk.remaining * 1000.
     controlsState.startMonoTime = int(start_time * 1e9)
