@@ -19,7 +19,7 @@ const int TOYOTA_MIN_ACCEL = -3000;       // -3.0 m/s2
 const int TOYOTA_ISO_MAX_ACCEL = 2000;        // 2.0 m/s2
 const int TOYOTA_ISO_MIN_ACCEL = -3500;       // -3.5 m/s2
 
-const int TOYOTA_STANDSTILL_THRSLD = 100;  // 1kph
+const int TOYOTA_STANDSTILL_THRSLD = 32;  // 1kph
 
 // Roughly calculated using the offsets in openpilot +5%:
 // In openpilot: ((gas1_norm + gas2_norm)/2) > 15
@@ -32,14 +32,14 @@ const int TOYOTA_GAS_INTERCEPTOR_THRSLD = 845;
 const CanMsg TOYOTA_TX_MSGS[] = {{0x283, 0, 7}, {0x2E6, 0, 8}, {0x2E7, 0, 8}, {0x33E, 0, 7}, {0x344, 0, 8}, {0x365, 0, 7}, {0x366, 0, 7}, {0x4CB, 0, 8},  // DSU bus 0
                                   {0x128, 1, 6}, {0x141, 1, 4}, {0x160, 1, 8}, {0x161, 1, 7}, {0x470, 1, 4},  // DSU bus 1
                                   {0x2E4, 0, 5}, {0x411, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  // LKAS + ACC
-                                  {0x200, 0, 6}};  // interceptor
+                                  {0x200, 0, 6}, {0x1F0, 0, 8}, {0x153, 0, 8}, {0x43F, 0, 8}, {0x329, 0, 8}, {0x615, 0, 8}};  // interceptor + E39 stuff
 
 AddrCheckStruct toyota_rx_checks[] = {
-  {.msg = {{ 0xaa, 0, 8, .check_checksum = false, .expected_timestep = 12000U}}},
-  {.msg = {{0x260, 0, 8, .check_checksum = true, .expected_timestep = 20000U}}},
-  {.msg = {{0x1D2, 0, 8, .check_checksum = true, .expected_timestep = 30000U}}},
+  {.msg = {{0x1F0, 0, 8, .check_checksum = false, .expected_timestep = 12000U}}},
+  {.msg = {{0x153, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},
+  {.msg = {{0x43F, 0, 8, .check_checksum = false, .expected_timestep = 30000U}}},
   {.msg = {{0x224, 0, 8, .check_checksum = false, .expected_timestep = 25000U},
-           {0x226, 0, 8, .check_checksum = false, .expected_timestep = 25000U}}},
+           {0x329, 0, 8, .check_checksum = false, .expected_timestep = 25000U}}},
 };
 const int TOYOTA_RX_CHECKS_LEN = sizeof(toyota_rx_checks) / sizeof(toyota_rx_checks[0]);
 
@@ -105,20 +105,20 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
     }
 
     // sample speed
-    if (addr == 0xaa) {
+    if (addr == 0x1F0) {
       int speed = 0;
       // sum 4 wheel speeds
       for (int i=0; i<8; i+=2) {
         int next_byte = i + 1;  // hack to deal with misra 10.8
-        speed += (GET_BYTE(to_push, i) << 8) + GET_BYTE(to_push, next_byte) - 0x1a6f;
+        speed += ((GET_BYTE(to_push, next_byte) & 0x0F) << 8) + (GET_BYTE(to_push, i)) - 0x2A;
       }
       vehicle_moving = ABS(speed / 4) > TOYOTA_STANDSTILL_THRSLD;
     }
 
-    // most cars have brake_pressed on 0x226, corolla and rav4 on 0x224
-    if ((addr == 0x224) || (addr == 0x226)) {
+    // E39 cars have brake_pressed on 0x1D2, corolla and rav4 on 0x224
+    if ((addr == 0x224) || (addr == 0x1D2)) {
       int byte = (addr == 0x224) ? 0 : 4;
-      brake_pressed = ((GET_BYTE(to_push, byte) >> 5) & 1) != 0;
+      brake_pressed = ((GET_BYTE(to_push, byte) << 7) & 0x80) != 0;
     }
 
     // sample gas interceptor
