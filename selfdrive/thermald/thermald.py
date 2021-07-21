@@ -208,7 +208,7 @@ def thermald_thread():
       # Setup fan handler on first connect to panda
       if handle_fan is None and pandaState.pandaState.pandaType != log.PandaState.PandaType.unknown:
         is_uno = pandaState.pandaState.pandaType == log.PandaState.PandaType.uno
-        has_relay = pandaState.pandaState.pandaType in [log.PandaState.PandaType.blackPanda, log.PandaState.PandaType.uno, log.PandaState.PandaType.dos]
+        has_relay = health.health.hwType in [log.HealthData.HwType.blackPanda, log.HealthData.HwType.uno, log.HealthData.HwType.dos]
 
         if (not EON) or is_uno:
           cloudlog.info("Setting up UNO fan handler")
@@ -329,6 +329,7 @@ def thermald_thread():
     startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get("DisableUpdates") == b"1"
     startup_conditions["not_uninstalling"] = not params.get("DoUninstall") == b"1"
     startup_conditions["accepted_terms"] = params.get("HasAcceptedTerms") == terms_version
+    completed_training = params.get("CompletedTrainingVersion") == training_version
 
     panda_signature = params.get("PandaFirmware")
     startup_conditions["fw_version_match"] = (panda_signature is None) or (panda_signature == FW_SIGNATURE)   # don't show alert is no panda is connected (None)
@@ -336,8 +337,7 @@ def thermald_thread():
 
     # with 2% left, we killall, otherwise the phone will take a long time to boot
     startup_conditions["free_space"] = msg.deviceState.freeSpacePercent > 2
-    startup_conditions["completed_training"] = params.get("CompletedTrainingVersion") == training_version or \
-                                               (current_branch in ['dashcam', 'dashcam-staging'])
+    startup_conditions["completed_training"] = completed_training or (current_branch in ['dashcam', 'dashcam-staging'])
     startup_conditions["not_driver_view"] = not params.get("IsDriverViewEnabled") == b"1"
     startup_conditions["not_taking_snapshot"] = not params.get("IsTakingSnapshot") == b"1"
     # if any CPU gets above 107 or the battery gets above 63, kill all processes
@@ -345,7 +345,8 @@ def thermald_thread():
     startup_conditions["device_temp_good"] = thermal_status < ThermalStatus.danger
     set_offroad_alert_if_changed("Offroad_TemperatureTooHigh", (not startup_conditions["device_temp_good"]))
 
-    startup_conditions["hardware_supported"] = pandaState is not None
+    startup_conditions["hardware_supported"] = health is not None and health.health.hwType not in [log.HealthData.HwType.whitePanda]
+    
     set_offroad_alert_if_changed("Offroad_HardwareUnsupported", pandaState is not None and not startup_conditions["hardware_supported"])
 
     # Handle offroad/onroad transition
