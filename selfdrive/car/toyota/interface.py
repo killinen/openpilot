@@ -102,30 +102,20 @@ class CarInterface(CarInterfaceBase):
       ret.wheelbase = 2.830   # This is updated for BMW
       ret.steerRatio = 17.9   # This is updated for BMW
       tire_stiffness_factor = 0.444
-      ret.mass = 2000
-      ret.longitudinalTuning.kpBP = [0., 15., 22.]
-      ret.longitudinalTuning.kiBP = [0., 15., 22.]
-      ret.gasMaxBP = [0., 5., 12., 25.]
-      ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
-      #+      ret.gasMaxV = [0.1, 0.4, 0.8]
+      ret.mass = 2000   # This is updated for BMW
+      ret.longitudinalTuning.kpBP = [0., 8., 15.]
+      ret.longitudinalTuning.kiBP = [0., 15.]
+      ret.gasMaxBP = [0., 15., 25]
+      ret.gasMaxV = [0.05, 0.3, 0.7]
 
-      ret.longitudinalTuning.deadzoneBP = [0.]
-      ret.longitudinalTuning.deadzoneV = [0.]
+      ret.longitudinalTuning.deadzoneBP = [0., 9.]
+      ret.longitudinalTuning.deadzoneV = [0., .15]
 
       ret.enableGasInterceptor = True #OLD_CAR USES ALWAYS INTERCEPTOR MESSAGE FOR GAS
 
-      # old(er)      ret.longitudinalTuning.kpBP = [0., 15., 20., 25.]
-      # old(er)      ret.longitudinalTuning.kiBP = [0., 10., 16., 25.]
-      # old(er)       ret.gasMaxBP = [0., 5., 15., 25.]
-      # old(er)       ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
-      # old        ret.longitudinalTuning.kpV = [1.0, 2.0, 2.0, 2.0]
-      # old        ret.longitudinalTuning.kiV = [0.2, 0.8, 0.8, 0.8]
-      # older       ret.longitudinalTuning.kpV = [1.0, 1.5, 1.8, 2.0]
-      # older       ret.longitudinalTuning.kiV = [0.2, 0.45, 0.55, 0.6]
-
       if ret.enableGasInterceptor:
-        ret.longitudinalTuning.kpV = [1.2, 2, 2.4]
-        ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
+        ret.longitudinalTuning.kpV = [1.0, 0.8, 0.6]
+        ret.longitudinalTuning.kiV = [0.15, 0.1]
 
       ret.lateralTuning.init('lqr')
       ret.lateralTuning.lqr.scale = 1500.0
