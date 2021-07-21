@@ -4,7 +4,7 @@ from opendbc.can.can_define import CANDefine
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
 from selfdrive.config import Conversions as CV
-from selfdrive.car.toyota.values import CAR, DBC, STEER_THRESHOLD, TSS2_CAR, NO_STOP_TIMER_CAR
+from selfdrive.car.toyota.values import CAR, DBC, STEER_THRESHOLD, TSS2_CAR, NO_STOP_TIMER_CAR, OLD_CAR
 
 
 class CarState(CarStateBase):
@@ -88,8 +88,9 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_EPS']
     # we could use the override bit from dbc, but it's triggered at too high torque values
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
-    ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
-    #ret.steerWarning = self.CP.carFingerprint not in NO_EPS_CAR and cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
+    #ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
+    #ret.steerWarning = self.CP.carFingerprint not in OLD_CAR and cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
+    ret.steerWarning = False
 
 
     if self.CP.carFingerprint == CAR.LEXUS_IS:
