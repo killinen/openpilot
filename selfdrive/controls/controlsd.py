@@ -87,12 +87,12 @@ class Controls:
       self.can_sock = messaging.sub_sock('can', timeout=can_timeout)
 
     # wait for one pandaState and one CAN packet
-    panda_type = messaging.recv_one(self.sm.sock['pandaState']).pandaState.pandaType
-    has_relay = panda_type in [PandaType.blackPanda, PandaType.uno, PandaType.dos]
+    hw_type = messaging.recv_one(self.sm.sock['health']).health.hwType
+    has_relay = hw_type in [HwType.blackPanda, HwType.uno, HwType.dos]
     print("Waiting for CAN messages...")
     get_one_can(self.can_sock)
 
-    self.CI, self.CP, candidate = get_car(self.can_sock, self.pm.sock['sendcan'], has_relay)
+    self.CI, self.CP = get_car(self.can_sock, self.pm.sock['sendcan'], has_relay)
     threading.Thread(target=log_fingerprint, args=[candidate]).start()
 
     # read params
@@ -157,7 +157,7 @@ class Controls:
     self.sm['driverMonitoringState'].awarenessStatus = 1.
     self.sm['driverMonitoringState'].faceDetected = False
 
-    self.startup_event = get_startup_event(car_recognized, controller_available)
+    self.startup_event = get_startup_event(car_recognized, controller_available, hw_type)
 
     if not sounds_available:
       self.events.add(EventName.soundsUnavailable, static=True)
@@ -165,6 +165,8 @@ class Controls:
       self.events.add(EventName.communityFeatureDisallowed, static=True)
     if not car_recognized:
       self.events.add(EventName.carUnrecognized, static=True)
+    if hw_type == HwType.whitePanda:
+      self.events.add(EventName.whitePandaUnsupportedDEPRECATED, static=True)
 
     # controlsd is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
