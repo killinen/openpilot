@@ -125,7 +125,8 @@ class CarState(CarStateBase):
     #else:
     #  self.steer_state = cp.vl["EPS_STATUS"]['LKA_STATE']    
     
-    ret.epsDisabled = (True if ret.genericToggle == 0 else False)
+    ret.epsDisabled = True
+    #ret.epsDisabled = (True if ret.genericToggle == 0 else False)
 
 
     if self.CP.carFingerprint in TSS2_CAR:
