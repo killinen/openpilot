@@ -10,11 +10,12 @@ from selfdrive.swaglog import cloudlog
 import cereal.messaging as messaging
 from selfdrive.car import gen_empty_fingerprint
 
-from cereal import car
+from cereal import car, log
 EventName = car.CarEvent.EventName
+HwType = log.HealthData.HwType
 
 
-def get_startup_event(car_recognized, controller_available):
+def get_startup_event(car_recognized, controller_available, hw_type):
   if (comma_remote or smiskol_remote) and tested_branch:
     event = EventName.startup
   else:
