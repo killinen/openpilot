@@ -271,6 +271,8 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
 OnroadHud::OnroadHud(QWidget *parent) : QWidget(parent) {
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   dm_img = loadPixmap("../assets/img_driver_face.png", {img_size, img_size});
+  how_img = loadPixmap("../assets/img_hands_on_wheel.png", {img_size, img_size});
+  map_img = loadPixmap("../assets/img_world_icon.png", {subsign_img_size, subsign_img_size});
 
   connect(this, &OnroadHud::valueChanged, [=] { update(); });
 }
@@ -299,6 +301,27 @@ void OnroadHud::updateState(const UIState &s) {
   if (sm.frame % (UI_FREQ / 2) == 0) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
+<<<<<<< HEAD
+=======
+    setProperty("showHowAlert", howState >= cereal::DriverMonitoringState::HandsOnWheelState::WARNING);
+    setProperty("howWarning", howState == cereal::DriverMonitoringState::HandsOnWheelState::WARNING);
+
+    const auto lp = sm["longitudinalPlan"].getLongitudinalPlan();
+    const auto vtcState = lp.getVisionTurnControllerState();
+    const float vtc_speed = lp.getVisionTurnSpeed() * (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
+    const auto lpSoruce = lp.getLongitudinalPlanSource();
+    QColor vtc_color = tcs_colors[int(vtcState)];
+    vtc_color.setAlpha(lpSoruce == cereal::LongitudinalPlan::LongitudinalPlanSource::TURN ? 255 : 100);
+
+    setProperty("showVTC", vtcState > cereal::LongitudinalPlan::VisionTurnControllerState::DISABLED);
+    setProperty("vtcSpeed", QString::number(std::nearbyint(vtc_speed)));
+    setProperty("vtcColor", vtc_color);
+    setProperty("showDebugUI", s.scene.show_debug_ui);
+
+    const auto lmd = sm["liveMapData"].getLiveMapData();
+
+    setProperty("roadName", QString::fromStdString(lmd.getCurrentRoadName()));
+>>>>>>> 319968698 (LiveMapData: Implementation)
   }
 }
 
@@ -345,6 +368,16 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
   if (!hideDM) {
     drawIcon(p, radius / 2 + (bdr_s * 2), rect().bottom() - footer_h / 2,
              dm_img, QColor(0, 0, 0, 70), dmActive ? 1.0 : 0.2);
+  }
+
+  // Bottom bar road name
+  if (showDebugUI && !roadName.isEmpty()) {
+    const int h = 60;
+    QRect bar_rc(rect().left(), rect().bottom() - h, rect().width(), h);
+    p.setBrush(QColor(0, 0, 0, 100));
+    p.drawRect(bar_rc);
+    configFont(p, "Open Sans", 38, "Bold");
+    drawCenteredText(p, bar_rc.center().x(), bar_rc.center().y(), roadName, QColor(255, 255, 255, 200));
   }
 }
 

@@ -38,6 +38,8 @@ procs = [
   PythonProcess("timezoned", "selfdrive.timezoned", enabled=TICI, persistent=True),
   PythonProcess("tombstoned", "selfdrive.tombstoned", enabled=not PC, persistent=True),
   PythonProcess("uploader", "selfdrive.loggerd.uploader", persistent=True),
+  PythonProcess("statsd", "selfdrive.statsd", persistent=True),
+  PythonProcess("mapd", "selfdrive.mapd.mapd"),
 
   # EON only
   PythonProcess("rtshield", "selfdrive.rtshield", enabled=EON),

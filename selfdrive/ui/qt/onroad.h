@@ -46,6 +46,16 @@ class OnroadHud : public QWidget {
   Q_PROPERTY(bool hideDM MEMBER hideDM NOTIFY valueChanged);
   Q_PROPERTY(int status MEMBER status NOTIFY valueChanged);
 
+  Q_PROPERTY(bool showHowAlert MEMBER showHowAlert NOTIFY valueChanged);
+  Q_PROPERTY(bool howWarning MEMBER howWarning NOTIFY valueChanged);
+
+  Q_PROPERTY(bool showVTC MEMBER showVTC NOTIFY valueChanged);
+  Q_PROPERTY(QString vtcSpeed MEMBER vtcSpeed NOTIFY valueChanged);
+  Q_PROPERTY(QColor vtcColor MEMBER vtcColor NOTIFY valueChanged);
+  Q_PROPERTY(bool showDebugUI MEMBER showDebugUI NOTIFY valueChanged);
+
+  Q_PROPERTY(QString roadName MEMBER roadName NOTIFY valueChanged);
+
 public:
   explicit OnroadHud(QWidget *parent);
   void updateState(const UIState &s);
@@ -57,8 +67,11 @@ private:
 
   QPixmap engage_img;
   QPixmap dm_img;
+  QPixmap how_img;
+  QPixmap map_img;
   const int radius = 192;
   const int img_size = (radius / 2) * 1.5;
+  const int subsign_img_size = 35;
   QString speed;
   QString speedUnit;
   QString maxSpeed;
@@ -67,6 +80,16 @@ private:
   bool dmActive = false;
   bool hideDM = false;
   int status = STATUS_DISENGAGED;
+
+  bool showHowAlert = false;
+  bool howWarning = false;
+
+  bool showVTC = false;
+  QString vtcSpeed;
+  QColor vtcColor;
+  bool showDebugUI = false;
+  
+  QString roadName;
 
 signals:
   void valueChanged();
