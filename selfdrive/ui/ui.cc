@@ -229,6 +229,8 @@ void UIState::updateStatus() {
       scene.started_frame = sm->frame;
       scene.end_to_end = Params().getBool("EndToEndToggle");
       wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
+      scene.speed_limit_control_enabled = Params().getBool("SpeedLimitControl");
+      scene.speed_limit_perc_offset = Params().getBool("SpeedLimitPercOffset");
     }
     started_prev = scene.started || scene.started_sentry;
     emit offroadTransition(!(scene.started || scene.started_sentry));
