@@ -88,6 +88,39 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2], [0.05]]
       ret.lateralTuning.pid.kf = 0.00003   # full torque for 20 deg at 80mph means 0.00007818594
 
+    elif candidate == CAR.OLD_CAR:
+      stop_and_go = True
+      ret.safetyParam = 100
+      ret.wheelbase = 2.830   # This is updated for BMW
+      ret.steerRatio = 17.9   # This is updated for BMW
+      tire_stiffness_factor = 0.444
+      ret.mass = 2000   # This is updated for BMW
+      ret.longitudinalTuning.kpBP = [0., 15., 22.]
+      ret.longitudinalTuning.kiBP = [0., 15., 22.]
+      ret.gasMaxBP = [0., 5., 12., 25.]
+      ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
+      #+      ret.gasMaxV = [0.1, 0.4, 0.8]
+
+      ret.longitudinalTuning.deadzoneBP = [0.]
+      ret.longitudinalTuning.deadzoneV = [0.]
+
+      ret.enableGasInterceptor = True #OLD_CAR USES ALWAYS INTERCEPTOR MESSAGE FOR GAS
+
+      if ret.enableGasInterceptor:
+        ret.longitudinalTuning.kpV = [1.2, 2, 2.4]
+        ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
+
+      ret.lateralTuning.init('lqr')
+      ret.lateralTuning.lqr.scale = 1500.0
+      ret.lateralTuning.lqr.ki = 0.07
+
+      ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
+      ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
+      ret.lateralTuning.lqr.c = [1., 0.]
+      ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
+      ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
+      ret.lateralTuning.lqr.dcGain = 0.002237852961363602
+
     elif candidate == CAR.LEXUS_RX:
       stop_and_go = True
       ret.safetyParam = 73
@@ -344,7 +377,7 @@ class CarInterface(CarInterfaceBase):
     # In TSS2 cars the camera does long control
     found_ecus = [fw.ecu for fw in car_fw]
     ret.enableDsu = (len(found_ecus) > 0) and (Ecu.dsu not in found_ecus) and (candidate not in NO_DSU_CAR)
-    ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    #ret.enableGasInterceptor = 0x201 in fingerprint[0]       #This has set to TRUE elsewhere
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
     ret.openpilotLongitudinalControl = smartDsu or ret.enableDsu or candidate in TSS2_CAR
     if Params().get_bool('dp_atl') and not Params().get_bool('dp_atl_op_long'):
