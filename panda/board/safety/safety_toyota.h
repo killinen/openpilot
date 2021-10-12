@@ -31,7 +31,7 @@ const CanMsg TOYOTA_TX_MSGS[] = {{0x283, 0, 7}, {0x2E6, 0, 8}, {0x2E7, 0, 8}, {0
                                   {0x2E4, 0, 5}, {0x411, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  // LKAS + ACC
                                   {0x200, 0, 6}, {0x1F0, 0, 8}, {0x153, 0, 8}, {0x43F, 0, 8}, {0x329, 0, 8}, {0x615, 0, 8}};  // interceptor + E39 stuff
 
-AddrCheckStruct toyota_rx_checks[] = {
+AddrCheckStruct toyota_addr_checks[] = {
   {.msg = {{0x1F0, 0, 8, .check_checksum = false, .expected_timestep = 12000U}}},
   {.msg = {{0x153, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},
   {.msg = {{0x43F, 0, 8, .check_checksum = false, .expected_timestep = 30000U}}},
