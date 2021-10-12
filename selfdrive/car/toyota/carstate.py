@@ -214,6 +214,8 @@ class CarState(CarStateBase):
       ret.leftBlindspot = (cp.vl["BSM"]["L_ADJACENT"] == 1) or (cp.vl["BSM"]["L_APPROACHING"] == 1)
       ret.rightBlindspot = (cp.vl["BSM"]["R_ADJACENT"] == 1) or (cp.vl["BSM"]["R_APPROACHING"] == 1)
 
+    ret.epsDisabled = (True if ret.genericToggle == 0 else False)
+
     # dp
     # distance button
     self.distance = cp_cam.vl["ACC_CONTROL"]['DISTANCE']

@@ -589,7 +589,7 @@ class Controls:
 
     recent_blinker = (self.sm.frame - self.last_blinker_frame) * DT_CTRL < 5.0  # 5s blinker cooldown
     ldw_allowed = self.is_ldw_enabled and CS.vEgo > LDW_MIN_SPEED and not recent_blinker \
-                    and not self.active and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
+                    and (not self.active or CS.epsDisabled == True) and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
 
     meta = self.sm['modelV2'].meta
     if len(meta.desirePrediction) and ldw_allowed:

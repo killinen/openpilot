@@ -217,6 +217,7 @@ struct CarState {
   stopSteering @39 :Bool; # timebomb - stopSteering
   engineRPM @40 :Float32;
   cruiseActualEnabled @41 :Bool;
+  epsDisabled @37 :Bool;
 
   struct WheelSpeeds {
     # optional wheel speeds

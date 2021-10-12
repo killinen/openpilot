@@ -124,6 +124,7 @@ BO_ 740 STEERING_LKA: 5 XXX
 
 BO_ 742 LEAD_INFO: 8 DSU
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" HCU
+ SG_ LEAD_ACCELERATION : 27|12@0- (0.025,0) [-100|100] "m/s2" HCU
  SG_ LEAD_REL_SPEED : 23|12@0- (0.025,0) [-100|100] "m/s" HCU
  SG_ LEAD_LONG_DIST : 7|13@0+ (0.05,0) [0|300] "m" HCU
 
@@ -480,3 +481,7 @@ VAL_ 1087 GEAR_SELECTOR 5 "D" 1 "S" 6 "N" 7 "R" 8 "P";
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 610 IPAS_STATE 5 "override" 3 "enabled" 1 "disabled";
 VAL_ 610 LKA_STATE 25 "temporary_fault" 9 "temporary_fault2" 5 "active" 1 "standby";
+
+BO_ 128 FORD_FUSION_BOSCH_SAS_2007: 5 XXX
+ SG_ STEER_ANGLE : 0|14@1- (0.1,0) [-780|780] "deg" XXX
+ SG_ STEER_RATE : 16|8@1- (1,0) [-127|127] "" XXX
