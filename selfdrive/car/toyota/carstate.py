@@ -101,8 +101,8 @@ class CarState(CarStateBase):
       if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
         ret.steeringAngleDeg = (cp.vl["SZL_1"]['STEERING_ANGLE'])
       else:
-       ret.steeringAngleDeg = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
-       #ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+        ret.steeringAngleDeg = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
+        #ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
     else:
       ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
