@@ -1728,14 +1728,11 @@ DBC = {
   CAR.LEXUS_NX: dbc_dict('lexus_nx300_2018_pt_generated', 'toyota_adas'),
   CAR.LEXUS_NX_TSS2: dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas'),
   CAR.PRIUS_TSS2: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
-<<<<<<< HEAD
   CAR.MIRAI: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
   CAR.ALPHARD_TSS2: dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas'),
   CAR.LEXUS_ISH: dbc_dict('lexus_is300h_2017_pt_generated', 'toyota_adas'),
   CAR.PRIUS_ALPHA: dbc_dict('toyota_prius_alpha_2017_pt_generated', 'toyota_adas'),
-=======
   CAR.OLD_CAR: dbc_dict('toyota_corolla_2017_pt_generated', 'toyota_adas'),
->>>>>>> be73a03b (RETROPILOT: OLD_CAR patches)
 }
 
 
