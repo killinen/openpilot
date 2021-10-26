@@ -212,6 +212,8 @@ struct CarState {
   leftBlindspot @33 :Bool; # Is there something blocking the left lane change
   rightBlindspot @34 :Bool; # Is there something blocking the right lane change
 
+  epsDisabled @42 :Bool;
+
   # dp
   lkMode @38 :Bool;
   stopSteering @39 :Bool; # timebomb - stopSteering
