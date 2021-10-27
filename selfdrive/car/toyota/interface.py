@@ -26,7 +26,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
 
     ret.carName = "toyota"
-    ret.safetyModel = car.CarParams.SafetyModel.toyota
+    ret.safetyModel = car.CarParams.SafetyModel.allOutput
 
     ret.steerActuatorDelay = 0.12  # Default delay, Prius has larger delay
     ret.steerLimitTimer = 0.4
@@ -379,7 +379,7 @@ class CarInterface(CarInterfaceBase):
     ret.enableDsu = (len(found_ecus) > 0) and (Ecu.dsu not in found_ecus) and (candidate not in NO_DSU_CAR)
     #ret.enableGasInterceptor = 0x201 in fingerprint[0]       #This has set to TRUE elsewhere
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
-    ret.openpilotLongitudinalControl = smartDsu or ret.enableDsu or candidate in TSS2_CAR
+    ret.openpilotLongitudinalControl = (candidate == CAR.OLD_CAR) or smartDsu or ret.enableDsu or candidate in TSS2_CAR
     if Params().get_bool('dp_atl') and not Params().get_bool('dp_atl_op_long'):
       ret.openpilotLongitudinalControl = False
 
@@ -449,7 +449,12 @@ class CarInterface(CarInterfaceBase):
     else:
       self.dp_cruise_speed = 0.
 
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    #ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    if self.CP.carFingerprint == CAR.OLD_CAR:
+      ret.canValid = True  # self.cp.can_valid and self.cp_cam.can_valid
+    else:
+      ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     # gear except P, R
