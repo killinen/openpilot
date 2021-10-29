@@ -135,8 +135,8 @@ class CarInterfaceBase():
     # Handle permanent and temporary steering faults
     if (cs_out.leftBlinker or cs_out.rightBlinker) and self.dragonconf.dpLateralMode == 0:
       events.add(EventName.manualSteeringRequiredBlinkersOn)
-    elif cs_out.steerError:
-      events.add(EventName.steerUnavailable)
+    #elif cs_out.steerError:
+    #  events.add(EventName.steerUnavailable)
     elif cs_out.steerWarning:
       # only escalate to the harsher alert after the condition has
       # persisted for 0.5s and we're certain that the user isn't overriding
