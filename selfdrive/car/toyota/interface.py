@@ -97,8 +97,8 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 2000   # This is updated for BMW
       ret.longitudinalTuning.kpBP = [0., 15., 22.]
       ret.longitudinalTuning.kiBP = [0., 15., 22.]
-      ret.gasMaxBP = [0., 5., 12., 25.]
-      ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
+      #ret.gasMaxBP = [0., 5., 12., 25.]
+      #ret.gasMaxV = [0.6, 0.8, 1.0, 1.0]
       #+      ret.gasMaxV = [0.1, 0.4, 0.8]
 
       ret.longitudinalTuning.deadzoneBP = [0.]
