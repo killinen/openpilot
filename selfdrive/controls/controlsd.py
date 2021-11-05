@@ -741,6 +741,8 @@ class Controls:
       self.step()
       self.rk.monitor_time()
       self.prof.display()
+      if (self.sm.frame % int(10. / DT_CTRL) == 0):
+        print("UPDATE")
 
 def main(sm=None, pm=None, logcan=None):
   controls = Controls(sm, pm, logcan)
