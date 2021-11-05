@@ -66,10 +66,11 @@ class CarController():
 
     if CS.CP.enableGasInterceptor:
       # handle hysteresis when around the minimum acc speed
-      if CS.out.vEgo < MIN_ACC_SPEED:
-        self.use_interceptor = True
-      elif CS.out.vEgo > MIN_ACC_SPEED + PEDAL_HYST_GAP:
-        self.use_interceptor = False
+      self.use_interceptor = True
+      #if CS.out.vEgo < MIN_ACC_SPEED:
+      #  self.use_interceptor = True
+      #elif CS.out.vEgo > MIN_ACC_SPEED + PEDAL_HYST_GAP:
+      #  self.use_interceptor = False
 
       if self.use_interceptor and enabled:
         # only send negative accel when using interceptor. gas handles acceleration
