@@ -115,6 +115,7 @@ class Controls:
                        self.CP.dashcamOnly or community_feature_disallowed
     if self.read_only:
       self.CP.safetyModel = car.CarParams.SafetyModel.noOutput
+      print("READ ONLY")
 
     # Write CarParams for radard
     cp_bytes = self.CP.to_bytes()
@@ -206,6 +207,8 @@ class Controls:
     # Don't add any more events if not initialized
     if not self.initialized:
       self.events.add(EventName.controlsInitializing)
+      if (self.sm.frame % int(10. / DT_CTRL) == 0):
+        print("NOT INITIALIZED")
       return
 
     # dp - use onboard led to warn any issue with processes
@@ -365,6 +368,8 @@ class Controls:
     self.sm.update(0)
 
     all_valid = CS.canValid and self.sm.all_alive_and_valid()
+    if (self.sm.frame % int(10. / DT_CTRL) == 0) and not all_valid:
+      print("NOT VALID")
     if not self.initialized and (all_valid or self.sm.frame * DT_CTRL > 3.5 or SIMULATION):
       self.CI.init(self.CP, self.can_sock, self.pm.sock['sendcan'])
       self.initialized = True
@@ -386,6 +391,8 @@ class Controls:
 
     if not self.sm['dragonConf'].dpAtl and not self.sm['pandaState'].controlsAllowed and self.enabled:
       self.mismatch_counter += 1
+      if (self.sm.frame % int(10. / DT_CTRL) == 0):
+        print("NOT CONTROLS ALLOWED")
 
     self.distance_traveled += CS.vEgo * DT_CTRL
 
