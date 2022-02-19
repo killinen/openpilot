@@ -6,8 +6,8 @@ from common.basedir import PERSIST
 from selfdrive.version import version
 from common.params import Params
 
-#API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com') if not Params().get_bool("dp_api_custom") else Params().get("dp_api_custom_url", encoding='utf-8')
-API_HOST = os.getenv('API_HOST', 'http://192.168.1.150:3000')
+API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com') if not Params().get_bool("dp_api_custom") else Params().get("dp_api_custom_url", encoding='utf-8')
+#API_HOST = os.getenv('API_HOST', 'http://192.168.1.150:3000')
 
 class Api():
   def __init__(self, dongle_id):
