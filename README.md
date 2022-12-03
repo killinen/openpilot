@@ -1,3 +1,102 @@
+# OPENPILOT for MY99 BMW 540i (E39)
+This project was created to solve the need for a MY99 BMW 540i (E39) to drive autonomously.
+
+## What is OPENPILOT
+OPENPILOT is an open source driver assistance system that offers Automated Lane Centering and Adaptive Cruise Control for over 200 supported car makes and models. To function properly, OPENPILOT needs to be able to control the longitudinal (gas and brake) and lateral (steering) movements of the car using the CAN bus. For more information, see https://comma.ai/ and https://github.com/commaai/openpilot.
+
+Video introducing OPENPILOT.
+
+[![](https://i3.ytimg.com/vi/NmBfgOanCyk/maxresdefault.jpg)](https://youtu.be/NmBfgOanCyk)
+
+OPENPILOT is a complex robotics platform that can be difficult to explain or quickly learn about. For those interested in taking a deeper look at how OPENPILOT works, the following resources may be helpful: https://blog.comma.ai/openpilot-in-2021/ and https://github.com/commaai/openpilot/wiki/Introduction-to-openpilot.
+
+![image](https://user-images.githubusercontent.com/37126045/205421854-f82e06a8-3a45-4520-824f-f490790784c5.png)
+
+In short, OPENPILOT is a LEVEL 2 ADAS (Advanced Driver Assistance System) software that runs on a device with two cameras: one for recording the view of the road and another for driver monitoring. The device must also be connected to or have an integrated device that can communicate with the CAN bus and has high-precision GPS (e.g. Panda). OPENPILOT takes in the camera feeds, runs them through an ML model, evaluates the car's state using sensor and CAN bus data, and outputs longitudinal and lateral control commands based on that information. This allows the system to make intelligent, real-time decisions about how to control the car.
+
+## OPENPILOT hardware
+To run OPENPILOT, you need hardware that is compatible with it. COMMA AI produces their own device, the COMMA THREE (https://github.com/commaai/openpilot/wiki/comma-three), but older hardware has also been developed by COMMA, such as the COMMA TWO (https://github.com/commaai/openpilot/wiki/comma-two) and EON. Additionally, it is possible to run OPENPILOT on a Linux PC.
+
+Video of COMMA TWO:
+
+[![](https://i3.ytimg.com/vi/fToVz1XB0x0/maxresdefault.jpg)](https://www.youtube.com/watch?v=fToVz1XB0x0)
+
+### FrEON
+FrEON is the name of a phone that is capable of running OPENPILOT, and is encased in a 3D-printed case with some type of DIY cooling system. Only two phone models can currently run the older version of the OPENPILOT software: the OnePlus 3T and the LeEco Le Pro 3 (what a great name don't you think).
+
+[![](https://i3.ytimg.com/vi/RC8wjAatwl0/maxresdefault.jpg)](https://www.youtube.com/watch?v=RC8wjAatwl0)
+
+### Panda
+Panda is a crucial part of the OPENPILOT ecosystem, along with the COMMA/FrEON device. It is a CAN interfacing device that has high-precision GPS and is used to power the COMMA/FrEON (https://github.com/commaai/panda). There have been four different types of Pandas, including White, Grey, Black, and the newest version, Red. The following is a hardware guide for the White Panda (an older version): https://github.com/commaai/panda/blob/master/docs/guide.pdf.
+
+Video showing Grey and Black Panda:
+[![Video showing Grey and Black Panda](https://i3.ytimg.com/vi/0iKRq7-kywI/maxresdefault.jpg)](https://www.youtube.com/watch?v=0iKRq7-kywI)
+
+On cars that have ADAS, the working principle of Pandas is slightly different, as they need to intercept CAN bus messages. In my simpler use case, Panda simply communicates with a single CAN bus and requires connections to 12V, GND, and IGN lines to function properly. I won't go into more detail about the differences in the working principle of Pandas in this context.
+
+### Additional hardware
+For OPENPILOT to work correctly, it needs to have both lateral (steering) and longitudinal (gas and brake) control of the car. In newer cars with ADAS capabilities, this is achieved by intercepting the CAN bus messages, but in older cars, additional hardware is usually required to add this control. In my case, this is done by intercepting the gas pedal sensor signals with a COMMA PEDAL type of hardware for the gas (https://github.com/commaai/openpilot/wiki/comma-pedal), and using my own designed BrakeModule for the brake (https://github.com/killinen/BrakeModule). I currently do not have lateral control.
+
+The following video provides a good overview of the requirements for making OPENPILOT work on an older car. The gas solution shown in the video is for mechanical throttle bodies, interceptors can be used with electronic throttle bodies, like in my case. Additionally, the video does not show the implementation of braking capabilities, but it still provides a good illustration of the basic idea behind the system:
+
+[![](https://i3.ytimg.com/vi/L1u6AkSpR98/maxresdefault.jpg)](https://www.youtube.com/watch?app=desktop&v=L1u6AkSpR98&t=2s)
+ 
+## Configuration
+So devices that are interfacing with my car are:
+- Panda (Grey)
+- Gas interceptor
+- BrakeModule
+
+These all talk to each other via BMW's original CAN bus:
+
+![Bus Topology I -K-M-P-Can-Diagnostic](https://user-images.githubusercontent.com/37126045/205412230-d4519533-0346-42c4-b3b5-591e453f1f85.jpg)
+
+On the same CAN bus are as shown in the picture are:
+- Panda (OP)
+- BrakeModule (BM)
+- Steering Angle Sensor (LEW)
+- BOSCH ABS module (DSCIII)
+- Motor contor unit (DME)
+
+Communication between Panda and FrEON takes place via USB.
+
+
+OPENPILOT listen following states from CAN bus:
+- Wheel speeds (car speed)
+- Gas pedal state
+- Brake pedal state (disengage OP)
+- Blinkers state (lane change detection)
+- Door states (warning)
+- Seatbelt states (warning)
+- DSC state (disengage OP if not on)
+- Steering Wheel Angle sensor (needed for determine car state)
+- Gear selector state (OP won't engage on P)
+- Cruise state (engage/disengage OP)
+
+OPENPILOT sends to CAN bus:
+- Gas pedal request message (to gas interceptor)
+- Brake demand message (to BrakeModule)
+- Cruise control cancel request message
+- Lead car info message (debug)
+- TOYOTA instrument cluster ui message (legacy, not really needed)
+
+## My forks software mods in default branch:
+Few mods have been done to this fork order to work with my car and my likenings. On high level:
+- Add E39 CAN msgs configuration to opendbc
+- Detect BMW as OLD_CAR which is detected as TOYOTA COROLLA (fingerprinting)
+- Panda SW mods to accept BMW CAN msg's
+- Disable steering requests
+- Enable vision only longitudinal control and improve it (ACC wo radar)
+- Made stop and go work good enough
+- Made smoothing of gas output to lessen jerk when accelerating
+- Add OP3T support
+
+Default branch is based on openpilot version 0.8.2. In December of 2022 there is already openpilot version 0.9, which is much more capable than this older one. However, my hardware is no longer supported by the newer version of the software.
+
+To be clear my car does not currently have steering capabilities. However, the system I am using offers vision-based ACC with stop and go functionality, which greatly improves my driving experience. In fact, if for some reason OPENPILOT is not working, it bums me.
+
+### Below is notes from Shane Smiskol whos Stock Additions fork is integrated in my fork, which has great additions to stock OPENPILOT
+
 # Stock Additions [Update 3](/SA_RELEASES.md) (0.8.2)
 
 Stock Additions is a fork of openpilot designed to be minimal in design while boasting various feature additions and behavior improvements over stock. I have a 2017 Toyota Corolla with comma pedal, so most of my changes are designed to improve the longitudinal performance.
