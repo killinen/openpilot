@@ -156,9 +156,9 @@ class CarController():
     # on consecutive messages
     if Ecu.fwdCamera in self.fake_ecus:
       # Original steer_command
-      # can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
+      can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # StepperServoCan steer_command
-      can_sends.append(create_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
+      #can_sends.append(create_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
