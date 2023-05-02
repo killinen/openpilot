@@ -9,7 +9,7 @@
 #   }
 #   return packer.make_can_msg("STEERING_LKA", 0, values)
 
-def create_steer_command(mode, steer_delta, steer_tq, frame):
+def create_steer_command(packer, mode, steer_delta, steer_tq, frame):
   """Creates a CAN message for the actuator STEERING_COMMAND"""
   packer = CANPacker('ocelot_controls')
   values = {
