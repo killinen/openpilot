@@ -117,12 +117,14 @@ class CarController():
     # steer torque
     new_steer = int(round(actuators.steer * CarControllerParams.STEER_MAX))
     apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, CarControllerParams)
+    steer_tq = apply_steer / 2.8
     self.steer_rate_limited = new_steer != apply_steer
 
     # Cut steering while we're in a known fault state (2s)
     if not enabled or abs(CS.out.steeringRateDeg) > 100:
     #if not enabled or CS.steer_state in [9, 25] or CS.out.epsDisabled==1 or abs(CS.out.steeringRateDeg) > 100:    #Original statement
       apply_steer = 0
+      steer_tq = 0
       apply_steer_req = 0
     else:
       apply_steer_req = 1
@@ -158,7 +160,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # StepperServoCan steer_command
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, 0, frame)) 
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
