@@ -117,7 +117,7 @@ class CarController():
     # steer torque
     new_steer = int(round(actuators.steer * CarControllerParams.STEER_MAX))
     apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, CarControllerParams)
-    steer_tq = apply_steer / 2.8
+    steer_tq = apply_steer / 3
     self.steer_rate_limited = new_steer != apply_steer
 
     # Cut steering while we're in a known fault state (2s)
@@ -152,7 +152,9 @@ class CarController():
 
     #*** control msgs ***
     #print("steer {0} {1} {2} {3}".format(apply_steer, min_lim, max_lim, CS.steer_torque_motor)
-
+      # *** control msgs ***
+    if (frame % 10) == 0: #slow print
+      print("apply_steer {0} steer_tq {1}".format(apply_steer, steer_tq))
     # toyota can trace shows this message at 42Hz, with counter adding alternatively 1 and 2;
     # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
     # on consecutive messages
