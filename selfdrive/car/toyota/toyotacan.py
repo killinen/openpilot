@@ -11,7 +11,7 @@ def create_steer_command(packer, steer, steer_req, raw_cnt):
 
 def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
   """Creates a CAN message for the actuator STEERING_COMMAND"""
-  packer = CANPacker('ocelot_controls')
+#  packer = CANPacker('ocelot_controls')
   values = {
     "SERVO_COUNTER": frame % 0xF,
     "STEER_MODE": mode,
