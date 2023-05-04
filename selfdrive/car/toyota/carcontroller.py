@@ -11,6 +11,18 @@ import cereal.messaging as messaging
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
+# Steer angle limits
+ANGLE_MAX_BP = [5., 15., 30]  #m/s
+ANGLE_MAX = [200., 20., 10.] #deg
+ANGLE_RATE_BP = [0., 5., 15.]
+ANGLE_RATE_WINDUP = [500., 80., 15.]     #deg/s windup rate limit
+ANGLE_RATE_UNWIND = [500., 350., 40.]  #deg/s unwind rate limit
+
+def calc_steering_torque_hold(angle, vEgo, steerActuatorParams):
+  angle_sign = 1 if angle > 0 else -1
+  speed_dep_linear_curve = SteerActuatorParams.STEER_TORQUE_OFFSET + angle_sign * max(abs(angle), steerActuatorParams.STEER_LINEAR_REGION) *vEgo ** 2 * steerActuatorParams.CENTERING_COEFF
+  k = min(abs(angle), steerActuatorParams.STEER_LINEAR_REGION) / steerActuatorParams.STEER_LINEAR_REGION
+  return -((1-k)* steerActuatorParams.ZERO_ANGLE_HOLD_TQ * angle_sign + k*speed_dep_linear_curve) #interpolate between zero hold torque and linear region starting point at a given vehicle speed
 
 def accel_hysteresis(accel, accel_steady, enabled):
 
@@ -51,7 +63,14 @@ class CarController():
     self.standstill_hack = opParams().get('standstill_hack')
 
     self.steer_rate_limited = False
-
+    
+    # StepperServo variables, redundant safety check with the board
+    self.last_target_angle_lim = 0
+    self.angle_control = False
+    self.steer_angle_enabled = False
+    self.last_fault_frame = -200
+    self.steer_rate_limited = False 
+    
     self.fake_ecus = set()
     if CP.enableCamera:
       self.fake_ecus.add(Ecu.fwdCamera)
@@ -150,6 +169,65 @@ class CarController():
     if (frame%2==0):
       can_sends.append(create_lead_command(self.packer, self.lead_v, self.lead_a, self.lead_d))
 
+      
+      
+############################# New Steer Logik ####################################
+
+    # Cut steering for 2s after fault
+    apply_hold_torque = 0
+    if not control.enabled or (frame - self.last_fault_frame < 200):
+      apply_steer_req = 0
+    else:
+      apply_steer_req = 1
+
+    # steer angle
+    if control.enabled:
+      angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
+      target_angle_lim = clip(actuators.steerAngle, -angle_lim, angle_lim)
+      
+      # windup slower #todo implement real (speed) rate limiter
+      if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim): #todo revise last_angle
+        angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_WINDUP) 
+      else:
+        angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_UNWIND)
+      angle_max_rate = angle_delta_lim / SAMPLING_FREQ
+      
+      # steer angle - don't allow too large delta
+      MAX_SEC_BEHIND = 1 #seconds behind target. Target deltas behind more than 1s will be rejected by bmw_safety
+      target_angle_lim = clip(target_angle_lim, self.last_target_angle_lim - angle_delta_lim*MAX_SEC_BEHIND, self.last_target_angle_lim + angle_delta_lim*MAX_SEC_BEHIND)
+      
+      target_angle_delta = CS.out.steeringAngle - target_angle_lim 
+      angle_desired_rate = clip(target_angle_delta, -angle_max_rate, angle_max_rate) #apply max allowed rate such that the target is not overshot within a sample
+      
+      self.steer_rate_limited = target_angle_delta != angle_desired_rate #desired rate only drives stepper (inertial) holding torque in this iteration. Rate is limited independently in Trinamic controller
+      
+      # steer torque
+      I_steering = 0.05 #estimated moment of inertia (inertia of a ring = I=mR^2 = 2kg * .15^2 = 0.045kgm2)
+      inertia_tq = I_steering * ((angle_desired_rate * SAMPLING_FREQ - CS.out.steeringRate ) * SAMPLING_FREQ) * CV.DEG_TO_RAD  #kg*m^2 * rad/s^2 = N*m (torque)
+      
+      # add friciton compensation feed-forward
+      steer_tq = calc_steering_torque_hold(CS.out.vEgo, target_angle_lim, SteerActuatorParams) + inertia_tq
+
+      # explicitly clip torque before sending on CAN
+      steer_tq = clip(steer_tq, -SteerActuatorParams.MAX_STEERING_TQ, SteerActuatorParams.MAX_STEERING_TQ)
+      
+      can_sends.append(create_new_steer_command(self.packer, int(True), target_angle_delta, steer_tq, frame))
+      # *** control msgs ***
+      if (frame % 10) == 0: #slow print
+        print("SteerAngleErr {0} Inertia  {1} Brake {2}, SpeedDiff {3}".format(control.actuators.steerAngle - CS.out.steeringAngle,
+                                                                 inertia_tq,
+                                                                 control.actuators.brake, speed_diff_req))
+    else:
+      target_angle_lim = CS.out.steeringAngle
+      can_sends.append(create_new_steer_command(self.packer, int(False), 0., 0., frame)) 
+
+    self.last_target_angle_lim = target_angle_lim
+    
+########################################## End of new Steer Logik #################################################
+      
+      
+      
+      
     #*** control msgs ***
     #print("steer {0} {1} {2} {3}".format(apply_steer, min_lim, max_lim, CS.steer_torque_motor)
       # *** control msgs ***
@@ -162,7 +240,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # StepperServoCan steer_command
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
+      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
