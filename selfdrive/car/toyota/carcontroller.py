@@ -171,59 +171,59 @@ class CarController():
 
       
       
-############################# New Steer Logik ####################################
+# ############################# New Steer Logik ####################################
 
-    # Cut steering for 2s after fault
-    apply_hold_torque = 0
-    if not control.enabled or (frame - self.last_fault_frame < 200):
-      apply_steer_req = 0
-    else:
-      apply_steer_req = 1
+#     # Cut steering for 2s after fault
+#     apply_hold_torque = 0
+#     if not control.enabled or (frame - self.last_fault_frame < 200):
+#       apply_steer_req = 0
+#     else:
+#       apply_steer_req = 1
 
-    # steer angle
-    if control.enabled:
-      angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
-      target_angle_lim = clip(actuators.steerAngle, -angle_lim, angle_lim)
+#     # steer angle
+#     if control.enabled:
+#       angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
+#       target_angle_lim = clip(actuators.steerAngle, -angle_lim, angle_lim)
       
-      # windup slower #todo implement real (speed) rate limiter
-      if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim): #todo revise last_angle
-        angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_WINDUP) 
-      else:
-        angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_UNWIND)
-      angle_max_rate = angle_delta_lim / SAMPLING_FREQ
+#       # windup slower #todo implement real (speed) rate limiter
+#       if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim): #todo revise last_angle
+#         angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_WINDUP) 
+#       else:
+#         angle_delta_lim = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_UNWIND)
+#       angle_max_rate = angle_delta_lim / SAMPLING_FREQ
       
-      # steer angle - don't allow too large delta
-      MAX_SEC_BEHIND = 1 #seconds behind target. Target deltas behind more than 1s will be rejected by bmw_safety
-      target_angle_lim = clip(target_angle_lim, self.last_target_angle_lim - angle_delta_lim*MAX_SEC_BEHIND, self.last_target_angle_lim + angle_delta_lim*MAX_SEC_BEHIND)
+#       # steer angle - don't allow too large delta
+#       MAX_SEC_BEHIND = 1 #seconds behind target. Target deltas behind more than 1s will be rejected by bmw_safety
+#       target_angle_lim = clip(target_angle_lim, self.last_target_angle_lim - angle_delta_lim*MAX_SEC_BEHIND, self.last_target_angle_lim + angle_delta_lim*MAX_SEC_BEHIND)
       
-      target_angle_delta = CS.out.steeringAngle - target_angle_lim 
-      angle_desired_rate = clip(target_angle_delta, -angle_max_rate, angle_max_rate) #apply max allowed rate such that the target is not overshot within a sample
+#       target_angle_delta = CS.out.steeringAngle - target_angle_lim 
+#       angle_desired_rate = clip(target_angle_delta, -angle_max_rate, angle_max_rate) #apply max allowed rate such that the target is not overshot within a sample
       
-      self.steer_rate_limited = target_angle_delta != angle_desired_rate #desired rate only drives stepper (inertial) holding torque in this iteration. Rate is limited independently in Trinamic controller
+#       self.steer_rate_limited = target_angle_delta != angle_desired_rate #desired rate only drives stepper (inertial) holding torque in this iteration. Rate is limited independently in Trinamic controller
       
-      # steer torque
-      I_steering = 0.05 #estimated moment of inertia (inertia of a ring = I=mR^2 = 2kg * .15^2 = 0.045kgm2)
-      inertia_tq = I_steering * ((angle_desired_rate * SAMPLING_FREQ - CS.out.steeringRate ) * SAMPLING_FREQ) * CV.DEG_TO_RAD  #kg*m^2 * rad/s^2 = N*m (torque)
+#       # steer torque
+#       I_steering = 0.05 #estimated moment of inertia (inertia of a ring = I=mR^2 = 2kg * .15^2 = 0.045kgm2)
+#       inertia_tq = I_steering * ((angle_desired_rate * SAMPLING_FREQ - CS.out.steeringRate ) * SAMPLING_FREQ) * CV.DEG_TO_RAD  #kg*m^2 * rad/s^2 = N*m (torque)
       
-      # add friciton compensation feed-forward
-      steer_tq = calc_steering_torque_hold(CS.out.vEgo, target_angle_lim, SteerActuatorParams) + inertia_tq
+#       # add friciton compensation feed-forward
+#       steer_tq = calc_steering_torque_hold(CS.out.vEgo, target_angle_lim, SteerActuatorParams) + inertia_tq
 
-      # explicitly clip torque before sending on CAN
-      steer_tq = clip(steer_tq, -SteerActuatorParams.MAX_STEERING_TQ, SteerActuatorParams.MAX_STEERING_TQ)
+#       # explicitly clip torque before sending on CAN
+#       steer_tq = clip(steer_tq, -SteerActuatorParams.MAX_STEERING_TQ, SteerActuatorParams.MAX_STEERING_TQ)
       
-      can_sends.append(create_new_steer_command(self.packer, int(True), target_angle_delta, steer_tq, frame))
-      # *** control msgs ***
-      if (frame % 10) == 0: #slow print
-        print("SteerAngleErr {0} Inertia  {1} Brake {2}, SpeedDiff {3}".format(control.actuators.steerAngle - CS.out.steeringAngle,
-                                                                 inertia_tq,
-                                                                 control.actuators.brake, speed_diff_req))
-    else:
-      target_angle_lim = CS.out.steeringAngle
-      can_sends.append(create_new_steer_command(self.packer, int(False), 0., 0., frame)) 
+#       can_sends.append(create_new_steer_command(self.packer, int(True), target_angle_delta, steer_tq, frame))
+#       # *** control msgs ***
+#       if (frame % 10) == 0: #slow print
+#         print("SteerAngleErr {0} Inertia  {1} Brake {2}, SpeedDiff {3}".format(control.actuators.steerAngle - CS.out.steeringAngle,
+#                                                                  inertia_tq,
+#                                                                  control.actuators.brake, speed_diff_req))
+#     else:
+#       target_angle_lim = CS.out.steeringAngle
+#       can_sends.append(create_new_steer_command(self.packer, int(False), 0., 0., frame)) 
 
-    self.last_target_angle_lim = target_angle_lim
+#     self.last_target_angle_lim = target_angle_lim
     
-########################################## End of new Steer Logik #################################################
+# ########################################## End of new Steer Logik #################################################
       
       
       
