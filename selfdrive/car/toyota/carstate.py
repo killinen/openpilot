@@ -90,7 +90,7 @@ class CarState(CarStateBase):
     ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
-    ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_EPS']
+    ret.steeringTorqueEps = cp.vl["STEERING_TORQUE"]['STEERING_STATUS']
     # we could use the override bit from dbc, but it's triggered at too high torque values
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
     #ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
@@ -164,7 +164,7 @@ class CarState(CarStateBase):
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
       ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
-      ("STEER_TORQUE_EPS", "STEER_TORQUE_SENSOR", 0),
+      ("STEERING_STATUS", "STEERING_TORQUE", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
       ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
       ("LKA_STATE", "EPS_STATUS", 0),
