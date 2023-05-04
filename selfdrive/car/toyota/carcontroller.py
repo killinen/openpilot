@@ -135,7 +135,9 @@ class CarController():
 
     # steer torque
     new_steer = int(round(actuators.steer * CarControllerParams.STEER_MAX))
-    apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, CarControllerParams)
+    # This original gave jitters to StepperServo when motor torque was given
+    #apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, CarControllerParams)
+    apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, 0, CarControllerParams)
     steer_tq = apply_steer / 22.4
     self.steer_rate_limited = new_steer != apply_steer
 
