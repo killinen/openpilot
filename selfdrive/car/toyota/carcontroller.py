@@ -231,8 +231,8 @@ class CarController():
     #*** control msgs ***
     #print("steer {0} {1} {2} {3}".format(apply_steer, min_lim, max_lim, CS.steer_torque_motor)
       # *** control msgs ***
-    if (frame % 30) == 0: #slow print
-      print("apply_steer {0} steer_tq {1}".format(apply_steer, steer_tq))
+    # if (frame % 30) == 0: #slow print
+    #   print("apply_steer {0} steer_tq {1}".format(apply_steer, steer_tq))
     # toyota can trace shows this message at 42Hz, with counter adding alternatively 1 and 2;
     # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
     # on consecutive messages
@@ -240,7 +240,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # StepperServoCan steer_command
-      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
