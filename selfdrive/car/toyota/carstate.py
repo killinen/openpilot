@@ -164,7 +164,7 @@ class CarState(CarStateBase):
       ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
       ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
-      ("STEERING_STATUS", "STEERING_TORQUE", 0),
+      ("STEERING_TORQUE", "STEERING_STATUS", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
       ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
       ("LKA_STATE", "EPS_STATUS", 0),
