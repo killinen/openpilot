@@ -11,7 +11,7 @@ MPC_N = 16
 CAR_ROTATION_RADIUS = 0.0
 
 class MPC_COST_LAT:
-  PATH = 1.0
+  PATH = 2.0
   HEADING = 1.0
   STEER_RATE = 1.0
 
