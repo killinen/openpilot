@@ -72,7 +72,8 @@ class CarController():
     self.angle_control = False
     self.steer_angle_enabled = False
     self.last_fault_frame = -200
-    self.steer_rate_limited = False 
+    self.steer_rate_limited = False
+    self.inertia_tq = 0.
     
     self.fake_ecus = set()
     if CP.enableCamera:
