@@ -187,7 +187,7 @@ class CarController():
 
     # steer angle
     angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
-    target_angle_lim = clip(actuators.steerAngle, -angle_lim, angle_lim)
+    target_angle_lim = clip(actuators.steeringAngleDeg, -angle_lim, angle_lim)
       
     if enabled:
       # windup slower
@@ -226,10 +226,10 @@ class CarController():
       
       can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq, frame))
       # *** control msgs ***
-      if (frame % 10) == 0: #slow print
-        print("SteerAngle {0} Inertia  {1} Brake {2}, frame {3}".format(target_angle_lim,
-                                                                 self.inertia_tq,
-                                                                 actuators.brake, speed_diff_req))
+      # if (frame % 10) == 0: #slow print
+      #   print("SteerAngle {0} Inertia  {1} Brake {2}, frame {3}".format(target_angle_lim,
+      #                                                            self.inertia_tq,
+      #                                                            actuators.brake, speed_diff_req))
     elif not enabled and self.last_controls_enabled: #falling edge - send cancel CAN message
       target_angle_delta = 0
       steer_tq = 0
