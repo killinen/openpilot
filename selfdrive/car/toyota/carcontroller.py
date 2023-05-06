@@ -7,7 +7,9 @@ from selfdrive.car.toyota.toyotacan import create_steer_command, create_ui_comma
 from selfdrive.car.toyota.values import Ecu, CAR, STATIC_MSGS, NO_STOP_TIMER_CAR, TSS2_CAR, CarControllerParams, MIN_ACC_SPEED
 from opendbc.can.packer import CANPacker
 from common.op_params import opParams
+from selfdrive.config import Conversions as CV
 import cereal.messaging as messaging
+
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
