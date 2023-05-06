@@ -1,13 +1,33 @@
 #!/usr/bin/env python3
 from cereal import car
 from selfdrive.config import Conversions as CV
-from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, NO_DSU_CAR, FINGERPRINTS, CarControllerParams, MIN_ACC_SPEED
+from selfdrive.car.toyota.values import Ecu, ECU_FINGERPRINT, CAR, TSS2_CAR, NO_DSU_CAR, FINGERPRINTS, CarControllerParams, MIN_ACC_SPEED, SteerLimitParams
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, is_ecu_disconnected, gen_empty_fingerprint
 from selfdrive.swaglog import cloudlog
 from selfdrive.car.interfaces import CarInterfaceBase
 from common.op_params import opParams
 
 EventName = car.CarEvent.EventName
+
+
+# certian driver intervention can be distinguished from road disturbance by estimating limits for natural motion due to centering
+def detect_stepper_override(steerCmd, steerAct, vEgo, centering_ceoff, SteerFrictionTq):
+  # when steering released (or lost steps), what angle will it return to
+  # if we are above that angle, we can detect things
+  releaseAngle = SteerFrictionTq / (max(vEgo, 1) ** 2 * centering_ceoff)
+
+  override = False
+  marginVal = 1
+  if abs(steerCmd) > releaseAngle:  # for higher angles we steering will not move outward by itself with stepper on
+    if steerCmd > 0:
+      override |= steerAct - steerCmd > marginVal  # driver overrode from right to more right
+      override |= steerAct < 0  # releaseAngle -3  # driver overrode from right to opposite direction
+    else:
+      override |= steerAct - steerCmd < -marginVal  # driver overrode from left to more left
+      override |= steerAct > 0  # -releaseAngle +3 # driver overrode from left to opposite direction
+  # else:
+    # override |= abs(steerAct) > releaseAngle + marginVal  # driver overrode to an angle where steering will not go by itself
+  return override
 
 
 class CarInterface(CarInterfaceBase):
@@ -28,7 +48,7 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "toyota"
     ret.safetyModel = car.CarParams.SafetyModel.allOutput
 
-    ret.steerActuatorDelay = 0.12  # Default delay, Prius has larger delay
+    ret.steerActuatorDelay = 0.15  # BMW delay
     ret.steerLimitTimer = 0.4
     ret.hasZss = 0x23 in fingerprint[0]  # Detect whether car has accurate ZSS
     ret.steerRateCost = 0.5 if ret.hasZss else 1.0
@@ -119,6 +139,7 @@ class CarInterface(CarInterfaceBase):
     elif candidate == CAR.OLD_CAR:
       stop_and_go = True
       ret.safetyParam = 100
+      ret.steerControlType = car.CarParams.SteerControlType.angle
       ret.wheelbase = 2.830   # This is updated for BMW
       ret.steerRatio = 17.9   # This is updated for BMW
       tire_stiffness_factor = 0.444
@@ -138,16 +159,24 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kpV = [0.3, 0.6, 0.7]
         ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
 
-      ret.lateralTuning.init('lqr')
-      ret.lateralTuning.lqr.scale = 1500.0
-      ret.lateralTuning.lqr.ki = 0.07
+      ret.lateralTuning.init('pid')
+      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 3]]
+      ret.lateralTuning.pid.kf = 0
+      ret.steerMaxBP = [0.]
+      ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
+        
+        
+      # ret.lateralTuning.init('lqr')
+      # ret.lateralTuning.lqr.scale = 1500.0
+      # ret.lateralTuning.lqr.ki = 0.07
 
-      ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
-      ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
-      ret.lateralTuning.lqr.c = [1., 0.]
-      ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
-      ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
-      ret.lateralTuning.lqr.dcGain = 0.002237852961363602
+      # ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
+      # ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
+      # ret.lateralTuning.lqr.c = [1., 0.]
+      # ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
+      # ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
+      # ret.lateralTuning.lqr.dcGain = 0.002237852961363602
 
     elif candidate == CAR.LEXUS_RX:
       stop_and_go = True
