@@ -73,6 +73,7 @@ class CarController():
     self.steer_angle_enabled = False
     self.last_fault_frame = -200
     self.steer_rate_limited = False
+    self.planner_cnt = 0
     self.inertia_tq = 0.
     
     self.fake_ecus = set()
