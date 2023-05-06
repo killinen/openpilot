@@ -20,21 +20,13 @@ class CarControllerParams:
 
 # Steer torque limits for StepperServo
 class SteerLimitParams: #controls running @ 100hz
-  STEER_MAX = 9
+  MAX_STEERING_TQ = 12  # Nm
   STEER_DELTA_UP = 10 / 100       # 10Nm/s
   STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
   STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
 
 class SteerActuatorParams: # stepper parameters
-  MAX_STEERING_TQ = 8  # Nm
-  #Todo remvoe this if not used - since it is included in DBC factor
-  # ACTUATOR_RATIO = 25 / 12 * (13+212/289)  # big cog / small cog * planetary gearbox
-  # POSITION_SCALING = 256 / 1.8  # microsteps / base step angle [deg]
-  CENTERING_COEFF = 0.0005
-  ZERO_ANGLE_HOLD_TQ = 1 #carcontroller will interpolate between zero angle torque and where linear region start
-  STEER_LINEAR_REGION = 5 #deg start of linear region for small angles
-  STEER_TORQUE_OFFSET = 3  # add offset to due
-  STEER_BACKLASH = 1 #deg  
+  STEER_BACKLASH = 1 #deg
   
 class CAR:
   PRIUS = "TOYOTA PRIUS 2017"
