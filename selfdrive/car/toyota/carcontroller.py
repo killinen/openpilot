@@ -66,6 +66,8 @@ class CarController():
     self.steer_rate_limited = False
     
     # StepperServo variables, redundant safety check with the board
+    self.last_steer_tq = 0
+    self.last_controls_enabled = False
     self.last_target_angle_lim = 0
     self.angle_control = False
     self.steer_angle_enabled = False
@@ -239,7 +241,14 @@ class CarController():
       #   print("SteerAngle {0} SteerSpeed {1}".format(CS.out.steeringAngleDeg,
                                                                 #  CS.out.steeringRateDeg))
 #     self.last_target_angle_lim = target_angle_lim
-    
+  
+      self.last_steer_tq = steer_tq
+      self.last_target_angle_lim = target_angle_lim
+      # self.last_accel = apply_accel
+      # self.last_standstill = CS.out.standstill
+      self.last_controls_enabled = enabled  
+  
+  
 # ########################################## End of new Steer Logik #################################################
       
       
