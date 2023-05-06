@@ -140,7 +140,7 @@ class CarController():
     #apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, CarControllerParams)
     apply_steer = apply_toyota_steer_torque_limits(new_steer, self.last_steer, 0, CarControllerParams)
     steer_tq = apply_steer / 22.4
-        steer_tq = steer_tq * (-1)    # Switch StepperServo rotation
+    steer_tq = steer_tq * (-1)    # Switch StepperServo rotation
     self.steer_rate_limited = new_steer != apply_steer
 
     # Cut steering while we're in a known fault state (2s)
