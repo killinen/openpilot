@@ -230,7 +230,7 @@ class CarController():
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
       steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
       
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame))
+      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame))
       # *** control msgs ***
       # if (frame % 10) == 0: #slow print
       #   print("SteerAngle {0} Inertia  {1} Brake {2}, frame {3}".format(target_angle_lim,
@@ -269,7 +269,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # # StepperServoCan steer_command
-      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, 0, steer_tq, frame)) 
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame))
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
