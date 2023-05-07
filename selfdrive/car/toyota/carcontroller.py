@@ -76,7 +76,7 @@ class CarController():
     self.last_fault_frame = -200
     self.planner_cnt = 0
     self.inertia_tq = 0.
-    self.target_angle_delta
+    self.target_angle_delta = 0
     
     self.fake_ecus = set()
     if CP.enableCamera:
