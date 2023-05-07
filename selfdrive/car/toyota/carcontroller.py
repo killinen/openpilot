@@ -76,6 +76,7 @@ class CarController():
     self.last_fault_frame = -200
     self.planner_cnt = 0
     self.inertia_tq = 0.
+    self.target_angle_delta
     
     self.fake_ecus = set()
     if CP.enableCamera:
@@ -205,10 +206,10 @@ class CarController():
       MAX_SEC_BEHIND = 1 #seconds behind target. Target deltas behind more than 1s will be rejected by bmw_safety #todo implement real (speed) rate limiter?? check with panda. Replace MAX_SEC_BEHIND with a Hz?
       target_angle_lim = clip(target_angle_lim, self.last_target_angle_lim - angle_rate_max*MAX_SEC_BEHIND, self.last_target_angle_lim + angle_rate_max*MAX_SEC_BEHIND)
       
-      target_angle_delta =  target_angle_lim - CS.out.steeringAngleDeg
+      self.target_angle_delta =  target_angle_lim - CS.out.steeringAngleDeg
       angle_step_max = angle_rate_max / SAMPLING_FREQ  #max angle step per single sample
-      angle_step = clip(target_angle_delta, -angle_step_max, angle_step_max) #apply angle step
-      self.steer_rate_limited = target_angle_delta != angle_step #advertise steer beeing rate limited
+      angle_step = clip(self.target_angle_delta, -angle_step_max, angle_step_max) #apply angle step
+      self.steer_rate_limited = self.target_angle_delta != angle_step #advertise steer beeing rate limited
       
       # steer torque
       I_steering = 0 #estimated moment of inertia
@@ -237,10 +238,10 @@ class CarController():
       #                                                            self.inertia_tq,
       #                                                            actuators.brake, speed_diff_req))
     elif not enabled and self.last_controls_enabled: #falling edge - send cancel CAN message
-      target_angle_delta = 0
+      self.target_angle_delta = 0
       steer_tq = 0
       steer_tq_r = 0
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame)) 
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq_r, frame)) 
       
       # if (frame % 100) == 0: #slow print when disabled
       #   print("SteerAngle {0} SteerSpeed {1}".format(CS.out.steeringAngleDeg,
@@ -269,7 +270,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # # StepperServoCan steer_command
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame))
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq_r, frame))
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
