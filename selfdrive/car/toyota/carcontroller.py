@@ -77,6 +77,7 @@ class CarController():
     self.planner_cnt = 0
     self.inertia_tq = 0.
     self.target_angle_delta = 0
+    self.steer_tq_r = 0
     
     self.fake_ecus = set()
     if CP.enableCamera:
@@ -186,10 +187,11 @@ class CarController():
     # Cut steering for 2s after fault
     steer_tq = 0
     #if not enabled or (frame - self.last_fault_frame < 200):   # I don't think I have last_fault_frame, use old statement below
-    if not enabled or abs(CS.out.steeringRateDeg) > 100:
-      apply_steer_req = 0
-    else:
-      apply_steer_req = 1
+    # This is done allready above
+    # if not enabled or abs(CS.out.steeringRateDeg) > 100:
+    #    apply_steer_req = 0
+    # else:
+    #   apply_steer_req = 1
 
     # steer angle
     angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
@@ -229,9 +231,9 @@ class CarController():
       steer_tq = feedforward + actuators.steer + self.inertia_tq
       # explicitly clip torque before sending on CAN
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
-      steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
+      self.steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
       
-      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, target_angle_delta, steer_tq_r, frame))
+      # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, self.steer_tq_r, frame))
       # *** control msgs ***
       # if (frame % 10) == 0: #slow print
       #   print("SteerAngle {0} Inertia  {1} Brake {2}, frame {3}".format(target_angle_lim,
@@ -240,8 +242,8 @@ class CarController():
     elif not enabled and self.last_controls_enabled: #falling edge - send cancel CAN message
       self.target_angle_delta = 0
       steer_tq = 0
-      steer_tq_r = 0
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq_r, frame)) 
+      self.steer_tq_r = 0
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, self.steer_tq_r, frame)) 
       
       # if (frame % 100) == 0: #slow print when disabled
       #   print("SteerAngle {0} SteerSpeed {1}".format(CS.out.steeringAngleDeg,
@@ -270,7 +272,7 @@ class CarController():
       # Original steer_command
       can_sends.append(create_steer_command(self.packer, apply_steer, apply_steer_req, frame))
       # # StepperServoCan steer_command
-      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq_r, frame))
+      can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, self.steer_tq_r, frame))
       if frame % 2 == 0 and CS.CP.carFingerprint in TSS2_CAR:
         can_sends.append(create_lta_steer_command(self.packer, 0, 0, frame // 2))
 
