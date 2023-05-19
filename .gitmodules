@@ -1,15 +1,18 @@
 [submodule "panda"]
 	path = panda
-	url = ../../commaai/panda.git
+	url = ../../killinen/panda.git
+	branch = 0813_SHANE
 [submodule "opendbc"]
 	path = opendbc
-	url = ../../commaai/opendbc.git
+	url = ../../killinen/opendbc.git
+	branch = 0813_SHANE
 [submodule "laika_repo"]
 	path = laika_repo
 	url = ../../commaai/laika.git
 [submodule "cereal"]
 	path = cereal
-	url = ../../sshane/cereal.git
+	url = ../../killinen/cereal.git
+        branch = 0813_SHANE
 [submodule "rednose_repo"]
 	path = rednose_repo
 	url = ../../commaai/rednose.git
