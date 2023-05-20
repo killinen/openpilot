@@ -11,7 +11,7 @@
 	url = ../../commaai/laika.git
 [submodule "cereal"]
 	path = cereal
-	url = ../../sshane/cereal.git
+	url = ../../killinen/cereal.git
 [submodule "rednose_repo"]
 	path = rednose_repo
 	url = ../../commaai/rednose.git
