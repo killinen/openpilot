@@ -165,13 +165,24 @@ static void update_sockets(UIState *s) {
   UIScene &scene = s->scene;
   if (s->started && sm.updated("controlsState")) {
     scene.controls_state = sm["controlsState"].getControlsState();
+    s->scene.output_scale = scene.controls_state.getLateralControlState().getPidState().getOutput();
+    s->scene.angleSteersDes = scene.controls_state.getSteeringAngleDesiredDeg();
   }
   if (sm.updated("carState")) {
     scene.car_state = sm["carState"].getCarState();
+    s->scene.steerOverride= scene.car_state.getSteeringPressed();
+    s->scene.angleSteers = scene.car_state.getSteeringAngleDeg();
+    s->scene.brakeLights = scene.car_state.getBrakeLights();
+    s->scene.engineRPM = scene.car_state.getEngineRPM();
+    s->scene.aEgo = scene.car_state.getAEgo();
+    s->scene.steeringTorqueEps = scene.car_state.getSteeringTorqueEps();
   }
   if (sm.updated("radarState")) {
     auto radar_state = sm["radarState"].getRadarState();
     const auto line = sm["modelV2"].getModelV2().getPosition();
+    s->scene.lead_v_rel = radar_state.getLeadOne().getVRel();
+    s->scene.lead_d_rel = radar_state.getLeadOne().getDRel();
+    s->scene.lead_status = radar_state.getLeadOne().getStatus();
     update_lead(s, radar_state, line, 0);
     update_lead(s, radar_state, line, 1);
   }
