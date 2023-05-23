@@ -172,8 +172,8 @@ static void update_sockets(UIState *s) {
     scene.car_state = sm["carState"].getCarState();
     s->scene.steerOverride= scene.car_state.getSteeringPressed();
     s->scene.angleSteers = scene.car_state.getSteeringAngleDeg();
-    s->scene.brakeLights = scene.car_state.getBrakeLights();
-    s->scene.engineRPM = scene.car_state.getEngineRPM();
+    // s->scene.brakeLights = scene.car_state.getBrakeLights();
+    // s->scene.engineRPM = scene.car_state.getEngineRPM();
     s->scene.aEgo = scene.car_state.getAEgo();
     s->scene.steeringTorqueEps = scene.car_state.getSteeringTorqueEps();
   }
