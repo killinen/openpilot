@@ -48,10 +48,10 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "toyota"
     ret.safetyModel = car.CarParams.SafetyModel.allOutput
 
-    ret.steerActuatorDelay = 0.15  # BMW delay
+    ret.steerActuatorDelay = 0.0  # BMW delay (original 0.15)
     ret.steerLimitTimer = 0.4
     ret.hasZss = 0x23 in fingerprint[0]  # Detect whether car has accurate ZSS
-    ret.steerRateCost = 0.5 if ret.hasZss else 1.0
+    ret.steerRateCost = 0.35 if ret.hasZss else 1.0
 
     # Improved longitudinal tune
     if candidate in [CAR.COROLLA_TSS2, CAR.COROLLAH_TSS2, CAR.RAV4_TSS2, CAR.RAV4H_TSS2]:
@@ -163,9 +163,9 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 3]]   # Original
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 1]]     # First test
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.001], [0.4, .4]]     # Test halfish of kpV
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.003], [0.7, .9]]     # Test halfish of kpV
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.01], [0.5, 1]]    # Test non-zero intergale
-      ret.lateralTuning.pid.kf = 0.00003
+      ret.lateralTuning.pid.kf = 0.0002
       ret.steerMaxBP = [0.]
       ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
         
@@ -438,7 +438,7 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
       ret.lateralTuning.lqr.dcGain = 0.002237852961363602
 
-    ret.centerToFront = ret.wheelbase * 0.44
+    ret.centerToFront = ret.wheelbase * 0.47    # [m] distance from center of mass to front axle, this is 540iA tune, weight distribution is ~52-53/48-47
 
     # TODO: get actual value, for now starting with reasonable value for
     # civic and scaling by mass and wheelbase
