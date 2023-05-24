@@ -25,7 +25,7 @@ def get_startup_event(car_recognized, controller_available):
   elif car_recognized and not controller_available:
     event = EventName.startupNoControl
   elif EON and "letv" not in open("/proc/cmdline").read():
-    event = EventName.startupOneplus
+     # event = EventName.startupOneplus    # This is the EON depracated starup warning, I think it is unnessassary
   return event
 
 
