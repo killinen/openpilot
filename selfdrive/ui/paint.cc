@@ -284,7 +284,7 @@ static void ui_draw_vision_event(UIState *s) {
 
 static void ui_draw_vision_face(UIState *s) {
   const int face_size = 70; //Made the DM Face a bit smaller, original 96
-  const int face_x = (s->viz_rect.x + face_size + (bdr_s * 2));
+  const int face_x = (s->viz_rect.x + face_size + (bdr_s * 2)) + 10;    // Make the face go right 10 pxl 
   const int face_y = (s->viz_rect.bottom() - footer_h + ((footer_h - face_size) / 2)) + 10;   // Make the face go lower 10 pxl 
   // ui_draw_circle_image(s, face_x, face_y, face_size, "driver_face", s->scene.dmonitoring_state.getIsActiveMode());
   ui_draw_circle_image(s, face_x, face_y+border_shifter+25, face_size, "driver_face", s->scene.dmonitoring_state.getIsActiveMode());
