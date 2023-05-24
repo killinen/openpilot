@@ -89,10 +89,20 @@ class CarState(CarStateBase):
     ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
     ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
 
-    ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
+    # ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
+
+    # emulate driver steering torque - allows lane change assist on blinker hold
+    ret.steeringPressed = ret.gasPressed # E-series doesn't have torque sensor, so lightly pressing the gas indicates driver intention
+    if ret.steeringPressed and ret.leftBlinker:
+      ret.steeringTorque = 1
+    elif ret.steeringPressed and  ret.rightBlinker:
+      ret.steeringTorque = -1
+    else:
+      ret.steeringTorque = 0
+    
     ret.steeringTorqueEps = cp.vl["STEERING_STATUS"]['STEERING_TORQUE']
     # we could use the override bit from dbc, but it's triggered at too high torque values
-    ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
+    # ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
     #ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
     #ret.steerWarning = self.CP.carFingerprint not in OLD_CAR and cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
     ret.steerWarning = False
