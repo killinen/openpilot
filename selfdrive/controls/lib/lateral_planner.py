@@ -16,7 +16,8 @@ from common.op_params import opParams
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
 
-LOG_MPC = os.environ.get('LOG_MPC', False)
+# LOG_MPC = os.environ.get('LOG_MPC', False)
+LOG_MPC = True
 
 LANE_CHANGE_SPEED_MIN = 45 * CV.MPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
@@ -87,7 +88,8 @@ class LateralPlanner():
   def update(self, sm, CP, VM):
     v_ego = sm['carState'].vEgo
     active = sm['controlsState'].active
-    steering_wheel_angle_offset_deg = sm['liveParameters'].angleOffsetDeg
+    # steering_wheel_angle_offset_deg = sm['liveParameters'].angleOffsetDeg
+    steering_wheel_angle_offset_deg = 3.0
     steering_wheel_angle_deg = sm['carState'].steeringAngleDeg
 
     # Update vehicle model
@@ -268,6 +270,6 @@ class LateralPlanner():
       dat.liveMpc.x = list(self.mpc_solution[0].x)
       dat.liveMpc.y = list(self.mpc_solution[0].y)
       dat.liveMpc.psi = list(self.mpc_solution[0].psi)
-      dat.liveMpc.tire_angle = list(self.mpc_solution[0].tire_angle)
+      # dat.liveMpc.tire_angle = list(self.mpc_solution[0].tire_angle)
       dat.liveMpc.cost = self.mpc_solution[0].cost
       pm.send('liveMpc', dat)
