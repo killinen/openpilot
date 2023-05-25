@@ -16,7 +16,8 @@ from common.op_params import opParams
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
 
-LOG_MPC = os.environ.get('LOG_MPC', False)
+# LOG_MPC = os.environ.get('LOG_MPC', False)
+LOG_MPC = True
 
 LANE_CHANGE_SPEED_MIN = 45 * CV.MPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
