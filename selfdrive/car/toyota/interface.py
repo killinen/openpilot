@@ -48,7 +48,7 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "toyota"
     ret.safetyModel = car.CarParams.SafetyModel.allOutput
 
-    ret.steerActuatorDelay = 0.15  # BMW delay (original 0.15)
+    ret.steerActuatorDelay = 0.6  # BMW delay (original 0.15)
     ret.steerLimitTimer = 0.4
     ret.hasZss = 0x23 in fingerprint[0]  # Detect whether car has accurate ZSS
     ret.steerRateCost = 0.35 if ret.hasZss else 1.0
