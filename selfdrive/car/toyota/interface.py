@@ -48,10 +48,10 @@ class CarInterface(CarInterfaceBase):
     ret.carName = "toyota"
     ret.safetyModel = car.CarParams.SafetyModel.allOutput
 
-    ret.steerActuatorDelay = 0.4  # BMW delay (original 0.15)
+    ret.steerActuatorDelay = 0.15  # BMW delay (original 0.15)
     ret.steerLimitTimer = 0.4
     ret.hasZss = 0x23 in fingerprint[0]  # Detect whether car has accurate ZSS
-    ret.steerRateCost = 0.5 if ret.hasZss else 1.0
+    ret.steerRateCost = 0.35 if ret.hasZss else 1.0
 
     # Improved longitudinal tune
     if candidate in [CAR.COROLLA_TSS2, CAR.COROLLAH_TSS2, CAR.RAV4_TSS2, CAR.RAV4H_TSS2]:
@@ -165,7 +165,7 @@ class CarInterface(CarInterfaceBase):
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 1]]     # First test
       ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.003], [0.7, .8]]     # Test halfish of kpV
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.01], [0.5, 1]]    # Test non-zero intergale
-      ret.lateralTuning.pid.kf = 0.00012
+      ret.lateralTuning.pid.kf = 0.00015
       ret.steerMaxBP = [0.]
       ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
         
