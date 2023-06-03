@@ -88,7 +88,8 @@ class LateralPlanner():
   def update(self, sm, CP, VM):
     v_ego = sm['carState'].vEgo
     active = sm['controlsState'].active
-    steering_wheel_angle_offset_deg = sm['liveParameters'].angleOffsetDeg
+    # steering_wheel_angle_offset_deg = sm['liveParameters'].angleOffsetDeg
+    steering_wheel_angle_offset_deg = 3.0
     steering_wheel_angle_deg = sm['carState'].steeringAngleDeg
 
     # Update vehicle model
