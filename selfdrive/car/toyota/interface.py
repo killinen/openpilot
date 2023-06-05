@@ -438,7 +438,7 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
       ret.lateralTuning.lqr.dcGain = 0.002237852961363602
 
-    ret.centerToFront = ret.wheelbase * 0.44
+    ret.centerToFront = ret.wheelbase * 0.47    # [m] distance from center of mass to front axle, this is 540iA tune, weight distribution is ~52-53/48-47
 
     # TODO: get actual value, for now starting with reasonable value for
     # civic and scaling by mass and wheelbase
