@@ -7,7 +7,7 @@ from common.op_params import opParams
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 
 procs = [
-  DaemonProcess("manage_athenad", "selfdrive.athena.manage_athenad", "AthenadPid"),
+  #DaemonProcess("manage_athenad", "selfdrive.athena.manage_athenad", "AthenadPid"),
   # due to qualcomm kernel bugs SIGKILLing camerad sometimes causes page table corruption
   NativeProcess("camerad", "selfdrive/camerad", ["./camerad"], unkillable=True, driverview=True, sentry=True),
   NativeProcess("clocksd", "selfdrive/clocksd", ["./clocksd"]),
