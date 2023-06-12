@@ -1,11 +1,8 @@
 import jwt
-import os
 import requests
 from datetime import datetime, timedelta
 from common.basedir import PERSIST
-from selfdrive.version import get_version
-
-API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com')
+from selfdrive.version_old import version
 
 class Api():
   def __init__(self, dongle_id):
@@ -34,13 +31,16 @@ class Api():
     if isinstance(token, bytes):
       token = token.decode('utf8')
     return token
-
+    
 
 def api_get(endpoint, method='GET', timeout=None, access_token=None, **params):
+  backend = "http://192.168.1.150:3000/"
+
   headers = {}
   if access_token is not None:
-    headers['Authorization'] = "JWT " + access_token
+    headers['Authorization'] = "JWT "+access_token
 
-  headers['User-Agent'] = "openpilot-" + get_version()
+  headers['User-Agent'] = "openpilot-" + version
 
-  return requests.request(method, API_HOST + "/" + endpoint, timeout=timeout, headers=headers, params=params)
+  return requests.request(method, backend+endpoint, timeout=timeout, headers=headers, params=params)
+
