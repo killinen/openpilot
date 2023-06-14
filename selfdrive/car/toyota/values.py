@@ -18,6 +18,16 @@ class CarControllerParams:
   STEER_DELTA_DOWN = 25     # always lower than 45 otherwise the Rav4 faults (Prius seems ok with 50)
   STEER_ERROR_MAX = 350     # max delta between torque cmd and torque motor
 
+# Steer torque limits for StepperServo
+class SteerLimitParams: #controls running @ 100hz
+  MAX_STEERING_TQ = 15  # Nm (original 12)
+  STEER_DELTA_UP = 10 / 100       # 10Nm/s
+  STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
+  STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
+
+class SteerActuatorParams: # stepper parameters
+  STEER_BACKLASH = 1 #deg
+  
 class CAR:
   # Toyota
   ALPHARD_TSS2 = "TOYOTA ALPHARD 2020"
@@ -62,6 +72,9 @@ class CAR:
   LEXUS_RXH = "LEXUS RX HYBRID 2017"
   LEXUS_RX_TSS2 = "LEXUS RX 2020"
   LEXUS_RXH_TSS2 = "LEXUS RX HYBRID 2020"
+
+  # BMW 540i
+  BMW_E39 = "BMW_E39"
 
 # (addr, cars, bus, 1/freq*100, vl)
 STATIC_DSU_MSGS = [
@@ -1658,6 +1671,7 @@ DBC = {
   CAR.PRIUS_TSS2: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
   CAR.MIRAI: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
   CAR.ALPHARD_TSS2: dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas'),
+  CAR.BMW_E39: dbc_dict('bmw_e39_op', 'toyota_adas'),
 }
 
 
@@ -1666,7 +1680,8 @@ TSS2_CAR = {CAR.RAV4_TSS2, CAR.COROLLA_TSS2, CAR.COROLLAH_TSS2, CAR.LEXUS_ES_TSS
                 CAR.LEXUS_RX_TSS2, CAR.LEXUS_RXH_TSS2, CAR.HIGHLANDER_TSS2, CAR.HIGHLANDERH_TSS2, CAR.PRIUS_TSS2, CAR.CAMRY_TSS2, CAR.CAMRYH_TSS2,
                 CAR.MIRAI, CAR.LEXUS_NX_TSS2, CAR.ALPHARD_TSS2, CAR.AVALON_TSS2}
 
-NO_DSU_CAR = TSS2_CAR | {CAR.CHR, CAR.CHRH, CAR.CAMRY, CAR.CAMRYH}
+NO_DSU_CAR = TSS2_CAR | {CAR.CHR, CAR.CHRH, CAR.CAMRY, CAR.CAMRYH, CAR.BMW_E39}
 
 # no resume button press required
 NO_STOP_TIMER_CAR = TSS2_CAR | {CAR.RAV4H, CAR.HIGHLANDERH, CAR.HIGHLANDER, CAR.SIENNA, CAR.LEXUS_ESH}
+
