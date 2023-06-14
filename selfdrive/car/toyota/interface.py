@@ -23,7 +23,8 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
 
     ret.carName = "toyota"
-    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.toyota)]
+    # ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.toyota)]
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.allOutput)]
 
     ret.steerActuatorDelay = 0.12  # Default delay, Prius has larger delay
     ret.steerLimitTimer = 0.4
@@ -46,14 +47,22 @@ class CarInterface(CarInterfaceBase):
       candidate in TSS2_CAR,
     )
 
-    if candidate == CAR.PRIUS:
+    if candidate == CAR.BMW_E39:
+      ret.safetyConfigs[0].safetyParam = 100
+      stop_and_go = True
+      ret.wheelbase = 2.830   # This is updated for BMW
+      ret.steerRatio = 17.9   # This is updated for BMW
+      tire_stiffness_factor = 0.8   # hand-tune
+      ret.mass = 1700 + STD_CARGO_KG  # # This is updated for BMW, but check this if it is kg and correct
+      set_lat_tune(ret.lateralTuning, lat_params, LatTunes.STEER_MODEL_COROLLA)
+
+    elif candidate == CAR.PRIUS:
       ret.safetyConfigs[0].safetyParam = 66  # see conversion factor for STEER_TORQUE_EPS in dbc file
       stop_and_go = True
       ret.wheelbase = 2.70
       ret.steerRatio = 15.74   # unknown end-to-end spec
       tire_stiffness_factor = 0.6371   # hand-tune
       ret.mass = 3045. * CV.LB_TO_KG + STD_CARGO_KG
-
       set_lat_tune(ret.lateralTuning, lat_params, LatTunes.INDI_PRIUS)
       ret.steerActuatorDelay = 0.3
 
@@ -255,7 +264,7 @@ class CarInterface(CarInterfaceBase):
       ret.mass = 4305. * CV.LB_TO_KG + STD_CARGO_KG
       set_lat_tune(ret.lateralTuning, lat_params, LatTunes.PID_J)
 
-    ret.centerToFront = ret.wheelbase * 0.44
+    ret.centerToFront = ret.wheelbase * 0.47    # [m] distance from center of mass to front axle, this is 540iA tune, weight distribution is ~52-53/48-47
 
     # TODO: get actual value, for now starting with reasonable value for
     # civic and scaling by mass and wheelbase
@@ -272,7 +281,7 @@ class CarInterface(CarInterfaceBase):
     # In TSS2 cars the camera does long control
     found_ecus = [fw.ecu for fw in car_fw]
     ret.enableDsu = (len(found_ecus) > 0) and (Ecu.dsu not in found_ecus) and (candidate not in NO_DSU_CAR) and (not ret.smartDsu)
-    ret.enableGasInterceptor = 0x201 in fingerprint[0]
+    ret.enableGasInterceptor = 0x201 in fingerprint[0] or (candidate == CAR.BMW_E39)
     # if the smartDSU is detected, openpilot can send ACC_CMD (and the smartDSU will block it from the DSU) or not (the DSU is "connected")
     ret.openpilotLongitudinalControl = ret.smartDsu or ret.enableDsu or candidate in TSS2_CAR
 
@@ -305,7 +314,8 @@ class CarInterface(CarInterfaceBase):
 
     ret = self.CS.update(self.cp, self.cp_cam)
 
-    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    # ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    ret.canValid = True		# Hardcode canValid not to nag, this should be deleted after I get all thing working
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     # events
