@@ -5,13 +5,14 @@
 [submodule "opendbc"]
 	path = opendbc
 	url = ../../killinen/opendbc.git
-	branch = shane_0813
+	branch = 0813_SHANE
 [submodule "laika_repo"]
 	path = laika_repo
 	url = ../../commaai/laika.git
 [submodule "cereal"]
 	path = cereal
 	url = ../../killinen/cereal.git
+	branch = 0813_SHANE
 [submodule "rednose_repo"]
 	path = rednose_repo
 	url = ../../commaai/rednose.git

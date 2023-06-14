@@ -18,6 +18,16 @@ class CarControllerParams:
   STEER_DELTA_DOWN = 25     # always lower than 45 otherwise the Rav4 faults (Prius seems ok with 50)
   STEER_ERROR_MAX = 350     # max delta between torque cmd and torque motor
 
+# Steer torque limits for StepperServo
+class SteerLimitParams: #controls running @ 100hz
+  MAX_STEERING_TQ = 15  # Nm (original 12)
+  STEER_DELTA_UP = 10 / 100       # 10Nm/s
+  STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
+  STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
+
+class SteerActuatorParams: # stepper parameters
+  STEER_BACKLASH = 1 #deg
+  
 class CAR:
   # Toyota
   ALPHARD_TSS2 = "TOYOTA ALPHARD 2020"
@@ -63,6 +73,9 @@ class CAR:
   LEXUS_RX_TSS2 = "LEXUS RX 2020"
   LEXUS_RXH_TSS2 = "LEXUS RX HYBRID 2020"
 
+  # BMW 540i
+  BMW_E39 = "BMW_E39"
+
 # (addr, cars, bus, 1/freq*100, vl)
 STATIC_DSU_MSGS = [
   (0x128, (CAR.PRIUS, CAR.RAV4H, CAR.LEXUS_RXH, CAR.LEXUS_NXH, CAR.LEXUS_NX, CAR.RAV4, CAR.COROLLA, CAR.AVALON), 1,   3, b'\xf4\x01\x90\x83\x00\x37'),
@@ -86,7 +99,31 @@ STATIC_DSU_MSGS = [
 ]
 
 
+#FINGERPRINTS = {
+#  CAR.BMW_E39: [{
+#    0: {1349: 8, 466: 8, 339: 8, 467: 8, 496: 8, 499: 8, 1973: 8, 1919: 8, 1916: 8, 835: 8, 1042: 8, 790: 8, 809: 8, 1087: 8, 501: 8, 513: 6, 1555: 8, 1557: 8}, 1: {}, 2: {1349: 8, 466: 8, 339: 8, 467: 8, 496: 8, 499: 8, 1973: 8, 1919: 8, 1916: 8, 835: 8, 1042: 8, 790: 8, 809: 8, 1087: 8, 501: 8, 513: 6, 1555: 8, 1557: 8}, 3: {},
+#    0: {501: 8, 790: 8, 809: 8, 339: 8, 496: 8, 499: 8, 1973: 8, 1919: 8, 1916: 8, 835: 8, 1042: 8, 1087: 8, 1349: 8, 513: 6, 466: 8, 467: 8, 1555: 8, 1557: 8}, 1: {}, 2: {501: 8, 790: 8, 809: 8, 339: 8, 496: 8, 499: 8, 1973: 8, 1919: 8, 1916: 8, 835: 8, 1042: 8, 1087: 8, 1349: 8, 513: 6, 466: 8, 467: 8, 1555: 8, 1557: 8}, 3: {},
+#  }],
+#}
+
 FW_VERSIONS = {
+#  CAR.BMW_E39: {
+#    (Ecu.dsu, 0x791, None): [
+#      b'881517601100\x00\x00\x00\x00',
+#    ],
+#    (Ecu.esp, 0x7b0, None): [
+#      b'F152676144\x00\x00\x00\x00\x00\x00',
+#    ],
+#    (Ecu.engine, 0x7e0, None): [
+#      b'\x0237635000\x00\x00\x00\x00\x00\x00\x00\x00A4701000\x00\x00\x00\x00\x00\x00\x00\x00',
+#    ],
+#    (Ecu.fwdRadar, 0x750, 0xf): [
+#      b'8821F4702300\x00\x00\x00\x00',
+#    ],
+#    (Ecu.fwdCamera, 0x750, 0x6d): [
+#      b'8646F7601100\x00\x00\x00\x00',
+#    ],
+#  },
   CAR.AVALON: {
     (Ecu.esp, 0x7b0, None): [
       b'F152607060\x00\x00\x00\x00\x00\x00',
@@ -1658,6 +1695,7 @@ DBC = {
   CAR.PRIUS_TSS2: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
   CAR.MIRAI: dbc_dict('toyota_nodsu_hybrid_pt_generated', 'toyota_tss2_adas'),
   CAR.ALPHARD_TSS2: dbc_dict('toyota_nodsu_pt_generated', 'toyota_tss2_adas'),
+  CAR.BMW_E39: dbc_dict('bmw_e39_op', 'toyota_adas'),
 }
 
 
@@ -1666,7 +1704,8 @@ TSS2_CAR = {CAR.RAV4_TSS2, CAR.COROLLA_TSS2, CAR.COROLLAH_TSS2, CAR.LEXUS_ES_TSS
                 CAR.LEXUS_RX_TSS2, CAR.LEXUS_RXH_TSS2, CAR.HIGHLANDER_TSS2, CAR.HIGHLANDERH_TSS2, CAR.PRIUS_TSS2, CAR.CAMRY_TSS2, CAR.CAMRYH_TSS2,
                 CAR.MIRAI, CAR.LEXUS_NX_TSS2, CAR.ALPHARD_TSS2, CAR.AVALON_TSS2}
 
-NO_DSU_CAR = TSS2_CAR | {CAR.CHR, CAR.CHRH, CAR.CAMRY, CAR.CAMRYH}
+NO_DSU_CAR = TSS2_CAR | {CAR.CHR, CAR.CHRH, CAR.CAMRY, CAR.CAMRYH, CAR.BMW_E39}
 
 # no resume button press required
 NO_STOP_TIMER_CAR = TSS2_CAR | {CAR.RAV4H, CAR.HIGHLANDERH, CAR.HIGHLANDER, CAR.SIENNA, CAR.LEXUS_ESH}
+
