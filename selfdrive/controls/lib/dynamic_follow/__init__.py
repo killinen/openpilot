@@ -257,7 +257,7 @@ class DynamicFollow:
     elif df_profile == self.df_profiles.stock:  # default to stock
       return 1.45
     elif df_profile == self.df_profiles.roadtrip:  # previous stock following distance
-      return 1.8
+      y_dist = [3., 2.6, 2.2, 2.1, 2.1, 2.0, 1.8, 1.7, 1.7, 1.65, 1.55, 1.45, 1.4]      # This is 540i tune
     else:
       raise Exception('Unknown profile type: {}'.format(df_profile))
 

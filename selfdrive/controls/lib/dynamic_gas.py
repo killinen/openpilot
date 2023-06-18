@@ -29,7 +29,8 @@ class DynamicGas:
     if self.lead_data['status']:  # if lead
       if v_ego <= 8.9408:  # if under 20 mph
         x = [0.0, 0.24588812499999999, 0.432818589, 0.593044697, 0.730381365, 1.050833588, 1.3965, 1.714627481]  # relative velocity mod
-        y = [0.9901, 0.905, 0.8045, 0.625, 0.431, 0.2083, .0667, 0]
+        # y = [0.9901, 0.905, 0.8045, 0.625, 0.431, 0.2083, .0667, 0]
+        y = [0.2, 0.1, 0, 0, 0, 0, 0, 0]            # 540i tune
         gas_mod = -(gas * interp(self.lead_data['v_rel'], x, y))
 
         x = [0.44704, 1.1176, 1.34112]  # lead accel mod
@@ -70,7 +71,9 @@ class DynamicGas:
     self.supported_car = True  # all pedal cars and some tuned non-pedal cars are supported
     if self.CP.enableGasInterceptor:
       x = [0.0, 1.4082, 2.8031, 4.2266, 5.3827, 6.1656, 7.2478, 8.2831, 10.2447, 12.964, 15.423, 18.119, 20.117, 24.4661, 29.0581, 32.7101, 35.7633]
-      y = [0.219, 0.225, 0.237, 0.255, 0.279, 0.3, 0.339, 0.361, 0.376, 0.385, 0.394, 0.408, 0.421, 0.459, 0.513, 0.569, 0.629]  # This is the TSS1 Corolla tune, use by default for all pedal cars
+      # y = [0.219, 0.225, 0.237, 0.255, 0.279, 0.3, 0.339, 0.361, 0.376, 0.385, 0.394, 0.408, 0.421, 0.459, 0.513, 0.569, 0.629]  # This is the TSS1 Corolla tune, use by default for all pedal cars
+      # This is own Tune, have smoother curve at ~20-30 kph, simulated in matplotlib
+      y = [0.4, 0.42, 0.45, 0.49, 0.53, 0.56, 0.6, 0.65, 0.75, 0.88, 0.95, 0.98, 1., 1., 1., 1., 1.]
       if self.candidate == CAR_TOYOTA.PRIUS:
         y = [0.3, 0.304, 0.315, 0.342, 0.365, 0.386, 0.429, 0.454, 0.472, 0.48, 0.489, 0.421, 0.432, 0.480, 0.55, 0.621, 0.7]
       elif self.candidate == CAR_TOYOTA.RAV4:

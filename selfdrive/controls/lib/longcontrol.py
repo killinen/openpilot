@@ -16,9 +16,10 @@ ACCEL_MAX_ISO = 2.0  # m/s^2
 def long_control_state_trans(CP, active, long_control_state, v_ego, v_target_future,
                              brake_pressed, cruise_standstill):
   """Update longitudinal control state machine"""
-  stopping_condition = (v_ego < 2.0 and cruise_standstill) or \
-                       (v_ego < CP.vEgoStopping and
-                        (v_target_future < CP.vEgoStopping or brake_pressed))
+#   stopping_condition = (v_ego < 2.0 and cruise_standstill) or \
+#                        (v_ego < CP.vEgoStopping and
+#                         (v_target_future < CP.vEgoStopping or brake_pressed))
+  stopping_condition = v_target_future < 0.12
 
   starting_condition = v_target_future > CP.vEgoStarting and not cruise_standstill
 
