@@ -14,10 +14,20 @@ class CarControllerParams:
   ACCEL_MIN = -3.5  # m/s2
 
   STEER_MAX = 1500
-  STEER_DELTA_UP = 10       # 1.5s time to peak torque
+  STEER_DELTA_UP = 3        # 1.5s time to peak torque (original value 10)
   STEER_DELTA_DOWN = 25     # always lower than 45 otherwise the Rav4 faults (Prius seems ok with 50)
   STEER_ERROR_MAX = 350     # max delta between torque cmd and torque motor
 
+# Steer torque limits for StepperServo
+class SteerLimitParams: #controls running @ 100hz
+  MAX_STEERING_TQ = 15  # Nm (original 12)
+  STEER_DELTA_UP = 10 / 100       # 10Nm/s
+  STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
+  STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
+
+class SteerActuatorParams: # stepper parameters
+  STEER_BACKLASH = 1 #deg
+  
 class CAR:
   # Toyota
   ALPHARD_TSS2 = "TOYOTA ALPHARD 2020"
