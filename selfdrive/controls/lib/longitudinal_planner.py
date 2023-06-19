@@ -58,14 +58,9 @@ class Planner:
     self.a_desired_trajectory = np.zeros(CONTROL_N)
     self.j_desired_trajectory = np.zeros(CONTROL_N)
 
-<<<<<<< HEAD
-=======
-    self.cruise_source = 'cruise'
-    self.vision_turn_controller = VisionTurnController(CP)
     self.speed_limit_controller = SpeedLimitController()
     self.events = Events()
 
->>>>>>> 528f6147a (SpeedLimitControl: Implementation)
   def update(self, sm):
     v_ego = sm['carState'].vEgo
     a_ego = sm['carState'].aEgo
@@ -130,13 +125,7 @@ class Planner:
     longitudinalPlan.longitudinalPlanSource = self.mpc.source
     longitudinalPlan.fcw = self.fcw
 
-<<<<<<< HEAD
-    pm.send('longitudinalPlan', plan_send)
-=======
     longitudinalPlan.solverExecutionTime = self.mpc.solve_time
-
-    longitudinalPlan.visionTurnControllerState = self.vision_turn_controller.state
-    longitudinalPlan.visionTurnSpeed = float(self.vision_turn_controller.v_turn)
 
     longitudinalPlan.speedLimitControlState = self.speed_limit_controller.state
     longitudinalPlan.speedLimit = float(self.speed_limit_controller.speed_limit)
@@ -149,17 +138,12 @@ class Planner:
 
   def cruise_solutions(self, enabled, v_ego, a_ego, v_cruise, sm):
     # Update controllers
-    self.vision_turn_controller.update(enabled, v_ego, a_ego, v_cruise, sm)
     self.events = Events()
     self.speed_limit_controller.update(enabled, v_ego, a_ego, sm, v_cruise, self.events)
 
     # Pick solution with lowest velocity target.
     a_solutions = {'cruise': float("inf")}
     v_solutions = {'cruise': v_cruise}
-
-    if self.vision_turn_controller.is_active:
-      a_solutions['turn'] = self.vision_turn_controller.a_target
-      v_solutions['turn'] = self.vision_turn_controller.v_turn
 
     if self.speed_limit_controller.is_active:
       a_solutions['limit'] = self.speed_limit_controller.a_target
@@ -168,4 +152,3 @@ class Planner:
     source = min(v_solutions, key=v_solutions.get)
 
     return source, a_solutions[source], v_solutions[source]
->>>>>>> 528f6147a (SpeedLimitControl: Implementation)
