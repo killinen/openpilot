@@ -232,7 +232,8 @@ class CarController():
       steer_tq = feedforward + actuators.steer + self.inertia_tq
       # explicitly clip torque before sending on CAN
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
-      self.steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
+      #self.steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
+      self.steer_tq_r = steer_tq * (1)    # Non-switch StepperServo rotation
       
       # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, self.steer_tq_r, frame))
       # *** control msgs ***
