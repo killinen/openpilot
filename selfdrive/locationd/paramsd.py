@@ -5,14 +5,16 @@ import json
 import numpy as np
 
 import cereal.messaging as messaging
-from cereal import car, log
+from cereal import car
 from common.params import Params, put_nonblocking
+from common.realtime import set_realtime_priority, DT_MDL
+from common.numpy_fast import clip
 from selfdrive.locationd.models.car_kf import CarKalman, ObservationKind, States
 from selfdrive.locationd.models.constants import GENERATED_DIR
 from selfdrive.swaglog import cloudlog
 
-KalmanStatus = log.LiveLocationKalman.Status
-
+ROLL_MAX_DELTA = np.radians(20.0) * DT_MDL  # 20deg in 1 second is well within curvature limits
+ROLL_MIN, ROLL_MAX = math.radians(-10), math.radians(10)
 
 class ParamsLearner:
   def __init__(self, CP, steer_ratio, stiffness_factor, angle_offset):
@@ -28,6 +30,7 @@ class ParamsLearner:
     self.active = False
 
     self.speed = 0
+    self.roll = 0.0
     self.steering_pressed = False
     self.steering_angle = 0
 
@@ -39,13 +42,45 @@ class ParamsLearner:
       yaw_rate = msg.angularVelocityCalibrated.value[2]
       yaw_rate_std = msg.angularVelocityCalibrated.std[2]
 
+      localizer_roll = msg.orientationNED.value[0]
+      localizer_roll_std = np.radians(1) if np.isnan(msg.orientationNED.std[0]) else msg.orientationNED.std[0]
+      roll_valid = msg.orientationNED.valid and ROLL_MIN < localizer_roll < ROLL_MAX
+      if roll_valid:
+        roll = localizer_roll
+        # Experimentally found multiplier of 2 to be best trade-off between stability and accuracy or similar?
+        roll_std = 2 * localizer_roll_std
+      else:
+        # This is done to bound the road roll estimate when localizer values are invalid
+        roll = 0.0
+        roll_std = np.radians(10.0)
+      self.roll = clip(roll, self.roll - ROLL_MAX_DELTA, self.roll + ROLL_MAX_DELTA)
+
+      yaw_rate_valid = msg.angularVelocityCalibrated.valid
+      yaw_rate_valid = yaw_rate_valid and 0 < yaw_rate_std < 10  # rad/s
+      yaw_rate_valid = yaw_rate_valid and abs(yaw_rate) < 1  # rad/s
+
       if self.active:
-        if msg.inputsOK and msg.posenetOK and msg.status == KalmanStatus.valid:
-          self.kf.predict_and_observe(t,
-                                      ObservationKind.ROAD_FRAME_YAW_RATE,
-                                      np.array([[[-yaw_rate]]]),
-                                      np.array([np.atleast_2d(yaw_rate_std**2)]))
-        self.kf.predict_and_observe(t, ObservationKind.ANGLE_OFFSET_FAST, np.array([[[0]]]))
+        if msg.inputsOK and msg.posenetOK:
+
+          if yaw_rate_valid:
+            self.kf.predict_and_observe(t,
+                                        ObservationKind.ROAD_FRAME_YAW_RATE,
+                                        np.array([[-yaw_rate]]),
+                                        np.array([np.atleast_2d(yaw_rate_std**2)]))
+
+          #self.kf.predict_and_observe(t,
+          #                            ObservationKind.ROAD_ROLL,
+          #                            np.array([[self.roll]]),
+          #                            np.array([np.atleast_2d(roll_std**2)]))
+        self.kf.predict_and_observe(t, ObservationKind.ANGLE_OFFSET_FAST, np.array([[0]]))
+
+        # We observe the current stiffness and steer ratio (with a high observation noise) to bound
+        # the respective estimate STD. Otherwise the STDs keep increasing, causing rapid changes in the
+        # states in longer routes (especially straight stretches).
+        stiffness = float(self.kf.x[States.STIFFNESS])
+        steer_ratio = float(self.kf.x[States.STEER_RATIO])
+        self.kf.predict_and_observe(t, ObservationKind.STIFFNESS, np.array([[stiffness]]))
+        self.kf.predict_and_observe(t, ObservationKind.STEER_RATIO, np.array([[steer_ratio]]))
 
     elif which == 'carState':
       self.steering_angle = msg.steeringAngleDeg
@@ -53,7 +88,7 @@ class ParamsLearner:
       self.speed = msg.vEgo
 
       in_linear_region = abs(self.steering_angle) < 45 or not self.steering_pressed
-      self.active = self.speed > 5 and in_linear_region
+      self.active = self.speed > 1 and in_linear_region
 
       if self.active:
         self.kf.predict_and_observe(t, ObservationKind.STEER_ANGLE, np.array([[[math.radians(msg.steeringAngleDeg)]]]))
@@ -89,9 +124,10 @@ def main(sm=None, pm=None):
       params = None
 
   try:
-    if params is not None and not all((
-        abs(params.get('angleOffsetAverageDeg')) < 10.0,
-        min_sr <= params['steerRatio'] <= max_sr)):
+    angle_offset_sane = abs(params.get('angleOffsetAverageDeg')) < 10.0
+    steer_ratio_sane = min_sr <= params['steerRatio'] <= max_sr
+    params_sane = angle_offset_sane and steer_ratio_sane
+    if params is not None and not params_sane:
       cloudlog.info(f"Invalid starting values found {params}")
       params = None
   except Exception as e:
@@ -130,7 +166,7 @@ def main(sm=None, pm=None):
       msg.liveParameters.sensorValid = True
 
       x = learner.kf.x
-      msg.liveParameters.steerRatio = float(x[States.STEER_RATIO])
+      msg.liveParameters.steerRatio = float(x[States.STEER_RATIO]) 
       msg.liveParameters.stiffnessFactor = float(x[States.STIFFNESS])
       msg.liveParameters.angleOffsetAverageDeg = math.degrees(x[States.ANGLE_OFFSET])
       msg.liveParameters.angleOffsetDeg = msg.liveParameters.angleOffsetAverageDeg + math.degrees(x[States.ANGLE_OFFSET_FAST])
