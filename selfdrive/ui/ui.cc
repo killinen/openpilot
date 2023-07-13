@@ -80,11 +80,12 @@ static void ui_init_vision(UIState *s) {
 
 void ui_init(UIState *s) {
   s->sm = new SubMaster({"modelV2", "controlsState", "uiLayoutState", "liveCalibration", "radarState", "deviceState", "roadCameraState", "liveLocationKalman",
-                         "pandaState", "carParams", "driverState", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss"});
+                         "pandaState", "carParams", "driverState", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss", "gpsLocationExternal", "liveParameters"});
 
   s->started = false;
   s->status = STATUS_OFFROAD;
-
+  s->scene.satelliteCount = -1;
+  
   s->fb = std::make_unique<FrameBuffer>("ui", 0, true, &s->fb_w, &s->fb_h);
 
   ui_nvg_init(s);
@@ -213,6 +214,8 @@ static void update_sockets(UIState *s) {
   }
   if (sm.updated("deviceState")) {
     scene.deviceState = sm["deviceState"].getDeviceState();
+    s->scene.cpuTemp = scene.deviceState.getCpuTempC()[0];
+    s->scene.cpuPerc = scene.deviceState.getCpuUsagePercent();
   }
   if (sm.updated("pandaState")) {
     auto pandaState = sm["pandaState"].getPandaState();
@@ -225,7 +228,11 @@ static void update_sockets(UIState *s) {
     auto data = sm["ubloxGnss"].getUbloxGnss();
     if (data.which() == cereal::UbloxGnss::MEASUREMENT_REPORT) {
       scene.satelliteCount = data.getMeasurementReport().getNumMeas();
+      s->scene.satelliteCount = scene.satelliteCount;
     }
+    auto data2 = sm["gpsLocationExternal"].getGpsLocationExternal();
+    s->scene.gpsAccuracyUblox = data2.getAccuracy();
+    s->scene.altitudeUblox = data2.getAltitude();
   }
   if (sm.updated("liveLocationKalman")) {
     scene.gpsOK = sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK();
@@ -254,6 +261,11 @@ static void update_sockets(UIState *s) {
         s->gyro_sensor = sensor.getGyroUncalibrated().getV()[1];
       }
     }
+  }
+  if (sm.updated("liveParameters")) {
+    auto liveParameters = sm["liveParameters"].getLiveParameters();
+    s->scene.steerRatio = liveParameters.getSteerRatio();
+    s->scene.angleOffsetAverageDeg = liveParameters.getAngleOffsetAverageDeg();
   }
   s->started = scene.deviceState.getStarted() || scene.frontview;
 }
