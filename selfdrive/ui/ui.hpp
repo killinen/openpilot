@@ -122,15 +122,17 @@ typedef struct UIScene {
   // bool brakeLights;
   float angleSteersDes;
   // bool recording;
-  // float gpsAccuracyUblox;
-  // float altitudeUblox;
+  float gpsAccuracyUblox;
+  float altitudeUblox;
   // int engineRPM;
   bool steerOverride;
   float output_scale;
   float steeringTorqueEps;
   float aEgo;
-  // float cpuTemp;
-  // int cpuPerc;
+  float cpuTemp;
+  int cpuPerc;
+  float steerRatio;
+  float angleOffsetAverageDeg;
 
   NetStatus athenaStatus;
 

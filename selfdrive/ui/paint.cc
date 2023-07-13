@@ -419,7 +419,7 @@ static void ui_draw_vision_header(UIState *s) {
   ui_draw_vision_speed(s);
   ui_draw_vision_event(s);
 
-  ui_draw_df_button(s);
+  //ui_draw_df_button(s);
 //  ui_draw_ls_button(s);
   //ui_draw_ml_button(s);
 }
@@ -460,105 +460,118 @@ static int bb_ui_draw_measure(UIState *s,  const char* bb_value, const char* bb_
   return (int)((bb_valueFontSize + bb_labelFontSize)*2.5) + 5;
 }
 
-// static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) {
-//   const UIScene *scene = &s->scene;
-//   int bb_rx = bb_x + (int)(bb_w/2);
-//   int bb_ry = bb_y;
-//   int bb_h = 5;
-//   NVGcolor lab_color = nvgRGBA(255, 255, 255, 200);
-//   NVGcolor uom_color = nvgRGBA(255, 255, 255, 200);
-//   int value_fontSize=30;
-//   int label_fontSize=15;
-//   int uom_fontSize = 15;
-//   int bb_uom_dx =  (int)(bb_w /2 - uom_fontSize*2.5) ;
-//   //CPU TEMP
-//     if (true) {
-//     char val_str[16];
-//     char uom_str[6];
-//     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
-//     snprintf(val_str, sizeof(val_str), "%.0f°C", (round((s->scene.cpuTemp))));
-//     snprintf(uom_str, sizeof(uom_str), "%d%%", (s->scene.cpuPerc));
-//     bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "CPU TEMP",
-//         bb_rx, bb_ry, bb_uom_dx,
-//         val_color, lab_color, uom_color,
-//         value_fontSize, label_fontSize, uom_fontSize );
-//     bb_ry = bb_y + bb_h;
-//   }
-//   //add Ublox GPS accuracy
-//   if (scene->gpsAccuracyUblox != 0.00) {
-//     char val_str[16];
-//     char uom_str[3];
-//     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
-//     //show red/orange if gps accuracy is low
-//       if(scene->gpsAccuracyUblox > 0.85) {
-//          val_color = nvgRGBA(255, 188, 3, 200);
-//       }
-//       if(scene->gpsAccuracyUblox > 1.3) {
-//          val_color = nvgRGBA(255, 0, 0, 200);
-//       }
-//     // gps accuracy is always in meters
-//     if(scene->gpsAccuracyUblox > 99 || scene->gpsAccuracyUblox == 0) {
-//        snprintf(val_str, sizeof(val_str), "None");
-//     }else if(scene->gpsAccuracyUblox > 9.99) {
-//       snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.gpsAccuracyUblox));
-//     }
-//     else {
-//       snprintf(val_str, sizeof(val_str), "%.2f", (s->scene.gpsAccuracyUblox));
-//     }
-//     snprintf(uom_str, sizeof(uom_str), "%d", (s->scene.satelliteCount));
-//     bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "GPS PREC",
-//         bb_rx, bb_ry, bb_uom_dx,
-//         val_color, lab_color, uom_color,
-//         value_fontSize, label_fontSize, uom_fontSize );
-//     bb_ry = bb_y + bb_h;
-//   }
-//   //add altitude
-//   if (scene->gpsAccuracyUblox != 0.00) {
-//     char val_str[16];
-//     char uom_str[3];
-//     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
-//     snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.altitudeUblox));
-//     snprintf(uom_str, sizeof(uom_str), "m");
-//     bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "ALTITUDE",
-//         bb_rx, bb_ry, bb_uom_dx,
-//         val_color, lab_color, uom_color,
-//         value_fontSize, label_fontSize, uom_fontSize );
-//     bb_ry = bb_y + bb_h;
-//   }
-//     //add EPS Motor Torque
-//   if (true) {
-//     char val_str[16];
-//     char uom_str[3];
-//     NVGcolor val_color = nvgRGBA(255, 255, 255, 200); //TODO: Add orange/red color depending on torque intensity. <1x limit = white, btwn 1x-2x limit = orange, >2x limit = red
-//     snprintf(val_str, sizeof(val_str), "%.0f", (s->scene.steeringTorqueEps));
-//     snprintf(uom_str, sizeof(uom_str), "Nm");
-//     bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "EPS TRQ",
-//         bb_rx, bb_ry, bb_uom_dx,
-//         val_color, lab_color, uom_color,
-//         value_fontSize, label_fontSize, uom_fontSize );
-//     bb_ry = bb_y + bb_h;
-//   }
-//   //add aEgo
-//   if (true) {
-//     char val_str[16];
-//     char uom_str[6];
-//     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
-//     snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.aEgo));
-//     snprintf(uom_str, sizeof(uom_str), "m/s²");
-//     bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "ACCEL",
-//         bb_rx, bb_ry, bb_uom_dx,
-//         val_color, lab_color, uom_color,
-//         value_fontSize, label_fontSize, uom_fontSize );
-//     bb_ry = bb_y + bb_h;
-//   }
-//   //finally draw the frame
-//   bb_h += 20;
-//   nvgBeginPath(s->vg);
-//     nvgRoundedRect(s->vg, bb_x, bb_y, bb_w, bb_h, 20);
-//     nvgStrokeColor(s->vg, nvgRGBA(255,255,255,80));
-//     nvgStrokeWidth(s->vg, 6);
-//     nvgStroke(s->vg);
-// }
+static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) {
+  const UIScene *scene = &s->scene;
+  int bb_rx = bb_x + (int)(bb_w/2);
+  int bb_ry = bb_y;
+  int bb_h = 5;
+  NVGcolor lab_color = nvgRGBA(255, 255, 255, 200);
+  NVGcolor uom_color = nvgRGBA(255, 255, 255, 200);
+  int value_fontSize=30;
+  int label_fontSize=15;
+  int uom_fontSize = 15;
+  int bb_uom_dx =  (int)(bb_w /2 - uom_fontSize*2.5) ;
+  //CPU TEMP
+  if (true) {
+    char val_str[16];
+    char uom_str[6];
+    NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+    snprintf(val_str, sizeof(val_str), "%.0f°C", (round((s->scene.cpuTemp))));
+    snprintf(uom_str, sizeof(uom_str), "%d%%", (s->scene.cpuPerc));
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "CPU TEMP",
+        bb_rx, bb_ry, bb_uom_dx,
+        val_color, lab_color, uom_color,
+        value_fontSize, label_fontSize, uom_fontSize );
+    bb_ry = bb_y + bb_h;
+  }
+  //add Ublox GPS accuracy
+  if (scene->gpsAccuracyUblox != 0.00) {
+    char val_str[16];
+    char uom_str[3];
+    NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+    //show red/orange if gps accuracy is low
+    if(scene->gpsAccuracyUblox > 0.85) {
+      val_color = nvgRGBA(255, 188, 3, 200);
+    }
+    if(scene->gpsAccuracyUblox > 1.3) {
+      val_color = nvgRGBA(255, 0, 0, 200);
+    }
+    // gps accuracy is always in meters
+    if(scene->gpsAccuracyUblox > 99 || scene->gpsAccuracyUblox == 0) {
+       snprintf(val_str, sizeof(val_str), "None");
+    }else if(scene->gpsAccuracyUblox > 9.99) {
+      snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.gpsAccuracyUblox));
+    }
+    else {
+      snprintf(val_str, sizeof(val_str), "%.2f", (s->scene.gpsAccuracyUblox));
+    }
+    snprintf(uom_str, sizeof(uom_str), "%d", (s->scene.satelliteCount));
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "GPS PREC",
+        bb_rx, bb_ry, bb_uom_dx,
+        val_color, lab_color, uom_color,
+        value_fontSize, label_fontSize, uom_fontSize );
+    bb_ry = bb_y + bb_h;
+  }
+  //add altitude
+  // if (scene->gpsAccuracyUblox != 0.00) {
+  //   char val_str[16];
+  //   char uom_str[3];
+  //   NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+  //   snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.altitudeUblox));
+  //   snprintf(uom_str, sizeof(uom_str), "m");
+  //   bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "ALTITUDE",
+  //       bb_rx, bb_ry, bb_uom_dx,
+  //       val_color, lab_color, uom_color,
+  //       value_fontSize, label_fontSize, uom_fontSize );
+  //   bb_ry = bb_y + bb_h;
+  // }
+  //add liveParameters angleOffsetAverageDeg
+  if (true) {
+    char val_str[16];
+    char uom_str[4];
+    NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+    snprintf(val_str, sizeof(val_str), "%.2f", (s->scene.angleOffsetAverageDeg));
+    snprintf(uom_str, sizeof(uom_str), "Deg");
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "ANGLE OFFSET",
+        bb_rx, bb_ry, bb_uom_dx,
+        val_color, lab_color, uom_color,
+        value_fontSize, label_fontSize, uom_fontSize );
+    bb_ry = bb_y + bb_h;
+  }
+  //add liveParameters steerRatio
+  if (true) {
+    char val_str[16];
+    char uom_str[1];
+    NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+    snprintf(val_str, sizeof(val_str), "%.2f", (s->scene.steerRatio));
+    snprintf(uom_str, sizeof(uom_str), "");
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "STEER RATIO",
+        bb_rx, bb_ry, bb_uom_dx,
+        val_color, lab_color, uom_color,
+        value_fontSize, label_fontSize, uom_fontSize );
+    bb_ry = bb_y + bb_h;
+  }
+  //add aEgo
+  if (true) {
+    char val_str[16];
+    char uom_str[6];
+    NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
+    snprintf(val_str, sizeof(val_str), "%.1f", (s->scene.aEgo));
+    snprintf(uom_str, sizeof(uom_str), "m/s²");
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "ACCEL",
+        bb_rx, bb_ry, bb_uom_dx,
+        val_color, lab_color, uom_color,
+        value_fontSize, label_fontSize, uom_fontSize );
+    bb_ry = bb_y + bb_h;
+  }
+  //finally draw the frame
+  bb_h += 20;
+  nvgBeginPath(s->vg);
+  nvgRoundedRect(s->vg, bb_x, bb_y, bb_w, bb_h, 20);
+  nvgStrokeColor(s->vg, nvgRGBA(255,255,255,80));
+  nvgStrokeWidth(s->vg, 6);
+  nvgStroke(s->vg);
+}
 
 static void bb_ui_draw_measures_right(UIState *s, int bb_x, int bb_y, int bb_w ) {
   const UIScene *scene = &s->scene;
@@ -735,7 +748,7 @@ static void bb_ui_draw_UI(UIState *s)
   const int bb_dmr_y = (s->viz_rect.y + (bdr_is * 1.5)) + 220;
 
   bb_ui_draw_measures_right(s, bb_dml_x, bb_dml_y, bb_dml_w);
-  // bb_ui_draw_measures_left(s, bb_dmr_x, bb_dmr_y-20, bb_dmr_w);
+  bb_ui_draw_measures_left(s, bb_dmr_x, bb_dmr_y-20, bb_dmr_w);
 }
 //BB END: functions added for the display of various items
 
