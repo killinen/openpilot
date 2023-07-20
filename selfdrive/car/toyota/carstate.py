@@ -17,15 +17,18 @@ class CarState(CarStateBase):
     # the signal is zeroed to where the steering angle is at start.
     # Need to apply an offset as soon as the steering angle measurements are both received
     self.needs_angle_offset = True
-    self.accurate_steer_angle_seen = CP.hasZss
+    self.accurate_steer_angle_seen = True
     self.angle_offset = 0.
 
   def update(self, cp, cp_cam):
     ret = car.CarState.new_message()
 
-    ret.doorOpen = any([cp.vl["IKE_2"]['DOOR_OPEN_FL'], cp.vl["IKE_2"]['DOOR_OPEN_FR'],
-                        cp.vl["IKE_2"]['DOOR_OPEN_RL'], cp.vl["IKE_2"]['DOOR_OPEN_RR']])
-    ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
+#    ret.doorOpen = any([cp.vl["IKE_2"]['DOOR_OPEN_FL'], cp.vl["IKE_2"]['DOOR_OPEN_FR'],
+#                        cp.vl["IKE_2"]['DOOR_OPEN_RL'], cp.vl["IKE_2"]['DOOR_OPEN_RR']])
+#    ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
+
+    ret.doorOpen = False
+    ret.seatbeltUnlatched = False
 
     ret.brakePressed = cp.vl["PCM_CRUISE"]['BRK_ST_OP'] != 0
     ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] or ret.brakePressed)
@@ -46,24 +49,27 @@ class CarState(CarStateBase):
     ret.standstill = ret.vEgoRaw < 0.01    #Changed this from 0.001 to 0.1 to 0.01 bc longcontrol.py uses this to detect when car is stopped
 
     # Some newer models have a more accurate angle measurement in the TORQUE_SENSOR message. Use if non-zero
-#    if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
-#      self.accurate_steer_angle_seen = True
-#
-#    if self.accurate_steer_angle_seen:
-#      if self.CP.hasZss:
-#        ret.steeringAngleDeg = cp.vl["SECONDARY_STEER_ANGLE"]['ZORRO_STEER'] - self.angle_offset
-#      else:
-#        ret.steeringAngleDeg = cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE'] - self.angle_offset
-#
-#      if self.needs_angle_offset:
-#        angle_wheel = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
-#        if abs(angle_wheel) > 1e-3:
-#          self.needs_angle_offset = False
-#          self.angle_offset = ret.steeringAngleDeg - angle_wheel
-#    else:
-#      ret.steeringAngleDeg = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
-#
-#    ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
+    if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
+      self.accurate_steer_angle_seen = True
+
+    if self.accurate_steer_angle_seen:
+      if self.CP.hasZss:
+        ret.steeringAngleDeg = cp.vl["SECONDARY_STEER_ANGLE"]['ZORRO_STEER'] - self.angle_offset
+      else:
+        ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
+      if self.needs_angle_offset:
+#        angle_wheel = cp.vl["SZL_1"]['STEERING_ANGLE']
+        if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
+          angle_wheel = (cp.vl["SZL_1"]['STEERING_ANGLE'])
+        else:
+          angle_wheel = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
+        if abs(angle_wheel) > 1e-3:
+          self.needs_angle_offset = False
+          self.angle_offset = ret.steeringAngleDegSSC - angle_wheel
+    # else:
+    #   ret.steeringAngleDeg = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+
+    # ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
 
     if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
       if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
@@ -175,6 +181,7 @@ class CarState(CarStateBase):
       ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
       ("STEERING_TORQUE", "STEERING_STATUS", 0),
+      ("STEERING_ANGLE", "STEERING_STATUS", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
       ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
       ("LKA_STATE", "EPS_STATUS", 0),
