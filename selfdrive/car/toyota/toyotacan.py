@@ -53,18 +53,35 @@ def create_lta_steer_command(packer, steer, steer_req, raw_cnt):
   return packer.make_can_msg("STEERING_LTA", 0, values)
 
 
+#def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
+#  # TODO: find the exact canceling bit that does not create a chime
+#  values = {
+#    "ACCEL_CMD": accel,
+#    "SET_ME_X01": 1,
+#    "DISTANCE": 0,
+#    "MINI_CAR": lead,
+#    "SET_ME_X3": 3,
+#    "SET_ME_1": 1,
+#    # "PERMIT_BRAKING": 1, #This was 082 version, added ""SET_ME_1": 1" because I think this is in my DBC? Did not check, maydbe gives problems?
+#    "RELEASE_STANDSTILL": not standstill_req,
+#    "CANCEL_REQ": pcm_cancel,
+#  }
+#  return packer.make_can_msg("ACC_CONTROL", 0, values)
+
+#def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead, acc_type, distance):
 def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
   # TODO: find the exact canceling bit that does not create a chime
   values = {
     "ACCEL_CMD": accel,
-    "SET_ME_X01": 1,
+    #"ACC_TYPE": acc_type,
+    "ACC_TYPE": 0,
+    #"DISTANCE": distance,
     "DISTANCE": 0,
     "MINI_CAR": lead,
-    "SET_ME_X3": 3,
-    "SET_ME_1": 1,
-    # "PERMIT_BRAKING": 1, #This was 082 version, added ""SET_ME_1": 1" because I think this is in my DBC? Did not check, maydbe gives problems?
+    "PERMIT_BRAKING": 1,
     "RELEASE_STANDSTILL": not standstill_req,
     "CANCEL_REQ": pcm_cancel,
+    "ALLOW_LONG_PRESS": 1,
   }
   return packer.make_can_msg("ACC_CONTROL", 0, values)
 
@@ -89,15 +106,25 @@ def create_acc_cancel_command(packer):
   return packer.make_can_msg("PCM_CRUISE", 0, values)
 
 
+#def create_fcw_command(packer, fcw):
+#  values = {
+#    "FCW": fcw,
+#    "SET_ME_X20": 0x20,
+#    "SET_ME_X10": 0x10,
+#    "SET_ME_X80": 0x80,
+#  }
+#  return packer.make_can_msg("ACC_HUD", 0, values)
+
 def create_fcw_command(packer, fcw):
   values = {
+    "PCS_INDICATOR": 1,
     "FCW": fcw,
     "SET_ME_X20": 0x20,
     "SET_ME_X10": 0x10,
-    "SET_ME_X80": 0x80,
+    "PCS_OFF": 1,
+    "PCS_SENSITIVITY": 0,
   }
   return packer.make_can_msg("ACC_HUD", 0, values)
-
 
 def create_ui_command(packer, steer, chime, left_line, right_line, left_lane_depart, right_lane_depart):
   values = {
