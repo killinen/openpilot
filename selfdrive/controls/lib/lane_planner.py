@@ -3,6 +3,8 @@ import numpy as np
 from selfdrive.hardware import EON, TICI
 from cereal import log
 from common.op_params import opParams
+from selfdrive.controls.lib.dynamic_follow.df_manager import dfManager
+from selfdrive.controls.lib.dynamic_follow.support import dfProfiles
 
 TRAJECTORY_SIZE = 33
 # camera offset is meters from center car to camera
@@ -38,6 +40,9 @@ class LanePlanner:
     self.l_lane_change_prob = 0.
     self.r_lane_change_prob = 0.
 
+    self.df_manager = dfManager()
+    self.df_profiles = dfProfiles()
+    self.df_profile = self.df_profiles.relaxed
 
   def parse_model(self, md):
     if len(md.laneLines) == 4 and len(md.laneLines[0].t) == TRAJECTORY_SIZE:
@@ -45,7 +50,11 @@ class LanePlanner:
       # left and right ll x is the same
       self.ll_x = md.laneLines[1].x
       # only offset left and right lane lines; offsetting path does not make sense
-      self.camera_offset = self.op_params.get('camera_offset')  # update camera offset
+      self.df_profile = self.df_manager.update()
+      if self.df_profile == self.df_profiles.traffic:  # for in congested traffic
+        self.camera_offset = 0.1
+      else:
+        self.camera_offset = self.op_params.get('camera_offset')  # update camera offset
       self.camera_offset = clip(self.camera_offset, -0.3, 0.3)
       self.lll_y = np.array(md.laneLines[1].y) - self.camera_offset
       self.rll_y = np.array(md.laneLines[2].y) - self.camera_offset
