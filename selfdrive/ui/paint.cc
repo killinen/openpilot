@@ -476,9 +476,9 @@ static void bb_ui_draw_measures_left(UIState *s, int bb_x, int bb_y, int bb_w ) 
     char val_str[16];
     char uom_str[6];
     NVGcolor val_color = nvgRGBA(255, 255, 255, 200);
-    snprintf(val_str, sizeof(val_str), "%.0f°C", (round((s->scene.cpuTemp))));
+    snprintf(val_str, sizeof(val_str), "%.0f°", (round((s->scene.angleDivergence))));
     snprintf(uom_str, sizeof(uom_str), "%d%%", (s->scene.cpuPerc));
-    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "CPU TEMP",
+    bb_h +=bb_ui_draw_measure(s,  val_str, uom_str, "SSC HEALTH",
         bb_rx, bb_ry, bb_uom_dx,
         val_color, lab_color, uom_color,
         value_fontSize, label_fontSize, uom_fontSize );

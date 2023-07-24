@@ -177,6 +177,7 @@ static void update_sockets(UIState *s) {
     // s->scene.engineRPM = scene.car_state.getEngineRPM();
     s->scene.aEgo = scene.car_state.getAEgo();
     s->scene.steeringTorqueEps = scene.car_state.getSteeringTorqueEps();
+    s->scene.angleDivergence = scene.car_state.getSteeringAngleDegDivergence();
   }
   if (sm.updated("radarState")) {
     auto radar_state = sm["radarState"].getRadarState();

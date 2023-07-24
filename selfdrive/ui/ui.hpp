@@ -133,6 +133,7 @@ typedef struct UIScene {
   int cpuPerc;
   float steerRatio;
   float angleOffsetAverageDeg;
+  float angleDivergence;
 
   NetStatus athenaStatus;
 
