@@ -293,7 +293,10 @@ class Controls:
     #        ((self.lead_long_dist/abs(self.lead_rel_speed) < 2.) or (self.lead_long_dist/abs(self.lead_rel_speed) < 4. and self.lead_rel_speed < -10) or \
     #         (self.lead_long_dist/abs(self.lead_rel_speed) < 5. and self.lead_long_dist/CS.vEgo < 1.5)):
     #  self.events.add(EventName.fcw)
-
+    # if self.sm.updated['carState']:
+    #   if self.sm['carState'].steeringAngleDegDivergence > 20:
+    if CS.steeringAngleDegDivergence > 20:
+      self.events.add(EventName.steeringDegDiverged)
 
   def add_stock_additions_alerts(self, CS):
     self.AM.SA_set_frame(self.sm.frame)

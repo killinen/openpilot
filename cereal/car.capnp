@@ -101,6 +101,7 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     gpsMalfunction @94;
     startupOneplus @82;
     processNotRunning @95;
+    steeringDegDiverged @96;
 
     radarCanErrorDEPRECATED @15;
     radarCommIssueDEPRECATED @67;
@@ -149,6 +150,8 @@ struct CarState {
   # steering wheel
   steeringAngleDeg @7 :Float32;
   steeringAngleDegSSC @38 :Float32;
+  steeringAngleDegError @39 :Float32;
+  steeringAngleDegDivergence @40 :Float32;
   steeringRateDeg @15 :Float32;
   steeringTorque @8 :Float32;      # TODO: standardize units
   steeringTorqueEps @27 :Float32;  # TODO: standardize units

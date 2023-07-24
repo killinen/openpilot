@@ -19,13 +19,13 @@ class CarState(CarStateBase):
     self.needs_angle_offset = True
     self.accurate_steer_angle_seen = True
     self.angle_offset = 0.
+    # Initialize variables to store the min and max error values
+    self.min_error = 0
+    self.max_error = 0
+
 
   def update(self, cp, cp_cam):
     ret = car.CarState.new_message()
-
-#    ret.doorOpen = any([cp.vl["IKE_2"]['DOOR_OPEN_FL'], cp.vl["IKE_2"]['DOOR_OPEN_FR'],
-#                        cp.vl["IKE_2"]['DOOR_OPEN_RL'], cp.vl["IKE_2"]['DOOR_OPEN_RR']])
-#    ret.seatbeltUnlatched = cp.vl["IKE_2"]['SEATBELT_DRIVER_UNLATCHED'] != 0
 
     ret.doorOpen = False
     ret.seatbeltUnlatched = False
@@ -49,27 +49,50 @@ class CarState(CarStateBase):
     ret.standstill = ret.vEgoRaw < 0.01    #Changed this from 0.001 to 0.1 to 0.01 bc longcontrol.py uses this to detect when car is stopped
 
     # Some newer models have a more accurate angle measurement in the TORQUE_SENSOR message. Use if non-zero
-    if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
-      self.accurate_steer_angle_seen = True
+#    if abs(cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']) > 1e-3:
+#      self.accurate_steer_angle_seen = True
+#
+#    if self.accurate_steer_angle_seen:
+#      if self.CP.hasZss:
+#        ret.steeringAngleDeg = cp.vl["SECONDARY_STEER_ANGLE"]['ZORRO_STEER'] - self.angle_offset
+#      else:
+#        ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
+#      if self.needs_angle_offset:
+##        angle_wheel = cp.vl["SZL_1"]['STEERING_ANGLE']
+#        if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
+#          angle_wheel = (cp.vl["SZL_1"]['STEERING_ANGLE'])
+#        else:
+#          angle_wheel = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
+#        if abs(angle_wheel) > 1e-3:
+#          self.needs_angle_offset = False
+#          self.angle_offset = ret.steeringAngleDegSSC - angle_wheel
 
     if self.accurate_steer_angle_seen:
       if self.CP.hasZss:
         ret.steeringAngleDeg = cp.vl["SECONDARY_STEER_ANGLE"]['ZORRO_STEER'] - self.angle_offset
-      else:
-        ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
+      # else:
+      #   ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
       if self.needs_angle_offset:
-#        angle_wheel = cp.vl["SZL_1"]['STEERING_ANGLE']
         if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
           angle_wheel = (cp.vl["SZL_1"]['STEERING_ANGLE'])
         else:
           angle_wheel = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
         if abs(angle_wheel) > 1e-3:
           self.needs_angle_offset = False
-          self.angle_offset = ret.steeringAngleDegSSC - angle_wheel
-    # else:
-    #   ret.steeringAngleDeg = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+          self.angle_offset = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - angle_wheel
+      else:
+        # After angle_offset has been set, start measuring aligned SSC angle
+        ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
+        ## Calculate the error (difference) between the two sensor readings
+        #ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg  
 
-    # ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
+        ## Track the minimum and maximum error values
+        #if abs(ret.steeringAngleDeg) < 90:
+        #  self.max_error = max(self.max_error, ret.steeringAngleDegError)
+        #  self.min_error = min(self.min_error, ret.steeringAngleDegError)
+
+        #ret.steeringAngleDegDivergence = self.max_error - self.min_error
+
 
     if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
       if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
@@ -80,7 +103,6 @@ class CarState(CarStateBase):
     else:
       ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
-    
     if self.CP.carFingerprint == CAR.OLD_CAR: # Steering rate sensor is code differently on BMW
       if cp.vl["SZL_1"]['VELOCITY_DIRECTION'] == 0:
         ret.steeringRateDeg = (cp.vl["SZL_1"]['STEERING_VELOCITY'])
@@ -88,6 +110,16 @@ class CarState(CarStateBase):
         ret.steeringRateDeg = -(cp.vl["SZL_1"]['STEERING_VELOCITY'])
     else:
       ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
+
+    # Calculate the error (difference) between the two sensor readings
+    ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg
+
+    # Track the minimum and maximum error values
+    if abs(ret.steeringAngleDeg) < 90:
+      self.max_error = max(self.max_error, ret.steeringAngleDegError)
+      self.min_error = min(self.min_error, ret.steeringAngleDegError)
+
+    ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
 
     can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
@@ -105,7 +137,7 @@ class CarState(CarStateBase):
       ret.steeringTorque = -1
     else:
       ret.steeringTorque = 0
-    
+
     ret.steeringTorqueEps = cp.vl["STEERING_STATUS"]['STEERING_TORQUE']
     # we could use the override bit from dbc, but it's triggered at too high torque values
     # ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
