@@ -54,6 +54,7 @@ class LateralPlanner():
     self.setup_mpc()
     self.solution_invalid_cnt = 0
     self.lane_change_enabled = Params().get('LaneChangeEnabled') == b'1'
+    self.dynamic_lane_profile_status_buffer = False
     self.lane_change_state = LaneChangeState.off
     self.lane_change_direction = LaneChangeDirection.none
     self.lane_change_timer = 0.0
@@ -176,7 +177,9 @@ class LateralPlanner():
     if self.desire == log.LateralPlan.Desire.laneChangeRight or self.desire == log.LateralPlan.Desire.laneChangeLeft:
       self.LP.lll_prob *= self.lane_change_ll_prob
       self.LP.rll_prob *= self.lane_change_ll_prob
-    if not self.model_laneless:
+    #if not self.model_laneless:
+    if self.get_dynamic_lane_profile():
+    # Laneless logic
       d_path_xyz = self.LP.get_d_path(v_ego, self.t_idxs, self.path_xyz)
       self.libmpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, CP.steerRateCost)
     else:
@@ -242,6 +245,18 @@ class LateralPlanner():
     else:
       self.solution_invalid_cnt = 0
 
+  def get_dynamic_lane_profile(self):
+    # only while lane change is off
+    if self.lane_change_state == LaneChangeState.off:
+      # laneline probability too low, we switch to laneless mode
+      if (self.LP.lll_prob + self.LP.rll_prob)/2 < 0.3:
+        self.dynamic_lane_profile_status_buffer = True
+      if (self.LP.lll_prob + self.LP.rll_prob)/2 > 0.5:
+        self.dynamic_lane_profile_status_buffer = False
+      if self.dynamic_lane_profile_status_buffer: # in buffer mode, always laneless
+        return True
+    return False
+  
   def publish(self, sm, pm):
     plan_solution_valid = self.solution_invalid_cnt < 2
     plan_send = messaging.new_message('lateralPlan')
