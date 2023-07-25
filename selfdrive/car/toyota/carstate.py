@@ -80,19 +80,23 @@ class CarState(CarStateBase):
         if abs(angle_wheel) > 1e-3:
           self.needs_angle_offset = False
           self.angle_offset = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - angle_wheel
+          ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
       else:
         # After angle_offset has been set, start measuring aligned SSC angle
         ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
-        ## Calculate the error (difference) between the two sensor readings
-        #ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg  
+        '''
+        # Hack for fixing unwanted difference between measurements before angle_offset takes affect
+        if not ret.steeringAngleDegSSC == 0:    # Maybe this could be done so that there would be flag which is triggered when ret.steeringAngleDegSSC == ret.steeringAngleDeg -> if flag == True: Start measuring error
+          # Calculate the error (difference) between the two sensor readings two and align them to each other with fixed factor 
+          ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg  
 
-        ## Track the minimum and maximum error values
-        #if abs(ret.steeringAngleDeg) < 90:
-        #  self.max_error = max(self.max_error, ret.steeringAngleDegError)
-        #  self.min_error = min(self.min_error, ret.steeringAngleDegError)
+          # Track the minimum and maximum error values
+          if abs(ret.steeringAngleDeg) < 90:
+            self.max_error = max(self.max_error, ret.steeringAngleDegError)
+            self.min_error = min(self.min_error, ret.steeringAngleDegError)
 
-        #ret.steeringAngleDegDivergence = self.max_error - self.min_error
-
+          ret.steeringAngleDegDivergence = self.max_error - self.min_error
+          '''
 
     if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
       if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
@@ -111,7 +115,7 @@ class CarState(CarStateBase):
     else:
       ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
 
-    # Calculate the error (difference) between the two sensor readings
+    # Calculate the error (difference) between the two sensor readings two and align them to each other with fixed factor
     ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg
 
     # Track the minimum and maximum error values
