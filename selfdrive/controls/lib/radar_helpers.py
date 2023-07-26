@@ -1,5 +1,6 @@
 from common.numpy_fast import mean
 from common.kalman.simple_kalman import KF1D
+from common.realtime import DT_CTRL
 from selfdrive.config import RADAR_TO_CAMERA
 
 
@@ -59,6 +60,10 @@ class Track():
 class Cluster():
   def __init__(self):
     self.tracks = set()
+    self.v_lead_kf = KF1D(x0=[[0.0], [0.0]],
+                         A=[[1.0, DT_CTRL], [0.0, 1.0]],
+                         C=[1.0, 0.0],
+                         K=[[0.12287673], [0.29666309]])
 
   def add(self, t):
     # add the first track
@@ -131,15 +136,22 @@ class Cluster():
     }
 
   def get_RadarState_from_vision(self, lead_msg, v_ego):
+    # Generate ALeadK from vision vRel with simple Kalman filter
+    v_lead = float(v_ego + lead_msg.xyva[2])
+    if abs(v_lead - self.v_lead_kf.x[0][0]) > 2.0:  # Prevent large accelerations when car starts at non zero speed
+      self.v_lead_kf.x = [[v_lead], [0.0]]
+
+    v_lead_x = self.v_lead_kf.update(v_lead)
     return {
       "dRel": float(lead_msg.xyva[0] - RADAR_TO_CAMERA),
-      #"dRel": float(lead_msg.xyva[0] - RADAR_TO_CAMERA - 1.),
       "yRel": float(-lead_msg.xyva[1]),
       "vRel": float(lead_msg.xyva[2]),
-      "vLead": float(v_ego + lead_msg.xyva[2]),
+      #"vLead": float(v_ego + lead_msg.xyva[2]),
+      "vLead": v_lead,
       "vLeadK": float(v_ego + lead_msg.xyva[2]),
       #"aLeadK": float(0),
-      "aLeadK": float(lead_msg.xyva[3]),
+      #"aLeadK": float(lead_msg.xyva[3]),
+      "aLeadK": float(v_lead_x[1]),
       "aLeadTau": _LEAD_ACCEL_TAU,
       "fcw": False,
       "modelProb": float(lead_msg.prob),
