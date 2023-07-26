@@ -185,6 +185,7 @@ static void update_sockets(UIState *s) {
     s->scene.lead_v_rel = radar_state.getLeadOne().getVRel();
     s->scene.lead_d_rel = radar_state.getLeadOne().getDRel();
     s->scene.lead_status = radar_state.getLeadOne().getStatus();
+    s->scene.aLeadK = radar_state.getLeadOne().getALeadK();
     update_lead(s, radar_state, line, 0);
     update_lead(s, radar_state, line, 1);
   }

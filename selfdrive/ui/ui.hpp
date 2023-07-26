@@ -109,7 +109,7 @@ typedef struct UIScene {
   bool frontview;
 
   int lead_status;
-  float lead_d_rel, lead_v_rel;
+  float lead_d_rel, lead_v_rel, aLeadK;
 
   std::string alert_text1;
   std::string alert_text2;
