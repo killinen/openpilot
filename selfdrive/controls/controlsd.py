@@ -117,10 +117,12 @@ class Controls:
       self.log_sock = messaging.sub_sock('androidLog')
 
     # wait for one pandaState and one CAN packet
+    hw_type = messaging.recv_one(self.sm.sock['health']).health.hwType
+    has_relay = hw_type in [HwType.blackPanda, HwType.uno, HwType.dos]
     print("Waiting for CAN messages...")
     get_one_can(self.can_sock)
 
-    self.CI, self.CP, candidate = get_car(self.can_sock, self.pm.sock['sendcan'])
+    self.CI, self.CP, candidate = get_car(self.can_sock, self.pm.sock['sendcan'], has_relay)
     threading.Thread(target=log_fingerprint, args=[candidate]).start()
 
     # read params
@@ -194,7 +196,7 @@ class Controls:
     # TODO: no longer necessary, aside from process replay
     self.sm['liveParameters'].valid = True
 
-    self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0, self.CP)
+    self.startup_event = get_startup_event(car_recognized, controller_available, len(self.CP.carFw) > 0, self.CP, hw_type)
 
     if not sounds_available:
       self.events.add(EventName.soundsUnavailable, static=True)
@@ -206,6 +208,8 @@ class Controls:
         set_offroad_alert("Offroad_CarUnrecognized", True)
       else:
         set_offroad_alert("Offroad_NoFirmware", True)
+    if hw_type == HwType.whitePanda:
+      self.events.add(EventName.whitePandaUnsupportedDEPRECATED, static=True)
     elif self.read_only:
       self.events.add(EventName.dashcamMode, static=True)
     elif self.joystick_mode:

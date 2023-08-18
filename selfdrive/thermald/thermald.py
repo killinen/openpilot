@@ -190,6 +190,7 @@ def thermald_thread() -> NoReturn:
   in_car = False
   handle_fan = None
   is_uno = False
+  has_relay = False
   ui_running_prev = False
 
   params = Params()
@@ -234,6 +235,7 @@ def thermald_thread() -> NoReturn:
       # Setup fan handler on first connect to panda
       if handle_fan is None and peripheralState.pandaType != log.PandaState.PandaType.unknown:
         is_uno = peripheralState.pandaType == log.PandaState.PandaType.uno
+        has_relay = health.health.hwType in [log.HealthData.HwType.blackPanda, log.HealthData.HwType.uno, log.HealthData.HwType.dos]
 
         if TICI:
           cloudlog.info("Setting up TICI fan handler")
@@ -309,7 +311,7 @@ def thermald_thread() -> NoReturn:
       msg.deviceState.fanSpeedPercentDesired = fan_speed
 
     is_offroad_for_5_min = (started_ts is None) and ((not started_seen) or (off_ts is None) or (sec_since_boot() - off_ts > 60 * 5))
-    if is_offroad_for_5_min and max_comp_temp > OFFROAD_DANGER_TEMP:
+    if max_cpu_temp > 107. or bat_temp >= 63. or (has_relay and is_offroad_for_5_min and max_cpu_temp > 70.0):
       # If device is offroad we want to cool down before going onroad
       # since going onroad increases load and can make temps go over 107
       thermal_status = ThermalStatus.danger
