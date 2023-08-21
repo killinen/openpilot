@@ -122,10 +122,17 @@ std::string logger_get_route_name() {
   char route_name[64] = {'\0'};
   time_t rawtime = time(NULL);
   struct tm timeinfo;
+
   localtime_r(&rawtime, &timeinfo);
+
+  // Add 3 hours to the current time
+  timeinfo.tm_hour += 3;
+  mktime(&timeinfo);  // Adjust the time based on the added hours
+
   strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
   return route_name;
 }
+
 
 void log_init_data(LoggerState *s) {
   auto bytes = s->init_data.asBytes();
