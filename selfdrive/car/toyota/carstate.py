@@ -20,6 +20,7 @@ class CarState(CarStateBase):
     self.accurate_steer_angle_seen = True
     self.angle_offset = 0.
     # Initialize variables to store the min and max error values
+    self.steeringAngle_aligned = False
     self.min_error = 0
     self.max_error = 0
 
@@ -79,10 +80,13 @@ class CarState(CarStateBase):
           angle_wheel = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
         if abs(angle_wheel) > 1e-3:
           self.needs_angle_offset = False
+          ret.steeringAngleDeg = angle_wheel
           self.angle_offset = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - angle_wheel
       else:
         # After angle_offset has been set, start measuring aligned SSC angle
         ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
+        if abs(ret.steeringAngleDeg - ret.steeringAngleDegSSC) < 0.1:
+          self.steeringAngle_aligned = True
         ## Calculate the error (difference) between the two sensor readings
         #ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg  
 
@@ -111,15 +115,16 @@ class CarState(CarStateBase):
     else:
       ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
 
-    # Calculate the error (difference) between the two sensor readings
-    ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg
+    if self.steeringAngle_aligned:
+      # Calculate the error (difference) between the two sensor readings
+      ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg
 
-    # Track the minimum and maximum error values
-    if abs(ret.steeringAngleDeg) < 90:
-      self.max_error = max(self.max_error, ret.steeringAngleDegError)
-      self.min_error = min(self.min_error, ret.steeringAngleDegError)
+      # Track the minimum and maximum error values
+      if abs(ret.steeringAngleDeg) < 90:
+        self.max_error = max(self.max_error, ret.steeringAngleDegError)
+        self.min_error = min(self.min_error, ret.steeringAngleDegError)
 
-    ret.steeringAngleDegDivergence = self.max_error - self.min_error
+      ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
 
     can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
