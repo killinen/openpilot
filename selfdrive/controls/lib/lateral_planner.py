@@ -70,6 +70,7 @@ class LateralPlanner():
 
     self.op_params = opParams()
     self.model_laneless = self.op_params.get('model_laneless')
+    self.use_laneless = False
 
   def setup_mpc(self):
     self.libmpc = libmpc_py.libmpc
@@ -178,11 +179,13 @@ class LateralPlanner():
       self.LP.lll_prob *= self.lane_change_ll_prob
       self.LP.rll_prob *= self.lane_change_ll_prob
     #if not self.model_laneless:
-    if self.get_dynamic_lane_profile():
-    # Laneless logic
+    self.use_laneless = self.get_dynamic_lane_profile()
+    if not self.use_laneless:
+      # Laneful logic
       d_path_xyz = self.LP.get_d_path(v_ego, self.t_idxs, self.path_xyz)
       self.libmpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, CP.steerRateCost)
     else:
+      # Laneless
       d_path_xyz = self.path_xyz
       path_cost = np.clip(abs(self.path_xyz[0, 1] / self.path_xyz_stds[0, 1]), 0.5, 5.0) * MPC_COST_LAT.PATH
       # Heading cost is useful at low speed, otherwise end of plan can be off-heading
@@ -249,14 +252,14 @@ class LateralPlanner():
     # only while lane change is off
     if self.lane_change_state == LaneChangeState.off:
       # laneline probability too low, we switch to laneless mode
-      if (self.LP.lll_prob + self.LP.rll_prob)/2 < 0.3:
+      if (self.LP.lll_prob + self.LP.rll_prob)/2 < 0.15:
         self.dynamic_lane_profile_status_buffer = True
-      if (self.LP.lll_prob + self.LP.rll_prob)/2 > 0.5:
+      if (self.LP.lll_prob + self.LP.rll_prob)/2 > 0.25:
         self.dynamic_lane_profile_status_buffer = False
       if self.dynamic_lane_profile_status_buffer: # in buffer mode, always laneless
         return True
     return False
-  
+
   def publish(self, sm, pm):
     plan_solution_valid = self.solution_invalid_cnt < 2
     plan_send = messaging.new_message('lateralPlan')
@@ -278,6 +281,8 @@ class LateralPlanner():
     plan_send.lateralPlan.laneChangeState = self.lane_change_state
     plan_send.lateralPlan.laneChangeDirection = self.lane_change_direction
 
+    plan_send.lateralPlan.useLaneless = self.use_laneless
+
     pm.send('lateralPlan', plan_send)
 
     if LOG_MPC:
@@ -288,3 +293,4 @@ class LateralPlanner():
       # dat.liveMpc.tire_angle = list(self.mpc_solution[0].tire_angle)
       dat.liveMpc.cost = self.mpc_solution[0].cost
       pm.send('liveMpc', dat)
+
