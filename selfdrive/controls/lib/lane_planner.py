@@ -51,7 +51,7 @@ class LanePlanner:
       self.ll_x = md.laneLines[1].x
       # only offset left and right lane lines; offsetting path does not make sense
       self.df_profile = self.df_manager.update()
-      if self.df_profile == self.df_profiles.traffic:  # for in congested traffic
+      if self.df_profile.user_profile == self.df_profiles.traffic:  # for in congested traffic
         self.camera_offset = 0.1
       else:
         self.camera_offset = self.op_params.get('camera_offset')  # update camera offset
