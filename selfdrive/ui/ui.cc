@@ -79,7 +79,7 @@ static void ui_init_vision(UIState *s) {
 
 
 void ui_init(UIState *s) {
-  s->sm = new SubMaster({"modelV2", "controlsState", "uiLayoutState", "liveCalibration", "radarState", "deviceState", "roadCameraState", "liveLocationKalman",
+  s->sm = new SubMaster({"modelV2", "controlsState", "uiLayoutState", "liveCalibration", "radarState", "deviceState", "roadCameraState", "liveLocationKalman", "lateralPlan",
                          "pandaState", "carParams", "driverState", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss", "gpsLocationExternal", "liveParameters"});
 
   s->started = false;
@@ -241,6 +241,10 @@ static void update_sockets(UIState *s) {
   }
   if (sm.updated("carParams")) {
     s->longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
+  }
+  if (sm.updated("lateralPlan")) {
+    auto data = sm["lateralPlan"].getLateralPlan();
+    s->scene.useLaneless = data.getUseLaneless();
   }
   if (sm.updated("driverState")) {
     scene.driver_state = sm["driverState"].getDriverState();

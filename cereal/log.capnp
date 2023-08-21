@@ -781,6 +781,8 @@ struct LateralPlan @0xe1e9318e2ae8b51e {
   laneChangeState @18 :LaneChangeState;
   laneChangeDirection @19 :LaneChangeDirection;
 
+  useLaneless @23 :Bool; # Is lateral plan using laneless model
+
   enum Desire {
     none @0;
     turnLeft @1;
