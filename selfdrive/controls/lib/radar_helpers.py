@@ -1,8 +1,6 @@
 from common.numpy_fast import mean
 from common.kalman.simple_kalman import KF1D
-from common.realtime import DT_CTRL
 from selfdrive.config import RADAR_TO_CAMERA
-
 
 # the longer lead decels, the more likely it will keep decelerating
 # TODO is this a good default?
@@ -56,14 +54,58 @@ class Track():
     self.aLeadK = aLeadK
     self.aLeadTau = aLeadTau
 
+class VisionKalman():
+  def __init__(self, lead_v_rel, v_ego, kalman_params):
+    self.cnt = 0
+    v_lead = v_ego + lead_v_rel
+    self.aLeadTau = _LEAD_ACCEL_TAU
+    self.K_A = kalman_params.A
+    self.K_C = kalman_params.C
+    self.K_K = kalman_params.K
+    self.kf = KF1D([[v_lead], [0.0]], self.K_A, self.K_C, self.K_K)
+    self.visionValues = [0.0, 0.0]
+
+  def update(self, lead_v_rel, v_ego):
+    # relative value
+    self.vision_vLead = v_ego + lead_v_rel
+
+    # computed velocity and accelerations
+    if self.cnt > 0:
+      self.kf.update(self.vision_vLead)
+
+    self.vision_vLeadK = float(self.kf.x[SPEED][0])
+    self.vision_aLeadK = float(self.kf.x[ACCEL][0])
+
+    print(f'self.kf.x {self.kf.x}')
+
+    # I hade problem with this error before: "vLeadK": float(v_a[0]), TypeError: float() argument must be a string or a number, not 'list'
+    # The output of self.kf.x = [[0.03329396765917918], [-0.00043314624065333464]] (or similar)
+    # This could be probably fixed with inputting the self.kf.x to get_lead_from_visiion and then use of "vLeadK": float(v_a[0][0]), in lead_dict
+    #self.visionValues = [float(self.kf.x[SPEED][0]), float(self.kf.x[ACCEL][0])]
+
+    self.cnt += 1
+
+    print(f'vLeadK {self.visionValues[0]} aLeadK {self.visionValues[1]}')
+
+    #return [self.vision_vLeadK, self.vision_aLeadK]
+
+    # Learn if constant acceleration
+    if abs(self.vision_aLeadK) < 0.5:
+      self.aLeadTau = _LEAD_ACCEL_TAU
+    else:
+      self.aLeadTau *= 0.9
+
+    return [self.vision_vLeadK, self.vision_aLeadK, self.aLeadTau]
+'''
+  def reset_a_lead(self, aLeadK, aLeadTau):
+    self.kf = KF1D([[self.vLead], [aLeadK]], self.K_A, self.K_C, self.K_K)
+    self.aLeadK = aLeadK
+    self.aLeadTau = aLeadTau
+'''
 
 class Cluster():
   def __init__(self):
     self.tracks = set()
-    self.v_lead_kf = KF1D(x0=[[0.0], [0.0]],
-                         A=[[1.0, DT_CTRL], [0.0, 1.0]],
-                         C=[1.0, 0.0],
-                         K=[[0.12287673], [0.29666309]])
 
   def add(self, t):
     # add the first track
@@ -135,24 +177,20 @@ class Cluster():
       "aLeadTau": float(self.aLeadTau)
     }
 
-  def get_RadarState_from_vision(self, lead_msg, v_ego):
-    # Generate ALeadK from vision vRel with simple Kalman filter
-    v_lead = float(v_ego + lead_msg.xyva[2])
-    if abs(v_lead - self.v_lead_kf.x[0][0]) > 2.0:  # Prevent large accelerations when car starts at non zero speed
-      self.v_lead_kf.x = [[v_lead], [0.0]]
-
-    v_lead_x = self.v_lead_kf.update(v_lead)
+  def get_RadarState_from_vision(self, lead_msg, v_ego, kalman_x):
     return {
       "dRel": float(lead_msg.xyva[0] - RADAR_TO_CAMERA),
+      #"dRel": float(lead_msg.xyva[0] - RADAR_TO_CAMERA - 1.),
       "yRel": float(-lead_msg.xyva[1]),
       "vRel": float(lead_msg.xyva[2]),
-      #"vLead": float(v_ego + lead_msg.xyva[2]),
-      "vLead": v_lead,
-      "vLeadK": float(v_ego + lead_msg.xyva[2]),
+      "vLead": float(v_ego + lead_msg.xyva[2]),
+      #"vLeadK": float(v_ego + lead_msg.xyva[2]),
+      "vLeadK": float(kalman_x[0]),
       #"aLeadK": float(0),
       #"aLeadK": float(lead_msg.xyva[3]),
-      "aLeadK": float(v_lead_x[1]),
-      "aLeadTau": _LEAD_ACCEL_TAU,
+      "aLeadK": float(kalman_x[1]),
+      #"aLeadTau": _LEAD_ACCEL_TAU,
+      "aLeadTau": float(kalman_x[2]),
       "fcw": False,
       "modelProb": float(lead_msg.prob),
       "radar": False,
@@ -169,3 +207,4 @@ class Cluster():
 
   def is_potential_fcw(self, model_prob):
     return model_prob > .9
+

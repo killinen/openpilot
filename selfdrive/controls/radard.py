@@ -10,7 +10,7 @@ from common.params import Params
 from common.realtime import Ratekeeper, Priority, config_realtime_process
 from selfdrive.config import RADAR_TO_CAMERA
 from selfdrive.controls.lib.cluster.fastcluster_py import cluster_points_centroid
-from selfdrive.controls.lib.radar_helpers import Cluster, Track
+from selfdrive.controls.lib.radar_helpers import Cluster, Track, VisionKalman
 from selfdrive.swaglog import cloudlog
 
 
@@ -28,6 +28,14 @@ class KalmanParams():
     K0 = [0.12288, 0.14557, 0.16523, 0.18282, 0.19887, 0.21372, 0.22761, 0.24069, 0.2531, 0.26491]
     K1 = [0.29666, 0.29331, 0.29043, 0.28787, 0.28555, 0.28342, 0.28144, 0.27958, 0.27783, 0.27617]
     self.K = [[interp(dt, dts, K0)], [interp(dt, dts, K1)]]
+
+# Test if can make Kalman filter for vision v and a
+class VisionKalmanParams():
+  def __init__(self, dt):
+    assert dt > .01 and dt < .1, "Radar time step must be between .01s and 0.1s"
+    self.A = [[1.0, dt], [0.0, 1.0]]
+    self.C = [1.0, 0.0]
+    self.K = [[0.26491], [0.27617]]
 
 
 def laplacian_cdf(x, mu, b):
@@ -59,7 +67,7 @@ def match_vision_to_cluster(v_ego, lead, clusters):
     return None
 
 
-def get_lead(v_ego, ready, clusters, lead_msg, low_speed_override=True):
+def get_lead(v_ego, ready, v_a, clusters, lead_msg, low_speed_override=True):
   # Determine leads, this is where the essential logic happens
   if len(clusters) > 0 and ready and lead_msg.prob > .5:
     cluster = match_vision_to_cluster(v_ego, lead_msg, clusters)
@@ -70,7 +78,7 @@ def get_lead(v_ego, ready, clusters, lead_msg, low_speed_override=True):
   if cluster is not None:
     lead_dict = cluster.get_RadarState(lead_msg.prob)
   elif (cluster is None) and ready and (lead_msg.prob > .5):
-    lead_dict = Cluster().get_RadarState_from_vision(lead_msg, v_ego)
+    lead_dict = Cluster().get_RadarState_from_vision(lead_msg, v_ego, v_a)
 
   if low_speed_override:
     low_speed_clusters = [c for c in clusters if c.potential_low_speed_lead(v_ego)]
@@ -91,11 +99,14 @@ class RadarD():
     self.tracks = defaultdict(dict)
     self.kalman_params = KalmanParams(radar_ts)
 
-    # v_ego
     self.v_ego = 0.
     self.v_ego_hist = deque([0], maxlen=delay+1)
 
     self.ready = False
+
+    self.vision_params = VisionKalmanParams(radar_ts)
+    # self.visionVA = [0.0, 0.0, 0.0]
+    self.visionKalman = VisionKalman(0.0, self.v_ego, self.vision_params)
 
   def update(self, sm, rr, enable_lead):
     self.current_time = 1e-9*max(sm.logMonoTime.values())
@@ -164,10 +175,19 @@ class RadarD():
     radarState.radarErrors = list(rr.errors)
     radarState.carStateMonoTime = sm.logMonoTime['carState']
 
+    if sm['modelV2'].leads[0].prob > .5:
+      #self.visionVA = self.visionKalman.update(sm['modelV2'].leads[0].xyva[2], self.v_ego)
+      #self.visionKalman.update(sm['modelV2'].leads[0].xyva[2], self.v_ego)
+      leadK = self.visionKalman.update(sm['modelV2'].leads[0].xyva[2], self.v_ego)
+    else:
+      self.visionKalman = VisionKalman(sm['modelV2'].leads[0].xyva[2], self.v_ego, self.vision_params)
+
     if enable_lead:
       if len(sm['modelV2'].leads) > 1:
-        radarState.leadOne = get_lead(self.v_ego, self.ready, clusters, sm['modelV2'].leads[0], low_speed_override=True)
-        radarState.leadTwo = get_lead(self.v_ego, self.ready, clusters, sm['modelV2'].leads[1], low_speed_override=False)
+        radarState.leadOne = get_lead(self.v_ego, self.ready, leadK, clusters, sm['modelV2'].leads[0], low_speed_override=True)
+        radarState.leadTwo = get_lead(self.v_ego, self.ready, leadK, clusters, sm['modelV2'].leads[1], low_speed_override=False)
+        #radarState.leadOne = get_lead(self.v_ego, self.ready, self.visionKalman.visionValues, clusters, sm['modelV2'].leads[0], low_speed_override=True)
+        #radarState.leadTwo = get_lead(self.v_ego, self.ready, self.visionKalman.visionValues, clusters, sm['modelV2'].leads[1], low_speed_override=False)
     return dat
 
 

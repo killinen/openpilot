@@ -168,8 +168,8 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kf = 0.0002
       ret.steerMaxBP = [0.]
       ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
-        
-        
+
+
       # ret.lateralTuning.init('lqr')
       # ret.lateralTuning.lqr.scale = 1500.0
       # ret.lateralTuning.lqr.ki = 0.07
@@ -180,6 +180,8 @@ class CarInterface(CarInterfaceBase):
       # ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
       # ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
       # ret.lateralTuning.lqr.dcGain = 0.002237852961363602
+
+      ret.radarTimeStep = 0.05;  # time delta between radar updates, 20Hz is very standard
 
     elif candidate == CAR.LEXUS_RX:
       stop_and_go = True
