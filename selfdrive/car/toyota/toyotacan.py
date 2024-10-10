@@ -7,7 +7,7 @@ def create_steer_command(packer, steer, steer_req, raw_cnt):
     "COUNTER": raw_cnt,
     "SET_ME_1": 1,
   }
-  return packer.make_can_msg("STEERING_LKA", 0, values)
+  return packer.make_can_msg("STEERING_LKA", 2, values)
 
 def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
   """Creates a CAN message for the actuator STEERING_COMMAND"""
@@ -24,7 +24,7 @@ def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
 
   values["SERVO_CHECKSUM"] = calc_checksum_8bit(dat, addr)
 
-  return packer.make_can_msg("STEERING_COMMAND", 0, values) #bus 2 is the actuator CAN bus
+  return packer.make_can_msg("STEERING_COMMAND", 2, values) #bus 2 is the actuator CAN bus
 
 def calc_checksum_8bit(work_data, msg_id): # 0xb8 0x1a0 0x19e 0xaa 0xbf
   checksum = msg_id
@@ -50,7 +50,7 @@ def create_lta_steer_command(packer, steer, steer_req, raw_cnt):
     "STEER_REQUEST_2": steer_req,
     "BIT": 0,
   }
-  return packer.make_can_msg("STEERING_LTA", 0, values)
+  return packer.make_can_msg("STEERING_LTA", 2, values)
 
 
 #def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
@@ -83,7 +83,7 @@ def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
     "CANCEL_REQ": pcm_cancel,
     "ALLOW_LONG_PRESS": 1,
   }
-  return packer.make_can_msg("ACC_CONTROL", 0, values)
+  return packer.make_can_msg("ACC_CONTROL", 2, values)
 
 def create_lead_command(packer, lead_rel_speed, lead_acceleration, lead_long_dist):
   values = {
@@ -91,7 +91,7 @@ def create_lead_command(packer, lead_rel_speed, lead_acceleration, lead_long_dis
     "LEAD_REL_SPEED": lead_rel_speed,
     "LEAD_LONG_DIST": lead_long_dist,
   }
-  return packer.make_can_msg("LEAD_INFO", 0, values)
+  return packer.make_can_msg("LEAD_INFO", 2, values)
 
 
 def create_acc_cancel_command(packer):
@@ -103,7 +103,7 @@ def create_acc_cancel_command(packer):
     "CRUISE_STATE": 0,
     "CANCEL_REQ": 1,
   }
-  return packer.make_can_msg("PCM_CRUISE", 0, values)
+  return packer.make_can_msg("PCM_CRUISE", 2, values)
 
 
 #def create_fcw_command(packer, fcw):
@@ -124,7 +124,7 @@ def create_fcw_command(packer, fcw):
     "PCS_OFF": 1,
     "PCS_SENSITIVITY": 0,
   }
-  return packer.make_can_msg("ACC_HUD", 0, values)
+  return packer.make_can_msg("ACC_HUD", 2, values)
 
 def create_ui_command(packer, steer, chime, left_line, right_line, left_lane_depart, right_lane_depart):
   values = {
@@ -141,4 +141,4 @@ def create_ui_command(packer, steer, chime, left_line, right_line, left_lane_dep
     "TWO_BEEPS": chime,
     "LDA_ALERT": steer,
   }
-  return packer.make_can_msg("LKAS_HUD", 0, values)
+  return packer.make_can_msg("LKAS_HUD", 2, values)

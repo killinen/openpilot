@@ -1,23 +1,24 @@
 from cereal import car
 from common.numpy_fast import mean
-from opendbc.can.can_define import CANDefine
+#from opendbc.can.can_define import CANDefine
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
 from selfdrive.config import Conversions as CV
 from selfdrive.car.toyota.values import CAR, DBC, STEER_THRESHOLD, TSS2_CAR, NO_STOP_TIMER_CAR
 
+GearShifter = car.CarState.GearShifter
 
 class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
-    can_define = CANDefine(DBC[CP.carFingerprint]['pt'])
-    self.shifter_values = can_define.dv["AGS_1"]['GEAR_SELECTOR']
+    #can_define = CANDefine(DBC[CP.carFingerprint]['pt'])
+    #self.shifter_values = can_define.dv["AGS_1"]['GEAR_SELECTOR']
 
     # On cars with cp.vl["STEER_TORQUE_SENSOR"]['STEER_ANGLE']
     # the signal is zeroed to where the steering angle is at start.
     # Need to apply an offset as soon as the steering angle measurements are both received
     self.needs_angle_offset = True
-    self.accurate_steer_angle_seen = True
+    self.accurate_steer_angle_seen = False    # This is first set to false so we ignore the SCC angle stuff
     self.angle_offset = 0.
     # Initialize variables to store the min and max error values
     self.steeringAngle_aligned = False
@@ -28,22 +29,22 @@ class CarState(CarStateBase):
   def update(self, cp, cp_cam):
     ret = car.CarState.new_message()
 
-    ret.doorOpen = False
-    ret.seatbeltUnlatched = False
+    ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
+    ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 0
 
-    ret.brakePressed = cp.vl["PCM_CRUISE"]['BRK_ST_OP'] != 0
-    ret.brakeLights = bool(cp.vl["DME_2"]['BRAKE_LIGHT_SIGNAL'] or ret.brakePressed)
+    ret.brakePressed = cp.vl["EMS_DCT2"]['BRAKE_ACT'] == 2
+    ret.brakeLights = bool(cp.vl["EMS2"]['BRAKE_ACT'] == 2 or ret.brakePressed)
     if self.CP.enableGasInterceptor:
       ret.gas = (cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS'] + cp.vl["GAS_SENSOR"]['INTERCEPTOR_GAS2']) / 2.
       ret.gasPressed = ret.gas > 15
     else:
-      ret.gas = cp.vl["DME_2"]['GAS_PEDAL']
-      ret.gasPressed = cp.vl["DME_2"]['GAS_PEDAL'] > 0.05
+      ret.gas = cp.vl["EMS_DCT1"]['PV_AV_CAN']
+      ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
 
-    ret.wheelSpeeds.fl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FL'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_FR'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RL'] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = cp.vl["WHEEL_SPEEDS"]['WHEEL_SPEED_RR'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fl = cp.vl["TCS5"]['WHEEL_FL'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fr = cp.vl["TCS5"]['WHEEL_FR'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rl = cp.vl["TCS5"]['WHEEL_RL'] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rr = cp.vl["TCS5"]['WHEEL_RR'] * CV.KPH_TO_MS
     ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
@@ -98,20 +99,13 @@ class CarState(CarStateBase):
         #ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
 
-    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on BMW
-      if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
-        ret.steeringAngleDeg = (cp.vl["SZL_1"]['STEERING_ANGLE'])
-      else:
-       ret.steeringAngleDeg = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
-       #ret.steeringAngle = -(cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION'])
+    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on i30
+       ret.steeringAngle = -(cp.vl["SAS1"]['SAS_Angle'])
     else:
       ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
-    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering rate sensor is code differently on BMW
-      if cp.vl["SZL_1"]['VELOCITY_DIRECTION'] == 0:
-        ret.steeringRateDeg = (cp.vl["SZL_1"]['STEERING_VELOCITY'])
-      else:
-        ret.steeringRateDeg = -(cp.vl["SZL_1"]['STEERING_VELOCITY'])
+    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering rate sensor is code differently on i30
+        ret.steeringRateDeg = -(cp.vl["SAS1"]['SAS_Speed'])
     else:
       ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
 
@@ -127,10 +121,14 @@ class CarState(CarStateBase):
       ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
 
-    can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
-    ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
-    ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
+    #can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
+    #ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
+    ret.gearShifter = GearShifter.drive
+    #ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
+    #ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
+                                                            cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
+
 
     # ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
 
@@ -143,7 +141,7 @@ class CarState(CarStateBase):
     else:
       ret.steeringTorque = 0
 
-    ret.steeringTorqueEps = cp.vl["STEERING_STATUS"]['STEERING_TORQUE']
+    ret.steeringTorqueEps = cp.vl["VSM2"]['CR_Mdps_OutTq']
     # we could use the override bit from dbc, but it's triggered at too high torque values
     # ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
     #ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
@@ -155,18 +153,19 @@ class CarState(CarStateBase):
       ret.cruiseState.speed = cp.vl["DSU_CRUISE"]['SET_SPEED'] * CV.KPH_TO_MS
       self.low_speed_lockout = False
     else:
-      ret.cruiseState.available = cp.vl["PCM_CRUISE_2"]['MAIN_ON'] != 0
-      ret.cruiseState.speed = cp.vl["PCM_CRUISE_2"]['SET_SPEED'] * CV.KPH_TO_MS
-      self.low_speed_lockout = cp.vl["PCM_CRUISE_2"]['LOW_SPEED_LOCKOUT'] == 2
-    self.pcm_acc_status = cp.vl["PCM_CRUISE"]['CRUISE_STATE']
+      ret.cruiseState.available = cp.vl["EMS6"]['CRUISE_LAMP_M'] != 0
+      ret.cruiseState.speed = 0 * CV.KPH_TO_MS    # I don't have (yet) cruise speed
+      self.low_speed_lockout = False
+    self.pcm_acc_status = 0     # Not sure i if this is correct for i30
     if self.CP.carFingerprint in NO_STOP_TIMER_CAR or self.CP.enableGasInterceptor:
       # ignore standstill in hybrid vehicles, since pcm allows to restart without
       # receiving any special command. Also if interceptor is detected
       ret.cruiseState.standstill = False
     else:
       ret.cruiseState.standstill = self.pcm_acc_status == 7
-    ret.cruiseState.enabled = bool(cp.vl["PCM_CRUISE"]['CRUISE_ACTIVE'])
-    ret.cruiseState.nonAdaptive = cp.vl["PCM_CRUISE"]['CRUISE_STATE'] in [1, 2, 3, 4, 5, 6]
+    ret.cruiseState.enabled = bool(cp.vl["EMS6"]['CRUISE_LAMP_S'])
+    #ret.cruiseState.nonAdaptive = cp.vl["PCM_CRUISE"]['CRUISE_STATE'] in [1, 2, 3, 4, 5, 6]
+    ret.cruiseState.nonAdaptive = False
 
     if self.CP.carFingerprint == CAR.PRIUS:
       ret.genericToggle = cp.vl["AUTOPARK_STATUS"]['STATE'] != 0
@@ -174,7 +173,7 @@ class CarState(CarStateBase):
       ret.genericToggle = bool(cp.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
     ret.stockAeb = bool(cp_cam.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_cam.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
-    ret.espDisabled = cp.vl["DSC_1"]['DSC_OFF'] != 0
+    ret.espDisabled = False   # Can't disable ESP in i30 (maybe has errorbit)
     # 2 is standby, 10 is active. TODO: check that everything else is really a faulty state
     self.steer_state = cp.vl["EPS_STATUS"]['LKA_STATE']
 
@@ -191,47 +190,37 @@ class CarState(CarStateBase):
     
     signals = [
       # sig_name, sig_address, default
-      ("STEERING_ANGLE", "SZL_1", 0),     #Imported from BMW
-      ("GEAR_SELECTOR", "AGS_1", 0),      #Imported from BMW
-      ("GEAR", "AGS_1", 0),      #Imported from BMW
-      ("BRAKE_LIGHT_SIGNAL", "DSC_1", 0),     #Imported from BMW
-      ("GAS_PEDAL", "DME_2", 0),      #Imported from BMW
-      ("CRUISE_I_O", "DME_2", 0),
-      ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_FR", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_RL", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("WHEEL_SPEED_RR", "WHEEL_SPEEDS", 0),      #Imported from BMW
-      ("DOOR_OPEN_FL", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_FR", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_RL", "IKE_2", 1),     #Imported from BMW
-      ("DOOR_OPEN_RR", "IKE_2", 1),     #Imported from BMW
-      ("SEATBELT_DRIVER_UNLATCHED", "IKE_2", 1),      #Imported from BMW
-      ("DSC_OFF", "DSC_1", 1),      #Imported from BMW
-      ("STEER_FRACTION", "STEER_ANGLE_SENSOR", 0),      #Unneccasary?
-      ("STEERING_VELOCITY", "SZL_1", 0),      #Imported from BMW
-      ("ANGLE_DIRECTION", "SZL_1", 0),      #Imported from BMW
-      ("VELOCITY_DIRECTION", "SZL_1", 0),     #Imported from BMW
-      ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
-      ("CRUISE_STATE", "PCM_CRUISE", 0),
-      ("BRK_ST_OP", "PCM_CRUISE", 0),
-      ("GAS_RELEASED", "PCM_CRUISE", 1),      #Check this OUT is it neccessary anymore because made it different above code!!!
-      ("RESUME_BTN", "DME_2", 0),     #Imported from BMW
-      ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
-      ("STEERING_TORQUE", "STEERING_STATUS", 0),
-      ("STEERING_ANGLE", "STEERING_STATUS", 0),
-      ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
-      ("BLINKERS", "IKE_2", 0),   # 0 is no blinkers, Imported from BMW
+      ("SAS_Angle", "SAS1", 0),               #Imported from i30
+      ("SAS_Speed", "SAS1", 0),               #Imported from i30
+      ("PV_AV_CAN", "EMS_DCT1", 0),           #Imported from i30
+      ("CF_Ems_AclAct", "EMS6", 1),           #Imported from i30
+      ("CR_Mdps_StrTq", "VSM2", 0),           #Imported from i30
+      ("CR_Mdps_OutTq", "VSM2", 0),           #Imported from i30
+
+      ("WHEEL_FL", "TCS5", 0),                #Imported from i30
+      ("WHEEL_FR", "TCS5", 0),                #Imported from i30
+      ("WHEEL_RL", "TCS5", 0),                #Imported from i30
+      ("WHEEL_RR", "TCS5", 0),                #Imported from i30
+      ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30
+      ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30
+      ("CF_Gway_DrvSeatBeltSw", "CLU2", 0),   #Imported from i30
+      ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
+      ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
+  
+      ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
+      ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
+      ("BRAKE_ACT", "EMS_DCT2", 1),           #Imported from i30
+      ("BRAKE_ACT", "EMS2", 1),               #Imported from i30
+
       ("LKA_STATE", "EPS_STATUS", 0),
-      ("BRAKE_LIGHT_SIGNAL", "DME_2", 0),      #Imported from BMW
       ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
-      ("ACCEL_CMD", "ACC_CONTROL", 0),
     ]
 
     checks = [
-        ("DSC_1", 40),
-        ("DME_2", 33),
-        ("WHEEL_SPEEDS", 80),
-        ("IKE_2", 33)
+        ("EMS_DCT2", 20),
+        ("VSM2", 20),
+        ("TCS5", 20),
+        ("SAS1", 20)
     ]
 
     if CP.carFingerprint == CAR.LEXUS_IS:
@@ -261,7 +250,7 @@ class CarState(CarStateBase):
       signals += [("R_ADJACENT", "BSM", 0)]
       signals += [("R_APPROACHING", "BSM", 0)]
 
-    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, 0)
+    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, 0)  #'pt' is the first dbc file given in values.py dbc_dict (see also init.py from car folder)
 
   @staticmethod
   def get_cam_can_parser(CP):
@@ -269,11 +258,15 @@ class CarState(CarStateBase):
     signals = [
       ("FORCE", "PRE_COLLISION", 0),
       ("PRECOLLISION_ACTIVE", "PRE_COLLISION", 0)
+      ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
+      ("STEERING_TORQUE", "STEERING_STATUS", 0),
+      ("STEERING_ANGLE", "STEERING_STATUS", 0),
+      ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
     ]
 
-    # use steering message to check if panda is connected to frc
+    # use STEERING_STATUS message to check if panda is connected to SSC
     checks = [
-      ("STEERING_LKA", 42)
+      #("STEERING_STATUS", 42)    # Try at first no checks if SSC is not connected yet
     ]
 
     return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, 2)
