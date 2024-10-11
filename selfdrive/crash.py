@@ -40,7 +40,8 @@ else:
   if smiskol_remote:  # CHANGE TO YOUR remote and sentry key to receive errors if you fork this fork
     sentry_uri = 'https://a83947fe6772400bb220c3f0e4a6e63b@o237581.ingest.sentry.io/5252098'
   else:
-    sentry_uri = 'https://1994756b5e6f41cf939a4c65de45f4f2:cefebaf3a8aa40d182609785f7189bd7@app.getsentry.com/77924'  # stock
+    #sentry_uri = 'https://1994756b5e6f41cf939a4c65de45f4f2:cefebaf3a8aa40d182609785f7189bd7@app.getsentry.com/77924'  # stock
+    sentry_uri = 'https://46c963d9abeaa25d6afb4ebafdcf9cca@o1107536.ingest.us.sentry.io/4508105628712960'	# New OWN
   client = Client(sentry_uri, install_sys_hook=False, transport=HTTPTransport, release=version, tags=error_tags)
 
 
