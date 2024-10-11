@@ -20,26 +20,28 @@ const int TOYOTA_ISO_MAX_ACCEL = 2000;        // 2.0 m/s2
 const int TOYOTA_ISO_MIN_ACCEL = -3500;       // -3.5 m/s2
 
 const int TOYOTA_STANDSTILL_THRSLD = 32;  // 1kph
+const int i30_STANDSTILL_THRSLD = 30;  // ~1kph
 
 // Roughly calculated using the offsets in openpilot +5%:
 // In openpilot: ((gas1_norm + gas2_norm)/2) > 15
 // gas_norm1 = ((gain_dbc*gas1) + offset1_dbc)
 // gas_norm2 = ((gain_dbc*gas2) + offset2_dbc)
 // In this safety: ((gas1 + gas2)/2) > THRESHOLD
+
 const int TOYOTA_GAS_INTERCEPTOR_THRSLD = 845;
 #define TOYOTA_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2) // avg between 2 tracks
 
-const CanMsg TOYOTA_TX_MSGS[] = {{0x283, 0, 7}, {0x2E6, 0, 8}, {0x2E7, 0, 8}, {0x33E, 0, 7}, {0x344, 0, 8}, {0x365, 0, 7}, {0x366, 0, 7}, {0x4CB, 0, 8},  // DSU bus 0
+const CanMsg TOYOTA_TX_MSGS[] = {{0x283, 0, 7}, {0x2E7, 0, 8}, {0x33E, 0, 7}, {0x344, 0, 8}, {0x365, 0, 7}, {0x366, 0, 7}, {0x4CB, 0, 8},  // DSU bus 0
                                   {0x128, 1, 6}, {0x141, 1, 4}, {0x160, 1, 8}, {0x161, 1, 7}, {0x470, 1, 4},  // DSU bus 1
-                                  {0x2E4, 0, 5}, {0x411, 0, 8}, {0x412, 0, 8}, {0x343, 0, 8}, {0x1D2, 0, 8},  // LKAS + ACC
-                                  {0x200, 0, 6}, {0x22E, 0, 5}, {0x1F0, 0, 8}, {0x153, 0, 8}, {0x43F, 0, 8}, {0x329, 0, 8}, {0x615, 0, 8}};  // interceptor + StepperServoCan + E39 stuff
+                                  {0x191, 2, 8}, {0x2E4, 2, 5}, {0x2E6, 2, 8}, {0x411, 2, 8}, {0x412, 2, 8}, {0x343, 2, 8}, {0x1D2, 2, 8},  // LKAS + ACC bus 2
+                                  {0x200, 2, 6}, {0x22E, 2, 5},};  // interceptor + StepperServoCan bus 2
 
-AddrCheckStruct toyota_rx_checks[] = {
-  {.msg = {{0x1F0, 0, 8, .check_checksum = false, .expected_timestep = 12000U}}},
-  {.msg = {{0x153, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},
-  {.msg = {{0x43F, 0, 8, .check_checksum = false, .expected_timestep = 30000U}}},
-  {.msg = {{0x224, 0, 8, .check_checksum = false, .expected_timestep = 25000U},
-           {0x329, 0, 8, .check_checksum = false, .expected_timestep = 25000U}}},
+AddrCheckStruct toyota_rx_checks[] = {    // You can group same check_type and timestep msg to one .msg
+  {.msg = {{0x081, 0, 8, .check_checksum = false, .expected_timestep = 12000U}}},   // EMS_DCT2
+  {.msg = {{0x165, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},   // VSM2
+  {.msg = {{0x1F1, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},   // TCS5
+  {.msg = {{0x260, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},   // EMS6
+  {.msg = {{0x2B0, 0, 8, .check_checksum = false, .expected_timestep = 20000U}}},   // SAS1
 };
 const int TOYOTA_RX_CHECKS_LEN = sizeof(toyota_rx_checks) / sizeof(toyota_rx_checks[0]);
 
@@ -69,10 +71,11 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
   if (valid && (GET_BUS(to_push) == 0)) {
     int addr = GET_ADDR(to_push);
 
-    // get eps motor torque (0.66 factor in dbc)
-    if (addr == 0x260) {
-      int torque_meas_new = (GET_BYTE(to_push, 5) << 8) | GET_BYTE(to_push, 6);
-      torque_meas_new = to_signed(torque_meas_new, 16);
+    // get eps motor torque, I have no idea is this at all correct/should this be SSC!!!!!
+    if (addr == 357) {    // 0x165
+      int torque_meas_new = (GET_BYTES_04(to_push) >> 12) & 0xFFF;
+      torque_meas_new = to_signed(torque_meas_new, 12);
+      torque_meas_new = (torque_meas_new * 100) - 20480;		// No idea if this is correct, I assume this is mNm and that is what is asked?
 
       // scale by dbc_factor
       torque_meas_new = (torque_meas_new * toyota_dbc_eps_torque_factor) / 100;
@@ -87,9 +90,9 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
 
     // enter controls on rising edge of ACC, exit controls on ACC off
     // exit controls on rising edge of gas press
-    if (addr == 0x1D2) {
+     if (addr == 608) {   // 0x260
       // 5th bit is CRUISE_ACTIVE
-      int cruise_engaged = GET_BYTE(to_push, 0) & 0x20;
+      int cruise_engaged = (GET_BYTE(to_push, 3) >> 2) & 0x01;
       if (!cruise_engaged) {
         controls_allowed = 0;
       }
@@ -100,25 +103,21 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
 
       // sample gas pedal
       if (!gas_interceptor_detected) {
-        gas_pressed = ((GET_BYTE(to_push, 0) >> 4) & 1) == 0;
+        gas_pressed = ((GET_BYTE(to_push, 7) >> 7) & 1) == 1;
       }
     }
 
-    // sample speed
-    if (addr == 0x1F0) {
-      int speed = 0;
-      // sum 4 wheel speeds
-      for (int i=0; i<8; i+=2) {
-        int next_byte = i + 1;  // hack to deal with misra 10.8
-        speed += ((GET_BYTE(to_push, next_byte) & 0x0F) << 8) + (GET_BYTE(to_push, i)) - 0x2A;
-      }
-      vehicle_moving = ABS(speed / 4) > TOYOTA_STANDSTILL_THRSLD;
+     // sample wheel speed, averaging opposite corners
+    if (addr == 497) {    // 0x1F1
+      int hyundai_speed = (GET_BYTES_04(to_push) >> 16) & 0xFFF;  // FL
+      hyundai_speed += (GET_BYTES_48(to_push) >> 20) & 0xFFF;  // RR
+      hyundai_speed *= 2;		// This should be divided by 2 but this is hack for i30 12bit (vs 14bit) speed value comply with HYUNDAI_STANDSTILL_THRSLD
+      vehicle_moving = hyundai_speed > i30_STANDSTILL_THRSLD;
     }
 
     // E39 cars have brake_pressed on 0x1D2, corolla and rav4 on 0x224
-    if ((addr == 0x224) || (addr == 0x1D2)) {
-      int byte = (addr == 0x224) ? 0 : 4;
-      brake_pressed = ((GET_BYTE(to_push, byte) << 7) & 0x80) != 0;
+    if (addr == 129) {    // 0x081
+      brake_pressed = (GET_BYTE(to_push, 0) >> 7) != 0;
     }
 
     // sample gas interceptor
@@ -131,7 +130,9 @@ static int toyota_rx_hook(CAN_FIFOMailBox_TypeDef *to_push) {
       gas_interceptor_prev = gas_interceptor;
     }
 
-    generic_rx_checks((addr == 0x2E4));
+    // Look to this function furhter to really understand what it does, it seems that it checks that given ECU is found in the intercepted bus
+    //generic_rx_checks((addr == 128));     // EMS_DCT1 (0x080)
+    generic_rx_checks(false);     // This was used in dzids safety_bmw
   }
   return valid;
 }
@@ -150,8 +151,8 @@ static int toyota_tx_hook(CAN_FIFOMailBox_TypeDef *to_send) {
     tx = 0;
   }
 
-  // Check if msg is sent on BUS 0
-  if (bus == 0) {
+  // Check if msg is sent on BUS 2 for i30
+  if (bus == 2) {
 
     // GAS PEDAL: safety check
     if (addr == 0x200) {
