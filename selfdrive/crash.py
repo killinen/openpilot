@@ -53,8 +53,14 @@ else:
     print('Logged current crash to {} and {}'.format(log_file, '{}/latest.log'.format(CRASHES_DIR)))
 
   def capture_exception(*args, **kwargs):
-    save_exception(traceback.format_exc())
     exc_info = sys.exc_info()
+    # Check if the error is the one you want to ignore
+    if exc_info[0] == RuntimeError and str(exc_info[1]) == "updates are disabled by the DisableUpdates param":
+      # Ignore this specific error
+      return
+
+    # Proceed to save the exception and send it to Sentry
+    save_exception(traceback.format_exc())
     if not exc_info[0] is capnp.lib.capnp.KjException:
       client.captureException(*args, **kwargs)
     cloudlog.error("crash", exc_info=kwargs.get('exc_info', 1))
