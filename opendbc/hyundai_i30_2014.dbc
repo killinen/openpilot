@@ -250,7 +250,7 @@ BO_ 672 EMS5: 8 XXX
 
 
 BO_ 688 SAS1: 8 XXX
-    SG_ SAS_Angle : 0|16@1+ (0.1,0) [-3276.8|3276.7] "Deg" XXX
+    SG_ SAS_Angle : 0|16@1- (0.1,0) [-3276.8|3276.7] "Deg" XXX
     SG_ SAS_Speed : 16|8@1+ (4,0) [0|1016] "" XXX
     SG_ SAS_Stat : 24|8@1+ (1,0) [0|255] "" XXX
     SG_ MsgCount : 32|4@1+ (1,0) [0|15] "" XXX
