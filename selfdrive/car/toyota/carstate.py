@@ -30,7 +30,7 @@ class CarState(CarStateBase):
     ret = car.CarState.new_message()
 
     ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
-    ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 0
+    ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 1
 
     ret.brakePressed = cp.vl["EMS_DCT2"]['BRAKE_ACT'] == 2
     ret.brakeLights = bool(cp.vl["EMS2"]['BRAKE_ACT'] == 2 or ret.brakePressed)
@@ -99,8 +99,8 @@ class CarState(CarStateBase):
         #ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
 
-    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering angle sensor is code differently on i30
-       ret.steeringAngle = -(cp.vl["SAS1"]['SAS_Angle'])
+    if self.CP.carFingerprint == CAR.OLD_CAR:	# Different logik for OLD_CAR
+       ret.steeringAngleDeg = -(cp.vl["SAS1"]['SAS_Angle'])		# Negate factor to make the code align with original BMW steerlogik
     else:
       ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
@@ -120,15 +120,11 @@ class CarState(CarStateBase):
 
       ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
-
     #can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
     #ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.gearShifter = GearShifter.drive
-    #ret.leftBlinker = cp.vl["IKE_2"]['BLINKERS'] == 1
-    #ret.rightBlinker = cp.vl["IKE_2"]['BLINKERS'] == 2
+    ret.gearShifter = GearShifter.drive		# Force D-gear because my car is manual
     ret.leftBlinker, ret.rightBlinker = self.update_blinker(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
                                                             cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
-
 
     # ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]['STEER_TORQUE_DRIVER']
 
@@ -170,12 +166,12 @@ class CarState(CarStateBase):
     if self.CP.carFingerprint == CAR.PRIUS:
       ret.genericToggle = cp.vl["AUTOPARK_STATUS"]['STATE'] != 0
     else:
-      ret.genericToggle = bool(cp.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
+      ret.genericToggle = bool(cp_cam.vl["LIGHT_STALK"]['AUTO_HIGH_BEAM'])
     ret.stockAeb = bool(cp_cam.vl["PRE_COLLISION"]["PRECOLLISION_ACTIVE"] and cp_cam.vl["PRE_COLLISION"]["FORCE"] < -1e-5)
 
     ret.espDisabled = False   # Can't disable ESP in i30 (maybe has errorbit)
     # 2 is standby, 10 is active. TODO: check that everything else is really a faulty state
-    self.steer_state = cp.vl["EPS_STATUS"]['LKA_STATE']
+    self.steer_state = cp_cam.vl["EPS_STATUS"]['LKA_STATE']
 
     ret.epsDisabled = (True if ret.genericToggle == 0 else False)
 
@@ -187,7 +183,7 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_can_parser(CP):
-    
+
     signals = [
       # sig_name, sig_address, default
       ("SAS_Angle", "SAS1", 0),               #Imported from i30
@@ -203,35 +199,33 @@ class CarState(CarStateBase):
       ("WHEEL_RR", "TCS5", 0),                #Imported from i30
       ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30
       ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30
-      ("CF_Gway_DrvSeatBeltSw", "CLU2", 0),   #Imported from i30
+      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),   #Imported from i30
       ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
       ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
-  
+
       ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
       ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
       ("BRAKE_ACT", "EMS_DCT2", 1),           #Imported from i30
       ("BRAKE_ACT", "EMS2", 1),               #Imported from i30
 
-      ("LKA_STATE", "EPS_STATUS", 0),
-      ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
     ]
 
-    checks = [
-        ("EMS_DCT2", 20),
-        ("VSM2", 20),
-        ("TCS5", 20),
-        ("SAS1", 20)
+    checks = [			# TODO: change the interval to correct when want to do some polishing
+        ("EMS_DCT2", 20),	# True interval 10 ms
+        ("VSM2", 20),		# True interval 10 ms
+        ("TCS5", 20),		# True interval 20 ms
+        ("SAS1", 20)		# True interval 10 ms
     ]
 
     if CP.carFingerprint == CAR.LEXUS_IS:
       signals.append(("MAIN_ON", "DSU_CRUISE", 0))
       signals.append(("SET_SPEED", "DSU_CRUISE", 0))
       checks.append(("DSU_CRUISE", 5))
-    else:
-      signals.append(("MAIN_ON", "PCM_CRUISE_2", 0))
-      signals.append(("SET_SPEED", "PCM_CRUISE_2", 0))
-      signals.append(("LOW_SPEED_LOCKOUT", "PCM_CRUISE_2", 0))
-      checks.append(("PCM_CRUISE_2", 33))
+#    else:
+#      signals.append(("MAIN_ON", "PCM_CRUISE_2", 0))
+#      signals.append(("SET_SPEED", "PCM_CRUISE_2", 0))
+#      signals.append(("LOW_SPEED_LOCKOUT", "PCM_CRUISE_2", 0))
+#      checks.append(("PCM_CRUISE_2", 33))
 
     if CP.carFingerprint == CAR.PRIUS:
       signals += [("STATE", "AUTOPARK_STATUS", 0)]
@@ -239,10 +233,10 @@ class CarState(CarStateBase):
       signals += [("ZORRO_STEER", "SECONDARY_STEER_ANGLE", 0)]
 
     # add gas interceptor reading if we are using it
-    if CP.enableGasInterceptor:
-      signals.append(("INTERCEPTOR_GAS", "GAS_SENSOR", 0))
-      signals.append(("INTERCEPTOR_GAS2", "GAS_SENSOR", 0))
-      checks.append(("GAS_SENSOR", 50))
+#    if CP.enableGasInterceptor:
+#      signals.append(("INTERCEPTOR_GAS", "GAS_SENSOR", 0))
+#      signals.append(("INTERCEPTOR_GAS2", "GAS_SENSOR", 0))
+#      checks.append(("GAS_SENSOR", 50))
 
     if CP.carFingerprint in TSS2_CAR:
       signals += [("L_ADJACENT", "BSM", 0)]
@@ -257,11 +251,18 @@ class CarState(CarStateBase):
 
     signals = [
       ("FORCE", "PRE_COLLISION", 0),
-      ("PRECOLLISION_ACTIVE", "PRE_COLLISION", 0)
+      ("PRECOLLISION_ACTIVE", "PRE_COLLISION", 0),
       ("STEER_TORQUE_DRIVER", "STEER_TORQUE_SENSOR", 0),
       ("STEERING_TORQUE", "STEERING_STATUS", 0),
       ("STEERING_ANGLE", "STEERING_STATUS", 0),
       ("STEER_ANGLE", "STEER_TORQUE_SENSOR", 0),
+      ("AUTO_HIGH_BEAM", "LIGHT_STALK", 0),
+      ("ACCEL_CMD", "ACC_CONTROL", 0),
+      ("LKA_STATE", "EPS_STATUS", 0),
+      ("CRUISE_ACTIVE", "PCM_CRUISE", 0),
+      ("CRUISE_STATE", "PCM_CRUISE", 0),
+      ("BRK_ST_OP", "PCM_CRUISE", 0),
+
     ]
 
     # use STEERING_STATUS message to check if panda is connected to SSC
@@ -269,4 +270,4 @@ class CarState(CarStateBase):
       #("STEERING_STATUS", 42)    # Try at first no checks if SSC is not connected yet
     ]
 
-    return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, 2)
+    return CANParser('toyota_corolla_2017_pt_generated', signals, checks, 2)		# Use corolla DBC to recognize the used signals

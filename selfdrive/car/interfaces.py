@@ -36,7 +36,9 @@ class CarInterfaceBase():
 
     self.CC = None
     if CarController is not None:
-      self.CC = CarController(self.cp.dbc_name, CP, self.VM)
+      # self.CC = CarController(self.cp.dbc_name, CP, self.VM)		# Original
+      # For i30 testing change the can_send DBC to be the cam_can_parser DBC
+      self.CC = CarController(self.cp_cam.dbc_name, CP, self.VM)
 
   @staticmethod
   def calc_accel_override(a_ego, a_target, v_ego, v_target):

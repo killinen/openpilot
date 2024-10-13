@@ -53,37 +53,37 @@ def create_lta_steer_command(packer, steer, steer_req, raw_cnt):
   return packer.make_can_msg("STEERING_LTA", 2, values)
 
 
-#def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
-#  # TODO: find the exact canceling bit that does not create a chime
-#  values = {
-#    "ACCEL_CMD": accel,
-#    "SET_ME_X01": 1,
-#    "DISTANCE": 0,
-#    "MINI_CAR": lead,
-#    "SET_ME_X3": 3,
-#    "SET_ME_1": 1,
-#    # "PERMIT_BRAKING": 1, #This was 082 version, added ""SET_ME_1": 1" because I think this is in my DBC? Did not check, maydbe gives problems?
-#    "RELEASE_STANDSTILL": not standstill_req,
-#    "CANCEL_REQ": pcm_cancel,
-#  }
-#  return packer.make_can_msg("ACC_CONTROL", 0, values)
-
-#def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead, acc_type, distance):
 def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
   # TODO: find the exact canceling bit that does not create a chime
   values = {
     "ACCEL_CMD": accel,
-    #"ACC_TYPE": acc_type,
-    "ACC_TYPE": 0,
-    #"DISTANCE": distance,
+    "SET_ME_X01": 1,
     "DISTANCE": 0,
     "MINI_CAR": lead,
-    "PERMIT_BRAKING": 1,
+    "SET_ME_X3": 3,
+    "SET_ME_1": 1,
+    # "PERMIT_BRAKING": 1, #This was 082 version, added ""SET_ME_1": 1" because I think this is in my DBC? Did not check, maydbe gives problems?
     "RELEASE_STANDSTILL": not standstill_req,
     "CANCEL_REQ": pcm_cancel,
-    "ALLOW_LONG_PRESS": 1,
   }
   return packer.make_can_msg("ACC_CONTROL", 2, values)
+
+##def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead, acc_type, distance):
+#def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead):
+#  # TODO: find the exact canceling bit that does not create a chime
+#  values = {
+#    "ACCEL_CMD": accel,
+#    #"ACC_TYPE": acc_type,
+#    "ACC_TYPE": 0,
+#    #"DISTANCE": distance,
+#    "DISTANCE": 0,
+#    "MINI_CAR": lead,
+#    "PERMIT_BRAKING": 1,
+#    "RELEASE_STANDSTILL": not standstill_req,
+#    "CANCEL_REQ": pcm_cancel,
+#    "ALLOW_LONG_PRESS": 1,
+#  }
+#  return packer.make_can_msg("ACC_CONTROL", 2, values)
 
 def create_lead_command(packer, lead_rel_speed, lead_acceleration, lead_long_dist):
   values = {
