@@ -34,7 +34,7 @@ def long_control_state_trans(active, long_control_state, v_ego, v_target, v_pid,
 #                        ((v_pid < stopping_target_speed and v_target < stopping_target_speed) or
 #                         brake_pressed))
   stopping_condition = v_target < 0.12
-  
+
   starting_condition = v_target > STARTING_TARGET_SPEED and not cruise_standstill
 
   if not active:
@@ -79,7 +79,7 @@ class LongControl():
     self.rst = 0
     self.count = 0
     self.accel_limiter = 0
-    
+
     self.op_params = opParams()
     self.dynamic_gas = DynamicGas(CP, candidate)
 
@@ -93,6 +93,9 @@ class LongControl():
     # Actuation limits
     gas_max = interp(CS.vEgo, CP.gasMaxBP, CP.gasMaxV)
     brake_max = interp(CS.vEgo, CP.brakeMaxBP, CP.brakeMaxV)
+
+    lead_car = None  # Default value
+    dRel = 0.0      # Default distance relative to lead car
 
     if self.op_params.get('dynamic_gas'):
       gas_max, brake_max, lead_car, dRel = self.dynamic_gas.update(CS, extras)
@@ -127,15 +130,15 @@ class LongControl():
       output_gb = self.pid.update(self.v_pid, v_ego_pid, speed=v_ego_pid, deadzone=deadzone, feedforward=a_target, freeze_integrator=prevent_overshoot, lead=lead_car)
 
       gb_limit = interp(CS.vEgo, GdMAX_V, GdMAX_OUT)
-      
+
       #if self.accel_limiter and not lead_car:
       if self.accel_limiter and output_gb > 0:   # Test if this is good for lead car also
         if (output_gb - self.last_output_gb) > gb_limit:
           output_gb = self.last_output_gb + gb_limit
-      
+
       if prevent_overshoot:
         output_gb = min(output_gb, 0.0)
-      
+
       self.count = self.count + 1
       if self.count > 200:
         self.accel_limiter = 1
