@@ -20,14 +20,14 @@ class CarControllerParams:
 
 # Steer torque limits for StepperServo
 class SteerLimitParams: #controls running @ 100hz
-  MAX_STEERING_TQ = 15  # Nm (original 12)
-  STEER_DELTA_UP = 10 / 100       # 10Nm/s
+  MAX_STEERING_TQ = 5  # Nm (original 12) start quite low value with i30 because the steering is quite light
+  STEER_DELTA_UP = 3 / 100       # 3 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
   STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
   STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
 
 class SteerActuatorParams: # stepper parameters
   STEER_BACKLASH = 1 #deg
-  
+
 class CAR:
   PRIUS = "TOYOTA PRIUS 2017"
   PRIUS_TSS2 = "TOYOTA PRIUS TSS2 2021"
