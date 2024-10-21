@@ -3,7 +3,8 @@
 if [ -f /EON ]; then
   export LD_LIBRARY_PATH="/system/lib64:$LD_LIBRARY_PATH"
 #  exec ./android/spinner/spinner "$1"
-  exec ./spunner/spinner "$1"
+#  exec ./spunner/spinner "$1"
+  exec ./hyundai_spinner/hyundai_spinner
 else
   if [ -f /TICI ] && [ ! -f qt/spinner ]; then
     cp qt/spinner_aarch64 qt/spinner

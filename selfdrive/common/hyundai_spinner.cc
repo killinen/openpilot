@@ -16,8 +16,8 @@
 #include "/data/openpilot/phonelibs/nanovg/nanovg_gl.h"
 #include "/data/openpilot/phonelibs/nanovg/nanovg_gl_utils.h"
 
-#include "framebuffer.h"
-#include "spinner.h"
+#include "common/framebuffer.h"
+#include "common/hyundai_spinner.h"
 
 #define SPINTEXT_LENGTH 128
 
@@ -28,8 +28,8 @@ extern const unsigned char _binary_opensans_semibold_ttf_end[];
 extern const unsigned char _binary_img_spinner_track_png_start[];
 extern const unsigned char _binary_img_spinner_track_png_end[];
 
-extern const unsigned char _binary_img_spinner_comma_png_start[];
-extern const unsigned char _binary_img_spinner_comma_png_end[];
+extern const unsigned char _binary_hyundai_logo_rectangularized_png_start[];
+extern const unsigned char _binary_hyundai_logo_rectangularized_png_end[];
 
 bool stdin_input_available() {
   struct timeval timeout;
@@ -43,8 +43,8 @@ bool stdin_input_available() {
   return (FD_ISSET(0, &fds));
 }
 
+//int main(int argc, char** argv) {
 int spin(int argc, char** argv) {
-  int err;
 
   bool draw_progress = false;
   float progress_val = 0.0;
@@ -78,14 +78,25 @@ int spin(int argc, char** argv) {
 
   int spinner_img = nvgCreateImageMem(vg, 0, (unsigned char*)_binary_img_spinner_track_png_start, _binary_img_spinner_track_png_end - _binary_img_spinner_track_png_start);
   assert(spinner_img >= 0);
-  int spinner_img_s = 360;
+// Here is image size and center X-position
+//  int spinner_img_s = 360;
+//  int spinner_img_x = ((fb_w/2)-(spinner_img_s/2));
+//  int spinner_img_y = 260;
+  int spinner_img_s = 720;
   int spinner_img_x = ((fb_w/2)-(spinner_img_s/2));
-  int spinner_img_y = 260;
+// Y-position
+  int spinner_img_y = 100;
+
   int spinner_img_xc = (fb_w/2);
   int spinner_img_yc = (fb_h/2)-100;
-  int spinner_comma_img = nvgCreateImageMem(vg, 0, (unsigned char*)_binary_img_spinner_comma_png_start, _binary_img_spinner_comma_png_end - _binary_img_spinner_comma_png_start);
+  int spinner_comma_img = nvgCreateImageMem(vg, 0, (unsigned char*)_binary_hyundai_logo_rectangularized_png_start, _binary_hyundai_logo_rectangularized_png_end - _binary_hyundai_logo_rectangularized_png_start);
   assert(spinner_comma_img >= 0);
 
+  double DT_SPIN = 1 / 50.;  // how quickly spinner draws
+//  double color_hue = 108;  // start at green
+  double color_hue = 60 ;
+  double hue_rate = 0;  // start at 10 * DT_SPIN
+  double max_hue_rate = 300;
   for (int cnt = 0; ; cnt++) {
     // Check stdin for new text
     if (stdin_input_available()){
@@ -125,18 +136,18 @@ int spin(int argc, char** argv) {
     nvgRect(vg, 0, 0, fb_w, fb_h);
     nvgFill(vg);
 
-    // spin track
-    nvgSave(vg);
-    nvgTranslate(vg, spinner_img_xc, spinner_img_yc);
-    nvgRotate(vg, (3.75*M_PI * cnt/120.0));
-    nvgTranslate(vg, -spinner_img_xc, -spinner_img_yc);
-    NVGpaint spinner_imgPaint = nvgImagePattern(vg, spinner_img_x, spinner_img_y,
-      spinner_img_s, spinner_img_s, 0, spinner_img, 0.6f);
-    nvgBeginPath(vg);
-    nvgFillPaint(vg, spinner_imgPaint);
-    nvgRect(vg, spinner_img_x, spinner_img_y, spinner_img_s, spinner_img_s);
-    nvgFill(vg);
-    nvgRestore(vg);
+    // spin track //(Remove spinner)
+    //nvgSave(vg);
+    //nvgTranslate(vg, spinner_img_xc, spinner_img_yc);
+    //nvgRotate(vg, (3.75*M_PI * cnt/120.0));
+    //nvgTranslate(vg, -spinner_img_xc, -spinner_img_yc);
+    //NVGpaint spinner_imgPaint = nvgImagePattern(vg, spinner_img_x, spinner_img_y,
+    //  spinner_img_s, spinner_img_s, 0, spinner_img, 0.6f);
+    //nvgBeginPath(vg);
+    //nvgFillPaint(vg, spinner_imgPaint);
+    //nvgRect(vg, spinner_img_x, spinner_img_y, spinner_img_s, spinner_img_s);
+    //nvgFill(vg);
+    //nvgRestore(vg);
 
     // comma
     NVGpaint comma_imgPaint = nvgImagePattern(vg, spinner_img_x, spinner_img_y,
@@ -147,6 +158,9 @@ int spin(int argc, char** argv) {
     nvgFill(vg);
 
     if (draw_progress){
+      color_hue += hue_rate * DT_SPIN;  // update hue and hue rate (gradually speed up)
+//      hue_rate += (hue_rate > max_hue_rate) ? 0 : (6 * DT_SPIN);  // clip to max
+
       // draw progress bar
       int progress_width = 1000;
       int progress_x = fb_w/2-progress_width/2;
@@ -166,7 +180,8 @@ int spin(int argc, char** argv) {
       paint = nvgBoxGradient(
           vg, progress_x, progress_y,
           bar_pos+1.5f, progress_height-1, 3, 4,
-          nvgRGB(245, 245, 245), nvgRGB(105, 105, 105));
+//          nvgHSLA((color_hue + 30) / 360., .80, .57, 255), nvgHSLA((color_hue + 30) / 360., .80, .57, 255));
+          nvgHSLA((color_hue + 0) / 360., .0, .95, 255), nvgHSLA((color_hue + 0) / 360., .80, .57, 255));	//First nvgHSLA is progress bar color, not sure what the second is
 
       nvgBeginPath(vg);
       nvgRoundedRect(
@@ -175,10 +190,32 @@ int spin(int argc, char** argv) {
       nvgFillPaint(vg, paint);
       nvgFill(vg);
 
-//      nvgFillColor(vg, nvgHSLA(color_hue / 360., .80, .57, 255));
+ //     nvgFillColor(vg, nvgHSLA(color_hue / 360., .80, .57, 255));
+      // Original
+//      nvgFillColor(vg, nvgHSLA(color_hue / 360., .0, .95, 255));	//This is text color
 //      nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 //      nvgFontSize(vg, 94.0f);
-//      nvgText(vg, fb_w/2, (fb_h*4/5), "Loading SA and more...", NULL);
+//      nvgText(vg, fb_w/2, (fb_h*4/5), "Driving with HyundAI", NULL);
+
+      // Set the color to white for the first part
+      nvgFillColor(vg, nvgHSLA(0, 0, 95, 255)); // White color
+      nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+      nvgFontSize(vg, 94.0f);
+
+      // Draw the first part of the text
+      const char* firstPart = "Driving Hyund";
+      float bounds[4]; // Array to hold the text bounds
+      nvgTextBounds(vg, 0, 0, firstPart, NULL, bounds);
+      float firstPartWidth = bounds[2]; // Get the width of the first part
+      nvgText(vg, fb_w / 2 - (firstPartWidth + 30) / 2, (fb_h * 4 / 5), firstPart, NULL); // Adjust by half of the first part width
+
+      // Change the color for "AI" to electric blue
+      nvgFillColor(vg, nvgRGB(0, 204, 255)); // Electric blue color
+      nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+      nvgTextBounds(vg, 0, 0, "AI", NULL, bounds); // Calculate bounds for "AI"
+      float aiWidth = bounds[2]; // Get the width of "AI"
+      nvgText(vg, fb_w / 2 - (firstPartWidth + 30) / 2 + firstPartWidth, (fb_h * 4 / 5), "AI", NULL); // Position "AI" correctly
+
     } else {
       // message
       nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
