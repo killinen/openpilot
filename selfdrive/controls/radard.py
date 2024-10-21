@@ -175,11 +175,13 @@ class RadarD():
     radarState.radarErrors = list(rr.errors)
     radarState.carStateMonoTime = sm.logMonoTime['carState']
 
-    if sm['modelV2'].leads[0].prob > .5:
+    # Try to fix random out of bounds error; this happens when leads is empty (i.e., has no elements), attempting to access leads[0]
+    if len(sm['modelV2'].leads) > 0 and sm['modelV2'].leads[0].prob > .5:
+    #if sm['modelV2'].leads[0].prob > .5:	# Original statement
       #self.visionKalman.update(sm['modelV2'].leads[0].xyva[2], self.v_ego)
       self.leadK = self.visionKalman.update(sm['modelV2'].leads[0].xyva[2], self.v_ego)
-    else:
-      self.visionKalman = VisionKalman(sm['modelV2'].leads[0].xyva[2], self.v_ego, self.vision_params)
+#    else:
+#      self.visionKalman = VisionKalman(sm['modelV2'].leads[0].xyva[2], self.v_ego, self.vision_params)
 
     if enable_lead:
       if len(sm['modelV2'].leads) > 1:

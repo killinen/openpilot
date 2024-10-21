@@ -76,7 +76,7 @@ class VisionKalman():
     self.vision_vLeadK = float(self.kf.x[SPEED][0])
     self.vision_aLeadK = float(self.kf.x[ACCEL][0])
 
-    print(f'self.kf.x {self.kf.x}')
+    #print(f'self.kf.x {self.kf.x}')
 
     # I hade problem with this error before: "vLeadK": float(v_a[0]), TypeError: float() argument must be a string or a number, not 'list'
     # The output of self.kf.x = [[0.03329396765917918], [-0.00043314624065333464]] (or similar)
@@ -85,7 +85,7 @@ class VisionKalman():
 
     self.cnt += 1
 
-    print(f'vLeadK {self.visionValues[0]} aLeadK {self.visionValues[1]}')
+    #print(f'vLeadK {self.visionValues[0]} aLeadK {self.visionValues[1]}')
 
     #return [self.vision_vLeadK, self.vision_aLeadK]
 
