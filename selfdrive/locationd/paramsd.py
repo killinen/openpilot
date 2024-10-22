@@ -168,7 +168,7 @@ def main(sm=None, pm=None):
       x = learner.kf.x
       # Make fixed steerRatio
       # msg.liveParameters.steerRatio = float(x[States.STEER_RATIO])
-      msg.liveParameters.steerRatio = float(18.0) 
+      msg.liveParameters.steerRatio = float(15.3)	# Fixed steerRatio for i30
       msg.liveParameters.stiffnessFactor = float(x[States.STIFFNESS])
       msg.liveParameters.angleOffsetAverageDeg = math.degrees(x[States.ANGLE_OFFSET])
       msg.liveParameters.angleOffsetDeg = msg.liveParameters.angleOffsetAverageDeg + math.degrees(x[States.ANGLE_OFFSET_FAST])

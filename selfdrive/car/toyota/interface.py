@@ -142,7 +142,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerControlType = car.CarParams.SteerControlType.angle
       ret.wheelbase = 2.650   # This is updated for i30
       ret.steerRatio = 15.3   # This is updated for i30
-      tire_stiffness_factor = 0.8   # hand-tune
+      tire_stiffness_factor = 0.444   # just a quess i30 (I think this is learnt in paramslearner)
       ret.mass = 1193   # This is updated for i30
       ret.longitudinalTuning.kpBP = [0., 15., 22.]
       ret.longitudinalTuning.kiBP = [0., 15., 22.]
@@ -160,12 +160,13 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
 
       ret.lateralTuning.init('pid')
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
+      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]		# [5.5, 30] m/s = [20, 108] km/h
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 3]]   # Original
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 1]]     # First test
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.003], [0.3, .4]]     # Test halfish of kpV
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.01], [0.5, 1]]    # Test non-zero intergale
-      ret.lateralTuning.pid.kf = 0.0002
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.005, 0.001], [0.8, 1.2]]     # Test halfish of kpV
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.003], [0.8, 1.2]]    # Quite good with i30
+      #ret.lateralTuning.pid.kf = 0.0002    # Quite good with i30
+      ret.lateralTuning.pid.kf = 0.001
       ret.steerMaxBP = [0.]
       ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
 

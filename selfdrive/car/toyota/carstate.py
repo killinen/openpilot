@@ -18,12 +18,12 @@ class CarState(CarStateBase):
     # the signal is zeroed to where the steering angle is at start.
     # Need to apply an offset as soon as the steering angle measurements are both received
     self.needs_angle_offset = True
-    self.accurate_steer_angle_seen = False    # This is first set to false so we ignore the SCC angle stuff
-    self.angle_offset = 0.
+    self.ssc_steer_angle = True    # This is first set to false so we ignore the SCC angle stuff
+    self.angle_offset = 0.0
     # Initialize variables to store the min and max error values
     self.steeringAngle_aligned = False
-    self.min_error = 0
-    self.max_error = 0
+    self.min_error = 0.0
+    self.max_error = 0.0
 
 
   def update(self, cp, cp_cam):
@@ -69,60 +69,35 @@ class CarState(CarStateBase):
 #          self.needs_angle_offset = False
 #          self.angle_offset = ret.steeringAngleDegSSC - angle_wheel
 
-    if self.accurate_steer_angle_seen:
-      if self.CP.hasZss:
-        ret.steeringAngleDeg = cp.vl["SECONDARY_STEER_ANGLE"]['ZORRO_STEER'] - self.angle_offset
-      # else:
-      #   ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
-      if self.needs_angle_offset:
-        if cp.vl["SZL_1"]['ANGLE_DIRECTION'] == 0:
-          angle_wheel = (cp.vl["SZL_1"]['STEERING_ANGLE'])
-        else:
-          angle_wheel = -(cp.vl["SZL_1"]['STEERING_ANGLE'])
-        if abs(angle_wheel) > 1e-3:
-          self.needs_angle_offset = False
-          ret.steeringAngleDeg = angle_wheel
-          self.angle_offset = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - angle_wheel
-      else:
-        # After angle_offset has been set, start measuring aligned SSC angle
-        ret.steeringAngleDegSSC = cp.vl["STEERING_STATUS"]['STEERING_ANGLE'] - self.angle_offset
-        if abs(ret.steeringAngleDeg - ret.steeringAngleDegSSC) < 0.1:
-          self.steeringAngle_aligned = True
-        ## Calculate the error (difference) between the two sensor readings
-        #ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg  
-
-        ## Track the minimum and maximum error values
-        #if abs(ret.steeringAngleDeg) < 90:
-        #  self.max_error = max(self.max_error, ret.steeringAngleDegError)
-        #  self.min_error = min(self.min_error, ret.steeringAngleDegError)
-
-        #ret.steeringAngleDegDivergence = self.max_error - self.min_error
-
-
-    if self.CP.carFingerprint == CAR.OLD_CAR:	# Different logik for OLD_CAR
-       ret.steeringAngleDeg = -(cp.vl["SAS1"]['SAS_Angle'])		# Negate factor to make the code align with original BMW steerlogik
+    if self.CP.carFingerprint == CAR.OLD_CAR:   # Different logik for OLD_CAR
+       ret.steeringAngleDeg = (cp.vl["SAS1"]['SAS_Angle'])              # Negate factor to make the code align with original BMW steerlogik
     else:
       ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_ANGLE'] + cp.vl["STEER_ANGLE_SENSOR"]['STEER_FRACTION']
 
-    if self.CP.carFingerprint == CAR.OLD_CAR: # Steering rate sensor is code differently on i30
-        ret.steeringRateDeg = -(cp.vl["SAS1"]['SAS_Speed'])
-    else:
-      ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]['STEER_RATE']
 
-    if self.steeringAngle_aligned:
-      # Calculate the error (difference) between the two sensor readings
-      ret.steeringAngleDegError = (ret.steeringAngleDegSSC * 0.96) -  ret.steeringAngleDeg
+    if self.ssc_steer_angle:
+      if self.needs_angle_offset:
+        self.angle_offset = -(cp_cam.vl["STEERING_STATUS"]['STEERING_ANGLE']) - ret.steeringAngleDeg
+        self.needs_angle_offset = False
+      else:
+        # After angle_offset has been set, start measuring aligned SSC angle
+        ret.steeringAngleDegSSC = -(cp_cam.vl["STEERING_STATUS"]['STEERING_ANGLE']) - self.angle_offset
+        if abs(ret.steeringAngleDeg - ret.steeringAngleDegSSC) < 0.1:
+          self.steeringAngle_aligned = True
+        # Calculate the error (difference) between the two sensor readings
+        ret.steeringAngleDegError = ret.steeringAngleDegSSC - ret.steeringAngleDeg
 
-      # Track the minimum and maximum error values
-      if abs(ret.steeringAngleDeg) < 90:
-        self.max_error = max(self.max_error, ret.steeringAngleDegError)
-        self.min_error = min(self.min_error, ret.steeringAngleDegError)
+        # Track the minimum and maximum error values
+        if self.steeringAngle_aligned == True:
+          self.max_error = max(self.max_error, ret.steeringAngleDegError)
+          self.min_error = min(self.min_error, ret.steeringAngleDegError)
 
-      ret.steeringAngleDegDivergence = self.max_error - self.min_error
+        ret.steeringAngleDegDivergence = self.max_error - self.min_error
 
     #can_gear = int(cp.vl["AGS_1"]['GEAR_SELECTOR'])
     #ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
-    ret.gearShifter = GearShifter.drive		# Force D-gear because my car is manual
+    #ret.gearShifter = GearShifter.drive		# Force D-gear because my car is manual
+    ret.gearShifter = GearShifter.reverse if cp.vl["CLU2"]['CF_Clu_SwiGearR'] else GearShifter.drive	# Force D-gear otherwise because my car is manual
     ret.leftBlinker, ret.rightBlinker = self.update_blinker(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
                                                             cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
 
@@ -137,7 +112,10 @@ class CarState(CarStateBase):
     else:
       ret.steeringTorque = 0
 
-    ret.steeringTorqueEps = cp.vl["VSM2"]['CR_Mdps_OutTq']
+    # This is Hyundais EPS motor torque
+    #ret.steeringTorqueEps = cp.vl["VSM2"]['CR_Mdps_OutTq']
+    # This is SSC motor torque
+    ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
     # we could use the override bit from dbc, but it's triggered at too high torque values
     # ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
     #ret.steerWarning = cp.vl["EPS_STATUS"]['LKA_STATE'] not in [1, 5]
@@ -199,9 +177,10 @@ class CarState(CarStateBase):
       ("WHEEL_RR", "TCS5", 0),                #Imported from i30
       ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30
       ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30
-      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),   #Imported from i30
+      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),    #Imported from i30
       ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
       ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
+      ("CF_Clu_SwiGearR", "CLU2", 0),         #Imported from i30
 
       ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
       ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
