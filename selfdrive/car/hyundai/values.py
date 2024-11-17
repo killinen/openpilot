@@ -24,6 +24,13 @@ class CarControllerParams:
     self.STEER_DRIVER_MULTIPLIER = 2
     self.STEER_DRIVER_FACTOR = 1
 
+# Steer torque limits for StepperServo
+class SteerLimitParams: #controls running @ 100hz
+  MAX_STEERING_TQ = 9  # Nm (original 12) seems that we need full torque of my SSC assembly
+  STEER_DELTA_UP = 3 / 100       # 3 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
+  STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
+  STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
+  
 class CAR:
   # Hyundai
   ELANTRA = "HYUNDAI ELANTRA 2017"
@@ -48,6 +55,7 @@ class CAR:
   PALISADE = "HYUNDAI PALISADE 2020"
   VELOSTER = "HYUNDAI VELOSTER 2019"
   SONATA_HYBRID = "HYUNDAI SONATA HYBRID 2021"
+  I30 = "HYUNDAI I30 GD 2014"
 
   # Kia
   KIA_FORTE = "KIA FORTE E 2018 & GT 2021"
@@ -1057,6 +1065,7 @@ DBC = {
   CAR.VELOSTER: dbc_dict('hyundai_kia_generic', None),
   CAR.KIA_CEED: dbc_dict('hyundai_kia_generic', None),
   CAR.SONATA_HYBRID: dbc_dict('hyundai_kia_generic', 'hyundai_kia_mando_front_radar'),
+  CAR.I30: dbc_dict('hyundai_i30_2014', 'hyundai_kia_generic'),
 }
 
 STEER_THRESHOLD = 150
