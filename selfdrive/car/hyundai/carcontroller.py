@@ -27,7 +27,7 @@ def calc_steering_torque_hold(angle, vEgo):
     # Interpolate the value based on the angle
     output = interp(angle, hold_BP, hold_V)
     # Factor the output by given value, to test if these are too agressive for i30
-    return output * .5  # Factor the output
+    return output * .3  # Factor the output
 
 def process_hud_alert(enabled, fingerprint, visual_alert, left_lane,
                       right_lane, left_lane_depart, right_lane_depart):
@@ -116,7 +116,7 @@ class CarController():
     if enabled:
       # windup slower
       if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim): #todo revise last_angle
-        angle_rate_max = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_WINDUP) 
+        angle_rate_max = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_WINDUP)
       else:
         angle_rate_max = interp(CS.out.vEgo, ANGLE_RATE_BP, ANGLE_RATE_UNWIND)
       # steer angle - don't allow too large delta
@@ -143,8 +143,8 @@ class CarController():
       steer_tq = feedforward + steer_tq_factored + self.inertia_tq
       # explicitly clip torque before sending on CAN
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
-      self.steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
-      #self.steer_tq_r = steer_tq * (1)    # Non-switch StepperServo rotation
+      # self.steer_tq_r = steer_tq * (-1)    # Switch StepperServo rotation
+      self.steer_tq_r = steer_tq * (1)    # Non-switch StepperServo rotation
       # can_sends.append(create_new_steer_command(self.packer, apply_steer_req, self.target_angle_delta, self.steer_tq_r, frame))
       # *** control msgs ***
       if (frame % 10) == 0: #slow print

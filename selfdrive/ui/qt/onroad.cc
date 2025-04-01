@@ -161,7 +161,8 @@ ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
     dfButton->hide();
   }
 
-  setStyleSheet(R"(
+  // Original button style
+  /*setStyleSheet(R"(
     QPushButton {
       color: white;
       text-align: center;
@@ -169,6 +170,15 @@ ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
       border-width: 12px;
       border-style: solid;
       background-color: rgba(75, 75, 75, 0.3);
+    }
+  )");*/
+
+  // Make buttons invisible
+  setStyleSheet(R"(
+    QPushButton {
+      color: transparent;
+      background-color: transparent;
+      border: none;
     }
   )");
 }

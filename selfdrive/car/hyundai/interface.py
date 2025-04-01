@@ -30,8 +30,8 @@ class CarInterface(CarInterfaceBase):
 
     ret.pcmCruise = not ret.openpilotLongitudinalControl
 
-    ret.steerActuatorDelay = 0.0  # Original delay 0.1
-    ret.steerRateCost = 1.0       # Original cost 0.5
+    ret.steerActuatorDelay = 0.1  # Original delay 0.1
+    ret.steerRateCost = 0.5       # Original cost 0.5
     ret.steerLimitTimer = 0.4
     tire_stiffness_factor = 1.
 
@@ -58,8 +58,9 @@ class CarInterface(CarInterfaceBase):
                                         ###################
     elif candidate == CAR.I30:
       #stop_and_go = False
-      ret.safetyParam = 100
-      ret.steerControlType = car.CarParams.SteerControlType.angle
+      #ret.safetyParam = 17
+      ret.safetyConfigs[0].safetyParam = 17
+      # ret.steerControlType = car.CarParams.SteerControlType.angle
       ret.wheelbase = 2.650   # This is updated for i30
       ret.steerRatio = 15.3   # This is updated for i30
       tire_stiffness_factor = 0.385   # Copied from Elantra GT
@@ -78,11 +79,8 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
       ret.lateralTuning.init('pid')
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 3]]   # Original
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0, 0.0], [0.5, 1]]     # First test
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.005, 0.005], [0.8, 1.2]]     # Test halfish of kpV
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.001, 0.01], [0.5, 1]]    # Test non-zero intergale
-      ret.lateralTuning.pid.kf = 0.001
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.005, 0.005], [0.1, 0.15]]
+      ret.lateralTuning.pid.kf = 0.0007
       ret.steerMaxBP = [0.]
       #ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
       ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
@@ -325,6 +323,7 @@ class CarInterface(CarInterfaceBase):
 
     ret = self.CS.update(self.cp, self.cp_cam)
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
+    # ret.canValid = self.cp_cam.can_valid    # Test what is causing CAN error
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     events = self.create_common_events(ret, pcm_enable=self.CS.CP.pcmCruise)

@@ -33,7 +33,8 @@ def bind_extra(**kwargs) -> None:
     sentry_sdk.set_tag(k, v)
 
 def init() -> None:
-  sentry_uri = 'https://30d4f5e7d35c4a0d84455c03c0e80706@o237581.ingest.sentry.io/5844043'
+  # sentry_uri = 'https://30d4f5e7d35c4a0d84455c03c0e80706@o237581.ingest.sentry.io/5844043'
+  sentry_uri = 'https://46c963d9abeaa25d6afb4ebafdcf9cca@o1107536.ingest.us.sentry.io/4508105628712960'	# OWN sentry
 
   sentry_sdk.init(sentry_uri, default_integrations=False,
                   integrations=[ThreadingIntegration(propagate_hub=True)], release=get_version())

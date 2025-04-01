@@ -19,7 +19,7 @@ def create_steer_command(mode, steer_delta, steer_tq, frame):
 
     values["CHECKSUM"] = calc_checksum_8bit(dat, addr)
 
-    return packer.make_can_msg("STEERING_COMMAND", 2, values) #bus 2 is the actuator CAN bus
+    return packer.make_can_msg("STEERING_COMMAND", 1, values) #bus 1 is the actuator CAN bus
 
 def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
   """Creates a CAN message for the actuator STEERING_COMMAND"""
@@ -35,7 +35,7 @@ def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
 
   values["SERVO_CHECKSUM"] = calc_checksum_8bit(dat, addr)
 
-  return packer.make_can_msg("STEERING_COMMAND", 2, values) #bus 2 is the actuator CAN bus
+  return packer.make_can_msg("STEERING_COMMAND", 1, values) #bus 1 is the actuator CAN bus
 
 def calc_checksum_8bit(work_data, msg_id): # 0xb8 0x1a0 0x19e 0xaa 0xbf
   checksum = msg_id

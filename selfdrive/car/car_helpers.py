@@ -21,7 +21,8 @@ def get_startup_event(car_recognized, controller_available, fw_seen, CP):
   if comma_check if gh_actions else fork_check:
     event = EventName.startupZss if CP.hasZss else EventName.startup
   else:
-    event = EventName.startupMaster
+    # event = EventName.startupMaster
+    event = None
 
   if not car_recognized:
     if fw_seen:

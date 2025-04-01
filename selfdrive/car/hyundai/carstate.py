@@ -13,12 +13,12 @@ class CarState(CarStateBase):
     super().__init__(CP)
     can_define = CANDefine(DBC[CP.carFingerprint]["pt"])
 
-    if self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
-      self.shifter_values = can_define.dv["CLU15"]["CF_Clu_Gear"]
-    elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
-      self.shifter_values = can_define.dv["TCU12"]["CUR_GR"]
-    else:  # preferred and elect gear methods use same definition
-      self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
+    #if self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
+    #  self.shifter_values = can_define.dv["CLU15"]["CF_Clu_Gear"]
+    #elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
+    #  self.shifter_values = can_define.dv["TCU12"]["CUR_GR"]
+    #else:  # preferred and elect gear methods use same definition
+    #  self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
 
 
   def update(self, cp, cp_cam):
@@ -42,11 +42,11 @@ class CarState(CarStateBase):
     ret.steeringAngleDeg = cp.vl["SAS1"]['SAS_Angle']
     ret.steeringRateDeg = cp.vl["SAS1"]['SAS_Speed']
     ret.yawRate = cp.vl["ESP2"]['YAW_RATE']
-    ret.leftBlinker, ret.rightBlinker = self.update_blinker(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
                                                             cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
     #ret.steeringTorque = cp.vl["MDPS12"]["CR_Mdps_StrColTq"]
     ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
-    
+
     # emulate driver steering torque - allows lane change assist on blinker hold
     ret.steeringPressed = ret.gasPressed # E-series doesn't have torque sensor, so lightly pressing the gas indicates driver intention
     if ret.steeringPressed and ret.leftBlinker:
@@ -127,6 +127,11 @@ class CarState(CarStateBase):
     # self.park_brake = cp.vl["TCS13"]["PBRAKE_ACT"] == 1
     # self.steer_state = cp.vl["MDPS12"]["CF_Mdps_ToiActive"]  # 0 NOT ACTIVE, 1 ACTIVE
     # self.brake_error = cp.vl["TCS13"]["ACCEnable"] != 0 # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
+
+    # TODO: You should make something up for these when have the time
+    self.brake_error = False
+    self.park_brake = False
+
     self.clu11 = {
       "CF_Clu_CruiseSwState": 3,  # Example state of cruise switch (range 0-7)
       "CF_Clu_CruiseSwMain": 1,   # Cruise switch main is active (0 or 1)
@@ -221,7 +226,15 @@ class CarState(CarStateBase):
         ("EMS_DCT2", 20),	# True interval 10 ms
         ("VSM2", 20),		# True interval 10 ms
         ("TCS5", 20),		# True interval 20 ms
-        ("SAS1", 20)		# True interval 10 ms
+        ("SAS1", 20),		# True interval 10 ms
+        ("EMS2", 20),	  # True interval ? ms
+        #("VSM2", 20),		# True interval 10 ms
+        ("EMS6", 20),	  # True interval ? ms
+        ("EMS_DCT1", 20),	# True interval ? ms
+        ("ESP2", 20),	  # True interval ? ms
+        ("CLU1", 20),		# True interval ? ms
+        ("CLU2", 20),		# True interval ? ms
+        ("CLU3", 20)		# True interval ? ms
     ]
 
     # if not CP.openpilotLongitudinalControl:
@@ -334,4 +347,4 @@ class CarState(CarStateBase):
       ("STEERING_STATUS", 20)    # Checks if SSC is connected
     ]
 
-    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 2)
+    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 1)
