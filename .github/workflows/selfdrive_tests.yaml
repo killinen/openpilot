@@ -1,9 +1,10 @@
 name: selfdrive
 on:
-  push:
-    branches-ignore:
-      - 'testing-closet*'
-  pull_request:
+  workflow_dispatch:
+#  push:
+#    branches-ignore:
+#      - 'testing-closet*'
+#  pull_request:
 
 env:
   BASE_IMAGE: openpilot-base
