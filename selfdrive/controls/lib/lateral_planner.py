@@ -107,9 +107,10 @@ class LateralPlanner:
         else:  # If there are no blinkers we will go back to LaneChangeState.off
           self.lane_change_direction = LaneChangeDirection.none
 
-        torque_applied = sm['carState'].steeringPressed and \
-                         ((sm['carState'].steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
-                          (sm['carState'].steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
+        # Use this with SSC to detect safe lane change, unless you can make driver torque detection work
+        torque_applied = sm['carState'].steeringPressed #and \
+        #                 ((sm['carState'].steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
+        #                  (sm['carState'].steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
         if v_ego >= self.op_params.get('alca_no_nudge_speed') * CV.MPH_TO_MS:
           torque_applied = True
 

@@ -32,7 +32,8 @@ CRUISE_INTERVAL_SIGN = {
 
 
 class MPC_COST_LAT:
-  PATH = 1.0
+  # PATH = 1.0    # Original
+  PATH = 1.3
   HEADING = 1.0
   STEER_RATE = 1.0
 

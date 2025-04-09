@@ -1,27 +1,28 @@
 import crcmod
 from selfdrive.car.hyundai.values import CAR, CHECKSUM
-from opendbc.can.packer import CANPacker
+# from opendbc.can.packer import CANPacker
 
 hyundai_checksum = crcmod.mkCrcFun(0x11D, initCrc=0xFD, rev=False, xorOut=0xdf)
 
-def create_steer_command(mode, steer_delta, steer_tq, frame):
-    """Creates a CAN message for the actuator STEERING_COMMAND"""
-    packer = CANPacker('hyundai_i30_2014')
-    values = {
-        "COUNTER": frame % 0xF,
-        "STEER_MODE": mode,
-        "STEER_ANGLE": steer_delta,
-        "STEER_TORQUE": steer_tq,
-    }
-    msg = packer.make_can_msg("STEERING_COMMAND", 0, values)
-    addr = msg[0]
-    dat  = msg[2]
+# If you need to use non default dbc, here is way to do that
+# def create_steer_command(mode, steer_delta, steer_tq, frame):
+#     """Creates a CAN message for the actuator STEERING_COMMAND"""
+#     packer = CANPacker('hyundai_i30_2014')
+#     values = {
+#         "COUNTER": frame % 0xF,
+#         "STEER_MODE": mode,
+#         "STEER_ANGLE": steer_delta,
+#         "STEER_TORQUE": steer_tq,
+#     }
+#     msg = packer.make_can_msg("STEERING_COMMAND", 0, values)
+#     addr = msg[0]
+#     dat  = msg[2]
+#
+#     values["CHECKSUM"] = calc_checksum_8bit(dat, addr)
+#
+#     return packer.make_can_msg("STEERING_COMMAND", 1, values) #bus 1 is the actuator CAN bus
 
-    values["CHECKSUM"] = calc_checksum_8bit(dat, addr)
-
-    return packer.make_can_msg("STEERING_COMMAND", 1, values) #bus 1 is the actuator CAN bus
-
-def create_new_steer_command(packer, mode, steer_delta, steer_tq, frame):
+def create_steer_command(packer, mode, steer_delta, steer_tq, frame):
   """Creates a CAN message for the actuator STEERING_COMMAND"""
   values = {
     "SERVO_COUNTER": frame % 0xF,

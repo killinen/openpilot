@@ -31,7 +31,7 @@ class CarInterface(CarInterfaceBase):
     ret.pcmCruise = not ret.openpilotLongitudinalControl
 
     ret.steerActuatorDelay = 0.1  # Original delay 0.1
-    ret.steerRateCost = 0.5       # Original cost 0.5
+    ret.steerRateCost = .7       # Original cost 0.5
     ret.steerLimitTimer = 0.4
     tire_stiffness_factor = 1.
 
@@ -57,30 +57,22 @@ class CarInterface(CarInterfaceBase):
                                         #### I30 2014  ####
                                         ###################
     elif candidate == CAR.I30:
-      #stop_and_go = False
-      #ret.safetyParam = 17
       ret.safetyConfigs[0].safetyParam = 17
-      # ret.steerControlType = car.CarParams.SteerControlType.angle
       ret.wheelbase = 2.650   # This is updated for i30
       ret.steerRatio = 15.3   # This is updated for i30
       tire_stiffness_factor = 0.385   # Copied from Elantra GT
       ret.mass = 1193   # This is updated for i30
-      #ret.longitudinalTuning.kpBP = [0., 15., 22.]	# Try to solve longitudinal PID controller interpolation out of bounds issue with commenting these out
-      #ret.longitudinalTuning.kiBP = [0., 15., 22.]
-      #ret.gasMaxBP = [0., 5., 12., 25.]
-      #ret.gasMaxV = [0.5, 0.6, 0.8, 1.0]
-      #ret.gasMaxV = [0.1, 0.4, 0.8]
 
-      #ret.longitudinalTuning.deadzoneBP = [0.]
-      #ret.longitudinalTuning.deadzoneV = [0.]
       ret.enableGasInterceptor = False # My implementation does not use GasInterceptor at least yet
       if ret.enableGasInterceptor:
         ret.longitudinalTuning.kpV = [0.3, 0.6, 0.7]
         ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
       ret.lateralTuning.init('pid')
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.005, 0.005], [0.1, 0.15]]
-      ret.lateralTuning.pid.kf = 0.0007
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
+      # ret.lateralTuning.pid.kf = 0.00019
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]
+      ret.lateralTuning.pid.kf = 0.00004
       ret.steerMaxBP = [0.]
       #ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
       ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
