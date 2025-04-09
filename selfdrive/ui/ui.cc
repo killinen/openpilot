@@ -152,6 +152,41 @@ static void update_state(UIState *s) {
       }
     }
   }
+  // Debug value stuff
+  if (sm.updated("controlsState")) {
+    auto controls_state = sm["controlsState"].getControlsState();
+
+    if (controls_state.getLateralControlState().which() == cereal::ControlsState::LateralControlState::PID_STATE) {
+      scene.angleSteersDes = controls_state.getLateralControlState().getPidState().getSteeringAngleDesiredDeg();
+      scene.angleSteers = controls_state.getLateralControlState().getPidState().getSteeringAngleDeg();
+      scene.pFct = controls_state.getLateralControlState().getPidState().getP();
+      scene.fFct = controls_state.getLateralControlState().getPidState().getF();
+    } else {
+      scene.angleSteersDes = -99.9f;  // Fallback if not PID (just in case)
+      scene.angleSteers = 66.6f;      // Fallback if not PID (just in case)
+      scene.pFct = 0.666f;            // Fallback if not PID (just in case)
+      scene.fFct = 0.999f;            // Fallback if not PID (just in case)
+    }
+  }
+  if (sm.updated("deviceState")) {
+    auto deviceState = sm["deviceState"].getDeviceState();
+    scene.cpuTemp = deviceState.getCpuTempC()[0];
+    scene.cpuPerc = deviceState.getCpuUsagePercent()[0];
+  }
+  if (sm.updated("liveParameters")) {
+    auto liveParameters = sm["liveParameters"].getLiveParameters();
+    scene.angleOffsetAverageDeg = liveParameters.getAngleOffsetAverageDeg();
+  }
+  if (sm.updated("carState")) {
+    auto carState = sm["carState"].getCarState();
+    // scene.steerOverride = carState.getSteeringPressed();
+    // scene.angleSteers = carState.getSteeringAngleDeg();
+    scene.aEgo = carState.getAEgo();
+    scene.steeringTorqueEps = carState.getSteeringTorqueEps();
+    scene.steeringTorque = carState.getSteeringTorque();
+    scene.angleDivergence = carState.getSteeringAngleDegError();
+  }
+  // Debug value stuff ends
   if (sm.updated("pandaStates")) {
     auto pandaStates = sm["pandaStates"].getPandaStates();
     if (pandaStates.size() > 0) {
@@ -200,6 +235,17 @@ static void update_state(UIState *s) {
 
     scene.light_sensor = std::clamp<float>(1.0 - (ev / max_ev), 0.0, 1.0);
   }
+
+  // 🧪 Fill in test values
+  scene.angleDivergence = 5.3;
+  scene.gpsAccuracyUblox = 0.75;
+  scene.satelliteCount = 9;
+  // scene.angleOffsetAverageDeg = -1.23;
+  scene.aLeadK = 0.6;
+  // scene.aEgo = 2.3;
+  // scene.steeringTorqueEps = 1.0;
+  scene.angleDivergence = 0.5;
+
   scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
   scene.started_sentry = sm["deviceState"].getDeviceState().getStartedSentry();
   scene.sentry_armed = sm["sentryState"].getSentryState().getArmed();
@@ -241,6 +287,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman", "sentryState",
+    "liveParameters",
   });
   std::string toyota_distance_btn = util::read_file("/data/community/params/toyota_distance_btn");
   if (toyota_distance_btn == "true") {

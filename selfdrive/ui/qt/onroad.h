@@ -7,6 +7,7 @@
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/ui.h"
 
+#include "debug_overlay.h"
 
 // ***** onroad widgets *****
 

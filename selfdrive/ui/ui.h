@@ -116,6 +116,23 @@ typedef struct UIScene {
   int dfButtonStatus = 0;
   int lsButtonStatus = 0;
   bool mlButtonEnabled = false;
+
+  // BEGIN TESTING FIELDS FOR MEASUREMENT OVERLAY
+  float angleDivergence = 0.0;
+  int cpuPerc = 0;
+  float gpsAccuracyUblox = 0.0;
+  int satelliteCount = 0;
+  float angleOffsetAverageDeg = 0.0;
+  float aLeadK = 0.0f;
+  float aEgo = 0.0f;
+  float cpuTemp = 0.0f;
+  float angleSteers = 0.0f;
+  float angleSteersDes = 0.0f;
+  float steeringTorqueEps = 0.0f;
+  float steeringTorque = 0.0f;
+  float pFct = 0.001f;
+  float fFct = 0.001f;
+  // END TESTING FIELDS
 } UIScene;
 
 class UIState : public QObject {

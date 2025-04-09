@@ -26,6 +26,17 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   hud = new OnroadHud(this);
   road_view_layout->addWidget(hud);
 
+  // Here is debug windows
+  DebugOverlay *debugOverlayLeft = new DebugOverlay(this, DebugOverlay::LEFT);
+  debugOverlayLeft->move(40, 320);
+  debugOverlayLeft->show();
+  QTimer::singleShot(0, debugOverlayLeft, &QWidget::raise);  // 💥 force stacking after layout
+
+  DebugOverlay *debugOverlayRight = new DebugOverlay(this, DebugOverlay::RIGHT);
+  debugOverlayRight->move(1580, 40);
+  debugOverlayRight->show();
+  QTimer::singleShot(0, debugOverlayRight, &QWidget::raise);  // 💥 force stacking after layout
+
   buttons = new ButtonsWindow(this);
   QObject::connect(uiState(), &UIState::uiUpdate, buttons, &ButtonsWindow::updateState);
   QObject::connect(nvg, &NvgWindow::resizeSignal, [=](int w){
@@ -55,6 +66,7 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
 void OnroadWindow::updateState(const UIState &s) {
   QColor bgColor = bg_colors[s.status];
+
   Alert alert = Alert::get(*(s.sm), s.scene.started_frame, s.scene.started_sentry);
   if (s.sm->updated("controlsState") || !alert.equal({})) {
     if (alert.type == "controlsUnresponsive") {
@@ -113,6 +125,11 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 
 // ButtonsWindow
 ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
+/*  // Configurable flags to disable specific buttons
+  const bool enable_ml_button = false;
+  const bool enable_ls_button = false;
+  const bool enable_df_button = false;
+*/
   QVBoxLayout *main_layout  = new QVBoxLayout(this);
 
   QWidget *btns_wrapper = new QWidget;
@@ -121,6 +138,52 @@ ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
   btns_layout->setContentsMargins(30, 0, 30, 30);
 
   main_layout->addWidget(btns_wrapper, 0, Qt::AlignBottom);
+/*
+  // Model long button
+  if (enable_ml_button) {
+    mlButton = new QPushButton("Model Cruise Control");
+    connect(mlButton, &QPushButton::clicked, [=]() {
+      uiState()->scene.mlButtonEnabled = !mlEnabled;
+    });
+    mlButton->setFixedWidth(575);
+    mlButton->setFixedHeight(150);
+    btns_layout->addWidget(mlButton, 0, Qt::AlignHCenter | Qt::AlignBottom);
+
+    std::string hide_model_long = "true";  // You can make this dynamic if needed
+    if (hide_model_long == "true") {
+      mlButton->hide();
+    }
+  }
+
+  btns_layout->addStretch(3);
+
+  // Lane speed button
+  if (enable_ls_button) {
+    lsButton = new QPushButton("LS\nmode");
+    connect(lsButton, &QPushButton::clicked, [=]() {
+      uiState()->scene.lsButtonStatus = lsStatus < 2 ? lsStatus + 1 : 0;
+    });
+    lsButton->setFixedWidth(200);
+    lsButton->setFixedHeight(200);
+    btns_layout->addWidget(lsButton, 0, Qt::AlignRight);
+    btns_layout->addSpacing(35);
+  }
+
+  // Dynamic follow button
+  if (enable_df_button) {
+    dfButton = new QPushButton("DF\nprofile");
+    connect(dfButton, &QPushButton::clicked, [=]() {
+      uiState()->scene.dfButtonStatus = dfStatus < 3 ? dfStatus + 1 : 0;
+    });
+    dfButton->setFixedWidth(200);
+    dfButton->setFixedHeight(200);
+    btns_layout->addWidget(dfButton, 0, Qt::AlignRight);
+
+    if (uiState()->enable_distance_btn) {
+      dfButton->hide();
+    }
+  }
+*/
 
   // Model long button
   mlButton = new QPushButton("Model Cruise Control");
@@ -184,9 +247,39 @@ ButtonsWindow::ButtonsWindow(QWidget *parent) : QWidget(parent) {
 }
 
 void ButtonsWindow::updateState(const UIState &s) {
+/*  if (dfButton && dfStatus != s.scene.dfButtonStatus) {
+    dfStatus = s.scene.dfButtonStatus;
+    dfButton->setStyleSheet(QString("font-size: 45px; border-radius: 100px; border-color: %1").arg(dfButtonColors.at(dfStatus)));
+    if (!uiState()->enable_distance_btn) {
+      MessageBuilder msg;
+      auto dfButtonStatus = msg.initEvent().initDynamicFollowButton();
+      dfButtonStatus.setStatus(dfStatus);
+      uiState()->pm->send("dynamicFollowButton", msg);
+    }
+  }
+
+  if (lsButton && lsStatus != s.scene.lsButtonStatus) {
+    lsStatus = s.scene.lsButtonStatus;
+    lsButton->setStyleSheet(QString("font-size: 45px; border-radius: 100px; border-color: %1").arg(lsButtonColors.at(lsStatus)));
+    MessageBuilder msg;
+    auto lsButtonStatus = msg.initEvent().initLaneSpeedButton();
+    lsButtonStatus.setStatus(lsStatus);
+    uiState()->pm->send("laneSpeedButton", msg);
+  }
+
+  if (mlButton && mlEnabled != s.scene.mlButtonEnabled) {
+    mlEnabled = s.scene.mlButtonEnabled;
+    mlButton->setStyleSheet(QString("font-size: 50px; border-radius: 25px; border-color: %1").arg(mlButtonColors.at(mlEnabled)));
+    MessageBuilder msg;
+    auto mlButtonEnabled = msg.initEvent().initModelLongButton();
+    mlButtonEnabled.setEnabled(mlEnabled);
+    uiState()->pm->send("modelLongButton", msg);
+  }
+  */
   if (dfStatus != s.scene.dfButtonStatus) {  // update dynamic follow profile button
     dfStatus = s.scene.dfButtonStatus;
     dfButton->setStyleSheet(QString("font-size: 45px; border-radius: 100px; border-color: %1").arg(dfButtonColors.at(dfStatus)));
+    //dfButton->setStyleSheet("font-size: 45px; border-radius: 100px;");
 
     if (!uiState()->enable_distance_btn) {
       MessageBuilder msg;
@@ -199,6 +292,7 @@ void ButtonsWindow::updateState(const UIState &s) {
   if (lsStatus != s.scene.lsButtonStatus) {  // update lane speed button
     lsStatus = s.scene.lsButtonStatus;
     lsButton->setStyleSheet(QString("font-size: 45px; border-radius: 100px; border-color: %1").arg(lsButtonColors.at(lsStatus)));
+    //lsButton->setStyleSheet("font-size: 45px; border-radius: 100px;");
 
     MessageBuilder msg;
     auto lsButtonStatus = msg.initEvent().initLaneSpeedButton();
@@ -209,6 +303,7 @@ void ButtonsWindow::updateState(const UIState &s) {
   if (mlEnabled != s.scene.mlButtonEnabled) {  // update model longitudinal button
     mlEnabled = s.scene.mlButtonEnabled;
     mlButton->setStyleSheet(QString("font-size: 50px; border-radius: 25px; border-color: %1").arg(mlButtonColors.at(mlEnabled)));
+    //mlButton->setStyleSheet("font-size: 45px; border-radius: 100px;");
 
     MessageBuilder msg;
     auto mlButtonEnabled = msg.initEvent().initModelLongButton();
@@ -346,14 +441,15 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
   // engage-ability icon
+  /*
   if (engageable) {
     drawIcon(p, rect().right() - radius / 2 - bdr_s * 2, radius / 2 + int(bdr_s * 1.5),
              engage_img, bg_colors[status], 1.0);
-  }
+  }*/
 
   // dm icon
   if (!hideDM) {
-    drawIcon(p, radius / 2 + (bdr_s * 2), rect().bottom() - footer_h / 2,
+    drawIcon(p, radius / 2 + (bdr_s * 2), rect().bottom() - footer_h / 2 + 40,
              dm_img, QColor(0, 0, 0, 70), dmActive ? 1.0 : 0.2);
   }
 }
