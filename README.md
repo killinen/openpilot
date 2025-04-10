@@ -33,9 +33,9 @@ The purpose of this fork is to make the transition from Honda Safety Sense to op
 9. Allows you to engage openpilot in S / L gears (Bosch only)
 10. Event audible alerts are more relaxed to match Honda Safety Sense
 
-Installation Instructions
+Recognition
 ------
-Install openpilot on a supported device by entering https://installer.comma.ai/spektor56/0.8.12-devel-honda or https://smiskol.com/fork/spektor56 during the installer setup.
+This fork is 99.999% spektor56 work, donations goes for him.
 
 Donate
 ------
