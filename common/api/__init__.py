@@ -4,8 +4,9 @@ import requests
 from datetime import datetime, timedelta
 from common.basedir import PERSIST
 from system.version import get_version
+# from system.version_old import get_old_version    # Lets test if this is not really needed
 
-API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com')
+API_HOST = os.getenv('API_HOST', 'http://192.168.1.150:3000')
 
 class Api():
   def __init__(self, dongle_id):

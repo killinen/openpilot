@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import math
+import time
 
 from cereal import car
 from opendbc.can.parser import CANParser
@@ -42,7 +43,8 @@ class RadarInterface(RadarInterfaceBase):
 
   def update(self, can_strings):
     if self.radar_off_can or (self.rcp is None):
-      return super().update(None)
+      time.sleep(self.radar_ts)
+      return car.RadarData.new_message()
 
     vls = self.rcp.update_strings(can_strings)
     self.updated_messages.update(vls)

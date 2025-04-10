@@ -59,6 +59,30 @@ class CarInterface(CarInterfaceBase):
       tire_stiffness_factor = 0.82
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[9., 22.], [9., 22.]]
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2, 0.35], [0.05, 0.09]]
+                                        ###################
+                                        #### I30 2014  ####
+                                        ###################
+    elif candidate == CAR.I30:
+      ret.safetyConfigs[0].safetyParam = 17
+      ret.mass = 1193   # This is updated for i30
+      ret.wheelbase = 2.650   # This is updated for i30
+      ret.steerRatio = 15.3   # This is updated for i30
+      tire_stiffness_factor = 0.385   # Copied from Elantra GT
+
+      ret.enableGasInterceptor = False # My implementation does not use GasInterceptor at least yet
+      if ret.enableGasInterceptor:
+        ret.longitudinalTuning.kpV = [0.3, 0.6, 0.7]
+        ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
+      ret.lateralTuning.init('pid')
+      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
+      # ret.lateralTuning.pid.kf = 0.00019
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]
+      ret.lateralTuning.pid.kf = 0.00004
+      ret.steerMaxBP = [0.]
+      #ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
+      ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
+      ret.radarTimeStep = 0.05;  # time delta between radar updates, 20Hz is very standard
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.mass = 1513. + STD_CARGO_KG
       ret.wheelbase = 2.84

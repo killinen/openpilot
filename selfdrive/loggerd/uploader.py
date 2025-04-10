@@ -134,7 +134,8 @@ class Uploader():
 
   def do_upload(self, key, fn):
     try:
-      url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
+      # url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
+      url_resp = self.api.get("v1.3/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
       if url_resp.status_code == 412:
         self.last_resp = url_resp
         return
@@ -154,11 +155,13 @@ class Uploader():
         self.last_resp = FakeResponse()
       else:
         with open(fn, "rb") as f:
-          if key.endswith('.bz2') and not fn.endswith('.bz2'):
-            data = bz2.compress(f.read())
-            data = io.BytesIO(data)
-          else:
-            data = f
+          # if key.endswith('.bz2') and not fn.endswith('.bz2'):
+          #   data = bz2.compress(f.read())
+          #   data = io.BytesIO(data)
+          # else:
+          #   data = f
+          data = f
+
 
           self.last_resp = requests.put(url, data=data, headers=headers, timeout=10)
     except Exception as e:
@@ -175,6 +178,27 @@ class Uploader():
       pass
 
     return self.last_resp
+
+  # # Make retropilot-server great again!
+  # def upload(self, key, fn):
+  #     try:
+  #         sz = os.path.getsize(fn)
+  #     except OSError:
+  #         cloudlog.exception("upload: getsize failed")
+  #         return False
+
+  #     cloudlog.info("uploading %r", fn)
+  #     stat = self.normal_upload(key, fn)
+
+  #     success = False
+  #     if stat is not None and stat.status_code in (200, 201, 412):
+  #         setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
+  #         success = True
+  #         cloudlog.event("upload_success" if stat.status_code != 412 else "upload_ignored", key=key, fn=fn, sz=sz)
+  #     else:
+  #         cloudlog.event("upload_failed", stat=stat, exc=self.last_exc, key=key, fn=fn, sz=sz)
+
+  #     return success
 
   def upload(self, name, key, fn, network_type, metered):
     try:
@@ -257,16 +281,25 @@ def uploader_fn(exit_event):
       continue
 
     d = uploader.next_file_to_upload()
+    # Make retropilot-server great again!
+    # on_wifi = force_wifi or sm['deviceState'].networkType == NetworkType.wifi
+    # offroad = params.get_bool("IsOffroad")
+    # allow_raw_upload = True  # or your preferred setting
+    # d = uploader.next_file_to_upload(with_raw=allow_raw_upload and on_wifi and offroad)
+
     if d is None:  # Nothing to upload
       if allow_sleep:
         time.sleep(60 if offroad else 5)
       continue
 
     name, key, fn = d
+    # Make retropilot-server great again!
+    # key, fn = d
 
-    # qlogs and bootlogs need to be compressed before uploading
-    if key.endswith(('qlog', 'rlog')) or (key.startswith('boot/') and not key.endswith('.bz2')):
-      key += ".bz2"
+    # Make retropilot-server great again!
+    # # qlogs and bootlogs need to be compressed before uploading
+    # if key.endswith(('qlog', 'rlog')) or (key.startswith('boot/') and not key.endswith('.bz2')):
+    #   key += ".bz2"
 
     success = uploader.upload(name, key, fn, sm['deviceState'].networkType.raw, sm['deviceState'].networkMetered)
     if success:

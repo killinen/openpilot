@@ -179,7 +179,8 @@ def main(sm=None, pm=None):
       liveParameters = msg.liveParameters
       liveParameters.posenetValid = True
       liveParameters.sensorValid = True
-      liveParameters.steerRatio = float(x[States.STEER_RATIO])
+      # liveParameters.steerRatio = float(x[States.STEER_RATIO])
+      liveParameters.steerRatio = float(15.3)		# Fixed steerRatio 
       liveParameters.stiffnessFactor = float(x[States.STIFFNESS])
       liveParameters.roll = float(x[States.ROAD_ROLL])
       liveParameters.angleOffsetAverageDeg = angle_offset_average

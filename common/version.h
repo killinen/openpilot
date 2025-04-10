@@ -1,1 +1,1 @@
-#define COMMA_VERSION "0.8.15-HS-master"
+#define COMMA_VERSION "0.8.15-NG-i30"

@@ -60,9 +60,10 @@ class DesireHelper:
         self.lane_change_direction = LaneChangeDirection.left if \
           carstate.leftBlinker else LaneChangeDirection.right
 
-        torque_applied = carstate.steeringPressed and \
-                         ((carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
-                          (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
+        # Use this with SSC to detect safe lane change, unless you can make driver torque detection work
+        torque_applied = carstate.steeringPressed #and \
+                        #  ((carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
+                        #   (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
 
         blindspot_detected = ((carstate.leftBlindspot and self.lane_change_direction == LaneChangeDirection.left) or
                               (carstate.rightBlindspot and self.lane_change_direction == LaneChangeDirection.right))

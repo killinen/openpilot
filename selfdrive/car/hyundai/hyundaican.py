@@ -3,6 +3,31 @@ from selfdrive.car.hyundai.values import CAR, CHECKSUM
 
 hyundai_checksum = crcmod.mkCrcFun(0x11D, initCrc=0xFD, rev=False, xorOut=0xdf)
 
+def create_steer_command(packer, mode, steer_delta, steer_tq, frame):
+  """Creates a CAN message for the actuator STEERING_COMMAND"""
+  values = {
+    "SERVO_COUNTER": frame % 0xF,
+    "STEER_MODE": mode,
+    "STEER_ANGLE": steer_delta,
+    "STEER_TORQUE": steer_tq,
+  }
+  msg = packer.make_can_msg("STEERING_COMMAND", 0, values)
+  addr = msg[0]
+  dat  = msg[2]
+
+  values["SERVO_CHECKSUM"] = calc_checksum_8bit(dat, addr)
+
+  return packer.make_can_msg("STEERING_COMMAND", 1, values) #bus 1 is the actuator CAN bus
+
+def calc_checksum_8bit(work_data, msg_id): # 0xb8 0x1a0 0x19e 0xaa 0xbf
+  checksum = msg_id
+  for byte in work_data: #checksum is stripped from the data
+    checksum += byte     #add up all the bytes
+
+  checksum = (checksum & 0xFF) + (checksum >> 8); #add upper and lower Bytes
+  checksum &= 0xFF #throw away anything in upper Byte
+  return checksum
+
 def create_lkas11(packer, frame, car_fingerprint, apply_steer, steer_req,
                   lkas11, sys_warning, sys_state, enabled,
                   left_lane, right_lane,

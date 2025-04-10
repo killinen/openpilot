@@ -1,15 +1,19 @@
 [submodule "panda"]
 	path = panda
-	url = https://github.com/spektor56/panda.git
+	url = https://github.com/killinen/panda.git
+	branch = 0815_C2
 [submodule "opendbc"]
 	path = opendbc
-	url = https://github.com/spektor56/opendbc.git
+	url = https://github.com/killinen/opendbc.git
+	branch = 0815_C2
 [submodule "laika_repo"]
 	path = laika_repo
-	url = https://github.com/spektor56/laika.git
+	url = https://github.com/killinen/laika.git
+	branch = 0815_C2
 [submodule "cereal"]
 	path = cereal
-	url = https://github.com/spektor56/cereal.git
+	url = https://github.com/killinen/cereal.git
+	branch = 0815_C2
 [submodule "rednose_repo"]
 	path = rednose_repo
 	url = ../../commaai/rednose.git

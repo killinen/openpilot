@@ -106,6 +106,10 @@ std::string logger_get_route_name() {
   time_t rawtime = time(NULL);
   struct tm timeinfo;
   localtime_r(&rawtime, &timeinfo);
+
+  // Add 3 hours to the current time to comply with UTC+3 (Helsinki)
+  timeinfo.tm_hour += 3;
+  mktime(&timeinfo);  // Adjust the time based on the added hours
   strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
   return route_name;
 }
