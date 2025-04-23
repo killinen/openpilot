@@ -84,3 +84,4 @@ selfdrive/modeld/models/*.thneed
 build/
 
 !**/.gitkeep
+!tools/testdata/rlog.bz2

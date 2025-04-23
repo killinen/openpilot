@@ -24,7 +24,7 @@ def calc_checksum_8bit(work_data, msg_id): # 0xb8 0x1a0 0x19e 0xaa 0xbf
   for byte in work_data: #checksum is stripped from the data
     checksum += byte     #add up all the bytes
 
-  checksum = (checksum & 0xFF) + (checksum >> 8); #add upper and lower Bytes
+  checksum = (checksum & 0xFF) + (checksum >> 8) #add upper and lower Bytes
   checksum &= 0xFF #throw away anything in upper Byte
   return checksum
 

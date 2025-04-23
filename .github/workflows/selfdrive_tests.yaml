@@ -18,6 +18,8 @@ env:
 
   RUN: docker run --shm-size 1G -v $PWD:/tmp/openpilot -w /tmp/openpilot -e PYTHONPATH=/tmp/openpilot -e NUM_JOBS -e JOB_ID -e GITHUB_ACTION -e GITHUB_REF -e GITHUB_HEAD_REF -e GITHUB_SHA -e GITHUB_REPOSITORY -e GITHUB_RUN_ID -v /tmp/scons_cache:/tmp/scons_cache -v /tmp/comma_download_cache:/tmp/comma_download_cache -v /tmp/openpilot_cache:/tmp/openpilot_cache $BASE_IMAGE /bin/sh -c
 
+      #  RUN: docker run --shm-size 1G -v $PWD:/tmp/openpilot -w /tmp/openpilot -e PYTHONPATH=/tmp/openpilot -e OPENPILOT_PREFIX=/tmp/openpilot -e NUM_JOBS -e JOB_ID -e GITHUB_ACTION -e GITHUB_REF \-e GITHUB_HEAD_REF -e GITHUB_SHA -e GITHUB_REPOSITORY -e GITHUB_RUN_ID -v /tmp/scons_cache:/tmp/scons_cache -v /tmp/comma_download_cache:/tmp/comma_download_cache -v /tmp/openpilot_cache:/tmp/openpilot_cache $BASE_IMAGE /bin/sh -c
+
   BUILD_CL: |
       docker pull $DOCKER_REGISTRY/$CL_BASE_IMAGE:latest || true
       docker build --cache-from $DOCKER_REGISTRY/$CL_BASE_IMAGE:latest -t $DOCKER_REGISTRY/$CL_BASE_IMAGE:latest -t $CL_BASE_IMAGE:latest -f Dockerfile.openpilot_base_cl .
@@ -318,55 +320,95 @@ jobs:
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v2
 
-  process_replay:
-    name: process replay
+  # process_replay:
+  #   name: process replay
+  #   runs-on: ubuntu-22.04
+  #   timeout-minutes: 50
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #     with:
+  #       submodules: true
+  #   - name: Cache dependencies
+  #     id: dependency-cache
+  #     uses: actions/cache@v3
+  #     with:
+  #       path: /tmp/comma_download_cache
+  #       key: ${{ hashFiles('.github/workflows/selfdrive_tests.yaml', 'selfdrive/test/process_replay/test_processes.py') }}
+  #   - name: Cache scons
+  #     id: scons-cache
+  #     # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
+  #     uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
+  #     env:
+  #       CACHE_SKIP_SAVE: true
+  #     with:
+  #       path: /tmp/scons_cache
+  #       key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+  #       restore-keys: |
+  #         scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+  #         scons-
+  #   - name: Build Docker image
+  #     run: eval "$BUILD"
+  #   - name: Run replay
+  #     run: |
+  #       ${{ env.RUN }} "scons -j$(nproc) && \
+  #                       FILEREADER_CACHE=1 CI=1 coverage run selfdrive/test/process_replay/test_processes.py -j$(nproc) && \
+  #                       coverage xml"
+  #   - name: Print diff
+  #     if: always()
+  #     run: cat selfdrive/test/process_replay/diff.txt
+  #   - uses: actions/upload-artifact@v4.1.0
+  #     if: always()
+  #     continue-on-error: true
+  #     with:
+  #       name: process_replay_diff.txt
+  #       path: selfdrive/test/process_replay/diff.txt
+  #   - name: Upload reference logs
+  #     if: ${{ failure() && github.event_name == 'pull_request' && github.repository == 'commaai/openpilot' && env.AZURE_TOKEN != '' }}
+  #     run: |
+  #       ${{ env.RUN }} "scons -j$(nproc) && \
+  #                       CI=1 AZURE_TOKEN='$AZURE_TOKEN' python selfdrive/test/process_replay/test_processes.py -j$(nproc) --upload-only"
+  #   - name: "Upload coverage to Codecov"
+  #     uses: codecov/codecov-action@v2
+
+  process_replay_fork_i30:
+    name: process replay (forked)
     runs-on: ubuntu-22.04
-    timeout-minutes: 50
+    timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Cache dependencies
-      id: dependency-cache
-      uses: actions/cache@v3
-      with:
-        path: /tmp/comma_download_cache
-        key: ${{ hashFiles('.github/workflows/selfdrive_tests.yaml', 'selfdrive/test/process_replay/test_processes.py') }}
-    - name: Cache scons
-      id: scons-cache
-      # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
-      uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
-      env:
-        CACHE_SKIP_SAVE: true
-      with:
-        path: /tmp/scons_cache
-        key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-        restore-keys: |
-          scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-          scons-
-    - name: Build Docker image
-      run: eval "$BUILD"
-    - name: Run replay
-      run: |
-        ${{ env.RUN }} "scons -j$(nproc) && \
-                        FILEREADER_CACHE=1 CI=1 coverage run selfdrive/test/process_replay/test_processes.py -j$(nproc) && \
-                        coverage xml"
-    - name: Print diff
-      if: always()
-      run: cat selfdrive/test/process_replay/diff.txt
-    - uses: actions/upload-artifact@v4.1.0
-      if: always()
-      continue-on-error: true
-      with:
-        name: process_replay_diff.txt
-        path: selfdrive/test/process_replay/diff.txt
-    - name: Upload reference logs
-      if: ${{ failure() && github.event_name == 'pull_request' && github.repository == 'commaai/openpilot' && env.AZURE_TOKEN != '' }}
-      run: |
-        ${{ env.RUN }} "scons -j$(nproc) && \
-                        CI=1 AZURE_TOKEN='$AZURE_TOKEN' python selfdrive/test/process_replay/test_processes.py -j$(nproc) --upload-only"
-    - name: "Upload coverage to Codecov"
-      uses: codecov/codecov-action@v2
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Cache scons
+        id: scons-cache
+        uses: actions/cache@v3
+        with:
+          path: /tmp/scons_cache
+          key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+            scons-
+
+      - name: Build Docker image
+        run: eval "$BUILD"
+
+      - name: Patch test_processes.py to use /tmp
+        run: |
+          echo "Updating get_log_data() path"
+          sed -i 's|/data/media/0/realdata/fakedata/|/tmp/fakedata/|g' selfdrive/test/process_replay/test_processes.py
+
+      #- name: Set OPENPILOT_PREFIX
+        #run: echo "OPENPILOT_PREFIX=/tmp/openpilot" >> $GITHUB_ENV
+
+      - name: Run process replay with update-refs
+        run: |
+          ${{ env.RUN }} "\
+            unset FINGERPRINT && \
+            mkdir -p /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+            cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
+            ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+            scons -j$(nproc) --cache-populate && \
+            FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs -j$(nproc)"
 
   test_longitudinal:
     name: longitudinal

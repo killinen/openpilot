@@ -8,7 +8,7 @@ from typing import Optional, List, Union
 from setproctitle import getproctitle  # pylint: disable=no-name-in-module
 
 from common.clock import sec_since_boot  # pylint: disable=no-name-in-module, import-error
-from system.hardware import PC, TICI
+from system.hardware import PC, TICI, EON
 
 
 # time step for each process
@@ -41,6 +41,9 @@ def set_realtime_priority(level: int) -> None:
 
 def set_core_affinity(cores: List[int]) -> None:
   if not PC:
+    if EON:
+      print("Skipping set_core_affinity on Android/Termux")
+      return
     os.sched_setaffinity(0, cores)  # pylint: disable=no-member
 
 

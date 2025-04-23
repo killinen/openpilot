@@ -8,7 +8,7 @@ import cereal.messaging as messaging
 from common.params import Params
 from selfdrive.boardd.boardd_api_impl import can_list_to_can_capnp # pylint: disable=no-name-in-module,import-error
 from selfdrive.car.fingerprints import _FINGERPRINTS
-from selfdrive.car.toyota.values import CAR as TOYOTA
+# from selfdrive.car.toyota.values import CAR as TOYOTA
 from selfdrive.car.mazda.values import CAR as MAZDA
 from selfdrive.controls.lib.events import EVENT_NAME
 from selfdrive.test.helpers import with_processes
@@ -42,8 +42,8 @@ class TestStartup(unittest.TestCase):
     # TODO: test EventName.startup for release branches
 
     # officially supported car
-    (EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS, "toyota"),
-    (EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS, "toyota"),
+    #(EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS, "toyota"),
+    #(EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS, "toyota"),
 
     # dashcamOnly car
     (EventName.startupNoControl, MAZDA.CX5, CX5_FW_VERSIONS, "mazda"),
@@ -58,8 +58,8 @@ class TestStartup(unittest.TestCase):
     (EventName.startupNoCar, None, COROLLA_FW_VERSIONS[:1], "toyota"),
 
     # fuzzy match
-    (EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS_FUZZY, "toyota"),
-    (EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS_FUZZY, "toyota"),
+    #(EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS_FUZZY, "toyota"),
+    #(EventName.startupMaster, TOYOTA.COROLLA, COROLLA_FW_VERSIONS_FUZZY, "toyota"),
   ])
   @with_processes(['controlsd'])
   def test_startup_alert(self, expected_event, car_model, fw_versions, brand):

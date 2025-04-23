@@ -1,5 +1,5 @@
 from cereal import car
-from common.conversions import Conversions as CV
+# from common.conversions import Conversions as CV
 from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from opendbc.can.packer import CANPacker
@@ -62,7 +62,7 @@ class CarController:
 
   def update(self, CC, CS):
     actuators = CC.actuators
-    hud_control = CC.hudControl
+    # hud_control = CC.hudControl
 
     # Steering Torque
 
@@ -174,17 +174,17 @@ class CarController:
 
       if self.frame % 2 == 0 and self.CP.openpilotLongitudinalControl:
         accel = actuators.accel
-        jerk = 0
+        # jerk = 0
 
         if CC.longActive:
-          jerk = clip(2.0 * (accel - CS.out.aEgo), -12.7, 12.7)
+          # jerk = clip(2.0 * (accel - CS.out.aEgo), -12.7, 12.7)
           if accel < 0:
             accel = interp(accel - CS.out.aEgo, [-1.0, -0.5], [2 * accel, accel])
 
         accel = clip(accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
 
-        stopping = actuators.longControlState == LongCtrlState.stopping
-        set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_MPH if CS.clu11["CF_Clu_SPEED_UNIT"] == 1 else CV.MS_TO_KPH)
+        #stopping = actuators.longControlState == LongCtrlState.stopping
+        #set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_MPH if CS.clu11["CF_Clu_SPEED_UNIT"] == 1 else CV.MS_TO_KPH)
         # can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2),
         #                                                 hud_control.leadVisible, set_speed_in_units, stopping, CS.out.gasPressed))
         self.accel = accel

@@ -10,7 +10,6 @@ from selfdrive.car.interfaces import CarStateBase
 
 PREV_BUTTON_SAMPLES = 8
 
-GearShifter = car.CarState.GearShifter
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -20,14 +19,14 @@ class CarState(CarStateBase):
     self.cruise_buttons = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
     self.main_buttons = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
 
-    # if CP.carFingerprint in HDA2_CAR:
-    #   self.shifter_values = can_define.dv["ACCELERATOR"]["GEAR"]
-    # elif self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
-    #   self.shifter_values = can_define.dv["CLU15"]["CF_Clu_Gear"]
-    # elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
-    #   self.shifter_values = can_define.dv["TCU12"]["CUR_GR"]
-    # else:  # preferred and elect gear methods use same definition
-    #   self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
+    if CP.carFingerprint in HDA2_CAR:
+      self.shifter_values = can_define.dv["ACCELERATOR"]["GEAR"]
+    elif self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
+      self.shifter_values = can_define.dv["CLU15"]["CF_Clu_Gear"]
+    elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
+      self.shifter_values = can_define.dv["TCU12"]["CUR_GR"]
+    else:  # preferred and elect gear methods use same definition
+      self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
 
     self.brake_error = False
     self.park_brake = False
@@ -41,15 +40,16 @@ class CarState(CarStateBase):
 
     ret = car.CarState.new_message()
 
-    ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
+    ret.doorOpen = any([cp.vl["CGW1"]["CF_Gway_DrvDrSw"], cp.vl["CGW1"]["CF_Gway_AstDrSw"],
+                        cp.vl["CGW2"]["CF_Gway_RLDrSw"], cp.vl["CGW2"]["CF_Gway_RRDrSw"]])
 
-    ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 1
+    ret.seatbeltUnlatched = cp.vl["CGW1"]["CF_Gway_DrvSeatBeltSw"] == 0
 
     ret.wheelSpeeds = self.get_wheel_speeds(
-      cp.vl["TCS5"]["WHEEL_FL"],
-      cp.vl["TCS5"]["WHEEL_FL"],
-      cp.vl["TCS5"]["WHEEL_FL"],
-      cp.vl["TCS5"]["WHEEL_FL"],
+      cp.vl["WHL_SPD11"]["WHL_SPD_FL"],
+      cp.vl["WHL_SPD11"]["WHL_SPD_FR"],
+      cp.vl["WHL_SPD11"]["WHL_SPD_RL"],
+      cp.vl["WHL_SPD11"]["WHL_SPD_RR"],
     )
     ret.vEgoRaw = (ret.wheelSpeeds.fl + ret.wheelSpeeds.fr + ret.wheelSpeeds.rl + ret.wheelSpeeds.rr) / 4.
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
@@ -81,56 +81,53 @@ class CarState(CarStateBase):
 
     # TODO: Find brake pressure
     ret.brake = 0
-    ret.brakePressed = cp.vl["EMS_DCT2"]['BRAKE_ACT'] == 2
-    # ret.brakeHoldActive = cp.vl["TCS15"]["AVH_LAMP"] == 2 # 0 OFF, 1 ERROR, 2 ACTIVE, 3 READY
-    # ret.parkingBrake = cp.vl["TCS13"]["PBRAKE_ACT"] == 1
+    ret.brakePressed = cp.vl["TCS13"]["DriverBraking"] != 0
+    ret.brakeHoldActive = cp.vl["TCS15"]["AVH_LAMP"] == 2 # 0 OFF, 1 ERROR, 2 ACTIVE, 3 READY
+    ret.parkingBrake = cp.vl["TCS13"]["PBRAKE_ACT"] == 1
 
-    # if self.CP.carFingerprint in (HYBRID_CAR | EV_CAR):
-    #   if self.CP.carFingerprint in HYBRID_CAR:
-    #     ret.gas = cp.vl["E_EMS11"]["CR_Vcu_AccPedDep_Pos"] / 254.
-    #   else:
-    #     ret.gas = cp.vl["E_EMS11"]["Accel_Pedal_Pos"] / 254.
-    #   ret.gasPressed = ret.gas > 0
-    # else:
-    #   ret.gas = cp.vl["EMS12"]["PV_AV_CAN"] / 100.
-    #   ret.gasPressed = bool(cp.vl["EMS16"]["CF_Ems_AclAct"])
+    if self.CP.carFingerprint in (HYBRID_CAR | EV_CAR):
+      if self.CP.carFingerprint in HYBRID_CAR:
+        ret.gas = cp.vl["E_EMS11"]["CR_Vcu_AccPedDep_Pos"] / 254.
+      else:
+        ret.gas = cp.vl["E_EMS11"]["Accel_Pedal_Pos"] / 254.
+      ret.gasPressed = ret.gas > 0
+    else:
+      ret.gas = cp.vl["EMS12"]["PV_AV_CAN"] / 100.
+      ret.gasPressed = bool(cp.vl["EMS16"]["CF_Ems_AclAct"])
 
-    ret.gas = cp.vl["EMS_DCT1"]['PV_AV_CAN']
-    # ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
+    # Gear Selection via Cluster - For those Kia/Hyundai which are not fully discovered, we can use the Cluster Indicator for Gear Selection,
+    # as this seems to be standard over all cars, but is not the preferred method.
+    if self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
+      gear = cp.vl["CLU15"]["CF_Clu_Gear"]
+    elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
+      gear = cp.vl["TCU12"]["CUR_GR"]
+    elif self.CP.carFingerprint in FEATURES["use_elect_gears"]:
+      gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
+    else:
+      gear = cp.vl["LVR12"]["CF_Lvr_Gear"]
 
-    # # Gear Selection via Cluster - For those Kia/Hyundai which are not fully discovered, we can use the Cluster Indicator for Gear Selection,
-    # # as this seems to be standard over all cars, but is not the preferred method.
-    # if self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
-    #   gear = cp.vl["CLU15"]["CF_Clu_Gear"]
-    # elif self.CP.carFingerprint in FEATURES["use_tcu_gears"]:
-    #   gear = cp.vl["TCU12"]["CUR_GR"]
-    # elif self.CP.carFingerprint in FEATURES["use_elect_gears"]:
-    #   gear = cp.vl["ELECT_GEAR"]["Elect_Gear_Shifter"]
-    # else:
-    #   gear = cp.vl["LVR12"]["CF_Lvr_Gear"]
+    ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(gear))
 
-    ret.gearShifter = GearShifter.reverse if cp.vl["CLU2"]['CF_Clu_SwiGearR'] else GearShifter.drive	# Force D-gear otherwise because my car is manual
+    if not self.CP.openpilotLongitudinalControl:
+      if self.CP.carFingerprint in FEATURES["use_fca"]:
+        ret.stockAeb = cp.vl["FCA11"]["FCA_CmdAct"] != 0
+        ret.stockFcw = cp.vl["FCA11"]["CF_VSM_Warn"] == 2
+      else:
+        ret.stockAeb = cp.vl["SCC12"]["AEB_CmdAct"] != 0
+        ret.stockFcw = cp.vl["SCC12"]["CF_VSM_Warn"] == 2
 
-    # if not self.CP.openpilotLongitudinalControl:
-    #   if self.CP.carFingerprint in FEATURES["use_fca"]:
-    #     ret.stockAeb = cp.vl["FCA11"]["FCA_CmdAct"] != 0
-    #     ret.stockFcw = cp.vl["FCA11"]["CF_VSM_Warn"] == 2
-    #   else:
-    #     ret.stockAeb = cp.vl["SCC12"]["AEB_CmdAct"] != 0
-    #     ret.stockFcw = cp.vl["SCC12"]["CF_VSM_Warn"] == 2
-
-    # if self.CP.enableBsm:
-    #   ret.leftBlindspot = cp.vl["LCA11"]["CF_Lca_IndLeft"] != 0
-    #   ret.rightBlindspot = cp.vl["LCA11"]["CF_Lca_IndRight"] != 0
+    if self.CP.enableBsm:
+      ret.leftBlindspot = cp.vl["LCA11"]["CF_Lca_IndLeft"] != 0
+      ret.rightBlindspot = cp.vl["LCA11"]["CF_Lca_IndRight"] != 0
 
     # save the entire LKAS11 and CLU11
-    # self.lkas11 = copy.copy(cp_cam.vl["LKAS11"])
-    # self.clu11 = copy.copy(cp.vl["CLU11"])
-    # self.steer_state = cp.vl["MDPS12"]["CF_Mdps_ToiActive"]  # 0 NOT ACTIVE, 1 ACTIVE
-    # self.brake_error = cp.vl["TCS13"]["ACCEnable"] != 0  # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
+    self.lkas11 = copy.copy(cp_cam.vl["LKAS11"])
+    self.clu11 = copy.copy(cp.vl["CLU11"])
+    self.steer_state = cp.vl["MDPS12"]["CF_Mdps_ToiActive"]  # 0 NOT ACTIVE, 1 ACTIVE
+    self.brake_error = cp.vl["TCS13"]["ACCEnable"] != 0  # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
     self.prev_cruise_buttons = self.cruise_buttons[-1]
-    self.cruise_buttons.extend(cp.vl_all["CLU1"]["CF_Clu_CruiseSwState"])
-    self.main_buttons.extend(cp.vl_all["CLU1"]["CF_Clu_CruiseSwMain"])
+    self.cruise_buttons.extend(cp.vl_all["CLU11"]["CF_Clu_CruiseSwState"])
+    self.main_buttons.extend(cp.vl_all["CLU11"]["CF_Clu_CruiseSwMain"])
 
     return ret
 
@@ -188,142 +185,132 @@ class CarState(CarStateBase):
       return CarState.get_can_parser_hda2(CP)
 
     signals = [
-      # sig_name, sig_address, default
-      ("WHEEL_FL", "TCS5", 0),                #Imported from i30
-      ("WHEEL_FR", "TCS5", 0),                #Imported from i30
-      ("WHEEL_RL", "TCS5", 0),                #Imported from i30
-      ("WHEEL_RR", "TCS5", 0),                #Imported from i30
+      # signal_name, signal_address
+      ("WHL_SPD_FL", "WHL_SPD11"),
+      ("WHL_SPD_FR", "WHL_SPD11"),
+      ("WHL_SPD_RL", "WHL_SPD11"),
+      ("WHL_SPD_RR", "WHL_SPD11"),
 
-      ("YAW_RATE", "ESP2", 0),                #Imported from i30
+      ("YAW_RATE", "ESP12"),
 
-      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),    #Imported from i30
-      ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30       # Driver Door
-      ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30,      # Passenger door
-#      ("CF_Gway_RLDrSw", "CGW2", 0),         # Rear reft door
-#      ("CF_Gway_RRDrSw", "CGW2", 0),         # Rear right door
-      ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
-      ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
-      ("CF_Clu_SwiGearR", "CLU2", 0),         #Imported from i30
-      #("CF_Gway_ParkBrakeSw", "CGW1", 0),
+      ("CF_Gway_DrvSeatBeltInd", "CGW4"),
 
-      ("CF_Clu_CruiseSwState", "CLU1", 0),    #Imported from i30
-      ("CF_Clu_CruiseSwMain", "CLU1", 0),     #Imported from i30
-      #("CF_Clu_SldMainSW", "CLU1", 0),
-      #("CF_Clu_ParityBit1", "CLU1", 0),
-      #("CF_Clu_VanzDecimal" , "CLU1", 0),
-      #("CF_Clu_Vanz", "CLU1", 0),
-      #("CF_Clu_SPEED_UNIT", "CLU1", 0),
-      #("CF_Clu_DetentOut", "CLU3", 0),
-      #("CF_Clu_RheostatLevel", "CLU3", 0),
-      #("CF_Clu_CluInfo", "CLU3", 0),
-      #("CF_Clu_AmpInfo", "CLU11", 0),
-      #("CF_Clu_AliveCnt1", "CLU11", 0),
+      ("CF_Gway_DrvSeatBeltSw", "CGW1"),
+      ("CF_Gway_DrvDrSw", "CGW1"),       # Driver Door
+      ("CF_Gway_AstDrSw", "CGW1"),       # Passenger Door
+      ("CF_Gway_RLDrSw", "CGW2"),        # Rear left Door
+      ("CF_Gway_RRDrSw", "CGW2"),        # Rear right Door
+      ("CF_Gway_TurnSigLh", "CGW1"),
+      ("CF_Gway_TurnSigRh", "CGW1"),
+      ("CF_Gway_ParkBrakeSw", "CGW1"),
 
-      ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
-      ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
-      # ("ACCEnable", "TCS13", 0),
-      # ("ACC_REQ", "TCS13", 0),
-      # ("BrakeLight", "TCS13", 0),
-      # ("DriverBraking", "TCS13", 0),
-      # ("StandStill", "TCS13", 0),
-      # ("PBRAKE_ACT", "TCS13", 0),
-      ("BRAKE_ACT", "EMS2", 0),
-      ("BRAKE_ACT", "EMS_DCT2", 0),
+      ("CYL_PRES", "ESP12"),
 
-      # ("ESC_Off_Step", "TCS15", 0),
-      # ("AVH_LAMP", "TCS15", 0),
+      ("CF_Clu_CruiseSwState", "CLU11"),
+      ("CF_Clu_CruiseSwMain", "CLU11"),
+      ("CF_Clu_SldMainSW", "CLU11"),
+      ("CF_Clu_ParityBit1", "CLU11"),
+      ("CF_Clu_VanzDecimal" , "CLU11"),
+      ("CF_Clu_Vanz", "CLU11"),
+      ("CF_Clu_SPEED_UNIT", "CLU11"),
+      ("CF_Clu_DetentOut", "CLU11"),
+      ("CF_Clu_RheostatLevel", "CLU11"),
+      ("CF_Clu_CluInfo", "CLU11"),
+      ("CF_Clu_AmpInfo", "CLU11"),
+      ("CF_Clu_AliveCnt1", "CLU11"),
 
-      # ("CR_Mdps_StrColTq", "MDPS12", 0),
-      # ("CF_Mdps_ToiActive", "MDPS12", 0),
-      # ("CF_Mdps_ToiUnavail", "MDPS12", 0),
-      # ("CF_Mdps_FailStat", "MDPS12", 0),
-      # ("CR_Mdps_OutTq", "MDPS12", 0),
+      ("ACCEnable", "TCS13"),
+      ("ACC_REQ", "TCS13"),
+      ("DriverBraking", "TCS13"),
+      ("StandStill", "TCS13"),
+      ("PBRAKE_ACT", "TCS13"),
 
-      ("PV_AV_CAN", "EMS_DCT1", 0),           #Imported from i30
-      ("CF_Ems_AclAct", "EMS6", 1),           #Imported from i30
-      ("CR_Mdps_StrTq", "VSM2", 0),           #Imported from i30
-      ("CR_Mdps_OutTq", "VSM2", 0),           #Imported from i30
+      ("ESC_Off_Step", "TCS15"),
+      ("AVH_LAMP", "TCS15"),
 
-      ("SAS_Angle", "SAS1", 0),               #Imported from i30
-      ("SAS_Speed", "SAS1", 0),               #Imported from i30
+      ("CR_Mdps_StrColTq", "MDPS12"),
+      ("CF_Mdps_ToiActive", "MDPS12"),
+      ("CF_Mdps_ToiUnavail", "MDPS12"),
+      ("CF_Mdps_ToiFlt", "MDPS12"),
+      ("CR_Mdps_OutTq", "MDPS12"),
 
+      ("SAS_Angle", "SAS11"),
+      ("SAS_Speed", "SAS11"),
+    ]
+    checks = [
+      # address, frequency
+      ("MDPS12", 50),
+      ("TCS13", 50),
+      ("TCS15", 10),
+      ("CLU11", 50),
+      ("ESP12", 100),
+      ("CGW1", 10),
+      ("CGW2", 5),
+      ("CGW4", 5),
+      ("WHL_SPD11", 50),
+      ("SAS11", 100),
     ]
 
-    checks = [			# TODO: change the interval to correct when want to do some polishing
-        ("EMS_DCT2", 20),	# True interval 10 ms
-        ("VSM2", 20),		# True interval 10 ms
-        ("TCS5", 20),		# True interval 20 ms
-        ("SAS1", 20),		# True interval 10 ms
-        ("EMS2", 20),	  # True interval ? ms
-        ("EMS6", 20),	  # True interval ? ms
-        ("EMS_DCT1", 20),	# True interval ? ms
-        ("ESP2", 20),	  # True interval ? ms
-        ("CLU1", 20),		# True interval ? ms
-        ("CLU2", 20),		# True interval ? ms
-        ("CLU3", 20)		# True interval ? ms
-    ]
+    if not CP.openpilotLongitudinalControl:
+      signals += [
+        ("MainMode_ACC", "SCC11"),
+        ("VSetDis", "SCC11"),
+        ("SCCInfoDisplay", "SCC11"),
+        ("ACC_ObjDist", "SCC11"),
+        ("ACCMode", "SCC12"),
+      ]
+      checks += [
+        ("SCC11", 50),
+        ("SCC12", 50),
+      ]
 
-    # if not CP.openpilotLongitudinalControl:
-    #   signals += [
-    #     ("MainMode_ACC", "SCC11", 0),
-    #     ("VSetDis", "SCC11", 0),
-    #     ("SCCInfoDisplay", "SCC11", 0),
-    #     ("ACC_ObjDist", "SCC11", 0),
-    #     ("ACCMode", "SCC12", 1),
-    #   ]
+      if CP.carFingerprint in FEATURES["use_fca"]:
+        signals += [
+          ("FCA_CmdAct", "FCA11"),
+          ("CF_VSM_Warn", "FCA11"),
+        ]
+        checks.append(("FCA11", 50))
+      else:
+        signals += [
+          ("AEB_CmdAct", "SCC12"),
+          ("CF_VSM_Warn", "SCC12"),
+        ]
 
-    #   checks += [
-    #     ("SCC11", 50),
-    #     ("SCC12", 50),
-    #   ]
+    if CP.enableBsm:
+      signals += [
+        ("CF_Lca_IndLeft", "LCA11"),
+        ("CF_Lca_IndRight", "LCA11"),
+      ]
+      checks.append(("LCA11", 50))
 
-    #   if CP.carFingerprint in FEATURES["use_fca"]:
-    #     signals += [
-    #       ("FCA_CmdAct", "FCA11"),
-    #       ("CF_VSM_Warn", "FCA11"),
-    #     ]
-    #     checks.append(("FCA11", 50))
-    #   else:
-    #     signals += [
-    #       ("AEB_CmdAct", "SCC12"),
-    #       ("CF_VSM_Warn", "SCC12"),
-    #     ]
+    if CP.carFingerprint in (HYBRID_CAR | EV_CAR):
+      if CP.carFingerprint in HYBRID_CAR:
+        signals.append(("CR_Vcu_AccPedDep_Pos", "E_EMS11"))
+      else:
+        signals.append(("Accel_Pedal_Pos", "E_EMS11"))
+      checks.append(("E_EMS11", 50))
+    else:
+      signals += [
+        ("PV_AV_CAN", "EMS12"),
+        ("CF_Ems_AclAct", "EMS16"),
+      ]
+      checks += [
+        ("EMS12", 100),
+        ("EMS16", 100),
+      ]
 
-    # if CP.enableBsm:
-    #   signals += [
-    #     ("CF_Lca_IndLeft", "LCA11"),
-    #     ("CF_Lca_IndRight", "LCA11"),
-    #   ]
-    #   checks.append(("LCA11", 50))
-
-    # if CP.carFingerprint in (HYBRID_CAR | EV_CAR):
-    #   if CP.carFingerprint in HYBRID_CAR:
-    #     signals.append(("CR_Vcu_AccPedDep_Pos", "E_EMS11"))
-    #   else:
-    #     signals.append(("Accel_Pedal_Pos", "E_EMS11"))
-    #   checks.append(("E_EMS11", 50))
-    # else:
-    #   signals += [
-    #     ("PV_AV_CAN", "EMS12"),
-    #     ("CF_Ems_AclAct", "EMS16"),
-    #   ]
-    #   checks += [
-    #     ("EMS12", 100),
-    #     ("EMS16", 100),
-    #   ]
-
-    # if CP.carFingerprint in FEATURES["use_cluster_gears"]:
-    #   signals.append(("CF_Clu_Gear", "CLU15"))
-    #   checks.append(("CLU15", 5))
-    # elif CP.carFingerprint in FEATURES["use_tcu_gears"]:
-    #   signals.append(("CUR_GR", "TCU12"))
-    #   checks.append(("TCU12", 100))
-    # elif CP.carFingerprint in FEATURES["use_elect_gears"]:
-    #   signals.append(("Elect_Gear_Shifter", "ELECT_GEAR"))
-    #   checks.append(("ELECT_GEAR", 20))
-    # else:
-    #   signals.append(("CF_Lvr_Gear", "LVR12"))
-    #   checks.append(("LVR12", 100))
+    if CP.carFingerprint in FEATURES["use_cluster_gears"]:
+      signals.append(("CF_Clu_Gear", "CLU15"))
+      checks.append(("CLU15", 5))
+    elif CP.carFingerprint in FEATURES["use_tcu_gears"]:
+      signals.append(("CUR_GR", "TCU12"))
+      checks.append(("TCU12", 100))
+    elif CP.carFingerprint in FEATURES["use_elect_gears"]:
+      signals.append(("Elect_Gear_Shifter", "ELECT_GEAR"))
+      checks.append(("ELECT_GEAR", 20))
+    else:
+      signals.append(("CF_Lvr_Gear", "LVR12"))
+      checks.append(("LVR12", 100))
 
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 0)
 
@@ -336,30 +323,27 @@ class CarState(CarStateBase):
 
     signals = [
       # signal_name, signal_address
-      ("STEERING_TORQUE", "STEERING_STATUS", 0),
-      ("STEERING_ANGLE", "STEERING_STATUS", 0),
-    #   ("CF_Lkas_LdwsActivemode", "LKAS11"),
-    #   ("CF_Lkas_LdwsSysState", "LKAS11"),
-    #   ("CF_Lkas_SysWarning", "LKAS11"),
-    #   ("CF_Lkas_LdwsLHWarning", "LKAS11"),
-    #   ("CF_Lkas_LdwsRHWarning", "LKAS11"),
-    #   ("CF_Lkas_HbaLamp", "LKAS11"),
-    #   ("CF_Lkas_FcwBasReq", "LKAS11"),
-    #   ("CF_Lkas_HbaSysState", "LKAS11"),
-    #   ("CF_Lkas_FcwOpt", "LKAS11"),
-    #   ("CF_Lkas_HbaOpt", "LKAS11"),
-    #   ("CF_Lkas_FcwSysState", "LKAS11"),
-    #   ("CF_Lkas_FcwCollisionWarning", "LKAS11"),
-    #   ("CF_Lkas_FusionState", "LKAS11"),
-    #   ("CF_Lkas_FcwOpt_USM", "LKAS11"),
-    #   ("CF_Lkas_LdwsOpt_USM", "LKAS11"),
+      ("CF_Lkas_LdwsActivemode", "LKAS11"),
+      ("CF_Lkas_LdwsSysState", "LKAS11"),
+      ("CF_Lkas_SysWarning", "LKAS11"),
+      ("CF_Lkas_LdwsLHWarning", "LKAS11"),
+      ("CF_Lkas_LdwsRHWarning", "LKAS11"),
+      ("CF_Lkas_HbaLamp", "LKAS11"),
+      ("CF_Lkas_FcwBasReq", "LKAS11"),
+      ("CF_Lkas_HbaSysState", "LKAS11"),
+      ("CF_Lkas_FcwOpt", "LKAS11"),
+      ("CF_Lkas_HbaOpt", "LKAS11"),
+      ("CF_Lkas_FcwSysState", "LKAS11"),
+      ("CF_Lkas_FcwCollisionWarning", "LKAS11"),
+      ("CF_Lkas_FusionState", "LKAS11"),
+      ("CF_Lkas_FcwOpt_USM", "LKAS11"),
+      ("CF_Lkas_LdwsOpt_USM", "LKAS11"),
     ]
     checks = [
-    #   ("LKAS11", 100)
-    ("STEERING_STATUS", 20)    # Checks if SSC is connected
+      ("LKAS11", 100)
     ]
 
-    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 1)
+    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 2)
 
   @staticmethod
   def get_can_parser_hda2(CP):

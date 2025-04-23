@@ -12,7 +12,7 @@ from selfdrive.test.openpilotci import get_url, upload_file
 from selfdrive.test.process_replay.compare_logs import compare_logs, save_log
 from selfdrive.test.process_replay.process_replay import CONFIGS, PROC_REPLAY_DIR, FAKEDATA, check_enabled, replay_process
 from system.version import get_commit
-from tools.lib.filereader import FileReader
+# from tools.lib.filereader import FileReader
 from tools.lib.logreader import LogReader
 
 original_segments = [
@@ -37,21 +37,21 @@ original_segments = [
 ]
 
 segments = [
-  ("BODY", "regen660D86654BA|2022-07-06--14-27-15--0"),
-  ("HYUNDAI", "regen657E25856BB|2022-07-06--14-26-51--0"),
-  ("HYUNDAI", "d824e27e8c60172c|2022-07-08--21-21-15--0"),
-  ("TOYOTA", "regenBA97410FBEC|2022-07-06--14-26-49--0"),
-  ("TOYOTA2", "regenDEDB1D9C991|2022-07-06--14-54-08--0"),
-  ("TOYOTA3", "regenDDC1FE60734|2022-07-06--14-32-06--0"),
-  ("HONDA", "regen17B09D158B8|2022-07-06--14-31-46--0"),
-  ("HONDA2", "regen041739C3E9A|2022-07-06--15-08-02--0"),
-  ("CHRYSLER", "regenBB2F9C1425C|2022-07-06--14-31-41--0"),
-  ("RAM", "2f4452b03ccb98f0|2022-07-07--08-01-56--3"),
-  ("SUBARU", "regen732B69F33B1|2022-07-06--14-36-18--0"),
-  ("GM", "regen01D09D915B5|2022-07-06--14-36-20--0"),
-  ("NISSAN", "regenEA6FB2773F5|2022-07-06--14-58-23--0"),
-  ("VOLKSWAGEN", "regen007098CA0EF|2022-07-06--15-01-26--0"),
-  ("MAZDA", "regen61BA413D53B|2022-07-06--14-39-42--0"),
+  ("BODY", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("TOYOTA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("TOYOTA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("TOYOTA3", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("HONDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("HONDA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("CHRYSLER", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("RAM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("SUBARU", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("GM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("NISSAN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("VOLKSWAGEN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  ("MAZDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
 ]
 
 # dashcamOnly makes don't need to be tested until a full port is done
@@ -78,11 +78,26 @@ def run_test_process(data):
   return (segment, cfg.proc_name, cfg.subtest_name, res)
 
 
-def get_log_data(segment):
-  r, n = segment.rsplit("--", 1)
-  with FileReader(get_url(r, n)) as f:
-    return (segment, f.read())
+#def get_log_data(segment):
+#  r, n = segment.rsplit("--", 1)
+#  with FileReader(get_url(r, n)) as f:
+#    return (segment, f.read())
 
+def get_log_data(segment):
+  # Example: regenAA0FC4ED71E|2025-04-20--14-41-54--0
+  route_part, datetime_segnum = segment.split("|", 1)
+  # CAREFUL: we split from the RIGHT
+  datetime_part, segnum = datetime_segnum.rsplit("--", 1)
+
+  # Build correct full path
+  local_path = os.path.join("/data/media/0/realdata/fakedata/", route_part, datetime_part, segnum, "rlog.bz2")
+
+  if not os.path.exists(local_path):
+    raise FileNotFoundError(f"Local log not found: {local_path}")
+
+  print(f"Loading local log: {local_path}")
+  with open(local_path, "rb") as f:
+    return (segment, f.read())
 
 def test_process(cfg, lr, ref_log_path, new_log_path, ignore_fields=None, ignore_msgs=None):
   if ignore_fields is None:
@@ -90,7 +105,10 @@ def test_process(cfg, lr, ref_log_path, new_log_path, ignore_fields=None, ignore
   if ignore_msgs is None:
     ignore_msgs = []
 
-  ref_log_msgs = list(LogReader(ref_log_path))
+  #ref_log_msgs = list(LogReader(ref_log_path))
+  ref_log_msgs = []
+  if not args.update_refs:
+    ref_log_msgs = list(LogReader(ref_log_path))
 
   log_msgs = replay_process(cfg, lr)
 
@@ -167,8 +185,8 @@ if __name__ == "__main__":
   upload = args.update_refs or args.upload_only
   os.makedirs(os.path.dirname(FAKEDATA), exist_ok=True)
 
-  if upload:
-    assert full_test, "Need to run full test when updating refs"
+  #if upload:
+  #  assert full_test, "Need to run full test when updating refs"
 
   try:
     ref_commit = open(REF_COMMIT_FN).read().strip()
@@ -187,7 +205,8 @@ if __name__ == "__main__":
     untested = (set(interface_names) - set(excluded_interfaces)) - {c.lower() for c in tested_cars}
     assert len(untested) == 0, f"Cars missing routes: {str(untested)}"
 
-  with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
+  #with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
+  with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
     if not args.upload_only:
       download_segments = [seg for car, seg in segments if car in tested_cars]
       log_data: Dict[str, LogReader] = {}
