@@ -183,6 +183,7 @@ static void update_state(UIState *s) {
     // scene.angleSteers = carState.getSteeringAngleDeg();
     scene.aEgo = carState.getAEgo();
     scene.steeringTorqueEps = carState.getSteeringTorqueEps();
+    scene.steeringTorqueOut = carState.getSteeringTorqueOut();
     scene.steeringTorque = carState.getSteeringTorque();
     scene.angleDivergence = carState.getSteeringAngleDegError();
   }
@@ -238,8 +239,8 @@ static void update_state(UIState *s) {
 
   // 🧪 Fill in test values
   scene.angleDivergence = 5.3;
-  scene.gpsAccuracyUblox = 0.75;
-  scene.satelliteCount = 9;
+  // scene.gpsAccuracyUblox = 0.75;
+  // scene.satelliteCount = 9;
   // scene.angleOffsetAverageDeg = -1.23;
   scene.aLeadK = 0.6;
   // scene.aEgo = 2.3;

@@ -129,6 +129,7 @@ typedef struct UIScene {
   float angleSteers = 0.0f;
   float angleSteersDes = 0.0f;
   float steeringTorqueEps = 0.0f;
+  float steeringTorqueOut = 0.0f;
   float steeringTorque = 0.0f;
   float pFct = 0.001f;
   float fFct = 0.001f;

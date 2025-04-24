@@ -47,7 +47,8 @@ class CarState(CarStateBase):
 
     ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
 
-    ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_OutTq"]
+    ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
+    ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
     ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
     # emulate driver steering torque - allows lane change assist on blinker hold

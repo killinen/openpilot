@@ -173,23 +173,24 @@ void DebugOverlay::drawDebugWindowRight(QPainter &p, const UIState &s, int x, in
   // draw(QString::number(scene.cpuTemp, 'f', 1), QString("%1%").arg(scene.cpuPerc), "CPU", Qt::white);
   draw(QString("%1°").arg(round(scene.angleDivergence)), "", "SSC HEALTH", Qt::white);
 
-  if (scene.gpsAccuracyUblox != 0.0) {
-    QColor gpsColor = Qt::white;
-    if (scene.gpsAccuracyUblox > 1.3) gpsColor = Qt::red;
-    else if (scene.gpsAccuracyUblox > 0.85) gpsColor = QColor(255, 188, 3);
+  //if (scene.gpsAccuracyUblox != 0.0) {
+  //  QColor gpsColor = Qt::white;
+  //  if (scene.gpsAccuracyUblox > 1.3) gpsColor = Qt::red;
+  //  else if (scene.gpsAccuracyUblox > 0.85) gpsColor = QColor(255, 188, 3);
 
-    QString gpsVal = "None";
-    if (scene.gpsAccuracyUblox <= 99 && scene.gpsAccuracyUblox != 0) {
-      gpsVal = scene.gpsAccuracyUblox > 9.99 ?
-        QString::number(scene.gpsAccuracyUblox, 'f', 1) :
-        QString::number(scene.gpsAccuracyUblox, 'f', 2);
-    }
+  //  QString gpsVal = "None";
+  //  if (scene.gpsAccuracyUblox <= 99 && scene.gpsAccuracyUblox != 0) {
+  //    gpsVal = scene.gpsAccuracyUblox > 9.99 ?
+  //      QString::number(scene.gpsAccuracyUblox, 'f', 1) :
+  //      QString::number(scene.gpsAccuracyUblox, 'f', 2);
+  //  }
 
-    draw(gpsVal, QString::number(scene.satelliteCount), "GPS PREC", gpsColor);
-  }
+  //  draw(gpsVal, QString::number(scene.satelliteCount), "GPS PREC", gpsColor);
+  //}
 
   draw(QString::number(scene.angleOffsetAverageDeg, 'f', 2), "Deg", "ANGLE OFFSET", Qt::white);
-  draw(QString::number(scene.steeringTorque, 'f', 1), "Nm", "EPS TRQ", Qt::white);
+  draw(QString::number(scene.steeringTorque, 'f', 1), "Nm", "EPS IN TRQ", Qt::white);
+  draw(QString::number(scene.steeringTorqueOut, 'f', 1), "Nm", "EPS OUT TRQ", Qt::white);
   // draw(QString::number(scene.aEgo, 'f', 1), "m/s²", "ACCEL", Qt::white);
 
   // draw(QString::number(scene.angleSteers, 'f', 1), "°", "SteerAngle", Qt::white);
