@@ -6,7 +6,7 @@ import multiprocessing
 from typing import Optional
 
 from common.clock import sec_since_boot  # pylint: disable=no-name-in-module, import-error
-from selfdrive.hardware import PC, TICI
+from selfdrive.hardware import PC, TICI, EON
 
 
 # time step for each process
@@ -39,8 +39,10 @@ def set_realtime_priority(level: int) -> None:
 
 def set_core_affinity(core: int) -> None:
   if not PC:
-    os.sched_setaffinity(0, [core,])   # type: ignore[attr-defined]
-
+    if EON:
+      print("Skipping set_core_affinity on Android/Termux")
+      return
+    os.sched_setaffinity(0, cores)  # pylint: disable=no-member
 
 def config_realtime_process(core: int, priority: int) -> None:
   gc.disable()

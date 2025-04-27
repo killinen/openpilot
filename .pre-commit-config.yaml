@@ -9,18 +9,31 @@ repos:
     -   id: check-yaml
     -   id: check-merge-conflict
     -   id: check-symlinks
+
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.910-1
+    rev: v1.8.0
     hooks:
     -   id: mypy
-        exclude: '^(pyextra/)|(cereal/)|(rednose/)|(panda/)|(laika/)|(opendbc/)|(laika_repo/)|(rednose_repo/)/'
-        additional_dependencies: ['git+https://github.com/numpy/numpy-stubs', 'types-requests', 'types-atomicwrites',
-                                  'types-pycurl']
+        args: ["--config-file", "mypy.ini"]
+      #exclude: >
+      #   (^pyextra/.*)|
+      #   (^cereal/.*)|
+      #   (^rednose/.*)|
+      #   (^panda/.*)|
+      #   (^laika/.*)|
+      #    (^opendbc/.*)|
+      #    (^laika_repo/.*)|
+      #    (^rednose_repo/.*)|
+      #    (^\.github/misc_scripts/.*)
+        additional_dependencies:
+          - types-requests
+          - types-atomicwrites
+          - types-pycurl
 -   repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:
     -   id: flake8
-        exclude: '^(pyextra/)|(cereal/)|(rednose/)|(panda/)|(laika/)|(opendbc/)|(laika_repo/)|(rednose_repo/)|(selfdrive/debug/)/'
+        exclude: '^(pyextra/)|(cereal/)|(rednose/)|(panda/)|(laika/)|(opendbc/)|(laika_repo/)|(rednose_repo/)|(.github/misc_scripts/)|(selfdrive/debug/)'
         args:
         - --select=F,E112,E113,E304,E502,E701,E702,E703,E71,E72,E731,W191,W6
         - --statistics
@@ -28,10 +41,10 @@ repos:
     hooks:
     -   id: pylint
         name: pylint
-        entry: pylint
+        entry: pipenv run pylint
         language: system
         types: [python]
-        exclude: '^(pyextra/)|(cereal/)|(rednose/)|(panda/)|(laika/)|(laika_repo/)|(rednose_repo/)/'
+        exclude: '^(pyextra/)|(cereal/)|(rednose/)|(panda/)|(laika/)|(laika_repo/)|(rednose_repo/)|(.github/misc_scripts/)'
 -   repo: local
     hooks:
     -   id: cppcheck

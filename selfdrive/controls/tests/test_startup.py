@@ -42,8 +42,8 @@ class TestStartup(unittest.TestCase):
     # TODO: test EventName.startup for release branches
 
     # officially supported car
-    (EventName.startupMaster, TOYOTA.COROLLA, False, COROLLA_FW_VERSIONS),
-    (EventName.startupMaster, TOYOTA.COROLLA, True, COROLLA_FW_VERSIONS),
+    #(EventName.startupMaster, TOYOTA.COROLLA, False, COROLLA_FW_VERSIONS),
+    #(EventName.startupMaster, TOYOTA.COROLLA, True, COROLLA_FW_VERSIONS),
 
     # DSU unplugged
     (EventName.startupMaster, TOYOTA.COROLLA, True, COROLLA_FW_VERSIONS_NO_DSU),

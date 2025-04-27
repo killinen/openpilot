@@ -13,12 +13,12 @@ function install_ubuntu_common_requirements() {
   sudo apt-get install -y --no-install-recommends \
     autoconf \
     build-essential \
+    ca-certificates \
     clang \
     cmake \
     make \
     cppcheck \
     libtool \
-    libstdc++-arm-none-eabi-newlib \
     gcc-arm-none-eabi \
     bzip2 \
     liblzma-dev \
@@ -28,7 +28,6 @@ function install_ubuntu_common_requirements() {
     libcapnp-dev \
     curl \
     libcurl4-openssl-dev \
-    wget \
     git \
     git-lfs \
     ffmpeg \
@@ -50,26 +49,17 @@ function install_ubuntu_common_requirements() {
     libsqlite3-dev \
     libusb-1.0-0-dev \
     libzmq3-dev \
-    libsdl1.2-dev \
-    libsdl-image1.2-dev \
-    libsdl-mixer1.2-dev \
-    libsdl-ttf2.0-dev \
-    libsmpeg-dev \
-    libportmidi-dev \
-    libfreetype6-dev \
     libsystemd-dev \
     locales \
     opencl-headers \
     ocl-icd-libopencl1 \
     ocl-icd-opencl-dev \
     clinfo \
-    python-dev \
-    python3-pip \
     qml-module-qtquick2 \
     qtmultimedia5-dev \
-    qtwebengine5-dev \
     qtlocation5-dev \
     qtpositioning5-dev \
+    qttools5-dev-tools \
     libqt5sql5-sqlite \
     libqt5svg5-dev \
     libqt5x11extras5-dev \
@@ -78,7 +68,7 @@ function install_ubuntu_common_requirements() {
     valgrind
 }
 
-# Install Ubuntu 21.10 packages
+# Install Ubuntu 22.04 LTS packages
 function install_ubuntu_latest_requirements() {
   install_ubuntu_common_requirements
 
@@ -86,7 +76,8 @@ function install_ubuntu_latest_requirements() {
     qtbase5-dev \
     qtchooser \
     qt5-qmake \
-    qtbase5-dev-tools
+    qtbase5-dev-tools \
+    python3-dev
 }
 
 # Install Ubuntu 20.04 packages
@@ -95,14 +86,15 @@ function install_ubuntu_lts_requirements() {
 
   sudo apt-get install -y --no-install-recommends \
     libavresample-dev \
-    qt5-default
+    qt5-default \
+    python-dev
 }
 
 # Detect OS using /etc/os-release file
 if [ -f "/etc/os-release" ]; then
   source /etc/os-release
   case "$ID $VERSION_ID" in
-    "ubuntu 21.10")
+    "ubuntu 22.04")
       install_ubuntu_latest_requirements
       ;;
     "ubuntu 20.04")
@@ -126,12 +118,28 @@ fi
 # install python dependencies
 $ROOT/update_requirements.sh
 
-source ~/.bashrc
+#source ~/.bashrc
+#if [ -z "$OPENPILOT_ENV" ]; then
+#  printf "\nsource %s/tools/openpilot_env.sh" "$ROOT" >> ~/.bashrc
+#  source ~/.bashrc
+#  echo "added openpilot_env to bashrc"
+#fi
+
+
+# Ensure pyenv binaries are available
+export PATH="$HOME/.pyenv/shims:$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+
 if [ -z "$OPENPILOT_ENV" ]; then
   printf "\nsource %s/tools/openpilot_env.sh" "$ROOT" >> ~/.bashrc
-  source ~/.bashrc
   echo "added openpilot_env to bashrc"
 fi
+
+
+# Install extra Python packages to fix pylint pre-commit errors
+#pip install numpy tqdm matplotlib scipy parameterized Pillow cffi pycapnp pycryptodome requests protobuf==3.20.1 opencv-python-headless setproctitle psutil smbus2 timezonefinder websocket-client sentry-sdk crcmod sympy==1.12 atomicwrites pyjwt flask gunicorn pyopencl onnx onnxruntime-gpu casadi six urllib3 utm lru-dict hexdump dictdiffer fastcluster markdown-it-py myst-parser tabulate breathe
 
 echo
 echo "----   OPENPILOT SETUP DONE   ----"
