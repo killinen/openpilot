@@ -9,7 +9,7 @@ import time
 try:
   from common.realtime import sec_since_boot
   import cereal.messaging as messaging
-except:
+except Exception:
   pass
 
 # try:

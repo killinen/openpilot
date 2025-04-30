@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=no-member
 import os
 import json
 from atomicwrites import atomic_write
@@ -11,8 +12,8 @@ except ImportError:
   import time
   sec_since_boot = time.time
 
-warning = lambda msg: print('{}opParams WARNING: {}{}'.format(COLORS.WARNING, msg, COLORS.ENDC))
-error = lambda msg: print('{}opParams ERROR: {}{}'.format(COLORS.FAIL, msg, COLORS.ENDC))
+# warning = lambda msg: print('{}opParams WARNING: {}{}'.format(COLORS.WARNING, msg, COLORS.ENDC))
+# error = lambda msg: print('{}opParams ERROR: {}{}'.format(COLORS.FAIL, msg, COLORS.ENDC))
 
 NUMBER = [float, int]  # value types
 NONE_OR_NUMBER = [type(None), float, int]
@@ -22,6 +23,11 @@ PARAMS_DIR = os.path.join(BASEDIR, 'community', 'params')
 IMPORTED_PATH = os.path.join(PARAMS_DIR, '.imported')
 OLD_PARAMS_FILE = os.path.join(BASEDIR, 'op_params.json')
 
+def warning(msg):
+  print(f"{COLORS.WARNING}opParams WARNING: {msg}{COLORS.ENDC}")
+
+def error(msg):
+  print(f"{COLORS.FAIL}opParams ERROR: {msg}{COLORS.ENDC}")
 
 class Param:
   def __init__(self, default, allowed_types=[], description=None, *, static=False, live=False, hidden=False):  # pylint: disable=dangerous-default-value
@@ -75,7 +81,7 @@ def _import_params():
       for key in old_params:
         _write_param(key, old_params[key])
       open(IMPORTED_PATH, 'w').close()
-    except:  # pylint: disable=bare-except
+    except Exception:
       pass
 
 

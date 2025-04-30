@@ -42,7 +42,8 @@ def set_core_affinity(core: int) -> None:
     if EON:
       print("Skipping set_core_affinity on Android/Termux")
       return
-    os.sched_setaffinity(0, cores)  # pylint: disable=no-member
+    #os.sched_setaffinity(0, cores)  # pylint: disable=no-member
+    os.sched_setaffinity(0, {core})  # pylint: disable=no-member
 
 def config_realtime_process(core: int, priority: int) -> None:
   gc.disable()

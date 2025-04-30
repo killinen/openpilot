@@ -1,17 +1,18 @@
-import copy
+# import copy
 from cereal import car
-from selfdrive.car.hyundai.values import DBC, STEER_THRESHOLD, FEATURES, EV_CAR, HYBRID_CAR
+from selfdrive.car.hyundai.values import DBC #, STEER_THRESHOLD, FEATURES, EV_CAR, HYBRID_CAR
 from selfdrive.car.interfaces import CarStateBase
 from opendbc.can.parser import CANParser
-from opendbc.can.can_define import CANDefine
-from selfdrive.config import Conversions as CV
+# from opendbc.can.can_define import CANDefine
+# from selfdrive.config import Conversions as CV
 
 GearShifter = car.CarState.GearShifter
 
 class CarState(CarStateBase):
+  # pylint: disable=useless-super-delegation
   def __init__(self, CP):
     super().__init__(CP)
-    can_define = CANDefine(DBC[CP.carFingerprint]["pt"])
+    # can_define = CANDefine(DBC[CP.carFingerprint]["pt"])
 
     #if self.CP.carFingerprint in FEATURES["use_cluster_gears"]:
     #  self.shifter_values = can_define.dv["CLU15"]["CF_Clu_Gear"]

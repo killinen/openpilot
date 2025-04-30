@@ -81,12 +81,21 @@ jobs:
         pipenv install --dev --python=$(which python3)
         pipenv install pycapnp==1.1.1
         pipenv install casadi==3.5.5
+        pipenv install types-requests types-atomicwrites types-pycurl
     - name: Confirm casadi
       run: pipenv run python -c "import casadi; print(casadi.__version__)"
+    - name: Fix pyextra/acados_template/acados_ocp.py
+      run: pwd & sed -i '1s/future_fstrings/utf-8/' pyextra/acados_template/acados_ocp.py
+      # run: sed -i '1s/future_fstrings/utf-8/' pyextra/acados_template/acados_ocp.py
+      #run: touch pyextra/__init__.py && ls pyextra
+    # Add this to the GitHub workflow step **before** running pre-commit:
+    - name: Downgrade setuptools for legacy hooks
+      run: pip install 'setuptools<60' 'wheel<1.0.0'
     - name: Run pre-commit
       run: |
         pre-commit clean
-        pre-commit run --all
+        PYENV_VERSION=3.8 pre-commit run --all-files
+        #pre-commit run --all
 
   valgrind:
     name: valgrind

@@ -3,7 +3,7 @@ from numbers import Number
 
 from common.numpy_fast import clip, interp
 from common.op_params import opParams
-from selfdrive.config import Conversions as CV
+# from selfdrive.config import Conversions as CV
 
 
 def apply_deadzone(error, deadzone):

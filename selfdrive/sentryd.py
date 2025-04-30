@@ -84,7 +84,7 @@ class SentryMode:
         accels = sensor.acceleration.v
         if len(accels) == 3:  # sometimes is empty, in that case don't update
           if self.initialized:  # prevent initial jump # TODO: can remove since we start at an active car state?
-            for idx, v in enumerate(accels):
+            for idx, _ in enumerate(accels):
               self.accel_filters[idx].update(accels[idx] - self.prev_accel[idx])
           self.initialized = True
           self.prev_accel = list(accels)

@@ -138,8 +138,10 @@ static int ov8865_apply_exposure(CameraState *s, int gain, int integ_lines, uint
     if (gain >= gains[i - 1] && gain < gains[i])
       break;
   }
-  int coarse_gain = i - 1;
-  float fine_gain = (gain - gains[coarse_gain])/(float)(gains[coarse_gain+1]-gains[coarse_gain]);
+  //int coarse_gain = i - 1;
+  //float fine_gain = (gain - gains[coarse_gain])/(float)(gains[coarse_gain+1]-gains[coarse_gain]);
+  int coarse_gain = std::min(i - 1, (int)std::size(gains) - 2);
+  float fine_gain = (gain - gains[coarse_gain]) / (float)(gains[coarse_gain+1] - gains[coarse_gain]);
   coarse_gain_bitmap = (1 << coarse_gain) - 1;
   fine_gain_bitmap = ((int)(16*fine_gain) << 3) + 128; // 7th is always 1, 0-2nd are always 0
 

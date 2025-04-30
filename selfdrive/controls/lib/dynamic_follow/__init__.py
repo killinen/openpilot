@@ -1,10 +1,10 @@
-import math
+#   import math
 import numpy as np
 import cereal.messaging as messaging
 from common.realtime import sec_since_boot, DT_MDL
-from selfdrive.controls.lib.drive_helpers import MPC_COST_LONG
+# from selfdrive.controls.lib.drive_helpers import MPC_COST_LONG
 from common.op_params import opParams
-from common.numpy_fast import interp, clip, mean
+from common.numpy_fast import interp, clip #, mean
 from selfdrive.config import Conversions as CV
 from cereal.messaging import SubMaster
 

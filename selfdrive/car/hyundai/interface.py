@@ -76,7 +76,7 @@ class CarInterface(CarInterfaceBase):
       ret.steerMaxBP = [0.]
       #ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
       ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
-      ret.radarTimeStep = 0.05;  # time delta between radar updates, 20Hz is very standard
+      ret.radarTimeStep = 0.05  # time delta between radar updates, 20Hz is very standard
     elif candidate in [CAR.SONATA, CAR.SONATA_HYBRID]:
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 1513. + STD_CARGO_KG

@@ -12,22 +12,28 @@ repos:
 
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.8.0
+    #rev: v0.931
     hooks:
     -   id: mypy
-        args: ["--config-file", "mypy.ini"]
+      # language_version: python3.8
+        args:
+          - --config-file=mypy.ini
+          - --no-error-summary
+            #  - --explicit-package-bases
+      #  args: ["--config-file", "mypy.ini"]
       #exclude: >
       #   (^pyextra/.*)|
       #   (^cereal/.*)|
       #   (^rednose/.*)|
       #   (^panda/.*)|
       #   (^laika/.*)|
-      #    (^opendbc/.*)|
-      #    (^laika_repo/.*)|
-      #    (^rednose_repo/.*)|
-      #    (^\.github/misc_scripts/.*)
+      #   (^opendbc/.*)|
+      #   (^laika_repo/.*)|
+      #   (^rednose_repo/.*)|
+      #   (^\.github/misc_scripts/.*)
         additional_dependencies:
           - types-requests
-          - types-atomicwrites
+          #- types-atomicwrites
           - types-pycurl
 -   repo: https://github.com/PyCQA/flake8
     rev: 4.0.1

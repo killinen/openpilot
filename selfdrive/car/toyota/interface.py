@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import numpy as np
+# import numpy as np
 from cereal import car
 from selfdrive.config import Conversions as CV
 from selfdrive.car.toyota.tunes import LatTunes, LongTunes, set_long_tune, set_lat_tune

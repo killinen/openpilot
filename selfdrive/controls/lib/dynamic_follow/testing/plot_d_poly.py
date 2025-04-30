@@ -25,7 +25,7 @@ for idx, line in enumerate(data):
   line = line.replace('array(', '').replace('), ', ', ')
   try:
     line = ast.literal_eval(line)
-  except:
+  except Exception:
     continue
   if len(line['d_poly']) == 0:
     continue

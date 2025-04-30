@@ -1,5 +1,6 @@
-# from selfdrive.car.toyota.values import CAR as CAR_TOYOTA
-# from selfdrive.car.honda.values import CAR as CAR_HONDA
+# type: ignore
+from selfdrive.car.toyota.values import CAR as CAR_TOYOTA
+from selfdrive.car.honda.values import CAR as CAR_HONDA
 from common.numpy_fast import clip, interp
 from selfdrive.config import Conversions as CV
 CAR_TOYOTA = ['Corolla']

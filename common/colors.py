@@ -1,4 +1,4 @@
-class COLORS:
+class Colors:
   def __init__(self):
     self.HEADER = '\033[95m'
     self.OKBLUE = '\033[94m'
@@ -33,4 +33,4 @@ class COLORS:
     return '\33[48;5;{}m'.format(col)
 
 
-COLORS = COLORS()
+COLORS = Colors()

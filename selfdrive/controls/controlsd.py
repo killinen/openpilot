@@ -70,7 +70,7 @@ def log_fingerprint(candidate, timeout=15):
       crash.init()
       crash.capture_message("fingerprinted {}".format(candidate), level='info')
       return
-    except:
+    except Exception:
       pass
 
 

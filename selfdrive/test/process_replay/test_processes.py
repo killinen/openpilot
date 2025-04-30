@@ -8,7 +8,7 @@ from tqdm import tqdm
 from typing import Any, Dict
 
 from selfdrive.car.car_helpers import interface_names
-from selfdrive.test.openpilotci import get_url, upload_file
+from selfdrive.test.openpilotci import get_url #, upload_file
 from selfdrive.test.process_replay.compare_logs import compare_logs, save_log
 from selfdrive.test.process_replay.process_replay import CONFIGS, PROC_REPLAY_DIR, FAKEDATA, check_enabled, replay_process
 from selfdrive.version import get_commit
@@ -119,7 +119,9 @@ def test_process(cfg, lr, ref_log_path, new_log_path, ignore_fields=None, ignore
       return f"Route did not enable at all or for long enough: {new_log_path}", log_msgs
 
   try:
-    return compare_logs(ref_log_msgs, log_msgs, ignore_fields + cfg.ignore, ignore_msgs, cfg.tolerance, cfg.field_tolerances), log_msgs
+    # return compare_logs(ref_log_msgs, log_msgs, ignore_fields + cfg.ignore, ignore_msgs, cfg.tolerance, cfg.field_tolerances), log_msgs
+    all_ignored_fields = (ignore_fields or []) + cfg.ignore
+    return compare_logs(ref_log_msgs, log_msgs, all_ignored_fields, ignore_msgs, cfg.tolerance), log_msgs
   except Exception as e:
     return str(e), log_msgs
 

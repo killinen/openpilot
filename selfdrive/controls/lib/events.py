@@ -261,8 +261,9 @@ def joystick_alert(CP: car.CarParams, sm: messaging.SubMaster, metric: bool, sof
   return NormalPermanentAlert("Joystick Mode", vals)
 
 
-
-EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
+# This change isonly needed for using SA alerts
+#EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
+EVENTS: Dict[Union[int, str], Dict[str, Union[Alert, AlertCallbackType]]] = {
   # ********** events with no alerts **********
 
   EventName.stockFcw: {},

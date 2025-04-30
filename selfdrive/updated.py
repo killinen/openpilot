@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=no-member, no-value-for-parameter
 
 # Safe Update: A simple service that waits for network access and tries to
 # update every 10 minutes. It's intended to make the OP update process more

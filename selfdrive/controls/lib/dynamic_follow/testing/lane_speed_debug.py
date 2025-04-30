@@ -21,7 +21,7 @@ for line in _data:
     lt_end = line.index(')]>')
     lt = line[lt_start:lt_end+3]
     line = line.replace(lt, '')
-  except:
+  except Exception:
     continue
   line = ast.literal_eval(line)
   lt = lt[37:-2].split('),')

@@ -151,6 +151,7 @@ class TestOnroad(unittest.TestCase):
     os.system("pkill -9 -f athena")
 
     # start manager and run openpilot for a minute
+    proc = None
     try:
       manager_path = os.path.join(BASEDIR, "selfdrive/manager/manager.py")
       proc = subprocess.Popen(["python", manager_path])

@@ -290,14 +290,14 @@ class LongitudinalMpc:
     lead_xv = np.column_stack((x_lead_traj, v_lead_traj))
     return lead_xv
 
-  def process_lead(self, lead, id):
+  def process_lead(self, lead, lead_idx):
     v_ego = self.x0[1]
     if lead is not None and lead.status:
       x_lead = lead.dRel
       v_lead = lead.vLead
       a_lead = lead.aLeadK
       a_lead_tau = lead.aLeadTau
-      if id == 0:
+      if lead_idx == 0:
         self.dynamic_follow.update_lead(v_lead, a_lead, x_lead, lead.status, False)
     else:
       # Fake a fast lead car, so mpc can keep running in the same mode
@@ -305,7 +305,7 @@ class LongitudinalMpc:
       v_lead = v_ego + 10.0
       a_lead = 0.0
       a_lead_tau = _LEAD_ACCEL_TAU
-      if id == 0:
+      if lead_idx == 0:
         self.dynamic_follow.update_lead(new_lead=False)
 
     # MPC will not converge if immediate crash is expected

@@ -62,7 +62,10 @@ if (origin is not None) and (branch is not None):
 
     valid_branches = ['devel', 'release2-staging', 'dashcam-staging', 'release2', 'dashcam',
                       'shanesmiskol_stock_additions', 'stock_additions']
-    tested_branch = get_git_branch().lower() in valid_branches
+    # tested_branch = get_git_branch().lower() in valid_branches
+    branch_name = get_git_branch()
+    if branch_name is not None:
+      tested_branch = branch_name.lower() in valid_branches
 
     dirty = False
 
