@@ -313,18 +313,18 @@ CONFIGS = [
     tolerance=NUMPY_TOLERANCE,
     fake_pubsubmaster=False,
   ),
-  #ProcessConfig(
-  #  proc_name="paramsd",
-  #  pub_sub={
-  #    "liveLocationKalman": ["liveParameters"],
-  #    "carState": []
-  #  },
-  #  ignore=["logMonoTime", "valid"],
-  #  init_callback=get_car_params,
-  #  should_recv_callback=None,
-  #  tolerance=NUMPY_TOLERANCE,
-  #  fake_pubsubmaster=True,
-  #),
+  ProcessConfig(
+   proc_name="paramsd",
+   pub_sub={
+     "liveLocationKalman": ["liveParameters"],
+     "carState": []
+   },
+   ignore=["logMonoTime", "valid"],
+   init_callback=get_car_params,
+   should_recv_callback=None,
+   tolerance=NUMPY_TOLERANCE,
+   fake_pubsubmaster=True,
+  ),
   ProcessConfig(
     proc_name="ubloxd",
     pub_sub={
@@ -336,32 +336,32 @@ CONFIGS = [
     tolerance=None,
     fake_pubsubmaster=False,
   ),
- # ProcessConfig(
- #   proc_name="laikad",
- #   subtest_name="Offline",
- #   pub_sub={
- #     "ubloxGnss": ["gnssMeasurements"],
- #     "clocks": []
- #   },
- #   ignore=["logMonoTime"],
- #   init_callback=get_car_params,
- #   should_recv_callback=laika_rcv_callback,
- #   tolerance=NUMPY_TOLERANCE,
- #   fake_pubsubmaster=True,
- #   environ={"LAIKAD_NO_INTERNET": "1"},
- # ),
- # ProcessConfig(
- #   proc_name="laikad",
- #   pub_sub={
- #     "ubloxGnss": ["gnssMeasurements"],
- #     "clocks": []
- #   },
- #   ignore=["logMonoTime"],
- #   init_callback=get_car_params,
- #   should_recv_callback=laika_rcv_callback,
- #   tolerance=NUMPY_TOLERANCE,
- #   fake_pubsubmaster=True,
- # ),
+ ProcessConfig(
+   proc_name="laikad",
+   subtest_name="Offline",
+   pub_sub={
+     "ubloxGnss": ["gnssMeasurements"],
+     "clocks": []
+   },
+   ignore=["logMonoTime"],
+   init_callback=get_car_params,
+   should_recv_callback=laika_rcv_callback,
+   tolerance=NUMPY_TOLERANCE,
+   fake_pubsubmaster=True,
+   environ={"LAIKAD_NO_INTERNET": "1"},
+ ),
+ ProcessConfig(
+   proc_name="laikad",
+   pub_sub={
+     "ubloxGnss": ["gnssMeasurements"],
+     "clocks": []
+   },
+   ignore=["logMonoTime"],
+   init_callback=get_car_params,
+   should_recv_callback=laika_rcv_callback,
+   tolerance=NUMPY_TOLERANCE,
+   fake_pubsubmaster=True,
+ ),
 ]
 
 

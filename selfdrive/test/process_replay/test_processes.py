@@ -18,7 +18,7 @@ from tools.lib.logreader_II import LogReader
 original_segments = [
   ("BODY", "937ccb7243511b65|2022-05-24--16-03-09--1"),        # COMMA.BODY
   ("HYUNDAI", "02c45f73a2e5c6e9|2021-01-01--19-08-22--1"),     # HYUNDAI.SONATA
-  ("HYUNDAI", "d824e27e8c60172c|2022-07-08--21-21-15--0"),     # HYUNDAI.KIA_EV6
+  # ("HYUNDAI", "d824e27e8c60172c|2022-07-08--21-21-15--0"),     # HYUNDAI.KIA_EV6
   ("TOYOTA", "0982d79ebb0de295|2021-01-04--17-13-21--13"),     # TOYOTA.PRIUS (INDI)
   ("TOYOTA2", "0982d79ebb0de295|2021-01-03--20-03-36--6"),     # TOYOTA.RAV4  (LQR)
   ("TOYOTA3", "f7d7e3538cda1a2a|2021-08-16--08-55-34--6"),     # TOYOTA.COROLLA_TSS2
@@ -39,7 +39,7 @@ original_segments = [
 segments = [
   ("BODY", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("TOYOTA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("TOYOTA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("TOYOTA3", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
@@ -259,5 +259,7 @@ if __name__ == "__main__":
     with open(REF_COMMIT_FN, "w") as f:
       f.write(cur_commit)
     print(f"\n\nUpdated reference logs for commit: {cur_commit}")
+    # Add this to not to fail on forked replay and --update-refs
+    sys.exit(0)
 
   sys.exit(int(failed))

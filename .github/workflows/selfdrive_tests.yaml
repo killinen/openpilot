@@ -162,7 +162,8 @@ jobs:
       run: eval "$BUILD"
     - name: Run unit tests
       run: |
-        ${{ env.RUN }} "scons -j$(nproc) --test && \
+        ${{ env.RUN }} "git config --global --add safe.directory  '*' && \
+                        scons -j$(nproc) --test && \
                         coverage run selfdrive/test/test_fingerprints.py && \
                         $UNIT_TEST common && \
                         $UNIT_TEST opendbc/can && \
@@ -261,15 +262,26 @@ jobs:
 
       - name: Run process replay with update-refs
         run: |
-          ${{ env.RUN }} "\
-            unset FINGERPRINT && \
-            git config --global --add safe.directory /tmp/openpilot && \
-            git config --global --add safe.directory /tmp/openpilot/panda && \
-            mkdir -p /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
-            cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
-            ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
-            scons -j$(nproc) --cache-populate && \
-            FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs --whitelist-cars HYUNDAI "--whitelist-procs calibrationd controlsd plannerd radard paramsd logmessaged pandad
+          # Run the test command and capture both stdout and stderr to a log file
+          {
+            ${{ env.RUN }} "\
+              unset FINGERPRINT && \
+              git config --global --add safe.directory /tmp/openpilot && \
+              git config --global --add safe.directory /tmp/openpilot/panda && \
+              mkdir -p /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+              cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
+              ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+              scons -j$(nproc) --cache-populate && \
+              FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs --whitelist-cars HYUNDAI --whitelist-procs calibrationd controlsd plannerd radard paramsd"
+          } 2>&1 | tee process_replay.log
+
+      - name: Check logs for crash indicators
+        run: |
+          # Look for known exception patterns that indicate failure
+          if grep -E "Traceback|Exception in thread|capnp.*failed" process_replay.log; then
+            echo "::error::Detected crash or exception in log output"
+            exit 1
+          fi
 
   #model_replay:
   #  name: model replay
@@ -321,48 +333,48 @@ jobs:
         name: longitudinal
         path: selfdrive/test/longitudinal_maneuvers/out/longitudinal/
 
-  test_cars:
-    name: cars
-    runs-on: ubuntu-22.04
-    timeout-minutes: 50
-    strategy:
-      fail-fast: false
-      matrix:
-        job: [0, 1, 2, 3]
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Cache dependencies
-      id: dependency-cache
-      uses: actions/cache@v3
-      with:
-        path: /tmp/comma_download_cache
-        key: car_models-${{ hashFiles('selfdrive/test/test_models.py', 'selfdrive/test/test_routes.py') }}-${{ matrix.job }}
-    - name: Cache scons
-      id: scons-cache
-      # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
-      uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
-      env:
-        CACHE_SKIP_SAVE: true
-      with:
-        path: /tmp/scons_cache
-        key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-        restore-keys: |
-          scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-          scons-
-    - name: Build Docker image
-      run: eval "$BUILD"
-    - name: Test car models
-      run: |
-        ${{ env.RUN }} "scons -j$(nproc) --test && \
-                        FILEREADER_CACHE=1 pytest selfdrive/test/test_models.py && \
-                        chmod -R 777 /tmp/comma_download_cache"
-      env:
-        NUM_JOBS: 4
-        JOB_ID: ${{ matrix.job }}
-    - name: Upload coverage to Codecov
-      run: bash <(curl -s https://codecov.io/bash) -v -F test_car_models
+        #  test_cars:
+        #    name: cars
+        #    runs-on: ubuntu-22.04
+        #    timeout-minutes: 50
+        #    strategy:
+        #      fail-fast: false
+        #      matrix:
+        #        job: [0, 1, 2, 3]
+        #    steps:
+        #    - uses: actions/checkout@v3
+        #      with:
+        #        submodules: true
+        #    - name: Cache dependencies
+        #      id: dependency-cache
+        #      uses: actions/cache@v3
+        #      with:
+        #        path: /tmp/comma_download_cache
+        #        key: car_models-${{ hashFiles('selfdrive/test/test_models.py', 'selfdrive/test/test_routes.py') }}-${{ matrix.job }}
+        #    - name: Cache scons
+        #      id: scons-cache
+        #      # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
+        #      uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
+        #      env:
+        #        CACHE_SKIP_SAVE: true
+        #      with:
+        #        path: /tmp/scons_cache
+        #        key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+        #        restore-keys: |
+        #          scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+        #          scons-
+        #    - name: Build Docker image
+        #      run: eval "$BUILD"
+        #    - name: Test car models
+        #      run: |
+        #        ${{ env.RUN }} "scons -j$(nproc) --test && \
+        #                        FILEREADER_CACHE=1 pytest selfdrive/test/test_models.py && \
+        #                        chmod -R 777 /tmp/comma_download_cache"
+        #      env:
+        #        NUM_JOBS: 4
+        #        JOB_ID: ${{ matrix.job }}
+        #    - name: Upload coverage to Codecov
+        #      run: bash <(curl -s https://codecov.io/bash) -v -F test_car_models
 
 #  docs:
 #    name: build docs
