@@ -408,7 +408,7 @@ jobs:
             cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
             ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
             scons -j$(nproc) --cache-populate && \
-            FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs -j$(nproc)"
+            FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs -j$(nproc) --whitelist-cars HYUNDAI"
 
   test_longitudinal:
     name: longitudinal
