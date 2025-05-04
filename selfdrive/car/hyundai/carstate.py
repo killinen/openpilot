@@ -5,11 +5,12 @@ from cereal import car
 from common.conversions import Conversions as CV
 from opendbc.can.parser import CANParser
 from opendbc.can.can_define import CANDefine
-from selfdrive.car.hyundai.values import DBC, FEATURES, HDA2_CAR, EV_CAR, HYBRID_CAR, Buttons, CarControllerParams
+from selfdrive.car.hyundai.values import DBC, FEATURES, HDA2_CAR, EV_CAR, HYBRID_CAR, Buttons, CarControllerParams, CAR
 from selfdrive.car.interfaces import CarStateBase
 
 PREV_BUTTON_SAMPLES = 8
 
+GearShifter = car.CarState.GearShifter
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -37,6 +38,8 @@ class CarState(CarStateBase):
   def update(self, cp, cp_cam):
     if self.CP.carFingerprint in HDA2_CAR:
       return self.update_hda2(cp, cp_cam)
+    if self.CP.carFingerprint == CAR.I30:
+      return self.update_i30(cp, cp_cam)
 
     ret = car.CarState.new_message()
 
@@ -179,10 +182,71 @@ class CarState(CarStateBase):
 
     return ret
 
+  def update_i30(self, cp, cp_cam):
+    ret = car.CarState.new_message()
+
+    ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
+
+    ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 1
+
+    ret.wheelSpeeds = self.get_wheel_speeds(
+      cp.vl["TCS5"]["WHEEL_FL"],
+      cp.vl["TCS5"]["WHEEL_FR"],
+      cp.vl["TCS5"]["WHEEL_RL"],
+      cp.vl["TCS5"]["WHEEL_RR"],
+    )
+    ret.vEgoRaw = (ret.wheelSpeeds.fl + ret.wheelSpeeds.fr + ret.wheelSpeeds.rl + ret.wheelSpeeds.rr) / 4.
+    ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
+
+    ret.standstill = ret.vEgoRaw < 0.1
+
+    ret.steeringAngleDeg = cp.vl["SAS1"]['SAS_Angle']
+    ret.steeringRateDeg = cp.vl["SAS1"]['SAS_Speed']
+    ret.yawRate = cp.vl["ESP2"]['YAW_RATE']
+    ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
+                                                            cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
+
+    ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
+
+    ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
+    ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
+    ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
+
+    # emulate driver steering torque - allows lane change assist on blinker hold
+    ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane
+
+    ret.steerWarning = False
+
+    ret.cruiseState.available = cp.vl["EMS6"]['CRUISE_LAMP_M'] != 0
+    ret.cruiseState.enabled = bool(cp.vl["EMS6"]['CRUISE_LAMP_S'])
+    ret.cruiseState.standstill = False
+    ret.cruiseState.speed = 0
+
+    # TODO: Find brake pressure
+    ret.brake = 0
+    ret.brakePressed = cp.vl["EMS_DCT2"]['BRAKE_ACT'] == 2
+    ret.gas = cp.vl["EMS_DCT1"]['PV_AV_CAN']
+    ret.gearShifter = GearShifter.reverse if cp.vl["CLU2"]['CF_Clu_SwiGearR'] else GearShifter.drive	# Force D-gear otherwise because my car is manual
+    # TODO: You should make something up for these when have the time
+    self.brake_error = False
+    self.park_brake = False
+
+    # Old (working) cruise buttons
+    # self.prev_cruise_buttons = self.cruise_buttons
+    # self.cruise_buttons = cp.vl["CLU1"]["CF_Clu_CruiseSwState"]
+
+    # New cruise buttons
+    self.prev_cruise_buttons = self.cruise_buttons[-1]  # Get the last button pressed
+    self.cruise_buttons.extend(cp.vl_all["CLU1"]["CF_Clu_CruiseSwState"])
+
+    return ret
+
   @staticmethod
   def get_can_parser(CP):
     if CP.carFingerprint in HDA2_CAR:
       return CarState.get_can_parser_hda2(CP)
+    if CP.carFingerprint == CAR.I30:
+      return CarState.get_can_parser_i30(CP)
 
     signals = [
       # signal_name, signal_address
@@ -320,6 +384,17 @@ class CarState(CarStateBase):
       signals = [(f"BYTE{i}", "CAM_0x2a4") for i in range(3, 24)]
       checks = [("CAM_0x2a4", 20)]
       return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 6)
+    if CP.carFingerprint == CAR.I30:
+      signals = [
+        # sig_name, sig_address, default
+        ("STEERING_TORQUE", "STEERING_STATUS", 0),
+        ("STEERING_ANGLE", "STEERING_STATUS", 0),
+      ]
+      checks = [
+        ("STEERING_STATUS", 20)    # Checks if SSC is connected
+      ]
+      return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 1)
+
 
     signals = [
       # signal_name, signal_address
@@ -393,3 +468,47 @@ class CarState(CarStateBase):
     ]
 
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 5)
+
+  @staticmethod
+  def get_can_parser_i30(CP):
+    signals = [
+      # sig_name, sig_address, default
+      ("WHEEL_FL", "TCS5", 0),                #Imported from i30
+      ("WHEEL_FR", "TCS5", 0),                #Imported from i30
+      ("WHEEL_RL", "TCS5", 0),                #Imported from i30
+      ("WHEEL_RR", "TCS5", 0),                #Imported from i30
+      ("YAW_RATE", "ESP2", 0),                #Imported from i30
+      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),    #Imported from i30
+      ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30       # Driver Door
+      ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30,      # Passenger door
+      ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
+      ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
+      ("CF_Clu_SwiGearR", "CLU2", 0),         #Imported from i30
+      ("CF_Clu_CruiseSwState", "CLU1", 0),    #Imported from i30
+      ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
+      ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
+      ("BRAKE_ACT", "EMS2", 0),
+      ("BRAKE_ACT", "EMS_DCT2", 0),
+      ("PV_AV_CAN", "EMS_DCT1", 0),           #Imported from i30
+      ("CF_Ems_AclAct", "EMS6", 1),           #Imported from i30
+      ("CR_Mdps_StrTq", "VSM2", 0),           #Imported from i30
+      ("CR_Mdps_OutTq", "VSM2", 0),           #Imported from i30
+      ("SAS_Angle", "SAS1", 0),               #Imported from i30
+      ("SAS_Speed", "SAS1", 0),               #Imported from i30
+    ]
+
+    checks = [
+      ("EMS_DCT2", 20),	# True interval 10 ms
+      ("VSM2", 20),		# True interval 10 ms
+      ("TCS5", 20),		# True interval 20 ms
+      ("SAS1", 20),		# True interval 10 ms
+      ("EMS2", 20),	  # True interval ? ms
+      ("EMS6", 20),	  # True interval ? ms
+      ("EMS_DCT1", 20),	# True interval ? ms
+      ("ESP2", 20),	  # True interval ? ms
+      ("CLU1", 20),		# True interval ? ms
+      ("CLU2", 20),		# True interval ? ms
+      # ("CLU3", 20)		# True interval ? ms (unused)
+    ]
+
+    return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 0)
