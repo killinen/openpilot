@@ -21,6 +21,15 @@ class CarState(CarStateBase):
     #else:  # preferred and elect gear methods use same definition
     #  self.shifter_values = can_define.dv["LVR12"]["CF_Lvr_Gear"]
 
+    # SSC assembly integrity tracking
+    # Need to apply an offset as soon as the steering angle measurements are both received
+    self.needs_angle_offset = True
+    self.ssc_steer_angle = True    # This is first set to false so we ignore the SCC angle stuff
+    self.angle_offset = 0.0
+    # Initialize variables to store the min and max error values
+    self.steeringAngle_aligned = False
+    self.min_error = 0.0
+    self.max_error = 0.0
 
   def update(self, cp, cp_cam):
     ret = car.CarState.new_message()
@@ -63,6 +72,27 @@ class CarState(CarStateBase):
 
     # ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
     ret.steerWarning = False
+
+
+    # EPS and SSC angle difference tracking for assembly integrity monitoring
+    if self.ssc_steer_angle:
+      if self.needs_angle_offset:
+        self.angle_offset = (cp_cam.vl["STEERING_STATUS"]['STEERING_ANGLE']) - ret.steeringAngleDeg
+        self.needs_angle_offset = False
+      else:
+        # After angle_offset has been set, start measuring aligned SSC angle
+        self.steeringAngleDegSSC = (cp_cam.vl["STEERING_STATUS"]['STEERING_ANGLE']) - self.angle_offset
+        if abs(ret.steeringAngleDeg - self.steeringAngleDegSSC) < 0.1:
+          self.steeringAngle_aligned = True
+        # Calculate the error (difference) between the two sensor readings
+        ret.steeringAngleDegError = self.steeringAngleDegSSC - ret.steeringAngleDeg
+
+        # Track the minimum and maximum error values
+        if self.steeringAngle_aligned:
+          self.max_error = max(self.max_error, ret.steeringAngleDegError)
+          self.min_error = min(self.min_error, ret.steeringAngleDegError)
+
+        ret.steeringAngleOffsetDeg = self.max_error - self.min_error
 
     # cruise state
     # if self.CP.openpilotLongitudinalControl:

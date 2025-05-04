@@ -422,6 +422,14 @@ EVENTS: Dict[Union[int, str], Dict[str, Union[Alert, AlertCallbackType]]] = {
       Priority.LOW, VisualAlert.ldw, AudibleAlert.prompt, 3.),
   },
 
+  EventName.steeringDegDiverged: {
+    ET.PERMANENT: Alert(
+      "CHECK SSC ASSEMBLY",
+      "SteeringDeg measurements deverged too much!",
+      AlertStatus.userPrompt, AlertSize.mid,
+      Priority.LOW, VisualAlert.steerRequired, AudibleAlert.prompt, 1., 1., 1.),
+  },
+
   # ********** events only containing alerts that display while engaged **********
 
   EventName.gasPressed: {

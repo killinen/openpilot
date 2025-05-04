@@ -389,6 +389,10 @@ class Controls:
 
     self.add_stock_additions_alerts(CS)
 
+    # If theres too big difference between cars and SSC angle sensor, create a alarm
+    if CS.steeringAngleDegError > 20:
+      self.events.add(EventName.steeringDegDiverged)
+
   def add_stock_additions_alerts(self, CS):
     self.AM.SA_set_frame(self.sm.frame)
     self.AM.SA_set_enabled(self.enabled)

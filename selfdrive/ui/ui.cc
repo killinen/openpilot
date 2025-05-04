@@ -185,7 +185,7 @@ static void update_state(UIState *s) {
     scene.steeringTorqueEps = carState.getSteeringTorqueEps();
     scene.steeringTorqueOut = carState.getSteeringTorqueOut();
     scene.steeringTorque = carState.getSteeringTorque();
-    scene.angleDivergence = carState.getSteeringAngleDegError();
+    scene.angleDivergence = carState.getSteeringAngleOffsetDeg();
   }
   // Debug value stuff ends
   if (sm.updated("pandaStates")) {
@@ -238,14 +238,13 @@ static void update_state(UIState *s) {
   }
 
   // 🧪 Fill in test values
-  scene.angleDivergence = 5.3;
+  // scene.angleDivergence = 5.3;
   // scene.gpsAccuracyUblox = 0.75;
   // scene.satelliteCount = 9;
   // scene.angleOffsetAverageDeg = -1.23;
   scene.aLeadK = 0.6;
   // scene.aEgo = 2.3;
   // scene.steeringTorqueEps = 1.0;
-  scene.angleDivergence = 0.5;
 
   scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
   scene.started_sentry = sm["deviceState"].getDeviceState().getStartedSentry();
