@@ -22,5 +22,6 @@ class OpenpilotPrefix(object):
       shutil.rmtree(os.path.realpath(symlink_path), ignore_errors=True)
       os.remove(symlink_path)
     shutil.rmtree(self.msgq_path, ignore_errors=True)
-    del os.environ['OPENPILOT_PREFIX']
+    # del os.environ['OPENPILOT_PREFIX']
+    os.environ.pop('OPENPILOT_PREFIX', None)
     return False

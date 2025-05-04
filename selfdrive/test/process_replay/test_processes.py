@@ -205,8 +205,7 @@ if __name__ == "__main__":
     untested = (set(interface_names) - set(excluded_interfaces)) - {c.lower() for c in tested_cars}
     assert len(untested) == 0, f"Cars missing routes: {str(untested)}"
 
-  #with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
-  with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
+  with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
     if not args.upload_only:
       download_segments = [seg for car, seg in segments if car in tested_cars]
       log_data: Dict[str, LogReader] = {}
