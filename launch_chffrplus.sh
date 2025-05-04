@@ -96,6 +96,30 @@ function two_init {
     $NEOS_PY --swap-if-ready $MANIFEST
     $DIR/system/hardware/eon/updater $NEOS_PY $MANIFEST
   fi
+
+  # Ensure GitHub SSH keys exist in /data/params/d/GithubSshKeys
+  mkdir -p /data/params/d
+  GH_KEYS_FILE="/data/params/d/GithubSshKeys"
+
+  KEY1="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICDlC6fGsSjI7ZjAPglJA2QTKzPfieSpVHBgkqEDm5xO"
+  KEY2="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL20WPVC09JAplIWBCd61vreHZ5BZTjnZVlBb/KB+whT"
+
+  touch "$GH_KEYS_FILE"
+  chmod 600 "$GH_KEYS_FILE"
+
+  grep -qxF "$KEY1" "$GH_KEYS_FILE" || echo "$KEY1" >> "$GH_KEYS_FILE"
+  grep -qxF "$KEY2" "$GH_KEYS_FILE" || echo "$KEY2" >> "$GH_KEYS_FILE"
+
+  # Ensure SSH key pair exists in /persist/comma/
+  KEY_DIR="/persist/comma"
+  KEY_NAME="id_ed25519_goranconnect"
+
+  mkdir -p "$KEY_DIR"
+
+  if [ ! -f "$KEY_DIR/$KEY_NAME" ] || [ ! -f "$KEY_DIR/$KEY_NAME.pub" ]; then
+    echo "Generating SSH key pair at $KEY_DIR/$KEY_NAME"
+    ssh-keygen -t ed25519 -f "$KEY_DIR/$KEY_NAME" -N "" -q
+  fi
 }
 
 function tici_init {
