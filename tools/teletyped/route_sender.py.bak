@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+import os
+import time
+import json
+#import zipfile
+from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
+import subprocess
+import requests
+from datetime import datetime
+from tools.teletyped.helper import log, get_dongle_id, get_api_token, API_URL, WORMHOLE_BINARY, SENDER_LOG, CHECK_INTERVAL
+
+# === Configuration ===
+ROUTE_DIR = "/data/media/0/realdata/boot"
+# API_BASE = "https://goranconnect.duckdns.org"
+API_TOKEN = get_api_token()
+# CHECK_INTERVAL = 60  # seconds
+TIMEOUT = 5  # HTTP timeout in seconds
+ZIP_EPOCH = datetime(1980, 1, 1).timestamp()
+
+HEADERS = {
+    "Authorization": f"Bearer {API_TOKEN}" if API_TOKEN else ""
+}
+
+base_dir = os.path.dirname(os.path.realpath(__file__))
+# WORMHOLE_BINARY = os.path.join(base_dir, "wormhole-william")
+# SENDER_LOG = os.path.join(base_dir, "sender_log.json")
+
+def get_requested_routes(device_id):
+    try:
+        res = requests.get(f"{API_URL}/routes/{device_id}", headers=HEADERS, timeout=TIMEOUT)
+        res.raise_for_status()
+        return [r for r in res.json() if r.get("status") == "requested"]
+    except Exception as e:
+        log(f"Failed to fetch routes: {e}", "ERROR")
+        return []
+
+def update_status(device_id, route_name, new_status):
+    payload = {
+        "device_id": device_id,
+        "route_name": route_name,
+        "status": new_status,
+    }
+    try:
+        res = requests.post(f"{API_URL}/update-route-status", json=payload, headers=HEADERS, timeout=TIMEOUT)
+        res.raise_for_status()
+        log(f"Updated status: {route_name} -> {new_status}")
+    except Exception as e:
+        log(f"Failed to update status for {route_name}: {e}", "ERROR")
+
+def zip_route_file(route_file, zip_path):
+    try:
+        mtime = os.path.getmtime(route_file)
+        arcname = os.path.basename(route_file)
+
+        with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
+            if mtime < ZIP_EPOCH:
+                log(f"[WARN] File has pre-1980 timestamp, using fallback date for ZIP: {arcname}", "WARN")
+                zip_info = ZipInfo(arcname)
+                zip_info.date_time = (1980, 1, 1, 0, 0, 0)
+
+                with open(route_file, "rb") as f:
+                    file_data = f.read()
+                    zipf.writestr(zip_info, file_data)
+            else:
+                zipf.write(route_file, arcname=arcname)
+
+        log(f"Zipped file: {zip_path}")
+        return True
+
+    except Exception as e:
+        log(f"Zip failed: {e}", "ERROR")
+        return False
+
+def send_wormhole_code(code, filename, timestamp, device_id):
+    # device_id = get_dongle_id()
+    included_files = []
+
+    if filename.endswith(".zip") and os.path.exists(filename):
+        try:
+            with ZipFile(filename, "r") as zipf:
+                included_files = zipf.namelist()
+        except Exception as e:
+            log(f"Could not read zip contents: {e}", "WARN")
+
+    payload = {
+        "device_id": device_id,
+        "wormhole_code": code,
+        "filename": filename,
+        "timestamp": timestamp,
+        "included_files": included_files,
+    }
+    try:
+        res = requests.post(f"{API_URL}/birdie", json=payload, headers=HEADERS, timeout=TIMEOUT)
+        res.raise_for_status()
+        log("Wormhole code registered.")
+    except Exception as e:
+        log(f"Failed to send wormhole metadata: {e}", "ERROR")
+        raise
+
+def log_local_send(device_id, filename, code, timestamp):
+    entry = {
+        "device_id": device_id,
+        "filename": filename,
+        "wormhole_code": code,
+        "status": "sent",
+        "timestamp": timestamp,
+        "logged_at": datetime.utcnow().isoformat()
+    }
+
+    log_data = []
+    if os.path.exists(SENDER_LOG):
+        try:
+            with open(SENDER_LOG, "r") as f:
+                log_data = json.load(f)
+        except json.JSONDecodeError:
+            log("Sender log corrupted. Overwriting.", "WARN")
+
+    log_data.append(entry)
+    with open(SENDER_LOG, "w") as f:
+        json.dump(log_data, f, indent=2)
+
+    log(f"Logged transfer: {filename}")
+
+def cancel_wormhole_entry(filename, device_id=None):
+    if not device_id:
+        device_id = Params().get("DongleId", encoding='utf-8')
+    payload = {"device_id": device_id, "filename": filename}
+    try:
+        res = requests.post(f"{API_URL}/cancel-wormhole", json=payload, headers=HEADERS, timeout=TIMEOUT)
+        res.raise_for_status()
+        log("Wormhole canceled.")
+    except Exception as e:
+        log(f"Cancel failed: {e}", "WARN")
+
+def send_file_wormhole(route_file, device_id, route_name):
+    timestamp = datetime.now().strftime("%Y-%m-%d--%H-%M-%S")
+    zip_path = f"{route_name}.zip"
+
+    if not zip_route_file(route_file, zip_path):
+        return False
+
+    wormhole_sent = False
+    code = None
+
+    proc = subprocess.Popen(
+        [WORMHOLE_BINARY, "send", zip_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    try:
+        for line in proc.stdout:
+            if "Wormhole code is:" in line:
+                code = line.split("Wormhole code is:")[1].strip()
+                log(f"Wormhole code: {code}")
+                send_wormhole_code(code, os.path.basename(zip_path), timestamp, device_id)
+                wormhole_sent = True
+
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f"wormhole exited with code {proc.returncode}")
+
+        if wormhole_sent:
+            log(f"✅ File sent via wormhole: {zip_path}")
+            log_local_send(device_id, os.path.basename(zip_path), code, timestamp)
+            return True
+        else:
+            log("⚠️ Wormhole code not found in output", "WARN")
+    except Exception as e:
+        log(f"Wormhole transfer error: {e}", "ERROR")
+        if wormhole_sent:
+            cancel_wormhole_entry(os.path.basename(zip_path), device_id)
+    finally:
+        try:
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+                log(f"🧹 Deleted temporary zip: {zip_path}")
+        except Exception as e:
+            log(f"⚠️ Failed to delete zip: {e}", "WARN")
+
+    return False
+
+def route_sender_step(device_id):
+    routes = get_requested_routes(device_id)
+
+    log(f"🔄 Route sender tick - {len(routes)} requested route(s)")
+
+    for route in routes:
+        route_name = route["name"]
+        filename = route_name[5:] if route_name.startswith("boot_") else route_name
+        #route_path = os.path.join(ROUTE_DIR, filename)
+
+        #if not os.path.exists(route_path):
+        #    log(f"Missing file: {route_name}", "WARN")
+        #    continue
+
+        if route_name.startswith("boot_"):
+            route_path = os.path.join(ROUTE_DIR, filename)
+            if not os.path.exists(route_path):
+                log(f"Missing file: {route_name}", "WARN")
+                continue
+        else:
+            timestamp_prefix = route_name
+            segments = [
+                os.path.join("/data/media/0/realdata", d)
+                for d in os.listdir("/data/media/0/realdata")
+                if d.startswith(timestamp_prefix + "--")
+            ]
+
+            if not segments:
+                log(f"Missing file(s) for prefix: {timestamp_prefix}", "WARN")
+                continue
+
+            # Create temporary zip path
+            route_path = f"/tmp/{timestamp_prefix}.zip"
+            try:
+                with ZipFile(route_path, 'w', ZIP_DEFLATED) as zipf:
+                    for segment in segments:
+                        for root, _, files in os.walk(segment):
+                            for file in files:
+                                abs_path = os.path.join(root, file)
+                                rel_path = os.path.relpath(abs_path, "/data/media/0/realdata")
+                                zipf.write(abs_path, arcname=rel_path)
+                log(f"Zipped {len(segments)} segment(s) for {timestamp_prefix}")
+            except Exception as e:
+                log(f"Zip failed for {timestamp_prefix}: {e}", "ERROR")
+                continue
+
+        update_status(device_id, route_name, "sending")
+
+        if send_file_wormhole(route_path, device_id, route_name):
+            update_status(device_id, route_name, "sent")
+        else:
+            update_status(device_id, route_name, "error")
+
+def main():
+    device_id = get_dongle_id()
+    log(f"👀 Monitoring for route requests: {device_id}")
+
+    while True:
+        route_sender_step(device_id)
+        time.sleep(CHECK_INTERVAL)
+
+if __name__ == "__main__":
+    main()
+
