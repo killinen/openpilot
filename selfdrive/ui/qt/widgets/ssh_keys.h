@@ -32,3 +32,17 @@ private:
   void refresh();
   void getUserKeys(const QString &username);
 };
+
+// Remote control password widget
+class GoranConnectPasswordControl : public ButtonControl {
+  Q_OBJECT
+
+public:
+  GoranConnectPasswordControl();
+
+private:
+  Params params;
+  QLabel password_label;
+
+  void refresh();
+};

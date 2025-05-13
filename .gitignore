@@ -85,3 +85,6 @@ build/
 
 !**/.gitkeep
 !tools/testdata/rlog.bz2
+
+# Tool-generated files
+tools/teletyped/sender_log.json
