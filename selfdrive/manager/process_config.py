@@ -50,6 +50,7 @@ procs = [
   PythonProcess("updated", "selfdrive.updated", enabled=not PC, onroad=False, offroad=True),
   PythonProcess("uploader", "selfdrive.loggerd.uploader", offroad=True),
   PythonProcess("statsd", "selfdrive.statsd", offroad=True),
+  PythonProcess("teletyped", "tools.teletyped.teletyped", offroad=True, onroad=False),
 
   # EON only
   PythonProcess("rtshield", "selfdrive.rtshield", enabled=EON),
