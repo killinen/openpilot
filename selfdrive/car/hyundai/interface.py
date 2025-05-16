@@ -79,8 +79,6 @@ class CarInterface(CarInterfaceBase):
       # ret.lateralTuning.pid.kf = 0.00019
       ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]
       ret.lateralTuning.pid.kf = 0.00004
-      ret.steerMaxBP = [0.]
-      #ret.steerMaxV = [SteerLimitParams.MAX_STEERING_TQ]
       ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
       ret.radarTimeStep = 0.05  # time delta between radar updates, 20Hz is very standard
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
