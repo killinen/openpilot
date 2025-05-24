@@ -24,7 +24,7 @@ procs = [
   NativeProcess("clocksd", "system/clocksd", ["./clocksd"]),
   NativeProcess("dmonitoringmodeld", "selfdrive/modeld", ["./dmonitoringmodeld"], enabled=(not PC or WEBCAM), callback=driverview),
   NativeProcess("logcatd", "system/logcatd", ["./logcatd"]),
-  NativeProcess("loggerd", "selfdrive/loggerd", ["./loggerd"], onroad=False, callback=logging),
+  NativeProcess("loggerd", "selfdrive/loggerd", ["./loggerd"], onroad=True, callback=logging),
   NativeProcess("modeld", "selfdrive/modeld", ["./modeld"]),
   NativeProcess("proclogd", "system/proclogd", ["./proclogd"]),
   NativeProcess("sensord", "selfdrive/sensord", ["./sensord"], enabled=not PC, offroad=EON, sigkill=EON),
@@ -55,7 +55,7 @@ procs = [
   PythonProcess("rtshield", "selfdrive.rtshield", enabled=EON),
   PythonProcess("shutdownd", "system.hardware.eon.shutdownd", enabled=EON),
   PythonProcess("androidd", "system.hardware.eon.androidd", enabled=EON, offroad=True),
-  
+
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], onroad=False, callback=notcar),
   PythonProcess("webjoystick", "tools.joystick.web", onroad=False, callback=notcar),
 
