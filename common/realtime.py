@@ -39,13 +39,16 @@ def set_realtime_priority(level: int) -> None:
     os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(level))  # type: ignore[attr-defined] # pylint: disable=no-member
 
 
+#def set_core_affinity(cores: List[int]) -> None:
+#  if not PC:
+#    if EON:
+#      print("Skipping set_core_affinity on Android/Termux")
+#      return
+#    os.sched_setaffinity(0, cores)  # pylint: disable=no-member
+
 def set_core_affinity(cores: List[int]) -> None:
   if not PC:
-    if EON:
-      print("Skipping set_core_affinity on Android/Termux")
-      return
     os.sched_setaffinity(0, cores)  # pylint: disable=no-member
-
 
 def config_realtime_process(cores: Union[int, List[int]], priority: int) -> None:
   gc.disable()
