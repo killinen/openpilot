@@ -6,6 +6,9 @@ export NUMEXPR_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export VECLIB_MAXIMUM_THREADS=1
 
+#export STARTED=1
+#export ONROAD=1
+
 if [ -z "$REQUIRED_NEOS_VERSION" ]; then
   export REQUIRED_NEOS_VERSION="20"
 fi
@@ -19,3 +22,6 @@ if [ -z "$PASSIVE" ]; then
 fi
 
 export STAGING_ROOT="/data/safe_staging"
+
+export SKIP_FW_QUERY=1
+export FINGERPRINT="HYUNDAI I30 GD 2014"
