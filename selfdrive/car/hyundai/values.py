@@ -43,6 +43,9 @@ class SteerLimitParams: #controls running @ 100hz
   STEER_DELTA_UP = 3 / 100       # 3 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
   STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
   STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
+  STEER_STEP = 1 # 100Hz
+  STEER_MAX = 12  # Nm
+
 
 class CAR:
   # Hyundai

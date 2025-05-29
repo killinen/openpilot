@@ -73,7 +73,7 @@ class Controls:
     self.decel_pressed_last = 0.
     self.fastMode = False
     self.disengageByBrake = False
-    
+
     # Setup sockets
     self.pm = pm
     if self.pm is None:
@@ -118,7 +118,7 @@ class Controls:
     self.CP.alternativeExperience = 0
     if not self.disengage_on_accelerator:
       self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.DISABLE_DISENGAGE_ON_GAS
-    
+
     self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.SPLIT_LKAS_AND_ACC
     self.CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.RESUME_LKAS_AFTER_BRAKE
 
@@ -500,7 +500,7 @@ class Controls:
             self.decel_pressed_last = cur_time
             self.fastMode = True
         else:
-          self.fastMode = False          
+          self.fastMode = False
       else:
         self.v_cruise_kph = CS.cruiseState.speed * CV.MS_TO_KPH
 
@@ -586,7 +586,7 @@ class Controls:
           if not self.CP.pcmCruise and CS.cruiseState.enabled:
             self.v_cruise_kph = initialize_v_cruise(CS.vEgo, CS.buttonEvents, self.v_cruise_kph_last)
 
-    self.cruiseState_enabled_last = CS.cruiseState.enabled  
+    self.cruiseState_enabled_last = CS.cruiseState.enabled
 
     # Check if openpilot is engaged and actuators are enabled
     self.enabled = self.state in ENABLED_STATES
@@ -608,10 +608,14 @@ class Controls:
 
     CC = car.CarControl.new_message()
     CC.enabled = self.enabled
+    # if (self.sm.frame % 10):
+    #   print(f'self.active: {self.active} CS.steerFaultTemporary: {CS.steerFaultTemporary}, CS.steerFaultPermanent: {CS.steerFaultPermanent}, CS.cruiseState.standstill: {CS.cruiseState.standstill}')
     # Check which actuators can be enabled
     #TODO fix for cruiseState standstill
+    # CC.latActive = self.active and (not CS.steerFaultTemporary) and (not CS.steerFaultPermanent) and \
+    #                  (CS.vEgo > self.CP.minSteerSpeed) and (not CS.cruiseState.standstill) and CS.lkasEnabled and ((not CS.belowLaneChangeSpeed) or ((not (((self.sm.frame - self.last_blinker_frame) * DT_CTRL) < 1.0))))
     CC.latActive = self.active and (not CS.steerFaultTemporary) and (not CS.steerFaultPermanent) and \
-                     (CS.vEgo > self.CP.minSteerSpeed) and (not CS.cruiseState.standstill) and CS.lkasEnabled and ((not CS.belowLaneChangeSpeed) or ((not (((self.sm.frame - self.last_blinker_frame) * DT_CTRL) < 1.0))))
+                     (CS.vEgo > self.CP.minSteerSpeed) and (not CS.cruiseState.standstill)
     CC.longActive = self.active and (not self.events.any(ET.OVERRIDE)) and self.CP.openpilotLongitudinalControl and (CS.cruiseState.enabled or (self.CP.pcmCruise and CS.accEnabled and self.CP.minEnableSpeed > 0 and not CS.cruiseState.enabled))
 
     actuators = CC.actuators

@@ -186,7 +186,6 @@ class CarState(CarStateBase):
     ret = car.CarState.new_message()
 
     ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
-
     ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 1
 
     ret.wheelSpeeds = self.get_wheel_speeds(
@@ -467,34 +466,39 @@ class CarState(CarStateBase):
 
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 5)
 
+  # CAR CAN parser for I30
   @staticmethod
   def get_can_parser_i30(CP):
     signals = [
       # sig_name, sig_address, default
-      ("WHEEL_FL", "TCS5", 0),                #Imported from i30
-      ("WHEEL_FR", "TCS5", 0),                #Imported from i30
-      ("WHEEL_RL", "TCS5", 0),                #Imported from i30
-      ("WHEEL_RR", "TCS5", 0),                #Imported from i30
-      ("YAW_RATE", "ESP2", 0),                #Imported from i30
-      ("CF_Clu_DrvSeatBeltSw", "CLU2", 0),    #Imported from i30
-      ("CF_Clu_DrvDrSw", "CLU2", 1),          #Imported from i30       # Driver Door
-      ("CF_Clu_AstDrSw", "CLU2", 1),          #Imported from i30,      # Passenger door
-      ("CF_Clu_TurnSigLh", "CLU2", 0),        #Imported from i30
-      ("CF_Clu_TurnSigRh", "CLU2", 0),        #Imported from i30
-      ("CF_Clu_SwiGearR", "CLU2", 0),         #Imported from i30
-      ("CF_Clu_CruiseSwState", "CLU1", 0),    #Imported from i30
-      ("CRUISE_LAMP_M", "EMS6", 0),           #Imported from i30
-      ("CRUISE_LAMP_S", "EMS6", 0),           #Imported from i30
-      ("BRAKE_ACT", "EMS2", 0),
-      ("BRAKE_ACT", "EMS_DCT2", 0),
-      ("PV_AV_CAN", "EMS_DCT1", 0),           #Imported from i30
-      ("CF_Ems_AclAct", "EMS6", 1),           #Imported from i30
-      ("CR_Mdps_StrTq", "VSM2", 0),           #Imported from i30
-      ("CR_Mdps_OutTq", "VSM2", 0),           #Imported from i30
-      ("SAS_Angle", "SAS1", 0),               #Imported from i30
-      ("SAS_Speed", "SAS1", 0),               #Imported from i30
+      ("WHEEL_FL", "TCS5"),
+      ("WHEEL_FR", "TCS5"),
+      ("WHEEL_RL", "TCS5"),
+      ("WHEEL_RR", "TCS5"),
+      ("YAW_RATE", "ESP2"),
+      ("CF_Clu_DrvSeatBeltSw", "CLU2"),
+      ("CF_Clu_DrvDrSw", "CLU2"),          # Driver Door
+      ("CF_Clu_AstDrSw", "CLU2"),          # Passenger door
+      ("CF_Clu_TurnSigLh", "CLU2"),
+      ("CF_Clu_TurnSigRh", "CLU2"),
+      ("CF_Clu_SwiGearR", "CLU2"),
+      ("CF_Clu_CruiseSwState", "CLU1"),
+      ("CRUISE_LAMP_M", "EMS6"),
+      ("CRUISE_LAMP_S", "EMS6"),
+      ("BRAKE_ACT", "EMS2"),
+      ("BRAKE_ACT", "EMS_DCT2"),
+      ("PV_AV_CAN", "EMS_DCT1"),
+      ("CF_Ems_AclAct", "EMS6"),
+      ("CR_Mdps_StrTq", "VSM2"),
+      ("CR_Mdps_OutTq", "VSM2"),
+      ("SAS_Angle", "SAS1"),
+      ("SAS_Speed", "SAS1"),
     ]
 
+    # This check if the signal is found on current bus (last item on the return args), if we get MISSING error in tmux,
+    # it tells that the signal has not been seen at all, if we get TIMEOUT error that mean that we are not receiving the
+    # message in expected timeframe (signal, expected timeframe), the timeframe is given as Hz, and the errror will trigger
+    # if the opendbc/can/can_packer does not receive it in 10 time per expected timeframe eg. 20 = 500 ms
     checks = [
       ("EMS_DCT2", 20),	# True interval 10 ms
       ("VSM2", 20),		# True interval 10 ms
@@ -505,8 +509,7 @@ class CarState(CarStateBase):
       ("EMS_DCT1", 20),	# True interval ? ms
       ("ESP2", 20),	  # True interval ? ms
       ("CLU1", 20),		# True interval ? ms
-      ("CLU2", 20),		# True interval ? ms
-      # ("CLU3", 20)		# True interval ? ms (unused)
+      ("CLU2", 10),		# True interval ? ms
     ]
 
     return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 0)

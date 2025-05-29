@@ -117,7 +117,8 @@ class CarController:
       # if (self.frame % 100) == 0: #slow print when disabled
       #   print("SteerAngle {0} SteerSpeed {1}".format(CS.out.steeringAngleDeg,
                                                                 #  CS.out.steeringRateDeg))
-    # if (self.frame % 10) == 0:
+      # if (self.frame % 10) == 0:
+      #   print(f'apply_steer_rq: {apply_steer_req}, steer_tq: {steer_tq}')
     #   print(f'offset: SAS angle: {CS.out.steeringAngleDeg}, SSC angle: {CS.out.steeringAngleDegSSC}, steeringAngleDegError: {CS.out.steeringAngleDegError}')
 
     # can_sends.append(hyundaican.create_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq, frame))

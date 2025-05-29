@@ -2,7 +2,7 @@
 from cereal import car
 from panda import Panda
 from common.conversions import Conversions as CV
-from selfdrive.car.hyundai.values import CAR, DBC, EV_CAR, HYBRID_CAR, LEGACY_SAFETY_MODE_CAR, Buttons, CarControllerParams
+from selfdrive.car.hyundai.values import CAR, DBC, EV_CAR, HYBRID_CAR, LEGACY_SAFETY_MODE_CAR, Buttons, CarControllerParams, SteerLimitParams
 from selfdrive.car.hyundai.radar_interface import RADAR_START_ADDR
 from selfdrive.car import STD_CARGO_KG, create_button_enable_events, create_button_event, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
@@ -63,7 +63,7 @@ class CarInterface(CarInterfaceBase):
                                         #### I30 2014  ####
                                         ###################
     elif candidate == CAR.I30:
-      ret.safetyConfigs[0].safetyParam = 17
+      ret.safetyConfigs[0].safetyParam = 17   # This is not correct, but it doesn't seem to matter, more longitudinal stuff?
       ret.mass = 1193   # This is updated for i30
       ret.wheelbase = 2.650   # This is updated for i30
       ret.steerRatio = 15.3   # This is updated for i30
@@ -78,8 +78,19 @@ class CarInterface(CarInterfaceBase):
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
       # ret.lateralTuning.pid.kf = 0.00019
       ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]
-      ret.lateralTuning.pid.kf = 0.00004
-      ret.maxSteeringAngleDeg = 500   # This is stupid amount, but I don't know why it should be limited either
+      ret.lateralTuning.pid.kf = 0.000045
+
+      # ret.steerControlType = car.CarParams.SteerControlType.torque
+      # CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
+      # ret.lateralTuning.torque.kp = 2.7 / SteerLimitParams.STEER_MAX
+      # ret.lateralTuning.torque.ki = 0.5 / SteerLimitParams.STEER_MAX
+      # ret.lateralTuning.torque.kf = 4.0 / SteerLimitParams.STEER_MAX
+      # ret.lateralTuning.torque.friction = 0.23
+      # # ret.lateralTuning.torque.latAccelFactor = 1.41
+      # ret.lateralTuning.torque.useSteeringAngle = True
+      # ret.lateralTuning.torque.steeringAngleDeadzoneDeg = 0.2 # backlash of stepper?
+
+      ret.maxSteeringAngleDeg = 90   # This is stupid amount, but I don't know why it should be limited either
       ret.radarTimeStep = 0.05  # time delta between radar updates, 20Hz is very standard
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.mass = 1513. + STD_CARGO_KG
