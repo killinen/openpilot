@@ -7,6 +7,7 @@ from selfdrive.car.hyundai.radar_interface import RADAR_START_ADDR
 from selfdrive.car import STD_CARGO_KG, create_button_enable_events, create_button_event, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, get_safety_config
 from selfdrive.car.interfaces import CarInterfaceBase
 from selfdrive.car.disable_ecu import disable_ecu
+from math import fabs
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
@@ -19,6 +20,19 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
+
+  # Determined by iteratively plotting and minimizing error for f(angle, speed) = steer.
+  @staticmethod
+  def get_steer_feedforward_sigmoid(desired_angle, v_ego):
+    desired_angle *= 0.02904609
+    sigmoid = desired_angle / (1 + fabs(desired_angle))
+    return 0.10006696 * sigmoid * (v_ego + 3.12485927)
+
+  def get_steer_feedforward_function(self):
+    if self.CP.carFingerprint == CAR.I30:
+      return self.get_steer_feedforward_sigmoid
+    else:
+      return CarInterfaceBase.get_steer_feedforward_default
 
   @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=[], disable_radar=False):  # pylint: disable=dangerous-default-value
@@ -77,8 +91,10 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
       # ret.lateralTuning.pid.kf = 0.00019
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]
-      ret.lateralTuning.pid.kf = 0.000045
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]   # Using regular steer_feedforward w 0815
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.12, 0.16]]     # Using get_steer_feedforward_sigmoid
+      # ret.lateralTuning.pid.kf = 0.000045
+      ret.lateralTuning.pid.kf = 1.       # Using get_steer_feedforward_sigmoid
 
       # ret.steerControlType = car.CarParams.SteerControlType.torque
       # CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
