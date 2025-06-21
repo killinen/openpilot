@@ -6,7 +6,10 @@ import requests
 import sentry_sdk
 from datetime import datetime
 from common.params import Params
-from tools.teletyped.helper import log, get_dongle_id, get_api_token, KEY_PATH, KEY_PATH_PRIV
+from tools.teletyped.helper import (
+    log, get_dongle_id, get_api_token,
+    KEY_PATH, KEY_PATH_PRIV, KEY_SENT_FILE,
+)
 
 # === Configuration ===
 # KEY_PATH = "/persist/comma/id_ed25519_goranconnect.pub"
@@ -51,6 +54,14 @@ def send_ssh_key():
     device_id = get_dongle_id()
     ensure_ssh_key()
     public_key = read_public_key()
+    if os.path.exists(KEY_SENT_FILE):
+        try:
+            with open(KEY_SENT_FILE, "r") as f:
+                if f.read().strip() == public_key:
+                    log("[i] SSH key already uploaded, skipping send")
+                    return
+        except Exception:
+            pass
     payload = {
         "device_id": device_id,
         "public_key": public_key
@@ -65,6 +76,11 @@ def send_ssh_key():
             response = requests.post(API_URL_KEY, json=payload, headers=headers, timeout=TIMEOUT)
             response.raise_for_status()
             log(f"[✓] SSH key uploaded successfully for device {device_id}")
+            try:
+                with open(KEY_SENT_FILE, "w") as f:
+                    f.write(public_key)
+            except Exception as e:
+                log(f"[!] Failed to write key sent marker: {e}", level="ERROR")
             return
         except requests.RequestException as e:
             log(f"[!] Attempt {attempt} failed: {e}", level="ERROR")

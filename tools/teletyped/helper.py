@@ -17,6 +17,7 @@ POLL_INTERVAL = 10
 CHECK_INTERVAL = 60
 KEY_PATH = "/persist/comma/id_ed25519_goranconnect.pub"
 KEY_PATH_PRIV = "/persist/comma/id_ed25519_goranconnect"
+KEY_SENT_FILE = f"{KEY_PATH}.sent"
 REALDATA_DIR = "/data/media/0/realdata"
 BOOT_DIR = os.path.join(REALDATA_DIR, "boot")
 REMOTE_USER = "ubuntu"
