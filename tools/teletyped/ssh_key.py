@@ -4,8 +4,6 @@ import time
 import subprocess
 import requests
 import sentry_sdk
-from datetime import datetime
-from common.params import Params
 from tools.teletyped.helper import log, get_dongle_id, get_api_token, KEY_PATH, KEY_PATH_PRIV
 
 # === Configuration ===
