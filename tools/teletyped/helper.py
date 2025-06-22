@@ -6,20 +6,26 @@ try:
   # Newer style (e.g. `python -m openpilot.tools.teletyped.helper`)
   from openpilot.common.params import Params
   from openpilot.system.hardware import PC, HARDWARE
-  from cereal import log
 except ModuleNotFoundError:
   # Fallback for old-style in-tree execution
   from common.params import Params
   from system.hardware import PC, HARDWARE
-  from cereal import log
+
+from cereal import log
 
 
 API_URL = "https://goranconnect.duckdns.org"
 POLL_INTERVAL = 10
 CHECK_INTERVAL = 60
-KEY_PATH = "/persist/comma/id_ed25519_goranconnect.pub"
-KEY_PATH_PRIV = "/persist/comma/id_ed25519_goranconnect"
-REALDATA_DIR = "/data/media/0/realdata"
+from common.basedir import PERSIST
+
+KEY_PATH = os.path.join(PERSIST, "comma", "id_ed25519_goranconnect.pub")
+KEY_PATH_PRIV = os.path.join(PERSIST, "comma", "id_ed25519_goranconnect")
+
+if os.path.isdir("/data/media/0/realdata"):
+  REALDATA_DIR = "/data/media/0/realdata"
+else:
+  REALDATA_DIR = os.path.join(str(Path.home()), ".comma", "media", "0", "realdata")
 BOOT_DIR = os.path.join(REALDATA_DIR, "boot")
 REMOTE_USER = "ubuntu"
 REMOTE_HOST = "goranconnect.duckdns.org"

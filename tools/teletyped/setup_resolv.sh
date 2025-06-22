@@ -4,7 +4,7 @@
 set -e
 echo "✅ Running in bash $BASH_VERSION"
 
-TELETYPED_DIR="/data/openpilot/tools/teletyped"
+TELETYPED_DIR="$(dirname "$(readlink -f "$0")")"
 RESOLV_SRC="$TELETYPED_DIR/resolv.conf"
 RESOLV_DEST="/etc/resolv.conf"
 
@@ -17,13 +17,17 @@ else
 fi
 
 # Remount /system writable temporarily
-mount -o rw,remount /system
+if [ -d /system ]; then
+  mount -o rw,remount /system
+fi
 
 # Ensure resolv.conf exists
 echo "[+] Ensuring /etc/resolv.conf exists"
 touch "$RESOLV_DEST"
 
-mount -o ro,remount /system
+if [ -d /system ]; then
+  mount -o ro,remount /system
+fi
 
 # Only bind-mount if it's not already bound to the source
 CURRENT_MOUNT=$(mount | grep "on $RESOLV_DEST type" | awk '{print $1}')
