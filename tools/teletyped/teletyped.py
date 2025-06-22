@@ -161,11 +161,6 @@ def main():
   if not device_id:
     return
 
-  # Run at startup
-  setup_script = os.path.join(base_dir, "setup_resolv.sh")
-  if not os.path.isfile(setup_script):
-    raise FileNotFoundError(f"setup_resolv.sh not found at {setup_script}")
-  subprocess.run(setup_script, check=True)
 
   # Check if goranconnect will respond
   check_server(API_URL)  # 👈 This blocks until server is ready
