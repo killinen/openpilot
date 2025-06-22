@@ -11,6 +11,7 @@ from tools.teletyped.helper import (
   KEY_PATH, KEY_PATH_PRIV, KEY_SENT_FILE,
 )
 
+
 # === Configuration ===
 # KEY_PATH = "/persist/comma/id_ed25519_goranconnect.pub"
 # KEY_PATH_PRIV = "/persist/comma/id_ed25519_goranconnect"
@@ -67,6 +68,7 @@ def send_ssh_key():
           return
     except Exception:
       pass
+
   payload = {
     "device_id": device_id,
     "public_key": public_key
