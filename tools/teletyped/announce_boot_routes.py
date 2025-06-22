@@ -3,7 +3,15 @@ import json
 import requests
 from datetime import datetime
 import re
-from tools.teletyped.helper import get_dongle_id, get_api_token, log, API_URL, REALDATA_DIR, BOOT_DIR
+from tools.teletyped.helper import (
+  get_dongle_id,
+  get_api_token,
+  log,
+  API_URL,
+  REALDATA_DIR,
+  BOOT_DIR,
+  has_internet_connection,
+)
 
 # === Config ===
 TIMEOUT = 5
@@ -77,6 +85,9 @@ def main():
   try:
     # device_id = read_dongle_id()
     device_id = get_dongle_id()
+    if not has_internet_connection():
+      log("No internet connection. Exiting.", "WARN")
+      return 1
     existing_routes = get_existing_routes(device_id)
 
     boot_routes = list_boot_routes()

@@ -6,7 +6,18 @@ from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 import subprocess
 import requests
 from datetime import datetime
-from tools.teletyped.helper import log, get_dongle_id, get_api_token, API_URL, WORMHOLE_BINARY, SENDER_LOG, CHECK_INTERVAL, REALDATA_DIR, BOOT_DIR
+from tools.teletyped.helper import (
+  log,
+  get_dongle_id,
+  get_api_token,
+  API_URL,
+  WORMHOLE_BINARY,
+  SENDER_LOG,
+  CHECK_INTERVAL,
+  REALDATA_DIR,
+  BOOT_DIR,
+  has_internet_connection,
+)
 
 API_TOKEN = get_api_token()
 TIMEOUT = 5
@@ -129,6 +140,10 @@ def send_file_wormhole(zip_path, device_id, route_name):
 
 
 def route_sender_step(device_id):
+  if not has_internet_connection():
+    log("No internet connection. Skipping route sender step.", "WARN")
+    return
+
   routes = get_requested_routes(device_id)
   log(f"🔄 Route sender tick - {len(routes)} requested route(s)")
 
