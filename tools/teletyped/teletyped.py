@@ -1,17 +1,14 @@
 import os
 import psutil
 import requests
-import json
 import subprocess
 import time
 import signal
-import sys
 import argparse
-from tools.teletyped import route_sender, ssh_key, announce_boot_routes
+from tools.teletyped import ssh_key
 from tools.teletyped.helper import log, get_dongle_id, get_api_token, API_URL, POLL_INTERVAL, KEY_PATH_PRIV, REMOTE_USER, REMOTE_HOST, REMOTE_PORT, LOCAL_PORT, PIDFILE
 
 VERBOSE = False
-ANNOUNCE_INTERVAL = 300  # 5 minutes
 
 API_TOKEN = get_api_token()
 
@@ -28,12 +25,6 @@ def signal_handler(sig, frame):
   log("\n🛑 Caught interrupt. Exiting cleanly...", "INFO")
   _running = False
 
-def server_available():
-  try:
-    requests.get(f"{API_URL}/health", timeout=2)
-    return True
-  except requests.exceptions.RequestException:
-    return False
 
 def check_server(api_url, timeout=5, max_backoff=60):
   attempt = 0
@@ -159,10 +150,7 @@ def reverse_ssh_step(device_id, last_reported_status):
 
 
 def main():
-  route_failures = 0
   ssh_failures = 0
-  announce_failures = 0
-
   ROUTE_BACKOFF_BASE = 10
   ROUTE_BACKOFF_MAX = 300
 
@@ -182,33 +170,13 @@ def main():
   # Check if goranconnect will respond
   check_server(API_URL)  # 👈 This blocks until server is ready
 
-  announce_boot_routes.main()
-  log("✅ Ran announce_boot_routes_dev.main() at startup")
   ssh_key.send_ssh_key()
 
-  last_announce_time = time.monotonic() - ANNOUNCE_INTERVAL
-  last_route_time = time.monotonic()
   last_ssh_time = time.monotonic()
   last_ssh_status = None
 
   while _running:
     now = time.monotonic()
-
-
-    if now - last_route_time >= POLL_INTERVAL:
-      if route_failures > 0:
-        backoff_time = min(ROUTE_BACKOFF_BASE * (2 ** route_failures), ROUTE_BACKOFF_MAX)
-        if now - last_route_time < backoff_time:
-          time.sleep(1)
-          continue
-
-      try:
-        route_sender.route_sender_step(device_id)
-        route_failures = 0  # ✅ success
-      except Exception as e:
-        route_failures += 1
-        log(f"❌ route_sender_step() failed: {e}", "ERROR")
-      last_route_time = now
 
 
     if now - last_ssh_time >= POLL_INTERVAL:
@@ -226,44 +194,7 @@ def main():
         log(f"❌ reverse_ssh_step() failed: {e}", "ERROR")
       last_ssh_time = now
 
-    if now - last_announce_time >= ANNOUNCE_INTERVAL:
-      if announce_failures > 0:
-        backoff_time = min(ROUTE_BACKOFF_BASE * (2 ** announce_failures), ROUTE_BACKOFF_MAX)
-        if now - last_announce_time < backoff_time:
-          time.sleep(1)
-          continue
 
-      try:
-        announce_boot_routes.main()
-        log("✅ Periodic announce_boot_routes_dev.main() ran")
-        announce_failures = 0
-      except Exception as e:
-        announce_failures += 1
-        log(f"❌ announce_boot_routes_dev.main() failed: {e}", "ERROR")
-      last_announce_time = now
-
-
-#        if now - last_announce_time >= ANNOUNCE_INTERVAL:
-#            try:
-#                announce_boot_routes.main()
-#                log("✅ Periodic announce_boot_routes_dev.main() ran")
-#            except Exception as e:
-#                log(f"❌ announce_boot_routes_dev.main() failed: {e}", "ERROR")
-#            last_announce_time = now
-#
-#        if now - last_route_time >= POLL_INTERVAL:
-#            try:
-#                route_sender.route_sender_step(device_id)
-#            except Exception as e:
-#                log(f"❌ route_sender_step() failed: {e}", "ERROR")
-#            last_route_time = now
-#
-#        if now - last_ssh_time >= POLL_INTERVAL:
-#            try:
-#                last_ssh_status = reverse_ssh_step(device_id, last_ssh_status)
-#            except Exception as e:
-#                log(f"❌ reverse_ssh_step() failed: {e}", "ERROR")
-#            last_ssh_time = now
 
     time.sleep(1)
 
