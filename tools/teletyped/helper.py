@@ -5,11 +5,13 @@ import os
 try:
   # Newer style (e.g. `python -m openpilot.tools.teletyped.helper`)
   from openpilot.common.params import Params
-  from openpilot.system.hardware import PC
+  from openpilot.system.hardware import PC, HARDWARE
+  from cereal import log
 except ModuleNotFoundError:
   # Fallback for old-style in-tree execution
   from common.params import Params
-  from system.hardware import PC
+  from system.hardware import PC, HARDWARE
+  from cereal import log
 
 
 API_URL = "https://goranconnect.duckdns.org"
@@ -26,6 +28,15 @@ LOCAL_PORT = 22
 PIDFILE = "/tmp/reverse_ssh_tunnel.pid"
 WORMHOLE_BINARY = os.path.join(os.path.dirname(__file__), "wormhole-william")
 SENDER_LOG = os.path.join(os.path.dirname(__file__), "sender_log.json")
+
+NetworkType = log.DeviceState.NetworkType
+
+def has_internet_connection() -> bool:
+  """Check if the device currently has any network connectivity."""
+  try:
+    return HARDWARE.get_network_type() != NetworkType.none
+  except Exception:
+    return True
 
 class Paths:
   @staticmethod

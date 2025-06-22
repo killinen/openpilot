@@ -6,7 +6,20 @@ import time
 import signal
 import argparse
 from tools.teletyped import ssh_key
-from tools.teletyped.helper import log, get_dongle_id, get_api_token, API_URL, POLL_INTERVAL, KEY_PATH_PRIV, REMOTE_USER, REMOTE_HOST, REMOTE_PORT, LOCAL_PORT, PIDFILE
+from tools.teletyped.helper import (
+  log,
+  get_dongle_id,
+  get_api_token,
+  API_URL,
+  POLL_INTERVAL,
+  KEY_PATH_PRIV,
+  REMOTE_USER,
+  REMOTE_HOST,
+  REMOTE_PORT,
+  LOCAL_PORT,
+  PIDFILE,
+  has_internet_connection,
+)
 
 VERBOSE = False
 
@@ -161,6 +174,9 @@ def main():
   if not device_id:
     return
 
+  while _running and not has_internet_connection():
+    log("Waiting for internet connection...", "WARN")
+    time.sleep(60)
 
   # Check if goranconnect will respond
   check_server(API_URL)  # 👈 This blocks until server is ready
@@ -172,6 +188,10 @@ def main():
 
   while _running:
     now = time.monotonic()
+
+    if not has_internet_connection():
+      time.sleep(60)
+      continue
 
 
     if now - last_ssh_time >= POLL_INTERVAL:
