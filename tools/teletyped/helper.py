@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Optional, cast
 import os
 
 try:
@@ -62,7 +63,7 @@ def get_dongle_id() -> str:
   Defaults to 'UNKNOWN_DEVICE' if not found.
   """
   params = Params()
-  dongle_id = params.get("DongleId", encoding='utf8')
+  dongle_id: Optional[str] = cast(Optional[str], params.get("DongleId", encoding='utf8'))
 
   if dongle_id is None:
     fallback_path = Path(Paths.persist_root()) / "comma" / "dongle_id"
@@ -76,8 +77,8 @@ def get_api_token() -> str:
   """
   Returns the API token from params, or an empty string if not set.
   """
-  token = Params().get("GoranConnectPassword")
-  return token.decode("utf-8") if token else ""
+  token_bytes: Optional[bytes] = cast(Optional[bytes], Params().get("GoranConnectPassword"))
+  return token_bytes.decode("utf-8") if token_bytes else ""
 
 def log(msg, level="INFO"):
-    print(f"[{datetime.now().isoformat()}] [{level}] {msg}")
+  print(f"[{datetime.now().isoformat()}] [{level}] {msg}")
