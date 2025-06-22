@@ -2,7 +2,7 @@
 import os
 import time
 import json
-from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
+from zipfile import ZipFile, ZIP_DEFLATED
 import subprocess
 import requests
 from datetime import datetime

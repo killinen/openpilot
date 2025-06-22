@@ -33,7 +33,7 @@ def generate_ssh_key():
     ], check=True)
     log("SSH key generated successfully.")
   except subprocess.CalledProcessError as e:
-    raise RuntimeError(f"Failed to generate SSH key: {e}")
+    raise RuntimeError(f"Failed to generate SSH key: {e}") from e
 
 def ensure_ssh_key():
   if not os.path.exists(KEY_PATH) or not os.path.exists(KEY_PATH_PRIV):
