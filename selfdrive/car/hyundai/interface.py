@@ -52,7 +52,7 @@ class CarInterface(CarInterfaceBase):
     # added to selfdrive/car/tests/routes.py, we can remove it from this list.
     ret.dashcamOnly = candidate in {CAR.KIA_OPTIMA_H, CAR.ELANTRA_GT_I30}
 
-    ret.steerActuatorDelay = 0.1  # Default delay
+    ret.steerActuatorDelay = 0.2  # Default delay = 0.1
     ret.steerLimitTimer = 0.4
     tire_stiffness_factor = 1.
 
@@ -91,8 +91,9 @@ class CarInterface(CarInterfaceBase):
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
       # ret.lateralTuning.pid.kf = 0.00019
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]   # Using regular steer_feedforward w 0815
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.12, 0.16]]     # Using get_steer_feedforward_sigmoid
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]   # Using regular steer_feedforward w 0815, and NEMA17
+      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.12, 0.16]]     # Using get_steer_feedforward_sigmoid and NEMA17
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0006, 0.0006], [0.10, 0.13]]     # Using get_steer_feedforward_sigmoid and NEMA23
       # ret.lateralTuning.pid.kf = 0.000045
       ret.lateralTuning.pid.kf = 1.       # Using get_steer_feedforward_sigmoid
 
