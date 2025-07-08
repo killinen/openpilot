@@ -39,12 +39,12 @@ class CarControllerParams:
 
 # Steer torque limits for StepperServo
 class SteerLimitParams: #controls running @ 100hz
-  MAX_STEERING_TQ = 9  # Nm (original 12) seems that we need full torque of my SSC assembly
-  STEER_DELTA_UP = 3 / 100       # 3 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
-  STEER_DELTA_DOWN = 1000 / 100     # 10Nm/sample - no limit
-  STEER_ERROR_MAX = 999     # max delta between torque cmd and torque motor
-  STEER_STEP = 1 # 100Hz
-  STEER_MAX = 12  # Nm
+  MAX_STEERING_TQ = 3.5           # Nm (original 12), this is for NEMA23
+  STEER_DELTA_UP = 3 / 100        # 3 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
+  STEER_DELTA_DOWN = 1000 / 100   # 10Nm/sample - no limit
+  STEER_ERROR_MAX = 999           # max delta between torque cmd and torque motor
+  STEER_STEP = 1                  # 100Hz
+  STEER_MAX = 4                   # Nm, this is basically steer actuator scaling factor
 
 
 class CAR:

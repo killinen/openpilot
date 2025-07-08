@@ -111,7 +111,7 @@ class CarController:
       angle_step = clip(self.target_angle_delta, -angle_step_max, angle_step_max) #apply angle step
       self.steer_rate_limited = self.target_angle_delta != angle_step #advertise steer beeing rate limited
       # steer torque
-      steer_tq = actuators.steer * 9
+      steer_tq = actuators.steer * SteerLimitParams.STEER_MAX
       # explicitly clip torque before sending on CAN
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
       # if (self.frame % 100) == 0: #slow print when disabled

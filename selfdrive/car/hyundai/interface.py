@@ -21,12 +21,16 @@ class CarInterface(CarInterfaceBase):
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
 
-  # Determined by iteratively plotting and minimizing error for f(angle, speed) = steer.
   @staticmethod
   def get_steer_feedforward_sigmoid(desired_angle, v_ego):
-    desired_angle *= 0.02904609
+    # Clamp v_ego to a maximum of 22
+    v_ego = min(v_ego, 22)
+
+    # desired_angle *= 0.02904609
+    desired_angle *= 0.025
     sigmoid = desired_angle / (1 + fabs(desired_angle))
     return 0.10006696 * sigmoid * (v_ego + 3.12485927)
+
 
   def get_steer_feedforward_function(self):
     if self.CP.carFingerprint == CAR.I30:
@@ -93,9 +97,10 @@ class CarInterface(CarInterfaceBase):
       # ret.lateralTuning.pid.kf = 0.00019
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]   # Using regular steer_feedforward w 0815, and NEMA17
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.12, 0.16]]     # Using get_steer_feedforward_sigmoid and NEMA17
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0006, 0.0006], [0.10, 0.13]]     # Using get_steer_feedforward_sigmoid and NEMA23
-      # ret.lateralTuning.pid.kf = 0.000045
+      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0004, 0.0004], [0.10, 0.12]]     # Using get_steer_feedforward_sigmoid and NEMA23
+      # ret.lateralTuning.pid.kf = 0.000045                                                     # Using regular steer_feedforward w 0815, and NEMA17
       ret.lateralTuning.pid.kf = 1.       # Using get_steer_feedforward_sigmoid
+      # ret.lateralTuning.pid.kf = 0.000045     # Using NEMA23 and default_steer_feedforward
 
       # ret.steerControlType = car.CarParams.SteerControlType.torque
       # CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
