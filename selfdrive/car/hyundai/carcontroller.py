@@ -19,6 +19,11 @@ ANGLE_MAX = [200., 30., 15.] #deg
 ANGLE_RATE_BP = [0., 5., 15.]
 ANGLE_RATE_WINDUP = [500., 80., 15.]     #deg/s windup rate limit
 ANGLE_RATE_UNWIND = [500., 350., 40.]  #deg/s unwind rate limit
+
+# Simple exponential smoothing
+def lowpass_filter(new_val, prev_val, alpha):
+    return alpha * new_val + (1 - alpha) * prev_val
+
 # def process_hud_alert(enabled, fingerprint, hud_control):
 #   sys_warning = (hud_control.visualAlert in (VisualAlert.steerRequired, VisualAlert.ldw))
 
@@ -41,7 +46,6 @@ ANGLE_RATE_UNWIND = [500., 350., 40.]  #deg/s unwind rate limit
 
 #   return sys_warning, sys_state, left_lane_warning, right_lane_warning
 
-
 class CarController:
   def __init__(self, dbc_name, CP, VM):
     self.CP = CP
@@ -59,6 +63,7 @@ class CarController:
     self.last_target_angle_lim = 0
     self.last_fault_frame = -200
     self.target_angle_delta = 0
+    self.last_steer_tq = 0
 
   def update(self, CC, CS):
     actuators = CC.actuators
@@ -86,6 +91,7 @@ class CarController:
 # ######################################### New Steer Logik ###########################################
 # #####################################################################################################
 
+    # latActive is when OP latControl is ON
     if not CC.latActive:
     #if not enabled or abs(CS.out.steeringRateDeg) > 100:
       apply_steer_req = 0
@@ -97,6 +103,7 @@ class CarController:
     # steer angle
     angle_lim = interp(CS.out.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
     target_angle_lim = clip(actuators.steeringAngleDeg, -angle_lim, angle_lim)
+    # CC.enabled is when cruise control is ON but does not mean that it neccassarily is active
     if CC.enabled:
       # windup slower
       if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim): #todo revise last_angle
@@ -114,6 +121,14 @@ class CarController:
       steer_tq = actuators.steer * SteerLimitParams.STEER_MAX
       # explicitly clip torque before sending on CAN
       steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
+
+      # Filter the output to reduce actuator jitter
+      alpha = 0.35  # Lower = smoother but more lag
+
+      # First order low pass filter
+      steer_tq = lowpass_filter(steer_tq, self.last_steer_tq, alpha)
+      self.last_steer_tq = steer_tq
+
       # if (self.frame % 100) == 0: #slow print when disabled
       #   print("SteerAngle {0} SteerSpeed {1}".format(CS.out.steeringAngleDeg,
                                                                 #  CS.out.steeringRateDeg))
