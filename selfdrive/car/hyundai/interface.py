@@ -24,16 +24,19 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def get_steer_feedforward_sigmoid(desired_angle, v_ego):
     # Clamp v_ego to a maximum of 22
-    v_ego = min(v_ego, 22)
+    #v_ego = min(v_ego, 22)
+    v_ego = min(v_ego, 25)
 
     # desired_angle *= 0.02904609
-    desired_angle *= 0.025
+    #desired_angle *= 0.025
+    desired_angle *= 0.0205
     sigmoid = desired_angle / (1 + fabs(desired_angle))
     return 0.10006696 * sigmoid * (v_ego + 3.12485927)
 
 
   def get_steer_feedforward_function(self):
     if self.CP.carFingerprint == CAR.I30:
+    # if self.CP.carFingerprint == CAR.ELANTRA_GT_I30:
       return self.get_steer_feedforward_sigmoid
     else:
       return CarInterfaceBase.get_steer_feedforward_default
