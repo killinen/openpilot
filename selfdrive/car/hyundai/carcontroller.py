@@ -24,6 +24,22 @@ ANGLE_RATE_UNWIND = [500., 350., 40.]  #deg/s unwind rate limit
 def lowpass_filter(new_val, prev_val, alpha):
     return alpha * new_val + (1 - alpha) * prev_val
 
+# Use modded torque limiter from selfdrive/car/__init__.py
+def apply_ssc_steer_torque_limits(apply_torque, apply_torque_last, LIMITS):
+    if apply_torque_last > 0:
+        apply_torque = clip(apply_torque,
+                            max(apply_torque_last - LIMITS.STEER_DELTA_DOWN, -LIMITS.STEER_DELTA_UP),
+                            apply_torque_last + LIMITS.STEER_DELTA_UP)
+    else:
+        apply_torque = clip(apply_torque,
+                            apply_torque_last - LIMITS.STEER_DELTA_UP,
+                            min(apply_torque_last + LIMITS.STEER_DELTA_DOWN, LIMITS.STEER_DELTA_UP))
+
+    apply_torque = clip(apply_torque, -LIMITS.MAX_STEERING_TQ, LIMITS.MAX_STEERING_TQ)
+
+    return apply_torque
+
+
 # def process_hud_alert(enabled, fingerprint, hud_control):
 #   sys_warning = (hud_control.visualAlert in (VisualAlert.steerRequired, VisualAlert.ldw))
 
@@ -117,16 +133,23 @@ class CarController:
       angle_step_max = angle_rate_max / SAMPLING_FREQ  #max angle step per single sample
       angle_step = clip(self.target_angle_delta, -angle_step_max, angle_step_max) #apply angle step
       self.steer_rate_limited = self.target_angle_delta != angle_step #advertise steer beeing rate limited
+
       # steer torque
-      steer_tq = actuators.steer * SteerLimitParams.STEER_MAX
-      # explicitly clip torque before sending on CAN
-      steer_tq = clip(steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
+      raw_steer_tq = actuators.steer * SteerLimitParams.STEER_MAX
+      # explicitly clip torque before sending on CAN -> This was moved to apply_scc_steer_torque_limits()
+      #raw_steer_tq = clip(raw_steer_tq, -SteerLimitParams.MAX_STEERING_TQ, SteerLimitParams.MAX_STEERING_TQ)
 
       # Filter the output to reduce actuator jitter
       alpha = 0.35  # Lower = smoother but more lag
 
       # First order low pass filter
-      steer_tq = lowpass_filter(steer_tq, self.last_steer_tq, alpha)
+      raw_steer_tq = lowpass_filter(raw_steer_tq, self.last_steer_tq, alpha)
+      # self.last_steer_tq = steer_tq
+
+      # Apply steering torque derivate limits
+      steer_tq = apply_ssc_steer_torque_limits(raw_steer_tq, self.last_steer_tq, SteerLimitParams)
+      #steer_tq = raw_steer_tq
+
       self.last_steer_tq = steer_tq
 
       # if (self.frame % 100) == 0: #slow print when disabled
