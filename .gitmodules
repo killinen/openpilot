@@ -16,4 +16,5 @@
 	branch = 0815_C2
 [submodule "rednose_repo"]
 	path = rednose_repo
-	url = ../../commaai/rednose.git
+	url = https://github.com/killinen/rednose.git
+	branch = 0815_C2
