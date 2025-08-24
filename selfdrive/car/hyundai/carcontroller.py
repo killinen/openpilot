@@ -22,22 +22,22 @@ ANGLE_RATE_UNWIND = [500., 350., 40.]  #deg/s unwind rate limit
 
 # Simple exponential smoothing
 def lowpass_filter(new_val, prev_val, alpha):
-    return alpha * new_val + (1 - alpha) * prev_val
+  return alpha * new_val + (1 - alpha) * prev_val
 
 # Use modded torque limiter from selfdrive/car/__init__.py
 def apply_ssc_steer_torque_limits(apply_torque, apply_torque_last, LIMITS):
-    if apply_torque_last > 0:
-        apply_torque = clip(apply_torque,
-                            max(apply_torque_last - LIMITS.STEER_DELTA_DOWN, -LIMITS.STEER_DELTA_UP),
-                            apply_torque_last + LIMITS.STEER_DELTA_UP)
-    else:
-        apply_torque = clip(apply_torque,
-                            apply_torque_last - LIMITS.STEER_DELTA_UP,
-                            min(apply_torque_last + LIMITS.STEER_DELTA_DOWN, LIMITS.STEER_DELTA_UP))
+  if apply_torque_last > 0:
+    apply_torque = clip(apply_torque,
+                        max(apply_torque_last - LIMITS.STEER_DELTA_DOWN, -LIMITS.STEER_DELTA_UP),
+                        apply_torque_last + LIMITS.STEER_DELTA_UP)
+  else:
+    apply_torque = clip(apply_torque,
+                        apply_torque_last - LIMITS.STEER_DELTA_UP,
+                        min(apply_torque_last + LIMITS.STEER_DELTA_DOWN, LIMITS.STEER_DELTA_UP))
 
-    apply_torque = clip(apply_torque, -LIMITS.MAX_STEERING_TQ, LIMITS.MAX_STEERING_TQ)
+  apply_torque = clip(apply_torque, -LIMITS.MAX_STEERING_TQ, LIMITS.MAX_STEERING_TQ)
 
-    return apply_torque
+  return apply_torque
 
 
 # def process_hud_alert(enabled, fingerprint, hud_control):

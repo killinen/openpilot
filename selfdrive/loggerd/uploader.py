@@ -21,7 +21,6 @@ from selfdrive.loggerd.xattr_cache import getxattr, setxattr
 from selfdrive.loggerd.config import ROOT
 from system.swaglog import cloudlog
 from cereal.services import service_list
-from cereal import log
 from tools.lib.logreader import LogReader
 
 NetworkType = log.DeviceState.NetworkType
@@ -393,7 +392,7 @@ class Uploader():
     if success:
       try:
         setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
-        print(f'setxattr to {fn} {UPLOAD_ATTR_NAME} {UPLOAD_ATTR_VALUE} ')
+        print(f'setxattr to {fn} {UPLOAD_ATTR_NAME} {UPLOAD_ATTR_VALUE.decode()} ')
       except OSError as e:
         cloudlog.event("uploader_setxattr_failed", exc=str(e), key=key, fn=fn, sz=sz)
         print(f'uploader_setxattr_failed {fn} {key} {sz} ')

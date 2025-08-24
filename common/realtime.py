@@ -8,7 +8,7 @@ from typing import Optional, List, Union
 from setproctitle import getproctitle  # pylint: disable=no-name-in-module
 
 from common.clock import sec_since_boot  # pylint: disable=no-name-in-module, import-error
-from system.hardware import PC, TICI, EON
+from system.hardware import PC, TICI
 
 
 # time step for each process
