@@ -84,16 +84,33 @@ class CarInterface(CarInterfaceBase):
                                         #### I30 2014  ####
                                         ###################
     elif candidate == CAR.I30:
-      ret.safetyConfigs[0].safetyParam = 17   # This is not correct, but it doesn't seem to matter, more longitudinal stuff?
+      ret.radarOffCan = True
+      if ret.openpilotLongitudinalControl:
+        ret.enableGasInterceptor = True # Start implementing gas interceptor to I30 to get somekinda ACC
+        ret.safetyConfigs[0].safetyParam = 17   # Detect 17 in panda safety code to use pedal stuff and op cruise w i30
+
       ret.mass = 1193   # This is updated for i30
       ret.wheelbase = 2.650   # This is updated for i30
       ret.steerRatio = 15.3   # This is updated for i30
       tire_stiffness_factor = 0.385   # Copied from Elantra GT
 
-      ret.enableGasInterceptor = False # My implementation does not use GasInterceptor at least yet
       if ret.enableGasInterceptor:
-        ret.longitudinalTuning.kpV = [0.3, 0.6, 0.7]
-        ret.longitudinalTuning.kiV = [0.2, 0.35, 0.5]
+        # 1. Define the speed breakpoints (in m/s)
+        #    Let's use 0 m/s, 15 m/s (~55 kph), and 30 m/s (~110 kph)
+        ret.longitudinalTuning.kpBP = [0., 15., 30.]
+        ret.longitudinalTuning.kiBP = [0., 15., 30.]
+
+        # 2. Define the gain values that correspond to those speeds
+        #    Lower values at low speed, higher values at high speed
+        ret.longitudinalTuning.kpV = [0.3, 0.6, 0.9]  # Proportional gain
+        ret.longitudinalTuning.kiV = [0.1, 0.15, 0.2] # Integral gain
+
+        # Define speed breakpoints for the deadzone
+        ret.longitudinalTuning.deadzoneBP = [0., 25.]  # Speeds: 0 m/s and 25 m/s (90 kph)
+
+        # Define the deadzone values at those speeds
+        ret.longitudinalTuning.deadzoneV = [0.1, 0.3]   # Deadzone size in m/s
+
       ret.lateralTuning.init('pid')
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
       # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
@@ -361,14 +378,14 @@ class CarInterface(CarInterfaceBase):
 
     ret.enableBsm = 0x58b in fingerprint[0]
 
-    if ret.openpilotLongitudinalControl:
+    if ret.openpilotLongitudinalControl and not CAR.I30:
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_HYUNDAI_LONG
 
     return ret
 
   @staticmethod
   def init(CP, logcan, sendcan):
-    if CP.openpilotLongitudinalControl:
+    if CP.openpilotLongitudinalControl and not CAR.I30:
       disable_ecu(logcan, sendcan, addr=0x7d0, com_cont_req=b'\x28\x83\x01')
 
   def _update(self, c):
@@ -380,6 +397,10 @@ class CarInterface(CarInterfaceBase):
     # Main button also can trigger an engagement on these cars
     allow_enable = any(btn in ENABLE_BUTTONS for btn in self.CS.cruise_buttons) or any(self.CS.main_buttons)
     events = self.create_common_events(ret, pcm_enable=self.CS.CP.pcmCruise, allow_enable=allow_enable)
+
+    # An exception to allow engagement with openpilot long control when the car cruise is not available (main button off)
+    if self.CP.carFingerprint == CAR.I30 and self.CP.openpilotLongitudinalControl and EventName.wrongCarMode in events.names:
+      events.events.remove(EventName.wrongCarMode)
 
     if self.CS.brake_error:
       events.add(EventName.brakeUnavailable)

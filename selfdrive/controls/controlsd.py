@@ -229,10 +229,12 @@ class Controls:
 
     # Disable on rising edge of accelerator or brake. Also disable on brake when speed > 0
     if (CS.gasPressed and not self.CS_prev.gasPressed and self.disengage_on_accelerator) or \
-      (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)):
+      (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)) or \
+      CS.clutchPressed or \
+      (CS.engineRpm > 4000):
       if (CS.lkasEnabled):
         self.disengageByBrake = True
-      if (CS.cruiseState.enabled):
+      if (self.enabled or CS.cruiseState.enabled):
         self.events.add(EventName.pedalPressed)
       else:
         self.events.add(EventName.silentPedalPressed)
@@ -475,7 +477,7 @@ class Controls:
     cur_time = self.sm.frame * DT_CTRL
 
     # if stock cruise is completely disabled, then we can use our own set speed logic
-    if CS.cruiseState.enabled:
+    if not CS.cruiseState.available:
       if not self.CP.pcmCruise:
         for b in CS.buttonEvents:
           if b.pressed:
@@ -491,7 +493,7 @@ class Controls:
             elif b.type == car.CarState.ButtonEvent.Type.decelCruise:
               self.decel_pressed = False
 
-        self.v_cruise_kph = update_v_cruise(self.v_cruise_kph if self.is_metric else int(round((float(self.v_cruise_kph) * 0.6233 + 0.0995))), CS.buttonEvents, self.enabled and CS.cruiseState.enabled, cur_time, self.accel_pressed,self.decel_pressed, self.accel_pressed_last,self.decel_pressed_last,self.fastMode)
+        self.v_cruise_kph = update_v_cruise(self.v_cruise_kph if self.is_metric else int(round((float(self.v_cruise_kph) * 0.6233 + 0.0995))), CS.buttonEvents, self.enabled, cur_time, self.accel_pressed,self.decel_pressed, self.accel_pressed_last,self.decel_pressed_last,self.fastMode)
         self.v_cruise_kph = self.v_cruise_kph if self.is_metric else int(round((float(round(self.v_cruise_kph))-0.0995)/0.6233))
 
         if(self.accel_pressed or self.decel_pressed):
@@ -583,7 +585,7 @@ class Controls:
           else:
             self.state = State.enabled
           self.current_alert_types.append(ET.ENABLE)
-          if not self.CP.pcmCruise and CS.cruiseState.enabled:
+          if not self.CP.pcmCruise:
             self.v_cruise_kph = initialize_v_cruise(CS.vEgo, CS.buttonEvents, self.v_cruise_kph_last)
 
     self.cruiseState_enabled_last = CS.cruiseState.enabled
@@ -616,7 +618,7 @@ class Controls:
     #                  (CS.vEgo > self.CP.minSteerSpeed) and (not CS.cruiseState.standstill) and CS.lkasEnabled and ((not CS.belowLaneChangeSpeed) or ((not (((self.sm.frame - self.last_blinker_frame) * DT_CTRL) < 1.0))))
     CC.latActive = self.active and (not CS.steerFaultTemporary) and (not CS.steerFaultPermanent) and \
                      (CS.vEgo > self.CP.minSteerSpeed) and (not CS.cruiseState.standstill)
-    CC.longActive = self.active and (not self.events.any(ET.OVERRIDE)) and self.CP.openpilotLongitudinalControl and (CS.cruiseState.enabled or (self.CP.pcmCruise and CS.accEnabled and self.CP.minEnableSpeed > 0 and not CS.cruiseState.enabled))
+    CC.longActive = self.active and (not self.events.any(ET.OVERRIDE)) and self.CP.openpilotLongitudinalControl
 
     actuators = CC.actuators
     actuators.longControlState = self.LoC.long_control_state

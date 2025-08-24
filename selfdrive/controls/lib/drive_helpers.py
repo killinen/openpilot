@@ -56,13 +56,13 @@ def get_steer_max(CP, v_ego):
   return interp(v_ego, CP.steerMaxBP, CP.steerMaxV)
 
 def update_v_cruise(v_cruise_kph, buttonEvents, enabled, cur_time, accel_pressed,decel_pressed,accel_pressed_last,decel_pressed_last, fastMode):
-  
+
   if enabled:
     if accel_pressed:
-      if ((cur_time-accel_pressed_last) >= 1 or (fastMode and (cur_time-accel_pressed_last) >= 0.5)):
+      if ((cur_time-accel_pressed_last) >= 1 or (fastMode and (cur_time-accel_pressed_last) >= 0.35)):
         v_cruise_kph += V_CRUISE_DELTA - (v_cruise_kph % V_CRUISE_DELTA)
     elif decel_pressed:
-      if ((cur_time-decel_pressed_last) >= 1 or (fastMode and (cur_time-decel_pressed_last) >= 0.5)):
+      if ((cur_time-decel_pressed_last) >= 1 or (fastMode and (cur_time-decel_pressed_last) >= 0.35)):
         v_cruise_kph -= V_CRUISE_DELTA - ((V_CRUISE_DELTA - v_cruise_kph) % V_CRUISE_DELTA)
     else:
       for b in buttonEvents:
@@ -73,7 +73,7 @@ def update_v_cruise(v_cruise_kph, buttonEvents, enabled, cur_time, accel_pressed
           elif b.type == car.CarState.ButtonEvent.Type.decelCruise:
             if (not fastMode):
               v_cruise_kph -= 1
-    v_cruise_kph = clip(v_cruise_kph, V_CRUISE_MIN, V_CRUISE_MAX) 
+    v_cruise_kph = clip(v_cruise_kph, V_CRUISE_MIN, V_CRUISE_MAX)
 
   return v_cruise_kph
 

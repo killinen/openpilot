@@ -3,7 +3,7 @@ from cereal import car
 from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from opendbc.can.packer import CANPacker
-from selfdrive.car import apply_std_steer_torque_limits
+from selfdrive.car import apply_std_steer_torque_limits, create_gas_interceptor_command
 from selfdrive.car.hyundai import hda2can, hyundaican
 from selfdrive.car.hyundai.values import Buttons, CarControllerParams, HDA2_CAR, CAR, SteerLimitParams
 
@@ -74,6 +74,7 @@ class CarController:
     self.steer_rate_limited = False
     self.last_button_frame = 0
     self.accel = 0
+    self.gas = 0
 
     # StepperServo variables, redundant safety check with the board
     self.last_target_angle_lim = 0
@@ -189,6 +190,27 @@ class CarController:
         elif CC.cruiseControl.resume:
           can_sends.append(hda2can.create_buttons(self.packer, CS.buttons_counter+1, Buttons.RES_ACCEL))
           self.last_button_frame = self.frame
+
+    # This is for I30 with pedal
+    elif self.CP.carFingerprint == CAR.I30 and self.CP.openpilotLongitudinalControl:
+      if CC.longActive:
+        # 1. Map the desired acceleration (m/s^2) to a pedal command (0-1 range).
+        #    Here, we are mapping an acceleration range of [0.0, 1.6] m/s^2
+        #    to a pedal position range of [0.0, 0.7].
+        #    The interp function will handle negative accel values by outputting 0.0.
+        pedal_command = interp(actuators.accel, [0.0, 1.6], [0.0, 0.7])
+
+        # 2. Clip the final pedal command to ensure it's within a safe range.
+        #    This is good practice, especially to ensure the command is never negative.
+        interceptor_gas_cmd = clip(pedal_command, 0., 0.7)
+      else:
+        interceptor_gas_cmd = 0.
+
+      # Send gas command to CAN (remember to send it to BUS1 in I30)
+      if self.frame % 2 == 0:
+        can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
+        self.gas = interceptor_gas_cmd
+
     else:
 
       # tester present - w/ no response (keeps radar disabled)
@@ -246,6 +268,7 @@ class CarController:
     new_actuators = actuators.copy()
     new_actuators.steer = apply_steer / self.params.STEER_MAX
     new_actuators.accel = self.accel
+    new_actuators.gas = self.gas
 
     self.frame += 1
     return new_actuators, can_sends

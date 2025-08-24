@@ -186,6 +186,7 @@ class CarState(CarStateBase):
     ret = car.CarState.new_message()
 
     ret.doorOpen = any([cp.vl["CLU2"]['CF_Clu_DrvDrSw'], cp.vl["CLU2"]['CF_Clu_AstDrSw']])
+
     ret.seatbeltUnlatched = cp.vl["CLU2"]['CF_Clu_DrvSeatBeltSw'] == 1
 
     ret.wheelSpeeds = self.get_wheel_speeds(
@@ -197,6 +198,17 @@ class CarState(CarStateBase):
     ret.vEgoRaw = (ret.wheelSpeeds.fl + ret.wheelSpeeds.fr + ret.wheelSpeeds.rl + ret.wheelSpeeds.rr) / 4.
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
 
+    ret.engineRpm = cp.vl["EMS1"]["N"]
+
+    # Gear ratio calculation using engine RPM and vehicle speed
+    GEAR_RATIO = [130.6, 105.7, 92.1]
+    ret.clutchPressed = False
+    if ret.vEgo > 0.3 and ret.engineRpm > 500:
+      rpm_velo_ratio = ret.engineRpm / ret.vEgo
+      in_gear = any(abs(rpm_velo_ratio - r) < 6 for r in GEAR_RATIO)
+      if not in_gear:
+        ret.clutchPressed = True
+
     ret.standstill = ret.vEgoRaw < 0.1
 
     ret.steeringAngleDeg = cp.vl["SAS1"]['SAS_Angle']
@@ -205,7 +217,12 @@ class CarState(CarStateBase):
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl["CLU2"]['CF_Clu_TurnSigLh'],
                                                             cp.vl["CLU2"]['CF_Clu_TurnSigRh'])
 
-    ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
+    if self.CP.enableGasInterceptor:
+      ret.gas = (cp_cam.vl["GAS_SENSOR"]["INTERCEPTOR_GAS"] + cp_cam.vl["GAS_SENSOR"]["INTERCEPTOR_GAS2"]) / 2.
+      # TODO: tune this threshold --> 805 is a good start
+      ret.gasPressed = ret.gas > 5
+    else:
+      ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
 
     ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
     ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
@@ -390,6 +407,11 @@ class CarState(CarStateBase):
       checks = [
         ("STEERING_STATUS", 20)    # Checks if SSC is connected
       ]
+      if CP.enableGasInterceptor:
+        signals += [("INTERCEPTOR_GAS", "GAS_SENSOR"),
+                    ("INTERCEPTOR_GAS2", "GAS_SENSOR")]
+        checks.append(("GAS_SENSOR", 50))
+
       return CANParser(DBC[CP.carFingerprint]["pt"], signals, checks, 1)
 
 
@@ -471,6 +493,7 @@ class CarState(CarStateBase):
   def get_can_parser_i30(CP):
     signals = [
       # sig_name, sig_address, default
+      ("N", "EMS1"),
       ("WHEEL_FL", "TCS5"),
       ("WHEEL_FR", "TCS5"),
       ("WHEEL_RL", "TCS5"),
@@ -500,6 +523,7 @@ class CarState(CarStateBase):
     # message in expected timeframe (signal, expected timeframe), the timeframe is given as Hz, and the errror will trigger
     # if the opendbc/can/can_packer does not receive it in 10 time per expected timeframe eg. 20 = 500 ms
     checks = [
+      ("EMS1", 20),
       ("EMS_DCT2", 20),	# True interval 10 ms
       ("VSM2", 20),		# True interval 10 ms
       ("TCS5", 20),		# True interval 20 ms

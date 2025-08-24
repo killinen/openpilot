@@ -13,7 +13,7 @@ if __name__ == '__main__':  # generating code
 else:
   from selfdrive.controls.lib.longitudinal_mpc_lib.c_generated_code.acados_ocp_solver_pyx import AcadosOcpSolverCython  # pylint: disable=no-name-in-module, import-error
 
-from casadi import SX, vertcat
+from casadi import SX, vertcat, fmax, fmin
 
 MODEL_NAME = 'long'
 LONG_MPC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -29,11 +29,23 @@ COST_E_DIM = 5
 COST_DIM = COST_E_DIM + 1
 CONSTR_DIM = 4
 
+# Cost weights for the MPC optimizer.
+# Tweak these values to adjust the "aggressiveness" of the follow behavior.
+
+# Cost on the error in distance to the lead car.
+# Higher value means more aggressive acceleration/braking to maintain the set follow distance.
 X_EGO_OBSTACLE_COST = 3.
+
 X_EGO_COST = 0.
 V_EGO_COST = 0.
 A_EGO_COST = 0.
+
+# Cost on jerk (rate of change of acceleration).
+# Higher value means smoother changes in acceleration, less aggressive.
 J_EGO_COST = 5.0
+
+# Cost on the change in acceleration between MPC iterations.
+# Higher value means smoother acceleration, less aggressive.
 A_CHANGE_COST = 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .5
@@ -50,15 +62,77 @@ T_IDXS_LST = [index_function(idx, max_val=MAX_T, max_idx=N) for idx in range(N+1
 T_IDXS = np.array(T_IDXS_LST)
 T_DIFFS = np.diff(T_IDXS, prepend=[0.])
 MIN_ACCEL = -3.5
-T_FOLLOW = 1.45
 COMFORT_BRAKE = 2.5
 STOP_DISTANCE = 6.0
+
+# --- define your speed->headway curve (in m/s) ---
+# Speeds in m/s with km/h for reference:
+#   0.00 m/s  ->   0 km/h
+#   5.00 m/s  ->  18 km/h
+#  10.00 m/s  ->  36 km/h
+#  15.28 m/s ->  55 km/h
+#  23.61 m/s ->  85 km/h
+#  25.00 m/s ->  90 km/h
+#  33.33 m/s -> 120 km/h
+#  36.00 m/s -> 130 km/h
+_SPEED_GRID = np.array([0.0,   5.0,  10.0, 15.28, 23.61, 25.0,  33.33, 36.0], dtype=float)
+_TFOLLOW_VALS = np.array([2.30, 2.25, 2.10, 1.82,  2.34,  2.15,  1.10,  0.5], dtype=float)
+# You can tweak just these arrays to retune, no code changes needed.
+
+def _clamp(v, lo, hi):
+  if isinstance(v, SX):
+    return fmax(lo, fmin(hi, v))
+  elif isinstance(v, np.ndarray):
+    return np.clip(v, lo, hi)
+  else:
+    return min(max(float(v), lo), hi)
+
+def _t_follow_interp(v):
+  """
+  Piecewise-linear interpolation without branches:
+    y(x) = y0 + sum_i slope_i * ( clamp(x, x_i, x_{i+1}) - x_i )
+  Works for float, NumPy array, and CasADi SX.
+  """
+  xs = _SPEED_GRID
+  ys = _TFOLLOW_VALS
+  y = ys[0]
+
+  # vectorized path for NumPy arrays
+  if isinstance(v, np.ndarray):
+    seg_sum = np.zeros_like(v, dtype=float)
+    for i in range(len(xs) - 1):
+      dx = xs[i+1] - xs[i]
+      if dx <= 0:
+        continue
+      slope = (ys[i+1] - ys[i]) / dx
+      seg = _clamp(v, xs[i], xs[i+1]) - xs[i]
+      seg_sum += slope * seg
+    return y + seg_sum
+
+  # scalar float or SX
+  acc = 0
+  for i in range(len(xs) - 1):
+    dx = xs[i+1] - xs[i]
+    if dx <= 0:
+      continue
+    slope = (ys[i+1] - ys[i]) / dx
+    seg = _clamp(v, xs[i], xs[i+1]) - xs[i]
+    acc = acc + slope * seg
+  return y + acc
 
 def get_stopped_equivalence_factor(v_lead):
   return (v_lead**2) / (2 * COMFORT_BRAKE)
 
 def get_safe_obstacle_distance(v_ego):
-  return (v_ego**2) / (2 * COMFORT_BRAKE) + T_FOLLOW * v_ego + STOP_DISTANCE
+  t_follow = _t_follow_interp(v_ego)
+  # (optional) clamp band, CasADi-safe:
+  # if isinstance(v_ego, SX):
+  #   t_follow = fmax(1.0, fmin(2.5, t_follow))
+  # else:
+  #   t_follow = max(1.0, min(2.5, float(t_follow)))
+
+  return (v_ego**2) / (2 * COMFORT_BRAKE) + t_follow * v_ego + STOP_DISTANCE
+  # return (v_ego**1.745) / (1 * COMFORT_BRAKE) + t_follow * v_ego + STOP_DISTANCE
 
 def desired_follow_distance(v_ego, v_lead):
   return get_safe_obstacle_distance(v_ego) - get_stopped_equivalence_factor(v_lead)
