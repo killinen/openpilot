@@ -50,7 +50,8 @@ class CarInterface(CarInterfaceBase):
     ret.radarOffCan = RADAR_START_ADDR not in fingerprint[1] or DBC[ret.carFingerprint]["radar"] is None
 
     # WARNING: disabling radar also disables AEB (and we show the same warning on the instrument cluster as if you manually disabled AEB)
-    ret.openpilotLongitudinalControl = disable_radar and (candidate not in LEGACY_SAFETY_MODE_CAR)
+    # ret.openpilotLongitudinalControl = disable_radar and (candidate not in LEGACY_SAFETY_MODE_CAR)
+    ret.openpilotLongitudinalControl = True
 
     ret.pcmCruise = not ret.openpilotLongitudinalControl
 
@@ -70,7 +71,7 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalTuning.kiV = [0.0]
     ret.stopAccel = 0.0
 
-    ret.longitudinalActuatorDelayUpperBound = 1.0  # s
+    ret.longitudinalActuatorDelayUpperBound = 0.2  # Default was 1 s, try something shorter for i30 pedal cruise
     if candidate in (CAR.SANTA_FE, CAR.SANTA_FE_2022, CAR.SANTA_FE_HEV_2022, CAR.SANTA_FE_PHEV_2022):
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 3982. * CV.LB_TO_KG + STD_CARGO_KG
@@ -106,10 +107,10 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kiV = [0.1, 0.15, 0.2] # Integral gain
 
         # Define speed breakpoints for the deadzone
-        ret.longitudinalTuning.deadzoneBP = [0., 25.]  # Speeds: 0 m/s and 25 m/s (90 kph)
+        # ret.longitudinalTuning.deadzoneBP = [0., 25.]  # Speeds: 0 m/s and 25 m/s (90 kph)
 
         # Define the deadzone values at those speeds
-        ret.longitudinalTuning.deadzoneV = [0.1, 0.3]   # Deadzone size in m/s
+        # ret.longitudinalTuning.deadzoneV = [0.1, 0.3]   # Deadzone size in m/s
 
       ret.lateralTuning.init('pid')
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
