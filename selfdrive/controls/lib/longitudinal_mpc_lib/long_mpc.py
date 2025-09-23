@@ -42,11 +42,13 @@ A_EGO_COST = 0.
 
 # Cost on jerk (rate of change of acceleration).
 # Higher value means smoother changes in acceleration, less aggressive.
-J_EGO_COST = 5.0
+# J_EGO_COST = 5.0    # Original
+J_EGO_COST = 1.0
 
 # Cost on the change in acceleration between MPC iterations.
 # Higher value means smoother acceleration, less aggressive.
-A_CHANGE_COST = 200.
+# A_CHANGE_COST = 200.    # Original
+A_CHANGE_COST = 50.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .5
 LIMIT_COST = 1e6
@@ -75,8 +77,8 @@ STOP_DISTANCE = 6.0
 #  25.00 m/s ->  90 km/h
 #  33.33 m/s -> 120 km/h
 #  36.00 m/s -> 130 km/h
-_SPEED_GRID = np.array([0.0,   5.0,  10.0, 15.28, 23.61, 25.0,  33.33, 36.0], dtype=float)
-_TFOLLOW_VALS = np.array([2.30, 2.25, 2.10, 1.82,  2.34,  2.15,  1.10,  0.5], dtype=float)
+_SPEED_GRID = np.array([0.0, 5.0, 10.0, 15.28, 19.5, 25.0, 33.33, 36.0], dtype=float)
+_TFOLLOW_VALS = np.array([2.3, 2.25, 2.1, 1.82, 2.4, 2.08, 0.94, 0.78], dtype=float)
 # You can tweak just these arrays to retune, no code changes needed.
 
 def _clamp(v, lo, hi):
