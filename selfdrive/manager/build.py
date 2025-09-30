@@ -21,62 +21,6 @@ PREBUILT = os.path.exists(os.path.join(BASEDIR, 'prebuilt'))
 
 
 def build(spinner: Spinner, dirty: bool = False) -> None:
-  # CHECK AND INSTALL MISSING PYTHON LIBRARIES FOR 0815
-  if subprocess.call("python3 -c 'import hatanaka'", shell=True) != 0:
-    print("[INSTALL] hatanaka not found, installing required packages...")
-    spinner.update("[INSTALL] hatanaka not found, installing required packages...")
-
-    install_script = """
-    set -ex
-    mount -o rw,remount /system
-
-    pip install importlib_resources==5.12.0 ncompress==1.0.0
-    pip install --no-deps hatanaka==2.4.0
-    apt-get update
-    apt-get install -y libyaml-dev
-    pip install --no-cache-dir --force-reinstall setuptools==67.6.0 wheel==0.38.4 cython==0.29.33
-    pip install --no-cache-dir --verbose --force-reinstall -I pyyaml==6.0 --global-option=--with-libyaml --no-build-isolation
-    python3 -c 'from yaml import CSafeLoader; print("CSafeLoader is available.")'
-
-    mount -o remount,r /system
-    """
-    # Run the shell script and show text windond if installtion fails
-    try:
-      subprocess.run(install_script, shell=True, executable="/data/data/com.termux/files/usr/bin/sh", check=True)
-
-      # Show TextWindow after successful install
-      spinner.close()
-      if not os.getenv("CI"):
-        with TextWindow("Missing python libraries have been installed.\nPlease reboot the device.") as t:
-          print('Missing python libraries have been installed. Please reboot the device.')
-          t.wait_for_exit()
-      exit(1)
-
-    except subprocess.CalledProcessError as e:
-      spinner.close()
-      err_msg = f"Python dependency install script failed with code {e.returncode}.\n\n{e}"
-      add_file_handler(cloudlog)
-      cloudlog.error(err_msg)
-
-      if not os.getenv("CI"):
-        wrapped = "\n".join(textwrap.wrap(err_msg, 65))
-        with TextWindow("openpilot failed to install dependencies\n\n" + wrapped) as t:
-          t.wait_for_exit()
-      exit(1)
-
-    except Exception as e:
-      spinner.close()
-      err_msg = f"Unexpected error during dependency install:\n\n{str(e)}"
-      add_file_handler(cloudlog)
-      cloudlog.error(err_msg)
-
-      if not os.getenv("CI"):
-        wrapped = "\n".join(textwrap.wrap(err_msg, 65))
-        with TextWindow("openpilot crashed during setup\n\n" + wrapped) as t:
-          t.wait_for_exit()
-      exit(1) 
-  # END CHECK AND INSTALL FIX FOR 0815
-  
   env = os.environ.copy()
   env['SCONS_PROGRESS'] = "1"
   nproc = os.cpu_count()
