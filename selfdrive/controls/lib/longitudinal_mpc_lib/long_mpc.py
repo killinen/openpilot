@@ -42,11 +42,13 @@ A_EGO_COST = 0.
 
 # Cost on jerk (rate of change of acceleration).
 # Higher value means smoother changes in acceleration, less aggressive.
-J_EGO_COST = 5.0
+# J_EGO_COST = 5.0    # Original
+J_EGO_COST = 1.0
 
 # Cost on the change in acceleration between MPC iterations.
 # Higher value means smoother acceleration, less aggressive.
-A_CHANGE_COST = 200.
+# A_CHANGE_COST = 200.    # Original
+A_CHANGE_COST = 50.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .5
 LIMIT_COST = 1e6
