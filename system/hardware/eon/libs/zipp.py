@@ -5,6 +5,10 @@ import pathlib
 import posixpath
 import zipfile
 
+# NOTE: This module intentionally uses a two-space indentation style to
+# satisfy pylint's configuration for the embedded hardware libraries. Please
+# keep the spacing unchanged when editing to avoid sweeping diffs.
+
 __all__ = ['Path']
 
 
