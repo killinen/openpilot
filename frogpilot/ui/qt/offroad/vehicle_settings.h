@@ -34,6 +34,9 @@ private:
   FrogPilotSettingsWindow *parent;
 
   ParamControl *disableOpenpilotLong;
+  ParamControl *forceFingerprint;
 
   Params params;
+
+  QMap<QString, QString> carModels;
 };
