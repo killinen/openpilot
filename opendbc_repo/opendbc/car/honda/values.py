@@ -59,6 +59,7 @@ class HondaSafetyFlags(IntFlag):
 
 # FrogPilot variables
 class HondaFrogPilotSafetyFlags(IntFlag):
+  CLARITY = 32
   GAS_INTERCEPTOR = 64
 
 
@@ -333,6 +334,11 @@ class CAR(Platforms):
     flags=HondaFlags.HAS_ALL_DOOR_STATES
   )
   # FrogPilot variables
+  HONDA_CLARITY = HondaNidecPlatformConfig(
+    [HondaCarDocs("Honda Clarity 2018-22", "All", min_steer_speed=3. * CV.MPH_TO_MS)],
+    CarSpecs(mass=4052 * CV.LB_TO_KG, wheelbase=2.75, steerRatio=16.50, centerToFrontRatio=0.41, tireStiffnessFactor=1.),
+    radar_dbc_dict('honda_clarity_hybrid_2018_can_generated')
+  )
 
 
 HONDA_NIDEC_ALT_PCM_ACCEL = CAR.with_flags(HondaFlags.NIDEC_ALT_PCM_ACCEL)
