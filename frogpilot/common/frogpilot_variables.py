@@ -402,6 +402,11 @@ class FrogPilotVariables:
 
     toggle.force_fingerprint = (self.params.get_bool("ForceFingerprint") if tuning_level >= level["ForceFingerprint"] else default["ForceFingerprint"]) and toggle.car_model is not None
 
+    toggle.frogsgomoo_tweak = toggle.openpilot_longitudinal and toggle.car_make == "toyota" and (self.params.get_bool("FrogsGoMoosTweak") if tuning_level >= level["FrogsGoMoosTweak"] else default["FrogsGoMoosTweak"])
+    toggle.stoppingDecelRate = 0.01 if toggle.frogsgomoo_tweak else toggle.stoppingDecelRate
+    toggle.vEgoStarting = 0.1 if toggle.frogsgomoo_tweak else toggle.vEgoStarting
+    toggle.vEgoStopping = 0.5 if toggle.frogsgomoo_tweak else toggle.vEgoStopping
+
     toggle.lane_changes = self.params.get_bool("LaneChanges") if tuning_level >= level["LaneChanges"] else default["LaneChanges"]
     toggle.lane_change_delay = self.params.get("LaneChangeTime") if toggle.lane_changes and tuning_level >= level["LaneChangeTime"] else default["LaneChangeTime"]
     toggle.lane_detection_width = self.params.get("LaneDetectionWidth") * distance_conversion if toggle.lane_changes and tuning_level >= level["LaneDetectionWidth"] else default["LaneDetectionWidth"] * CV.FOOT_TO_METER
