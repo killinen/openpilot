@@ -15,6 +15,7 @@ struct FrogPilotUIScene {
   bool reverse;
   bool sidebars_open;
   bool use_stock_colors;
+  bool wake_up_screen;
 
   float lane_width_left;
   float lane_width_right;
