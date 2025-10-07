@@ -49,6 +49,8 @@ static bool hyundai_canfd_alt_buttons = false;
 static bool hyundai_canfd_lka_steering_alt = false;
 
 // FrogPilot variables
+static bool hyundai_canfd_below_speed_threshold = false;
+static bool hyundai_canfd_taco_tune_hack = false;
 
 static unsigned int hyundai_canfd_get_lka_addr(void) {
   return hyundai_canfd_lka_steering_alt ? 0x110U : 0x50U;
@@ -131,6 +133,11 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *msg) {
       UPDATE_VEHICLE_SPEED((fr + rr + rl + fl) / 4.0 * 0.03125 * KPH_TO_MS);
 
       // FrogPilot variables
+      const float conversion_factor = 0.277778f * 0.03125f;
+      hyundai_canfd_below_speed_threshold = ((float)fl * conversion_factor < 13.f) &&
+                                            ((float)fr * conversion_factor < 13.f) &&
+                                            ((float)rl * conversion_factor < 13.f) &&
+                                            ((float)rr * conversion_factor < 13.f);
     }
   }
 
@@ -147,7 +154,7 @@ static void hyundai_canfd_rx_hook(const CANPacket_t *msg) {
 
 static bool hyundai_canfd_tx_hook(const CANPacket_t *msg) {
   const TorqueSteeringLimits HYUNDAI_CANFD_STEERING_LIMITS = {
-    .max_torque = 270,
+    .max_torque = 330,
     .max_rt_delta = 112,
     .max_rate_up = 2,
     .max_rate_down = 3,
@@ -172,8 +179,43 @@ static bool hyundai_canfd_tx_hook(const CANPacket_t *msg) {
     bool steer_req = GET_BIT(msg, 52U);
 
     // FrogPilot variables
-    if (steer_torque_cmd_checks(desired_torque, steer_req, HYUNDAI_CANFD_STEERING_LIMITS)) {
-      tx = false;
+    // 2m/s margin
+    if (hyundai_canfd_below_speed_threshold && hyundai_canfd_taco_tune_hack) {
+      bool violation = false;
+      uint32_t ts = microsecond_timer_get();
+
+      if (aol_allowed || controls_allowed) {
+        // *** global torque limit check ***
+        violation |= max_limit_check(desired_torque, 384, -384);
+
+        // ready to blend in limits
+        desired_torque_last = MAX(-330, MIN(desired_torque, 330));
+        rt_torque_last = desired_torque;
+        ts_torque_check_last = ts;
+      }
+
+      // no torque if controls is not allowed
+      if (!(aol_allowed || controls_allowed) && (desired_torque != 0)) {
+        violation = true;
+      }
+
+      // reset to 0 if either controls is not allowed or there's a violation
+      if (violation || !(aol_allowed || controls_allowed)) {
+        valid_steer_req_count = 0;
+        invalid_steer_req_count = 0;
+        desired_torque_last = 0;
+        rt_torque_last = 0;
+        ts_torque_check_last = ts;
+        ts_steer_req_mismatch_last = ts;
+      }
+
+      if (violation) {
+        tx = 0;
+      }
+    } else {
+      if (steer_torque_cmd_checks(desired_torque, steer_req, HYUNDAI_CANFD_STEERING_LIMITS)) {
+        tx = false;
+      }
     }
   }
 
@@ -381,6 +423,8 @@ static safety_config hyundai_canfd_init(uint16_t param) {
   }
 
   // FrogPilot variables
+  const int HYUNDAI_PARAM_CANFD_TACO_TUNE_HACK = 1024;
+  hyundai_canfd_taco_tune_hack = GET_FLAG(param, HYUNDAI_PARAM_CANFD_TACO_TUNE_HACK);
 
   return ret;
 }
