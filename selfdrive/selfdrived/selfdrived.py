@@ -162,6 +162,8 @@ class SelfdriveD:
     self.frogpilot_AM = AlertManager()
     self.frogpilot_events = Events(frogpilot=True)
 
+    self.distance_pressed_previously = False
+
     self.frogpilot_events_prev = []
 
     self.FPCP = messaging.log_from_bytes(self.params.get("FrogPilotCarParams", block=True), custom.FrogPilotCarParams)
@@ -435,8 +437,15 @@ class SelfdriveD:
 
     # Decrement personality on distance button press
     if self.CP.openpilotLongitudinalControl:
-      distance_pressed = any(not be.pressed and be.type == ButtonType.gapAdjustCruise for be in CS.buttonEvents)
+      distance_pressed = False
 
+      if self.frogpilot_toggles.personality_profile_via_distance:
+        distance_pressed |= any(not be.pressed and be.type == ButtonType.gapAdjustCruise for be in CS.buttonEvents)
+        distance_pressed &= not (self.sm['frogpilotCarState'].distanceLongPressed or self.sm['frogpilotCarState'].distanceVeryLongPressed)
+      if self.frogpilot_toggles.personality_profile_via_distance_long:
+        distance_pressed |= self.sm['frogpilotCarState'].distanceLongPressed
+      if self.frogpilot_toggles.personality_profile_via_distance_very_long:
+        distance_pressed |= self.sm['frogpilotCarState'].distanceVeryLongPressed
       if self.frogpilot_toggles.personality_profile_via_lkas:
         distance_pressed |= any(be.pressed and be.type == ButtonType.lkas for be in CS.buttonEvents)
 
