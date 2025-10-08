@@ -30,6 +30,8 @@ static void update_state(FrogPilotUIState *fs) {
       if (frogpilotPlan.getThemeUpdated()) {
         update_theme(fs->frogpilot_scene);
         emit fs->themeUpdated();
+
+        fs->params_memory.remove("UseActiveTheme");
       }
     }
   }
