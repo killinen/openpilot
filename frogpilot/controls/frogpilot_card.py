@@ -11,6 +11,7 @@ ButtonType = car.CarState.ButtonEvent.Type
 
 class FrogPilotCard:
   def __init__(self, CP):
+    self.force_coast = False
     self.prev_distance_button = False
 
     self.gap_counter = 0
@@ -39,20 +40,28 @@ class FrogPilotCard:
   def update_distance_button(self, sm, frogpilot_toggles):
     if frogpilot_toggles.experimental_mode_via_distance and sm["carControl"].longActive:
       self.handle_experimental_mode(frogpilot_toggles.conditional_experimental_mode)
+    elif frogpilot_toggles.force_coast_via_distance:
+      self.force_coast = not self.force_coast
 
   def update_distance_button_long(self, sm, frogpilot_toggles):
     if frogpilot_toggles.experimental_mode_via_distance_long and sm["carControl"].longActive:
       self.handle_experimental_mode(frogpilot_toggles.conditional_experimental_mode)
+    elif frogpilot_toggles.force_coast_via_distance_long:
+      self.force_coast = not self.force_coast
 
   def update_distance_button_very_long(self, sm, frogpilot_toggles):
     self.update_distance_button_long(sm, frogpilot_toggles)
 
     if frogpilot_toggles.experimental_mode_via_distance_very_long and sm["carControl"].longActive:
       self.handle_experimental_mode(frogpilot_toggles.conditional_experimental_mode)
+    elif frogpilot_toggles.force_coast_via_distance_very_long:
+      self.force_coast = not self.force_coast
 
   def update_lkas_button(self, sm, frogpilot_toggles):
     if frogpilot_toggles.experimental_mode_via_lkas and sm["carControl"].longActive:
       self.handle_experimental_mode(frogpilot_toggles.conditional_experimental_mode)
+    elif frogpilot_toggles.force_coast_via_lkas:
+      self.force_coast = not self.force_coast
 
   def update(self, carState, frogpilotCarState, sm, frogpilot_toggles):
     self.always_on_lateral_enabled = frogpilot_toggles.always_on_lateral_set
@@ -69,6 +78,8 @@ class FrogPilotCard:
     self.always_on_lateral_enabled &= sm["liveCalibration"].calPerc >= 1
     self.always_on_lateral_enabled &= not (carState.brakePressed and carState.vEgo < frogpilot_toggles.always_on_lateral_pause_speed or carState.standstill)
     self.always_on_lateral_enabled &= not any(event.immediateDisable for events in (sm["onroadEvents"], sm["frogpilotOnroadEvents"]) for event in events if event.name != EventName.speedTooLow) or frogpilot_toggles.frogs_go_moo
+
+    self.force_coast &= not (carState.brakePressed or carState.gasPressed)
 
     frogpilotCarState.distancePressed |= self.params_memory.get_bool("OnroadDistanceButtonPressed")
 
@@ -94,5 +105,6 @@ class FrogPilotCard:
     frogpilotCarState.alwaysOnLateralEnabled = self.always_on_lateral_enabled
     frogpilotCarState.distanceLongPressed = self.very_long_press_threshold > self.gap_counter >= self.long_press_threshold
     frogpilotCarState.distanceVeryLongPressed = self.gap_counter >= self.very_long_press_threshold
+    frogpilotCarState.forceCoast = self.force_coast
 
     return frogpilotCarState
