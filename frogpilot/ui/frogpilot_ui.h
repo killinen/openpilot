@@ -14,6 +14,9 @@ struct FrogPilotUIScene {
   bool sidebars_open;
   bool use_stock_colors;
 
+  float lane_width_left;
+  float lane_width_right;
+
   int conditional_status;
   int started_timer;
 
