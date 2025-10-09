@@ -218,6 +218,10 @@ class CarInterfaceBase(ABC):
         if CP.enableGasInterceptorDEPRECATED:
           fp_ret.safetyConfigs[0].safetyParam |= ToyotaFrogPilotSafetyFlags.GAS_INTERCEPTOR
 
+      if CP.steerControlType != car.CarParams.SteerControlType.angle:
+        if CP.lateralTuning.which() == "torque" or CP.lateralTuning.which() == "pid" and frogpilot_toggles.force_torque_controller:
+          CarInterfaceBase.configure_torque_tune(candidate, fp_ret.lateralTuning)
+
       fp_ret.openpilotLongitudinalControlDisabled = frogpilot_toggles.disable_openpilot_long
 
     return fp_ret
