@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cereal/messaging/messaging.h"
+#include "selfdrive/ui/qt/network/wifi_manager.h"
 
 #include "frogpilot/ui/qt/widgets/frogpilot_controls.h"
 
@@ -50,6 +51,8 @@ public:
   FrogPilotUIScene frogpilot_scene;
 
   Params params_memory{"", false, true};
+
+  WifiManager *wifi;
 
 signals:
   void reviewModel();
