@@ -15,6 +15,8 @@ private:
   void showEvent(QShowEvent *event) override;
   void updateTheme();
 
+  bool traffic_mode_active;
+
   int personality;
 
   Params params_memory{"", false, true};

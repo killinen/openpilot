@@ -23,13 +23,15 @@ void DistanceButton::updateTheme() {
 
   icon_map.clear();
 
-  QPixmap aggressive_img, standard_img, relaxed_img;
-  QSharedPointer<QMovie> aggressive_gif, standard_gif, relaxed_gif;
+  QPixmap traffic_img, aggressive_img, standard_img, relaxed_img;
+  QSharedPointer<QMovie> traffic_gif, aggressive_gif, standard_gif, relaxed_gif;
 
+  loadImage("../../frogpilot/assets/active_theme/distance_icons/traffic", traffic_img, traffic_gif, QSize(btn_size, btn_size), this);
   loadImage("../../frogpilot/assets/active_theme/distance_icons/aggressive", aggressive_img, aggressive_gif, QSize(btn_size, btn_size), this);
   loadImage("../../frogpilot/assets/active_theme/distance_icons/standard", standard_img, standard_gif, QSize(btn_size, btn_size), this);
   loadImage("../../frogpilot/assets/active_theme/distance_icons/relaxed", relaxed_img, relaxed_gif, QSize(btn_size, btn_size), this);
 
+  icon_map.insert(0, qMakePair(traffic_img, traffic_gif));
   icon_map.insert(1, qMakePair(aggressive_img, aggressive_gif));
   icon_map.insert(2, qMakePair(standard_img, standard_gif));
   icon_map.insert(3, qMakePair(relaxed_img, relaxed_gif));
@@ -38,13 +40,15 @@ void DistanceButton::updateTheme() {
 void DistanceButton::updateState(const UIState &s, const FrogPilotUIState &fs) {
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
 
-  bool state_changed = personality != static_cast<int>(s.scene.personality) + 1;
+  bool state_changed = (traffic_mode_active != frogpilot_scene.traffic_mode_enabled) ||
+                       (personality != static_cast<int>(s.scene.personality) + 1 && !traffic_mode_active);
 
   if (!state_changed) {
     return;
   }
 
   personality = static_cast<int>(s.scene.personality) + 1;
+  traffic_mode_active = frogpilot_scene.traffic_mode_enabled;
 
   update();
 }
@@ -53,7 +57,7 @@ void DistanceButton::paintEvent(QPaintEvent *event) {
   QPainter p(this);
   p.setRenderHint(QPainter::Antialiasing);
 
-  QPair<QPixmap, QSharedPointer<QMovie>> icon = icon_map.value(personality);
+  QPair<QPixmap, QSharedPointer<QMovie>> icon = icon_map.value(traffic_mode_active ? 0 : personality);
   QPixmap img = icon.first;
   QMovie *gif = icon.second.data();
 
