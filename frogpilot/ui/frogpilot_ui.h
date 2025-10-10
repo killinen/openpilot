@@ -12,6 +12,7 @@ struct FrogPilotUIScene {
   bool frogpilot_panel_active;
   bool online;
   bool parked;
+  bool reverse;
   bool sidebars_open;
   bool use_stock_colors;
 
@@ -19,6 +20,7 @@ struct FrogPilotUIScene {
   float lane_width_right;
 
   int conditional_status;
+  int driver_camera_timer;
   int model_length;
   int started_timer;
 
