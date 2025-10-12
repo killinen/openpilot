@@ -61,6 +61,15 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
   connect(targetBranchBtn, &ButtonControl::clicked, [=]() {
     auto current = params.get("GitBranch");
     QStringList branches = QString::fromStdString(params.get("UpdaterAvailableBranches")).split(",");
+    if (!frogpilotUIState()->frogpilot_scene.frogpilot_toggles.value("frogs_go_moo").toBool()) {
+      for (int i = branches.size() - 1; i >= 0; --i) {
+        if (branches[i].startsWith("FrogPilot-Development", Qt::CaseInsensitive)) {
+          branches.removeAt(i);
+        }
+      }
+    }
+    branches.removeAll("FrogPilot-Vetting");
+    branches.removeAll("MAKE-PRS-HERE");
     for (QString b : {current.c_str(), "devel-staging", "devel", "nightly", "nightly-dev", "master"}) {
       auto i = branches.indexOf(b);
       if (i >= 0) {
