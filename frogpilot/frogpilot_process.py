@@ -8,6 +8,7 @@ from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL, Priority, Ratekeeper, config_realtime_process
 from openpilot.common.time_helpers import system_time_valid
 
+from openpilot.frogpilot.common.frogpilot_functions import backup_toggles
 from openpilot.frogpilot.common.frogpilot_utilities import is_url_pingable, run_thread_with_lock
 from openpilot.frogpilot.common.frogpilot_variables import FrogPilotVariables, get_frogpilot_toggles
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
@@ -89,6 +90,9 @@ def frogpilot_thread():
     if params_memory.get_bool("FrogPilotTogglesUpdated"):
       frogpilot_variables.update(started)
       frogpilot_toggles = get_frogpilot_toggles()
+
+      if time_validated:
+        run_thread_with_lock("backup_toggles", backup_toggles, (params, params_cache), report=False)
 
       toggles_last_updated = now
 

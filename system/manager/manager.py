@@ -114,7 +114,7 @@ def manager_init() -> None:
 
   # FrogPilot variables
   install_frogpilot()
-  frogpilot_boot_functions(params)
+  frogpilot_boot_functions(build_metadata, params, params_cache)
 
 
 def manager_cleanup() -> None:
