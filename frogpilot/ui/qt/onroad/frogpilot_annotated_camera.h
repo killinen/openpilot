@@ -32,4 +32,6 @@ protected:
   void showEvent(QShowEvent *event) override;
 
 private:
+  Params params;
+  Params params_memory{"", false, true};
 };

@@ -11,9 +11,9 @@ from openpilot.frogpilot.common.frogpilot_utilities import is_url_pingable, run_
 
 ASSET_CHECK_RATE = (1 / DT_MDL)
 
-def assets_checks():
+def assets_checks(params_memory):
 
-def update_checks(now, params, boot_run=False):
+def update_checks(now, params, params_memory, boot_run=False):
   while not (is_url_pingable("https://github.com") or is_url_pingable("https://gitlab.com")):
     time.sleep(60)
 
@@ -30,6 +30,8 @@ def frogpilot_thread():
                             poll="modelV2")
 
   params = Params()
+  params_cache = Params(cache=True)
+  params_memory = Params(memory=True)
 
   run_update_checks = False
   started_previously = False
@@ -53,13 +55,13 @@ def frogpilot_thread():
     started_previously = started
 
     if rate_keeper.frame % ASSET_CHECK_RATE == 0:
-      assets_checks()
+      assets_checks(params_memory)
 
     run_update_checks |= now.second == 0 and (now.minute % 60 == 0 or (now.minute % 5 == 0 and frogpilot_toggles.frogs_go_moo))
     run_update_checks &= time_validated
 
     if run_update_checks:
-      run_thread_with_lock("update_checks", update_checks, (now, params))
+      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory))
 
       run_update_checks = False
     elif not time_validated:
@@ -67,7 +69,7 @@ def frogpilot_thread():
       if not time_validated:
         continue
 
-      run_thread_with_lock("update_checks", update_checks, (now, params, True))
+      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory, True))
 
     rate_keeper.keep_time()
 

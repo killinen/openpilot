@@ -25,6 +25,8 @@ public:
 
   FrogPilotUIScene frogpilot_scene;
 
+  Params params_memory{"", false, true};
+
 signals:
 };
 

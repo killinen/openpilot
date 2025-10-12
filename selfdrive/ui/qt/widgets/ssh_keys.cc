@@ -21,6 +21,8 @@ SshControl::SshControl() :
       params.remove("GithubSshKeys");
 
       // FrogPilot variables
+      params_cache.remove("GithubUsername");
+      params_cache.remove("GithubSshKeys");
 
       refresh();
     }
