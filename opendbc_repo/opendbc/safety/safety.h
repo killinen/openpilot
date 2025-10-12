@@ -61,6 +61,10 @@ int cruise_button_prev = 0;
 bool safety_rx_checks_invalid = false;
 
 // FrogPilot variables
+bool aol_allowed = false;
+bool cruise_main_prev = false;
+bool lkas_on = false;
+bool lkas_prev = false;
 
 // for safety modes with torque steering control
 int desired_torque_last = 0;       // last desired steer torque
@@ -371,6 +375,7 @@ static void generic_rx_checks(void) {
   steering_disengage_prev = steering_disengage;
 
   // FrogPilot variables
+  aol_allowed = (acc_main_on || lkas_on) && (alternative_experience & ALT_EXP_ALWAYS_ON_LATERAL);
 }
 
 static void stock_ecu_check(bool stock_ecu_detected) {

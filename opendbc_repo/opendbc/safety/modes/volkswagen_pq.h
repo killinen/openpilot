@@ -133,6 +133,9 @@ static void volkswagen_pq_rx_hook(const CANPacket_t *msg) {
       }
 
       // FrogPilot variables
+      if (msg->addr == MSG_MOTOR_5) {
+        acc_main_on = GET_BIT(msg, 50U);
+      }
     }
 
     // Signal: Motor_3.Fahrpedal_Rohsignal

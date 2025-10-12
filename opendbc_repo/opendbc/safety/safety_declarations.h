@@ -269,6 +269,10 @@ extern int cruise_button_prev;
 extern bool safety_rx_checks_invalid;
 
 // FrogPilot variables
+extern bool aol_allowed;
+extern bool cruise_main_prev;
+extern bool lkas_on;
+extern bool lkas_prev;
 
 // for safety modes with torque steering control
 extern int desired_torque_last;       // last desired steer torque
@@ -312,6 +316,7 @@ extern bool enable_gas_interceptor;
 #define ALT_EXP_ALLOW_AEB 16
 
 // FrogPilot variables
+#define ALT_EXP_ALWAYS_ON_LATERAL 32
 
 extern int alternative_experience;
 

@@ -34,6 +34,7 @@ static void nissan_rx_hook(const CANPacket_t *msg) {
         gas_pressed = msg->data[0] > 3U;
 
         // FrogPilot variables
+        acc_main_on = GET_BIT(msg, 17U);
       }
     }
 
@@ -54,6 +55,9 @@ static void nissan_rx_hook(const CANPacket_t *msg) {
   }
 
   // FrogPilot variables
+  if (msg->addr == 0x1b6) {
+    acc_main_on = GET_BIT(msg, 36U);
+  }
 }
 
 

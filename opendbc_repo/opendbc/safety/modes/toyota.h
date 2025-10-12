@@ -32,6 +32,7 @@
   /* ACC */                            \
   {0x343, 0, 8, .check_relay = true},  \
   /* FrogPilot variables */            \
+  {0x1D3, 0, 8, .check_relay = true},  \
 
 #define TOYOTA_COMMON_RX_CHECKS(lta)                                                                                                       \
   {.msg = {{ 0xaa, 0, 8, 83U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
@@ -162,6 +163,9 @@ static void toyota_rx_hook(const CANPacket_t *msg) {
     }
 
     // FrogPilot variables
+    if (msg->addr == 0x1D3) {
+      acc_main_on = GET_BIT(msg, 15U);
+    }
   }
 }
 

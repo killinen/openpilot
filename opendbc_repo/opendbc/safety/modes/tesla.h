@@ -162,6 +162,12 @@ static void tesla_rx_hook(const CANPacket_t *msg) {
       pcm_cruise_check(cruise_engaged);
 
       // FrogPilot variables
+      acc_main_on = (cruise_state == 1) ||  // STANDBY
+                    (cruise_state == 2) ||  // ENABLED
+                    (cruise_state == 3) ||  // STANDSTILL
+                    (cruise_state == 4) ||  // OVERRIDE
+                    (cruise_state == 6) ||  // PRE_FAULT
+                    (cruise_state == 7);    // PRE_CANCEL
     }
   }
 
