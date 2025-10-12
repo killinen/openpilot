@@ -13,6 +13,10 @@ struct FrogPilotUIScene {
   int started_timer;
 
   QJsonObject frogpilot_toggles;
+
+  QPointF lead_vertices[2];
+
+  QPolygonF track_adjacent_vertices[2];
 };
 
 class FrogPilotUIState : public QObject {
