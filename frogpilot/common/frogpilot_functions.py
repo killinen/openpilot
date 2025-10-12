@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import filecmp
+import random
+import string
 import threading
 import time
 
@@ -9,14 +11,22 @@ from openpilot.common.time_helpers import system_time_valid
 from openpilot.system.hardware import HARDWARE
 
 from openpilot.frogpilot.common.frogpilot_utilities import run_cmd
+from openpilot.frogpilot.system.frogpilot_stats import send_stats
 
-def frogpilot_boot_functions():
+def frogpilot_boot_functions(params):
+
+  if params.get("FrogPilotDongleId") == None:
+    params.put("FrogPilotDongleId", ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)))
+
   def boot_thread():
     while not system_time_valid():
       print("Waiting for system time to become valid...")
       time.sleep(1)
 
+    send_stats(params)
+
   threading.Thread(target=boot_thread, daemon=True).start()
+
 
 def install_frogpilot():
   paths = [
