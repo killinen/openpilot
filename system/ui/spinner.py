@@ -19,6 +19,7 @@ LINE_HEIGHT = 104
 DARKGRAY = (55, 55, 55, 255)
 
 # FrogPilot variables
+GREEN = (23, 134, 68, 242)
 
 
 def clamp(value, min_value, max_value):
@@ -73,7 +74,7 @@ class Spinner(Widget):
       rl.draw_rectangle_rounded(bar, 1, 10, DARKGRAY)
 
       bar.width *= self._progress / 100.0
-      rl.draw_rectangle_rounded(bar, 1, 10, rl.WHITE)
+      rl.draw_rectangle_rounded(bar, 1, 10, GREEN)
     elif self._wrapped_lines:
       for i, line in enumerate(self._wrapped_lines):
         text_size = measure_text_cached(gui_app.font(), line, FONT_SIZE)
