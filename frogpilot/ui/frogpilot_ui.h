@@ -6,6 +6,9 @@
 
 struct FrogPilotUIScene {
   bool enabled;
+  bool frogpilot_panel_active;
+  bool online;
+  bool parked;
 
   int started_timer;
 };

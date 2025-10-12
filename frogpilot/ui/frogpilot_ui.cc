@@ -8,9 +8,11 @@ static void update_state(FrogPilotUIState *fs) {
 
   if (sm.updated("carState")) {
     const cereal::CarState::Reader &carState = sm["carState"].getCarState();
+    frogpilot_scene.parked = carState.getGearShifter() == cereal::CarState::GearShifter::PARK;
   }
   if (sm.updated("deviceState")) {
     const cereal::DeviceState::Reader &deviceState = sm["deviceState"].getDeviceState();
+    frogpilot_scene.online = deviceState.getNetworkType() != cereal::DeviceState::NetworkType::NONE;
   }
   if (sm.updated("selfdriveState")) {
     const cereal::SelfdriveState::Reader &selfdriveState = sm["selfdriveState"].getSelfdriveState();
