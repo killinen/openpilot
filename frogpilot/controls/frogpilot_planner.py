@@ -18,10 +18,10 @@ from openpilot.frogpilot.controls.lib.frogpilot_following import FrogPilotFollow
 from openpilot.frogpilot.controls.lib.frogpilot_vcruise import FrogPilotVCruise
 
 class FrogPilotPlanner:
-  def __init__(self, ThemeManager, params):
+  def __init__(self, error_log, ThemeManager, params):
     self.frogpilot_acceleration = FrogPilotAcceleration(self)
     self.frogpilot_cem = ConditionalExperimentalMode(self)
-    self.frogpilot_events = FrogPilotEvents(self, ThemeManager)
+    self.frogpilot_events = FrogPilotEvents(self, error_log, ThemeManager)
     self.frogpilot_following = FrogPilotFollowing(self)
     self.frogpilot_vcruise = FrogPilotVCruise(self, params)
 

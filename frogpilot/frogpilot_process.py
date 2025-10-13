@@ -11,7 +11,7 @@ from openpilot.common.time_helpers import system_time_valid
 from openpilot.frogpilot.assets.theme_manager import THEME_COMPONENT_PARAMS, ThemeManager
 from openpilot.frogpilot.common.frogpilot_functions import backup_toggles
 from openpilot.frogpilot.common.frogpilot_utilities import is_url_pingable, run_thread_with_lock, update_openpilot
-from openpilot.frogpilot.common.frogpilot_variables import FrogPilotVariables, get_frogpilot_toggles
+from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.frogpilot.controls.lib.frogpilot_tracking import FrogPilotTracking
 from openpilot.frogpilot.system.frogpilot_stats import send_stats
@@ -63,6 +63,10 @@ def frogpilot_thread():
 
   toggles_last_updated = datetime.datetime.now(datetime.timezone.utc)
 
+  error_log = ERROR_LOGS_PATH / "error.txt"
+  if error_log.is_file():
+    error_log.unlink()
+
   while True:
     sm.update()
 
@@ -80,7 +84,10 @@ def frogpilot_thread():
         send_stats(params)
 
     elif started and not started_previously:
-      frogpilot_planner = FrogPilotPlanner(theme_manager, params)
+      if error_log.is_file():
+        error_log.unlink()
+
+      frogpilot_planner = FrogPilotPlanner(error_log, theme_manager, params)
       frogpilot_tracking = FrogPilotTracking(frogpilot_planner, params, frogpilot_toggles)
 
     if started and sm.updated["modelV2"]:
