@@ -15,6 +15,7 @@ def dmonitoringd_thread():
   DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
 
   # FrogPilot variables
+  sm = sm.extend(['frogpilotCarState'])
 
   # 20Hz <- dmonitoringmodeld
   while True:

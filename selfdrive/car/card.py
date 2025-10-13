@@ -5,7 +5,7 @@ import threading
 
 import cereal.messaging as messaging
 
-from cereal import car, log
+from cereal import car, custom, log
 
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper
@@ -20,6 +20,8 @@ from opendbc.car.interfaces import CarInterfaceBase, RadarInterfaceBase
 from openpilot.selfdrive.pandad import can_capnp_to_list, can_list_to_can_capnp
 from openpilot.selfdrive.car.cruise import VCruiseHelper
 from openpilot.selfdrive.car.car_specific import MockCarState
+
+from openpilot.frogpilot.controls.frogpilot_card import FrogPilotCard
 
 REPLAY = "REPLAY" in os.environ
 
@@ -64,6 +66,7 @@ class Car:
   CP: car.CarParams
 
   # FrogPilot variables
+  FPCP: custom.FrogPilotCarParams
 
   def __init__(self, CI=None, RI=None) -> None:
     self.can_sock = messaging.sub_sock('can', timeout=20)
@@ -108,7 +111,7 @@ class Car:
       # continue onto next fingerprinting step in pandad
       self.params.put_bool("FirmwareQueryDone", True)
     else:
-      self.CI, self.CP = CI, CI.CP
+      self.CI, self.CP, self.FPCP = CI, CI.CP, CI.FPCP
       self.RI = RI
 
     self.CP.alternativeExperience = 0
@@ -165,6 +168,14 @@ class Car:
     self.resume_prev_button = False
 
     # FrogPilot variables
+    self.frogpilot_card = FrogPilotCard(self.CP)
+
+    self.sm = self.sm.extend(['frogpilotOnroadEvents', 'frogpilotPlan', 'liveCalibration', 'selfdriveState'])
+    self.pm = self.pm.extend(['frogpilotCarState'])
+
+    fpcp_bytes = self.FPCP.to_bytes()
+    self.params.put("FrogPilotCarParams", fpcp_bytes)
+    self.params.put_nonblocking("FrogPilotCarParamsPersistent", fpcp_bytes)
 
   def state_update(self) -> tuple[car.CarState, structs.RadarDataT | None]:
     """carState update loop, driven by can"""
@@ -173,9 +184,9 @@ class Car:
     can_list = can_capnp_to_list(can_strs)
 
     # Update carState from CAN
-    CS = self.CI.update(can_list)
+    CS, FPCS = self.CI.update(can_list)
     if self.CP.brand == 'mock':
-      CS = self.mock_carstate.update(CS)
+      CS, FPCS = self.mock_carstate.update(CS)
 
     # Update radar tracks from CAN
     RD: structs.RadarDataT | None = self.RI.update(can_list)
@@ -207,10 +218,11 @@ class Car:
       self.resume_prev_button = False
 
     # FrogPilot variables
+    FPCS = self.frogpilot_card.update(CS, FPCS, self.sm)
 
-    return CS, RD
+    return CS, RD, FPCS
 
-  def state_publish(self, CS: car.CarState, RD: structs.RadarDataT | None):
+  def state_publish(self, CS: car.CarState, RD: structs.RadarDataT | None, FPCS: custom.FrogPilotCarState):
     """carState and carParams publish loop"""
 
     # carParams - logged every 50 seconds (> 1 per segment)
@@ -241,6 +253,10 @@ class Car:
       self.pm.send('liveTracks', tracks_msg)
 
     # FrogPilot variables
+    fpcs_send = messaging.new_message('frogpilotCarState')
+    fpcs_send.valid = CS.canValid
+    fpcs_send.frogpilotCarState = FPCS
+    self.pm.send('frogpilotCarState', fpcs_send)
 
   def controls_update(self, CS: car.CarState, CC: car.CarControl):
     """control update loop, driven by carControl"""
@@ -261,9 +277,9 @@ class Car:
       self.CC_prev = CC
 
   def step(self):
-    CS, RD = self.state_update()
+    CS, RD, FPCS = self.state_update()
 
-    self.state_publish(CS, RD)
+    self.state_publish(CS, RD, FPCS)
 
     initialized = (not any(e.name == EventName.selfdriveInitializing for e in self.sm['onroadEvents']) and
                    self.sm.seen['onroadEvents'])

@@ -14,6 +14,12 @@ static void update_state(FrogPilotUIState *fs) {
     const cereal::DeviceState::Reader &deviceState = sm["deviceState"].getDeviceState();
     frogpilot_scene.online = deviceState.getNetworkType() != cereal::DeviceState::NetworkType::NONE;
   }
+  if (sm.updated("frogpilotCarState")) {
+    const cereal::FrogPilotCarState::Reader &frogpilotCarState = sm["frogpilotCarState"].getFrogpilotCarState();
+  }
+  if (sm.updated("frogpilotPlan")) {
+    const cereal::FrogPilotPlan::Reader &frogpilotPlan = sm["frogpilotPlan"].getFrogpilotPlan();
+  }
   if (sm.updated("selfdriveState")) {
     const cereal::SelfdriveState::Reader &selfdriveState = sm["selfdriveState"].getSelfdriveState();
     frogpilot_scene.enabled = selfdriveState.getEnabled();
@@ -22,8 +28,8 @@ static void update_state(FrogPilotUIState *fs) {
 
 FrogPilotUIState::FrogPilotUIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "carControl", "carState", "controlsState", "deviceState",
-    "liveDelay",
+    "carControl", "carState", "controlsState", "deviceState", "frogpilotCarState", "frogpilotSelfdriveState",
+    "frogpilotDeviceState", "frogpilotPlan", "frogpilotRadarState", "liveDelay",
     "liveParameters", "liveTorqueParameters", "liveTracks", "navInstruction", "selfdriveState"
   });
 }

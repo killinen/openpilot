@@ -31,6 +31,10 @@ def run_thread_with_lock(name, target, args=(), report=True):
       running_threads[name] = thread
 
 
+def contains_event_type(events, frogpilot_events, *event_types):
+  return any(events.contains(event_type) or frogpilot_events.contains(event_type) for event_type in event_types)
+
+
 def delete_file(path, print_error=True, report=True):
   path = Path(path)
   if path.is_file() or path.is_symlink():
