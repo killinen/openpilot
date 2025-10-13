@@ -60,6 +60,7 @@ class ToyotaSafetyFlags(IntFlag):
 
 # FrogPilot variables
 class ToyotaFrogPilotSafetyFlags(IntFlag):
+  GAS_INTERCEPTOR = (16 << 8)
 
 
 class ToyotaFlags(IntFlag):
