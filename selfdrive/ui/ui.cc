@@ -207,6 +207,10 @@ void Device::updateBrightness(const UIState &s, const FrogPilotUIState &fs) {
   int brightness = brightness_filter.update(clipped_brightness);
   if (!awake) {
     brightness = 0;
+  } else if (s.scene.started && frogpilot_toggles.value("screen_brightness_onroad").toInt() != 101) {
+    brightness = interactive_timeout > 0 ? fmax(5, frogpilot_toggles.value("screen_brightness_onroad").toInt()) : frogpilot_toggles.value("screen_brightness_onroad").toInt();
+  } else if (frogpilot_toggles.value("screen_brightness").toInt() != 101) {
+    brightness = frogpilot_toggles.value("screen_brightness").toInt();
   }
 
   if (brightness != last_brightness) {
