@@ -113,7 +113,7 @@ def manager_init() -> None:
     p.prepare()
 
   # FrogPilot variables
-  install_frogpilot(build_metadata)
+  install_frogpilot(build_metadata, params)
   frogpilot_boot_functions(build_metadata, params, params_cache)
 
 

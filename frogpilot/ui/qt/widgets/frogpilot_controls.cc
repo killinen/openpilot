@@ -94,3 +94,10 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
     colorObj.value("alpha").toInt(255)
   );
 }
+
+QString processModelName(const QString &modelName) {
+  QString modelCleaned = modelName;
+  modelCleaned = modelCleaned.remove(QRegularExpression("[🗺️👀📡]")).simplified();
+  modelCleaned = modelCleaned.replace("(Default)", "");
+  return modelCleaned;
+}

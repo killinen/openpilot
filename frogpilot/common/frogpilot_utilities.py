@@ -26,11 +26,14 @@ running_threads = {}
 
 locks = {
   "backup_toggles": threading.Lock(),
+  "download_all_models": threading.Lock(),
+  "download_model": threading.Lock(),
   "download_theme": threading.Lock(),
   "flash_panda": threading.Lock(),
   "lock_doors": threading.Lock(),
   "update_checks": threading.Lock(),
   "update_openpilot": threading.Lock(),
+  "update_tinygrad": threading.Lock()
 }
 
 def run_thread_with_lock(name, target, args=(), report=True):
@@ -79,6 +82,10 @@ def calculate_road_curvature(modelData, v_ego):
   time_to_curve = float(timebase[index])
 
   return predicted_lateral_acc / max(v_ego, 1)**2, max(time_to_curve, 1)
+
+
+def clean_model_name(name):
+  return name.replace("(Default)", "").strip()
 
 
 def contains_event_type(events, frogpilot_events, *event_types):
