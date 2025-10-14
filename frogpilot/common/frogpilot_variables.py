@@ -511,9 +511,13 @@ class FrogPilotVariables:
     toggle.color_scheme = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomColors") if personalize_openpilot else "stock"
     toggle.distance_icons = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomDistanceIcons") if personalize_openpilot else "stock"
     toggle.icon_pack = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomIcons") if personalize_openpilot else "stock"
+    toggle.random_themes = personalize_openpilot and (self.params.get_bool("RandomThemes") if tuning_level >= level["RandomThemes"] else default["RandomThemes"])
     toggle.signal_icons = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomSignals") if personalize_openpilot else "stock"
     toggle.sound_pack = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomSounds") if personalize_openpilot else "stock"
-    toggle.wheel_image = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("WheelIcon") if personalize_openpilot else "stock"
+    if not toggle.random_themes:
+      toggle.wheel_image = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("WheelIcon") if personalize_openpilot else "stock"
+    else:
+      toggle.wheel_image = next((file.resolve().stem for file in (ACTIVE_THEME_PATH / "steering_wheel").glob("wheel.*")), "stock")
 
     quality_of_life_lateral = self.params.get_bool("QOLLateral") if tuning_level >= level["QOLLateral"] else default["QOLLateral"]
     toggle.pause_lateral_below_speed = self.params.get("PauseLateralSpeed") * speed_conversion if quality_of_life_lateral and tuning_level >= level["PauseLateralSpeed"] else default["PauseLateralSpeed"] * CV.MPH_TO_MS
