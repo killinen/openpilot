@@ -150,7 +150,7 @@ class FrogPilotVariables:
       HD_PATH.unlink()
       HARDWARE.reboot()
 
-  def update(self, started):
+  def update(self, holiday_theme, started):
     default = self.default_values
     level = self.tuning_levels
     toggle = self.frogpilot_toggles
@@ -425,6 +425,9 @@ class FrogPilotVariables:
     toggle.vEgoStarting = 0.1 if toggle.frogsgomoo_tweak else toggle.vEgoStarting
     toggle.vEgoStopping = 0.5 if toggle.frogsgomoo_tweak else toggle.vEgoStopping
 
+    toggle.holiday_themes = self.params.get_bool("HolidayThemes") if tuning_level >= level["HolidayThemes"] else default["HolidayThemes"]
+    toggle.current_holiday_theme = holiday_theme if toggle.holiday_themes else "stock"
+
     toggle.lane_changes = self.params.get_bool("LaneChanges") if tuning_level >= level["LaneChanges"] else default["LaneChanges"]
     toggle.lane_change_delay = self.params.get("LaneChangeTime") if toggle.lane_changes and tuning_level >= level["LaneChangeTime"] else default["LaneChangeTime"]
     toggle.lane_detection_width = self.params.get("LaneDetectionWidth") * distance_conversion if toggle.lane_changes and tuning_level >= level["LaneDetectionWidth"] else default["LaneDetectionWidth"] * CV.FOOT_TO_METER
@@ -494,12 +497,12 @@ class FrogPilotVariables:
     toggle.speed_limit_vienna = toggle.navigation_ui and (self.params.get_bool("UseVienna") if tuning_level >= level["UseVienna"] else default["UseVienna"])
 
     personalize_openpilot = self.params.get_bool("PersonalizeOpenpilot") if tuning_level >= level["PersonalizeOpenpilot"] else default["PersonalizeOpenpilot"]
-    toggle.color_scheme = self.params.get("CustomColors") if personalize_openpilot else "stock"
-    toggle.distance_icons = self.params.get("CustomDistanceIcons") if personalize_openpilot else "stock"
-    toggle.icon_pack = self.params.get("CustomIcons") if personalize_openpilot else "stock"
-    toggle.signal_icons = self.params.get("CustomSignals") if personalize_openpilot else "stock"
-    toggle.sound_pack = self.params.get("CustomSounds") if personalize_openpilot else "stock"
-    toggle.wheel_image = self.params.get("WheelIcon") if personalize_openpilot else "stock"
+    toggle.color_scheme = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomColors") if personalize_openpilot else "stock"
+    toggle.distance_icons = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomDistanceIcons") if personalize_openpilot else "stock"
+    toggle.icon_pack = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomIcons") if personalize_openpilot else "stock"
+    toggle.signal_icons = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomSignals") if personalize_openpilot else "stock"
+    toggle.sound_pack = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("CustomSounds") if personalize_openpilot else "stock"
+    toggle.wheel_image = toggle.current_holiday_theme if toggle.current_holiday_theme != "stock" else self.params.get("WheelIcon") if personalize_openpilot else "stock"
 
     quality_of_life_lateral = self.params.get_bool("QOLLateral") if tuning_level >= level["QOLLateral"] else default["QOLLateral"]
     toggle.pause_lateral_below_speed = self.params.get("PauseLateralSpeed") * speed_conversion if quality_of_life_lateral and tuning_level >= level["PauseLateralSpeed"] else default["PauseLateralSpeed"] * CV.MPH_TO_MS
