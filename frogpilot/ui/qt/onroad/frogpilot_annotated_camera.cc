@@ -46,3 +46,22 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
   const cereal::FrogPilotCarState::Reader &frogpilotCarState = fpsm["frogpilotCarState"].getFrogpilotCarState();
   const cereal::FrogPilotPlan::Reader &frogpilotPlan = fpsm["frogpilotPlan"].getFrogpilotPlan();
 }
+
+void FrogPilotAnnotatedCameraWidget::paintBlindSpotPath(QPainter &p, const cereal::CarState::Reader &carState, const FrogPilotUIScene &frogpilot_scene) {
+  p.save();
+
+  QLinearGradient bs(0, height(), 0, 0);
+  bs.setColorAt(0.0f, QColor::fromHslF(0 / 360.0f, 0.75f, 0.5f, 0.6f));
+  bs.setColorAt(0.5f, QColor::fromHslF(0 / 360.0f, 0.75f, 0.5f, 0.4f));
+  bs.setColorAt(1.0f, QColor::fromHslF(0 / 360.0f, 0.75f, 0.5f, 0.2f));
+
+  p.setBrush(bs);
+  if (frogpilot_scene.lane_width_left != 0 && carState.getLeftBlindspot()) {
+    p.drawPolygon(frogpilot_scene.track_adjacent_vertices[0]);
+  }
+  if (frogpilot_scene.lane_width_right != 0 && carState.getRightBlindspot()) {
+    p.drawPolygon(frogpilot_scene.track_adjacent_vertices[1]);
+  }
+
+  p.restore();
+}
