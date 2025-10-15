@@ -33,6 +33,10 @@ protected:
   void showEvent(QShowEvent *event) override;
 
 private:
+  void paintCompass(QPainter &p, QJsonObject &frogpilot_toggles);
+
   Params params;
   Params params_memory{"", false, true};
+
+  QPoint compassPosition;
 };
