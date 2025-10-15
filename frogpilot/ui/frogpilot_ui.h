@@ -50,6 +50,7 @@ public:
   Params params_memory{"", false, true};
 
 signals:
+  void reviewModel();
   void themeUpdated();
 };
 

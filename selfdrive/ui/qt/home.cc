@@ -11,6 +11,7 @@
 
 #include "frogpilot/ui/qt/widgets/drive_stats.h"
 #include "frogpilot/ui/qt/widgets/drive_summary.h"
+#include "frogpilot/ui/qt/widgets/model_reviewer.h"
 
 // HomeWindow: the container for the offroad and onroad UIs
 
@@ -169,7 +170,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     home_layout->setContentsMargins(0, 0, 0, 0);
     home_layout->setSpacing(30);
 
-    // left: stack of DriveStats / DriveSummary
+    // left: stack of DriveStats / DriveSummary / ModelReview
     QWidget *left_widget = new QWidget(this);
     QStackedLayout *left_stack = new QStackedLayout(left_widget);
     left_stack->setContentsMargins(0, 0, 0, 0);
@@ -178,9 +179,17 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     left_stack->addWidget(new DriveStats());
     FrogPilotDriveSummary *drive_summary = new FrogPilotDriveSummary(this);
     left_stack->addWidget(drive_summary);
+    FrogPilotModelReview *model_review = new FrogPilotModelReview(this);
+    left_stack->addWidget(model_review);
 
     QObject::connect(drive_summary, &FrogPilotDriveSummary::panelClosed, [left_stack]() {
       left_stack->setCurrentIndex(0);
+    });
+    QObject::connect(model_review, &FrogPilotModelReview::driveRated, [left_stack]() {
+      left_stack->setCurrentIndex(1);
+    });
+    QObject::connect(frogpilotUIState(), &FrogPilotUIState::reviewModel, [left_stack]() {
+      left_stack->setCurrentIndex(2);
     });
     QObject::connect(uiState(), &UIState::offroadTransition, [left_stack](bool offroad) {
       static bool previouslyOnroad = false;
