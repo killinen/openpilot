@@ -40,6 +40,8 @@ Sidebar::Sidebar(QWidget *parent) : QFrame(parent), onroad(false), flag_pressed(
   QObject::connect(uiState(), &UIState::uiUpdate, this, &Sidebar::updateState);
 
   pm = std::make_unique<PubMaster>(std::vector<const char*>{"bookmarkButton"});
+
+  // FrogPilot variables
 }
 
 void Sidebar::mousePressEvent(QMouseEvent *event) {
@@ -76,8 +78,11 @@ void Sidebar::offroadTransition(bool offroad) {
   update();
 }
 
-void Sidebar::updateState(const UIState &s) {
+void Sidebar::updateState(const UIState &s, const FrogPilotUIState &fs) {
   if (!isVisible()) return;
+
+  // FrogPilot variables
+  const SubMaster &frog_sm = *(fs.sm);
 
   auto &sm = *(s.sm);
 

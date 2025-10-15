@@ -46,6 +46,8 @@ class CarState(CarStateBase):
     # However, on cars without a digital speedometer this is not always present (HRV, FIT, CRV 2016, ILX and RDX)
     self.dash_speed_seen = False
 
+    # FrogPilot variables
+
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
@@ -204,6 +206,8 @@ class CarState(CarStateBase):
       *create_button_events(self.cruise_buttons, prev_cruise_buttons, BUTTONS_DICT),
       *create_button_events(self.cruise_setting, prev_cruise_setting, SETTINGS_BUTTONS_DICT),
     ]
+
+    # FrogPilot variables
 
     return ret
 

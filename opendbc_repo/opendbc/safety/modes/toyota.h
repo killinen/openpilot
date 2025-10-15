@@ -5,6 +5,7 @@
 // Stock longitudinal
 #define TOYOTA_BASE_TX_MSGS \
   {0x191, 0, 8, .check_relay = true}, {0x412, 0, 8, .check_relay = true}, {0x1D2, 0, 8, .check_relay = false},  /* LKAS + LTA + PCM cancel cmd */  \
+  /* FrogPilot variables */ \
 
 #define TOYOTA_COMMON_TX_MSGS \
   TOYOTA_BASE_TX_MSGS \
@@ -30,6 +31,7 @@
   {0x750, 0, 8, .check_relay = false}, \
   /* ACC */                            \
   {0x343, 0, 8, .check_relay = true},  \
+  /* FrogPilot variables */            \
 
 #define TOYOTA_COMMON_RX_CHECKS(lta)                                                                                                       \
   {.msg = {{ 0xaa, 0, 8, 83U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
@@ -51,11 +53,15 @@
   {.msg = {{0x116, 0, 8, 42U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
   {.msg = {{0x101, 0, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  \
 
+// FrogPilot variables
+
 static bool toyota_secoc = false;
 static bool toyota_alt_brake = false;
 static bool toyota_stock_longitudinal = false;
 static bool toyota_lta = false;
 static int toyota_dbc_eps_torque_factor = 100;   // conversion factor for STEER_TORQUE_EPS in %: see dbc file
+
+// FrogPilot variables
 
 static uint32_t toyota_compute_checksum(const CANPacket_t *msg) {
   int len = GET_LEN(msg);
@@ -154,6 +160,8 @@ static void toyota_rx_hook(const CANPacket_t *msg) {
 
       UPDATE_VEHICLE_SPEED(speed / 4.0 * 0.01 * KPH_TO_MS);
     }
+
+    // FrogPilot variables
   }
 }
 
@@ -313,6 +321,8 @@ static bool toyota_tx_hook(const CANPacket_t *msg) {
         }
       }
     }
+
+    // FrogPilot variables
   }
 
   // UDS: Only tester present ("\x0F\x02\x3E\x00\x00\x00\x00\x00") allowed on diagnostics address
@@ -339,6 +349,8 @@ static safety_config toyota_init(uint16_t param) {
   static const CanMsg TOYOTA_LONG_TX_MSGS[] = {
     TOYOTA_COMMON_LONG_TX_MSGS
   };
+
+  // FrogPilot variables
 
   // safety param flags
   // first byte is for EPS factor, second is for flags
@@ -375,6 +387,7 @@ static safety_config toyota_init(uint16_t param) {
     };
 
     SET_RX_CHECKS(toyota_secoc_rx_checks, ret);
+  // FrogPilot variables
   } else if (toyota_lta) {
     // Check the quality flag for angle measurement when using LTA, since it's not set on TSS-P cars
     static RxCheck toyota_lta_rx_checks[] = {
@@ -397,8 +410,12 @@ static safety_config toyota_init(uint16_t param) {
     }
   }
 
+  // FrogPilot variables
+
   return ret;
 }
+
+// FrogPilot variables
 
 const safety_hooks toyota_hooks = {
   .init = toyota_init,
@@ -407,4 +424,6 @@ const safety_hooks toyota_hooks = {
   .get_checksum = toyota_get_checksum,
   .compute_checksum = toyota_compute_checksum,
   .get_quality_flag_valid = toyota_get_quality_flag_valid,
+
+  // FrogPilot variables
 };

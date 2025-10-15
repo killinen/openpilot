@@ -39,6 +39,8 @@ EventName = log.OnroadEvent.EventName
 ButtonType = car.CarState.ButtonEvent.Type
 SafetyModel = car.CarParams.SafetyModel
 
+# FrogPilot variables
+
 IGNORED_SAFETY_MODES = (SafetyModel.silent, SafetyModel.noOutput)
 
 
@@ -143,6 +145,8 @@ class SelfdriveD:
       set_offroad_alert("Offroad_CarUnrecognized", True)
     elif self.CP.passive:
       self.events.add(EventName.dashcamMode, static=True)
+
+    # FrogPilot variables
 
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
@@ -276,6 +280,8 @@ class SelfdriveD:
     for i, pandaState in enumerate(self.sm['pandaStates']):
       # All pandas must match the list of safetyConfigs, and if outside this list, must be silent or noOutput
       if i < len(self.CP.safetyConfigs):
+        # FrogPilot variables
+
         safety_mismatch = pandaState.safetyModel != self.CP.safetyConfigs[i].safetyModel or \
                           pandaState.safetyParam != self.CP.safetyConfigs[i].safetyParam or \
                           pandaState.alternativeExperience != self.CP.alternativeExperience
@@ -406,6 +412,8 @@ class SelfdriveD:
         self.params.put_nonblocking('LongitudinalPersonality', self.personality)
         self.events.add(EventName.personalityChanged)
 
+    # FrogPilot variables
+
   def data_sample(self):
     _car_state = messaging.recv_one(self.car_state_sock)
     CS = _car_state.carState if _car_state else self.CS_prev
@@ -494,7 +502,10 @@ class SelfdriveD:
       ce_send.valid = True
       ce_send.onroadEvents = self.events.to_msg()
       self.pm.send('onroadEvents', ce_send)
+
+      # FrogPilot variables
     self.events_prev = self.events.names.copy()
+    # FrogPilot variables
 
   def step(self):
     CS = self.data_sample()
@@ -506,6 +517,8 @@ class SelfdriveD:
     self.publish_selfdriveState(CS)
 
     self.CS_prev = CS
+
+    # FrogPilot variables
 
   def params_thread(self, evt):
     while not evt.is_set():

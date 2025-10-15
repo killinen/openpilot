@@ -95,4 +95,3 @@ class StateMachine:
     if active:
       self.current_alert_types.append(ET.WARNING)
     return enabled, active
-

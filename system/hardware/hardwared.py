@@ -210,6 +210,8 @@ def hardware_thread(end_event, hw_queue) -> None:
 
   fan_controller = None
 
+  # FrogPilot variables
+
   while not end_event.is_set():
     sm.update(PANDA_STATES_TIMEOUT)
 
@@ -410,6 +412,8 @@ def hardware_thread(end_event, hw_queue) -> None:
     msg.deviceState.thermalStatus = thermal_status
     pm.send("deviceState", msg)
 
+    # FrogPilot variables
+
     # Log to statsd
     statlog.gauge("free_space_percent", msg.deviceState.freeSpacePercent)
     statlog.gauge("gpu_usage_percent", msg.deviceState.gpuUsagePercent)
@@ -462,6 +466,8 @@ def hardware_thread(end_event, hw_queue) -> None:
 
     count += 1
     should_start_prev = should_start
+
+    # FrogPilot variables
 
 
 def main():

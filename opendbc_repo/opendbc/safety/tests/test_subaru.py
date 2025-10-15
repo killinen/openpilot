@@ -111,6 +111,8 @@ class TestSubaruSafetyBase(common.PandaCarSafetyTest):
     values = {"Cruise_Activated": enable}
     return self.packer.make_can_msg_panda("CruiseControl", self.ALT_MAIN_BUS, values)
 
+  # FrogPilot variables
+
 
 class TestSubaruStockLongitudinalSafetyBase(TestSubaruSafetyBase):
   def _cancel_msg(self, cancel, cruise_throttle=0):

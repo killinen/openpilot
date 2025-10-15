@@ -160,6 +160,8 @@ static void tesla_rx_hook(const CANPacket_t *msg) {
 
       vehicle_moving = cruise_state != 3; // STANDSTILL
       pcm_cruise_check(cruise_engaged);
+
+      // FrogPilot variables
     }
   }
 

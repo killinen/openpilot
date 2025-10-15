@@ -101,9 +101,17 @@ void SoftwarePanel::showEvent(QShowEvent *event) {
   installBtn->setEnabled(true);
 
   updateLabels();
+
+  // FrogPilot variables
+  FrogPilotUIState &fs = *frogpilotUIState();
+  FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
 }
 
 void SoftwarePanel::updateLabels() {
+  // FrogPilot variables
+  FrogPilotUIState &fs = *frogpilotUIState();
+  FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
+
   // add these back in case the files got removed
   fs_watch->addParam("LastUpdateTime");
   fs_watch->addParam("UpdateFailedCount");
@@ -111,6 +119,8 @@ void SoftwarePanel::updateLabels() {
   fs_watch->addParam("UpdateAvailable");
 
   if (!isVisible()) {
+    // FrogPilot variables
+
     return;
   }
 
@@ -124,6 +134,8 @@ void SoftwarePanel::updateLabels() {
   if (updater_state != "idle") {
     downloadBtn->setEnabled(false);
     downloadBtn->setValue(updater_state);
+
+    // FrogPilot variables
   } else {
     if (failed) {
       downloadBtn->setText(tr("CHECK"));
@@ -141,6 +153,8 @@ void SoftwarePanel::updateLabels() {
       downloadBtn->setValue(tr("up to date, last checked %1").arg(lastUpdate));
     }
     downloadBtn->setEnabled(true);
+
+    // FrogPilot variables
   }
   targetBranchBtn->setValue(QString::fromStdString(params.get("UpdaterTargetBranch")));
 

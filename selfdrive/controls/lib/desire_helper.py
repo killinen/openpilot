@@ -29,6 +29,8 @@ DESIRES = {
   },
 }
 
+# FrogPilot variables
+
 
 class DesireHelper:
   def __init__(self):
@@ -39,6 +41,8 @@ class DesireHelper:
     self.keep_pulse_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
+
+    # FrogPilot variables
 
   def update(self, carstate, lateral_active, lane_change_prob):
     v_ego = carstate.vEgo

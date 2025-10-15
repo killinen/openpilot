@@ -6,7 +6,7 @@ from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.hyundaicanfd import CanBus
-from opendbc.car.hyundai.values import HyundaiFlags, CAR, DBC, Buttons, CarControllerParams
+from opendbc.car.hyundai.values import HyundaiFlags, HyundaiFrogPilotFlags, CAR, DBC, Buttons, CarControllerParams
 from opendbc.car.interfaces import CarStateBase
 
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -62,6 +62,8 @@ class CarState(CarStateBase):
     self.cluster_speed_counter = CLUSTER_SAMPLE_RATE
 
     self.params = CarControllerParams(CP)
+
+    # FrogPilot variables
 
   def recent_button_interaction(self) -> bool:
     # On some newer model years, the CANCEL button acts as a pause/resume button based on the PCM state
@@ -202,6 +204,8 @@ class CarState(CarStateBase):
       self.low_speed_alert = False
     ret.lowSpeedAlert = self.low_speed_alert
 
+    # FrogPilot variables
+
     return ret
 
   def update_canfd(self, can_parsers) -> structs.CarState:
@@ -292,6 +296,8 @@ class CarState(CarStateBase):
                         *create_button_events(self.lda_button, prev_lda_button, {1: ButtonType.lkas})]
 
     ret.blockPcmEnable = not self.recent_button_interaction()
+
+    # FrogPilot variables
 
     return ret
 

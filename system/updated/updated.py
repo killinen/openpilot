@@ -202,6 +202,8 @@ def finalize_update() -> None:
   set_consistent_flag(True)
   cloudlog.info("done finalizing overlay")
 
+  # FrogPilot variables
+
 
 def handle_agnos_update() -> None:
   from openpilot.system.hardware.tici.agnos import flash_agnos_update, get_target_slot_number
@@ -407,6 +409,7 @@ class Updater:
     finalize_update()
     cloudlog.info("finalize success!")
 
+    # FrogPilot variables
 
 def main() -> None:
   params = Params()
@@ -446,8 +449,13 @@ def main() -> None:
 
     # Run the update loop
     first_run = True
+
+    # FrogPilot variables
+
     while True:
       wait_helper.ready_event.clear()
+
+      # FrogPilot variables
 
       # Attempt an update
       exception = None
@@ -462,6 +470,8 @@ def main() -> None:
           first_run = False
           wait_helper.sleep(60)
           continue
+
+        # FrogPilot variables
 
         update_failed_count += 1
 

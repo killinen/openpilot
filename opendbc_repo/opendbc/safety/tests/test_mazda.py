@@ -80,6 +80,8 @@ class TestMazdaSafety(common.PandaCarSafetyTest, common.DriverTorqueSteeringSafe
     self.assertTrue(self._tx(self._button_msg(cancel=True)))
     self.assertTrue(self._tx(self._button_msg(resume=True)))
 
+  # FrogPilot variables
+
 
 if __name__ == "__main__":
   unittest.main()

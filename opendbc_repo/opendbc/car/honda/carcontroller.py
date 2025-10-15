@@ -225,6 +225,8 @@ class CarController(CarControllerBase):
           self.apply_brake_last = apply_brake
           self.brake = apply_brake / self.params.NIDEC_BRAKE_MAX
 
+          # FrogPilot variables
+
     # Send dashboard UI commands.
     # On Nidec, this controls longitudinal positive acceleration
     if self.frame % 10 == 0:

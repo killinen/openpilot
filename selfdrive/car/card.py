@@ -63,6 +63,8 @@ class Car:
   RI: RadarInterfaceBase
   CP: car.CarParams
 
+  # FrogPilot variables
+
   def __init__(self, CI=None, RI=None) -> None:
     self.can_sock = messaging.sub_sock('can', timeout=20)
     self.sm = messaging.SubMaster(['pandaStates', 'carControl', 'onroadEvents'])
@@ -162,6 +164,8 @@ class Car:
     # OPGM variables
     self.resume_prev_button = False
 
+    # FrogPilot variables
+
   def state_update(self) -> tuple[car.CarState, structs.RadarDataT | None]:
     """carState update loop, driven by can"""
 
@@ -202,6 +206,8 @@ class Car:
     elif any(be.type in (ButtonType.decelCruise, ButtonType.setCruise) for be in CS.buttonEvents):
       self.resume_prev_button = False
 
+    # FrogPilot variables
+
     return CS, RD
 
   def state_publish(self, CS: car.CarState, RD: structs.RadarDataT | None):
@@ -233,6 +239,8 @@ class Car:
       tracks_msg.valid = not any(RD.errors.to_dict().values())
       tracks_msg.liveTracks = RD
       self.pm.send('liveTracks', tracks_msg)
+
+    # FrogPilot variables
 
   def controls_update(self, CS: car.CarState, CC: car.CarControl):
     """control update loop, driven by carControl"""
@@ -282,6 +290,8 @@ class Car:
     finally:
       e.set()
       t.join()
+
+      # FrogPilot variables
 
 
 def main():

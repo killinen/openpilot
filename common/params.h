@@ -35,6 +35,8 @@ struct ParamKeyAttributes {
   uint32_t flags;
   ParamKeyType type;
   std::optional<std::string> default_value = std::nullopt;
+
+  // FrogPilot variables
 };
 
 class Params {
@@ -77,6 +79,8 @@ public:
   inline void putBoolNonBlocking(const std::string &key, bool val) {
     putNonBlocking(key, val ? "1" : "0");
   }
+
+  // FrogPilot variables
 
 private:
   void asyncWriteThread();

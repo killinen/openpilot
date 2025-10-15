@@ -68,6 +68,10 @@ class HyundaiSafetyFlags(IntFlag):
   ALT_LIMITS_2 = 512
 
 
+# FrogPilot variables
+class HyundaiFrogPilotSafetyFlags(IntFlag):
+
+
 class HyundaiFlags(IntFlag):
   # Dynamic Flags
 
@@ -125,6 +129,10 @@ class HyundaiFlags(IntFlag):
   FCEV = 2 ** 25
 
   ALT_LIMITS_2 = 2 ** 26
+
+
+# FrogPilot variables
+class HyundaiFrogPilotFlags(IntFlag):
 
 
 class Footnote(Enum):

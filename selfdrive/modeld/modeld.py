@@ -184,6 +184,8 @@ class ModelState:
 def main(demo=False):
   cloudlog.warning("modeld init")
 
+  # FrogPilot variables
+
   if not USBGPU:
     # USB GPU currently saturates a core so can't do this yet,
     # also need to move the aux USB interrupts for good timings
@@ -252,6 +254,8 @@ def main(demo=False):
   prev_action = log.ModelDataV2.Action()
 
   DH = DesireHelper()
+
+  # FrogPilot variables
 
   while True:
     # Keep receiving frames until we are at least 1 frame ahead of previous extra frame
@@ -359,6 +363,8 @@ def main(demo=False):
       pm.send('drivingModelData', drivingdata_send)
       pm.send('cameraOdometry', posenet_send)
     last_vipc_frame_id = meta_main.frame_id
+
+    # FrogPilot variables
 
 
 if __name__ == "__main__":

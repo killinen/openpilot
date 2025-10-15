@@ -19,6 +19,9 @@ SshControl::SshControl() :
     } else {
       params.remove("GithubUsername");
       params.remove("GithubSshKeys");
+
+      // FrogPilot variables
+
       refresh();
     }
   });

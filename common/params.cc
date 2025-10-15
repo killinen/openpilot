@@ -240,3 +240,5 @@ void Params::asyncWriteThread() {
     put(p.first, p.second);
   }
 }
+
+// FrogPilot variables

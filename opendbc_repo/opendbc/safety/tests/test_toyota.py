@@ -119,6 +119,8 @@ class TestToyotaSafetyBase(common.PandaCarSafetyTest, common.LongitudinalAccelSa
       self.assertFalse(self._rx(msg))
       self.assertFalse(self.safety.get_controls_allowed())
 
+  # FrogPilot variables
+
 
 class TestToyotaSafetyTorque(TestToyotaSafetyBase, common.MotorTorqueSteeringSafetyTest, common.SteerRequestCutSafetyTest):
 
@@ -341,6 +343,9 @@ class TestToyotaSecOcSafety(TestToyotaStockLongitudinalBase):
 
       should_tx = not req and not req2 and angle == 0
       self.assertEqual(should_tx, self._tx(self._lta_2_msg(req, req2, angle)), f"{req=} {req2=} {angle=}")
+
+
+# FrogPilot variables
 
 
 if __name__ == "__main__":

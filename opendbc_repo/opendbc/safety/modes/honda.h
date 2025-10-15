@@ -17,6 +17,8 @@
 #define HONDA_ALT_BRAKE_ADDR_CHECK(pt_bus)                                                                                              \
   {.msg = {{0x1BE, (pt_bus), 3, 50U, .max_counter = 3U, .ignore_quality_flag = true}, { 0 }, { 0 }}},  /* BRAKE_MODULE */  \
 
+// FrogPilot variables
+
 enum {
   HONDA_BTN_NONE = 0,
   HONDA_BTN_MAIN = 1,
@@ -34,6 +36,8 @@ static bool honda_bosch_radarless = false;
 static bool honda_bosch_canfd = false;
 typedef enum {HONDA_NIDEC, HONDA_BOSCH} HondaHw;
 static HondaHw honda_hw = HONDA_NIDEC;
+
+// FrogPilot variables
 
 
 static unsigned int honda_get_pt_bus(void) {
@@ -158,8 +162,12 @@ static void honda_rx_hook(const CANPacket_t *msg) {
       } else {
         // Leave Honda forward brake as is
       }
+
+      // FrogPilot variables
     }
   }
+
+  // FrogPilot variables
 }
 
 static bool honda_tx_hook(const CANPacket_t *msg) {
@@ -206,6 +214,8 @@ static bool honda_tx_hook(const CANPacket_t *msg) {
     if (honda_fwd_brake) {
       tx = false;
     }
+
+    // FrogPilot variables
   }
 
   // BRAKE/GAS: safety check (bosch)
@@ -269,6 +279,8 @@ static bool honda_tx_hook(const CANPacket_t *msg) {
     }
   }
 
+  // FrogPilot variables
+
   return tx;
 }
 
@@ -294,6 +306,8 @@ static safety_config honda_nidec_init(uint16_t param) {
 
   bool enable_nidec_alt = GET_FLAG(param, HONDA_PARAM_NIDEC_ALT);
 
+  // FrogPilot variables
+
   if (enable_nidec_alt) {
     // For Nidecs with main on signal on an alternate msg (missing 0x326)
     static RxCheck honda_nidec_alt_rx_checks[] = {
@@ -302,6 +316,8 @@ static safety_config honda_nidec_init(uint16_t param) {
     };
 
     SET_RX_CHECKS(honda_nidec_alt_rx_checks, ret);
+
+    // FrogPilot variables
   } else {
     // Nidec includes BRAKE_COMMAND
     static RxCheck honda_nidec_common_rx_checks[] = {
@@ -310,6 +326,8 @@ static safety_config honda_nidec_init(uint16_t param) {
     };
 
     SET_RX_CHECKS(honda_nidec_common_rx_checks, ret);
+
+    // FrogPilot variables
   }
 
   SET_TX_MSGS(HONDA_N_TX_MSGS, ret);

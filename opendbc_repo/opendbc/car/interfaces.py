@@ -21,6 +21,8 @@ from opendbc.can import CANParser
 GearShifter = structs.CarState.GearShifter
 ButtonType = structs.CarState.ButtonEvent.Type
 
+# FrogPilot variables
+
 V_CRUISE_MAX = 145
 MAX_CTRL_SPEED = (V_CRUISE_MAX + 4) * CV.KPH_TO_MS
 ACCEL_MAX = 2.0
@@ -116,6 +118,8 @@ class CarInterfaceBase(ABC):
     dbc_names = {bus: cp.dbc_name for bus, cp in self.can_parsers.items()}
     self.CC: CarControllerBase = self.CarController(dbc_names, CP)
 
+    # FrogPilot variables
+
   def apply(self, c: structs.CarControl, now_nanos: int | None = None) -> tuple[structs.CarControl.Actuators, list[CanData]]:
     if now_nanos is None:
       now_nanos = int(time.monotonic() * 1e9)
@@ -158,6 +162,8 @@ class CarInterfaceBase(ABC):
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront, ret.tireStiffnessFactor)
 
     return ret
+
+  # FrogPilot variables
 
   @staticmethod
   @abstractmethod
@@ -266,6 +272,8 @@ class CarInterfaceBase(ABC):
     # save for next iteration
     self.CS.out = ret
 
+    # FrogPilot variables
+
     return ret
 
 
@@ -293,6 +301,8 @@ class CarStateBase(ABC):
     x0=[[0.0], [0.0]]
     K = get_kalman_gain(DT_CTRL, np.array(A), np.array(C), np.array(Q), R)
     self.v_ego_kf = KF1D(x0=x0, A=A, C=C[0], K=K)
+
+    # FrogPilot variables
 
   @abstractmethod
   def update(self, can_parsers) -> structs.CarState:
