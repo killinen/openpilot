@@ -18,14 +18,16 @@ void FrogPilotOnroadWindow::updateState(const UIState &s, const FrogPilotUIState
 
   blindSpotLeft = carState.getLeftBlindspot();
   blindSpotRight = carState.getRightBlindspot();
+  steer = -carControl.getActuators().getTorque();
   turnSignalLeft = carState.getLeftBlinker();
   turnSignalRight = carState.getRightBlinker();
 
   showBlindspot = (blindSpotLeft || blindSpotRight) && frogpilot_toggles.value("blind_spot_metrics").toBool();
   showFPS = frogpilot_toggles.value("show_fps").toBool();
   showSignal = (turnSignalLeft || turnSignalRight) && frogpilot_toggles.value("signal_metrics").toBool();
+  showSteering = frogpilot_toggles.value("steering_metrics").toBool();
 
-  if (showBlindspot || showFPS || showSignal) {
+  if (showBlindspot || showFPS || showSignal || showSteering) {
     update();
   }
 }
@@ -42,6 +44,10 @@ void FrogPilotOnroadWindow::paintEvent(QPaintEvent *event) {
   marginRegion += QRegion(0, UI_BORDER_SIZE, UI_BORDER_SIZE, rect.height() - 2 * UI_BORDER_SIZE);
   marginRegion += QRegion(rect.width() - UI_BORDER_SIZE, UI_BORDER_SIZE, UI_BORDER_SIZE, rect.height() - 2 * UI_BORDER_SIZE);
   p.setClipRegion(marginRegion);
+
+  if (showSteering) {
+    paintSteeringTorqueBorder(p, rect);
+  }
 
   if (showBlindspot || showSignal) {
     int interval = showBlindspot ? 250 : 500;
@@ -100,6 +106,38 @@ void FrogPilotOnroadWindow::paintFPS(QPainter &p, const QRect &rect) {
   int yPos = rect.bottom() - 5;
 
   p.drawText(xPos, yPos, fpsDisplayString);
+
+  p.restore();
+}
+
+void FrogPilotOnroadWindow::paintSteeringTorqueBorder(QPainter &p, const QRect &rect) {
+  p.save();
+
+  static float smoothedSteer = 0.0;
+  smoothedSteer = 0.25 * std::abs(steer) + 0.75 * smoothedSteer;
+  if (std::abs(smoothedSteer - steer) < 0.01) {
+    smoothedSteer = steer;
+  }
+
+  QLinearGradient gradient(rect.topLeft(), rect.bottomLeft());
+  gradient.setColorAt(0.0, bg_colors[STATUS_TRAFFIC_MODE_ENABLED]);
+  gradient.setColorAt(0.25, bg_colors[STATUS_EXPERIMENTAL_MODE_ENABLED]);
+  gradient.setColorAt(0.5, bg_colors[STATUS_CONDITIONAL_OVERRIDDEN]);
+  gradient.setColorAt(0.75, bg_colors[STATUS_ENGAGED]);
+  gradient.setColorAt(1.0, bg_colors[STATUS_ENGAGED]);
+
+  int visibleHeight = rect.height() * smoothedSteer;
+
+  QRect rectToFill, rectToHide;
+  if (steer < 0) {
+    rectToFill = QRect(rect.x(), rect.y() + rect.height() - visibleHeight, UI_BORDER_SIZE, visibleHeight);
+    rectToHide = QRect(rect.x(), rect.y(), UI_BORDER_SIZE, rect.height() - visibleHeight);
+  } else {
+    rectToFill = QRect(rect.x() + rect.width() - UI_BORDER_SIZE, rect.y() + rect.height() - visibleHeight, UI_BORDER_SIZE, visibleHeight);
+    rectToHide = QRect(rect.x() + rect.width() - UI_BORDER_SIZE, rect.y(), UI_BORDER_SIZE, rect.height() - visibleHeight);
+  }
+  p.fillRect(rectToFill, QBrush(gradient));
+  p.fillRect(rectToHide, Qt::transparent);
 
   p.restore();
 }
