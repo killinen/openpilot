@@ -21,6 +21,9 @@ class Sidebar : public QFrame {
   Q_PROPERTY(bool recordingAudio MEMBER recording_audio NOTIFY valueChanged);
 
   // FrogPilot properties
+  Q_PROPERTY(ItemStatus chipStatus MEMBER chip_status NOTIFY valueChanged)
+  Q_PROPERTY(ItemStatus memoryStatus MEMBER memory_status NOTIFY valueChanged)
+  Q_PROPERTY(ItemStatus storageStatus MEMBER storage_status NOTIFY valueChanged)
 
 public:
   explicit Sidebar(QWidget* parent = 0);
@@ -63,6 +66,7 @@ protected:
   int net_strength = 0;
 
   // FrogPilot variables
+  ItemStatus chip_status, memory_status, storage_status;
 
 private:
   std::unique_ptr<PubMaster> pm;
@@ -71,6 +75,18 @@ private:
   // FrogPilot variables
   void showEvent(QShowEvent *event);
   void updateTheme();
+
+  bool isCPU;
+  bool isDeveloperUI;
+  bool isFahrenheit;
+  bool isGPU;
+  bool isIP;
+  bool isMemoryUsage;
+  bool isNumericalTemp;
+  bool isStorageLeft;
+  bool isStorageUsed;
+
+  Params params;
 
   QColor sidebar_color1;
   QColor sidebar_color2;
