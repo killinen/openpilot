@@ -35,9 +35,17 @@ protected:
 private:
   void paintCEMStatus(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan, FrogPilotUIScene &frogpilot_scene, SubMaster &sm);
   void paintCompass(QPainter &p, QJsonObject &frogpilot_toggles);
+  void paintCurveSpeedControl(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan);
+  void paintSmartControllerTraining(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan);
 
   Params params;
   Params params_memory{"", false, true};
+
+  QColor blueColor(int alpha = 255) { return QColor(0, 0, 255, alpha); }
+
+  QElapsedTimer glowTimer;
+
+  QPixmap curveSpeedIcon;
 
   QPoint cemStatusPosition;
   QPoint compassPosition;
@@ -49,4 +57,6 @@ private:
   QSharedPointer<QMovie> cemTurnIcon;
   QSharedPointer<QMovie> chillModeIcon;
   QSharedPointer<QMovie> experimentalModeIcon;
+
+  QString cscSpeedStr;
 };
