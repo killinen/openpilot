@@ -59,3 +59,33 @@ void updateFrogPilotToggles() {
   static Params params_memory{"", false, true};
   params_memory.putBool("FrogPilotTogglesUpdated", true);
 }
+
+QColor loadThemeColors(const QString &colorKey, bool clearCache) {
+  static QJsonObject cachedColorData;
+
+  if (clearCache) {
+    QFile file("../../frogpilot/assets/active_theme/colors/colors.json");
+    if (file.open(QIODevice::ReadOnly)) {
+      cachedColorData = QJsonDocument::fromJson(file.readAll()).object();
+    } else {
+      cachedColorData = QJsonObject();
+      return QColor();
+    }
+
+    if (colorKey.isEmpty()) {
+      return QColor(255, 255, 255);
+    }
+  }
+
+  if (cachedColorData.isEmpty()) {
+    return QColor();
+  }
+
+  const QJsonObject colorObj = cachedColorData[colorKey].toObject();
+  return QColor(
+    colorObj.value("red").toInt(255),
+    colorObj.value("green").toInt(255),
+    colorObj.value("blue").toInt(255),
+    colorObj.value("alpha").toInt(255)
+  );
+}

@@ -69,4 +69,14 @@ private:
   Networking *networking = nullptr;
 
   // FrogPilot variables
+  void showEvent(QShowEvent *event);
+  void updateTheme();
+
+  QColor sidebar_color1;
+  QColor sidebar_color2;
+  QColor sidebar_color3;
+
+  QSharedPointer<QMovie> flag_gif;
+  QSharedPointer<QMovie> home_gif;
+  QSharedPointer<QMovie> settings_gif;
 };

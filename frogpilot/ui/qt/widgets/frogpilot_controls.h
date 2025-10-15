@@ -3,6 +3,9 @@
 #include <cmath>
 #include <iostream>
 
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMovie>
 #include <QObject>
 #include <QTimer>
@@ -14,6 +17,8 @@ void loadGif(const QString &gifPath, QSharedPointer<QMovie> &movie, const QSize 
 void loadImage(const QString &basePath, QPixmap &pixmap, QSharedPointer<QMovie> &movie, const QSize &size, QWidget *parent, Qt::AspectRatioMode aspectRatioMode = Qt::KeepAspectRatio);
 void openDescriptions(bool forceOpenDescriptions, std::map<QString, AbstractControl*> toggles);
 void updateFrogPilotToggles();
+
+QColor loadThemeColors(const QString &colorKey, bool clearCache = false);
 
 const QString buttonStyle = R"(
   QPushButton {

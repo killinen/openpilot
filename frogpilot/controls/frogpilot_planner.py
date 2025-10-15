@@ -18,10 +18,10 @@ from openpilot.frogpilot.controls.lib.frogpilot_following import FrogPilotFollow
 from openpilot.frogpilot.controls.lib.frogpilot_vcruise import FrogPilotVCruise
 
 class FrogPilotPlanner:
-  def __init__(self, params):
+  def __init__(self, ThemeManager, params):
     self.frogpilot_acceleration = FrogPilotAcceleration(self)
     self.frogpilot_cem = ConditionalExperimentalMode(self)
-    self.frogpilot_events = FrogPilotEvents(self)
+    self.frogpilot_events = FrogPilotEvents(self, ThemeManager)
     self.frogpilot_following = FrogPilotFollowing(self)
     self.frogpilot_vcruise = FrogPilotVCruise(self, params)
 
@@ -105,7 +105,7 @@ class FrogPilotPlanner:
     self.tracking_lead_filter.update(following_lead)
     return self.tracking_lead_filter.x >= THRESHOLD
 
-  def publish(self, toggles_updated, params_memory, sm, pm, frogpilot_toggles):
+  def publish(self, theme_updated, toggles_updated, params_memory, sm, pm, frogpilot_toggles):
     frogpilot_plan_send = messaging.new_message("frogpilotPlan")
     frogpilot_plan_send.valid = sm.all_checks(service_list=["carState", "controlsState", "selfdriveState", "radarState"])
     frogpilotPlan = frogpilot_plan_send.frogpilotPlan
@@ -131,6 +131,8 @@ class FrogPilotPlanner:
     frogpilotPlan.redLight = self.frogpilot_cem.stop_light_detected
 
     frogpilotPlan.roadCurvature = self.road_curvature
+
+    frogpilotPlan.themeUpdated = theme_updated
 
     frogpilotPlan.togglesUpdated = toggles_updated
 

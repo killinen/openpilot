@@ -2,7 +2,7 @@
 from openpilot.selfdrive.selfdrived.events import ET, FROGPILOT_EVENT_NAME, EventName, FrogPilotEventName, Events
 
 class FrogPilotEvents:
-  def __init__(self, FrogPilotPlanner):
+  def __init__(self, FrogPilotPlanner, ThemeManager):
     self.frogpilot_planner = FrogPilotPlanner
 
     self.events = Events(frogpilot=True)
