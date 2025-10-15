@@ -23,7 +23,7 @@ RANDOM_EVENTS = {
 }
 
 class FrogPilotTracking:
-  def __init__(self, frogpilot_planner, params):
+  def __init__(self, frogpilot_planner, params, frogpilot_toggles):
     self.frogpilot_events = frogpilot_planner.frogpilot_events
 
     self.frogpilot_stats = params.get("FrogPilotStats")
@@ -42,7 +42,7 @@ class FrogPilotTracking:
 
     self.model_name = clean_model_name(frogpilot_toggles.model_name)
 
-  def update(self, now, time_validated, params, sm):
+  def update(self, now, time_validated, params, sm, frogpilot_toggles):
     v_cruise = min(sm["carState"].vCruiseCluster, V_CRUISE_MAX) * CV.KPH_TO_MS
     v_ego = max(sm["carState"].vEgo, 0)
 

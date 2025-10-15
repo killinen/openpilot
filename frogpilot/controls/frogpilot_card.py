@@ -6,5 +6,5 @@ class FrogPilotCard:
     self.params = Params()
     self.params_memory = Params(memory=True)
 
-  def update(self, carState, frogpilotCarState, sm):
+  def update(self, carState, frogpilotCarState, sm, frogpilot_toggles):
     return frogpilotCarState

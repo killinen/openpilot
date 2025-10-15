@@ -35,7 +35,7 @@ class FrogPilotPlanner:
 
     self.CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
 
-  def update(self, now, time_validated, params, params_memory, sm):
+  def update(self, now, time_validated, params, params_memory, sm, frogpilot_toggles):
     self.lead_one = sm["radarState"].leadOne
 
     long_control_active = sm["carControl"].longActive
@@ -44,14 +44,14 @@ class FrogPilotPlanner:
     v_ego = max(sm["carState"].vEgo, 0)
 
     if long_control_active:
-      self.frogpilot_acceleration.update(v_ego, sm)
+      self.frogpilot_acceleration.update(v_ego, sm, frogpilot_toggles)
     else:
       self.frogpilot_acceleration.max_accel = 0
       self.frogpilot_acceleration.min_accel = 0
 
-    self.frogpilot_events.update(v_cruise, sm)
+    self.frogpilot_events.update(v_cruise, sm, frogpilot_toggles)
 
-    self.frogpilot_following.update(long_control_active, v_ego, sm)
+    self.frogpilot_following.update(long_control_active, v_ego, sm, frogpilot_toggles)
 
     gps_location = sm[self.gps_location_service]
     if gps_location.flags % 2 == 1:
@@ -73,7 +73,7 @@ class FrogPilotPlanner:
     if not sm["carState"].standstill:
       self.tracking_lead = self.update_lead_status()
 
-    self.v_cruise = self.frogpilot_vcruise.update(gps_position, long_control_active, now, time_validated, v_cruise, v_ego, params, params_memory, sm)
+    self.v_cruise = self.frogpilot_vcruise.update(gps_position, long_control_active, now, time_validated, v_cruise, v_ego, params, params_memory, sm, frogpilot_toggles)
 
   def update_lead_status(self):
     following_lead = self.lead_one.status
@@ -82,7 +82,7 @@ class FrogPilotPlanner:
     self.tracking_lead_filter.update(following_lead)
     return self.tracking_lead_filter.x >= THRESHOLD
 
-  def publish(self, params_memory, sm, pm):
+  def publish(self, toggles_updated, params_memory, sm, pm, frogpilot_toggles):
     frogpilot_plan_send = messaging.new_message("frogpilotPlan")
     frogpilot_plan_send.valid = sm.all_checks(service_list=["carState", "controlsState", "selfdriveState", "radarState"])
     frogpilotPlan = frogpilot_plan_send.frogpilotPlan
@@ -98,6 +98,8 @@ class FrogPilotPlanner:
 
     frogpilotPlan.maxAcceleration = self.frogpilot_acceleration.max_accel
     frogpilotPlan.minAcceleration = self.frogpilot_acceleration.min_accel
+
+    frogpilotPlan.togglesUpdated = toggles_updated
 
     frogpilotPlan.vCruise = self.v_cruise
 

@@ -13,7 +13,7 @@ class FrogPilotEvents:
 
     self.played_events = set()
 
-  def update(self, v_cruise, sm):
+  def update(self, v_cruise, sm, frogpilot_toggles):
     self.event_names = {event.name for event in sm["onroadEvents"]}
     self.frogpilot_event_names = {event.name for event in sm["frogpilotOnroadEvents"]}
 

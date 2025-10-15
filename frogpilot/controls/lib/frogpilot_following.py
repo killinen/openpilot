@@ -14,7 +14,7 @@ class FrogPilotFollowing:
     self.speed_jerk = 0
     self.t_follow = 0
 
-  def update(self, long_control_active, v_ego, sm):
+  def update(self, long_control_active, v_ego, sm, frogpilot_toggles):
     if long_control_active:
       if sm["carState"].aEgo >= 0:
         self.base_acceleration_jerk, self.base_danger_jerk, self.base_speed_jerk = get_jerk_factor(
@@ -50,6 +50,6 @@ class FrogPilotFollowing:
     self.following_lead = self.frogpilot_planner.tracking_lead and self.frogpilot_planner.lead_one.dRel < (self.t_follow + 1) * v_ego
 
     if long_control_active and self.frogpilot_planner.tracking_lead:
-      self.update_follow_values(self.frogpilot_planner.lead_one.dRel, v_ego, self.frogpilot_planner.lead_one.vLead)
+      self.update_follow_values(self.frogpilot_planner.lead_one.dRel, v_ego, self.frogpilot_planner.lead_one.vLead, frogpilot_toggles)
 
-  def update_follow_values(self, lead_distance, v_ego, v_lead):
+  def update_follow_values(self, lead_distance, v_ego, v_lead, frogpilot_toggles):

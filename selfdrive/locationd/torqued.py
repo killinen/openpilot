@@ -11,6 +11,8 @@ from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.locationd.helpers import PointBuckets, ParameterEstimator, PoseCalibrator, Pose
 
+from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles
+
 HISTORY = 5  # secs
 POINTS_PER_BUCKET = 1500
 MIN_POINTS_TOTAL = 4000
@@ -251,6 +253,10 @@ def main(demo=False):
   # FrogPilot variables
   sm = sm.extend(['frogpilotPlan'])
 
+  frogpilot_toggles = get_frogpilot_toggles()
+
+  estimator.frogpilot_toggles = frogpilot_toggles
+
   while True:
     sm.update()
     if sm.all_checks():
@@ -269,6 +275,8 @@ def main(demo=False):
       params.put_nonblocking("LiveTorqueParameters", msg.to_bytes())
 
     # FrogPilot variables
+    if sm['frogpilotPlan'].togglesUpdated:
+      estimator.frogpilot_toggles = get_frogpilot_toggles()
 
 
 if __name__ == "__main__":

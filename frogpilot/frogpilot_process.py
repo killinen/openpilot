@@ -9,15 +9,16 @@ from openpilot.common.realtime import DT_MDL, Priority, Ratekeeper, config_realt
 from openpilot.common.time_helpers import system_time_valid
 
 from openpilot.frogpilot.common.frogpilot_utilities import is_url_pingable, run_thread_with_lock
+from openpilot.frogpilot.common.frogpilot_variables import FrogPilotVariables, get_frogpilot_toggles
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.frogpilot.controls.lib.frogpilot_tracking import FrogPilotTracking
 from openpilot.frogpilot.system.frogpilot_stats import send_stats
 
 ASSET_CHECK_RATE = (1 / DT_MDL)
 
-def assets_checks(params_memory):
+def assets_checks(params_memory, frogpilot_toggles):
 
-def update_checks(now, params, params_memory, boot_run=False):
+def update_checks(now, params, params_memory, frogpilot_toggles, boot_run=False):
   while not (is_url_pingable("https://github.com") or is_url_pingable("https://gitlab.com")):
     time.sleep(60)
 
@@ -39,9 +40,16 @@ def frogpilot_thread():
   params_cache = Params(cache=True)
   params_memory = Params(memory=True)
 
+  frogpilot_variables = FrogPilotVariables()
+
   run_update_checks = False
   started_previously = False
   time_validated = False
+  toggles_updated = False
+
+  frogpilot_toggles = get_frogpilot_toggles()
+
+  toggles_last_updated = datetime.datetime.now(datetime.timezone.utc)
 
   while True:
     sm.update()
@@ -53,6 +61,9 @@ def frogpilot_thread():
     if not started and started_previously:
       run_update_checks = True
 
+      frogpilot_variables.update(started)
+      frogpilot_toggles = get_frogpilot_toggles()
+
       if time_validated and is_url_pingable(os.environ.get("STATS_URL", "")):
         send_stats(params)
 
@@ -61,24 +72,33 @@ def frogpilot_thread():
       frogpilot_tracking = FrogPilotTracking(frogpilot_planner, params, frogpilot_toggles)
 
     if started and sm.updated["modelV2"]:
-      frogpilot_planner.update(now, time_validated, params, params_memory, sm)
-      frogpilot_planner.publish(params_memory, sm, pm)
+      frogpilot_planner.update(now, time_validated, params, params_memory, sm, frogpilot_toggles)
+      frogpilot_planner.publish(toggles_updated, params_memory, sm, pm, frogpilot_toggles)
 
-      frogpilot_tracking.update(now, time_validated, params, sm)
+      frogpilot_tracking.update(now, time_validated, params, sm, frogpilot_toggles)
     elif not started:
       frogpilot_plan_send = messaging.new_message("frogpilotPlan")
+      frogpilot_plan_send.frogpilotPlan.togglesUpdated = toggles_updated
       pm.send("frogpilotPlan", frogpilot_plan_send)
 
     started_previously = started
 
     if rate_keeper.frame % ASSET_CHECK_RATE == 0:
-      assets_checks(params_memory)
+      assets_checks(params_memory, frogpilot_toggles)
+
+    if params_memory.get_bool("FrogPilotTogglesUpdated"):
+      frogpilot_variables.update(started)
+      frogpilot_toggles = get_frogpilot_toggles()
+
+      toggles_last_updated = now
+
+    toggles_updated = (now - toggles_last_updated).total_seconds() <= 1
 
     run_update_checks |= now.second == 0 and (now.minute % 60 == 0 or (now.minute % 5 == 0 and frogpilot_toggles.frogs_go_moo))
     run_update_checks &= time_validated
 
     if run_update_checks:
-      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory))
+      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory, frogpilot_toggles))
 
       run_update_checks = False
     elif not time_validated:
@@ -86,7 +106,7 @@ def frogpilot_thread():
       if not time_validated:
         continue
 
-      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory, True))
+      run_thread_with_lock("update_checks", update_checks, (now, params, params_memory, frogpilot_toggles, True))
 
     rate_keeper.keep_time()
 

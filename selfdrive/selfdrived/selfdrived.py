@@ -25,6 +25,7 @@ from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_build_metadata
 
 from openpilot.frogpilot.common.frogpilot_utilities import contains_event_type
+from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles
 
 REPLAY = "REPLAY" in os.environ
 SIMULATION = "SIMULATION" in os.environ
@@ -154,6 +155,8 @@ class SelfdriveD:
     self.pm = self.pm.extend(['frogpilotOnroadEvents'])
 
     self.params_memory = Params(memory=True)
+
+    self.frogpilot_toggles = get_frogpilot_toggles()
 
     self.frogpilot_AM = AlertManager()
     self.frogpilot_events = Events(frogpilot=True)
@@ -545,6 +548,8 @@ class SelfdriveD:
     self.CS_prev = CS
 
     # FrogPilot variables
+    if self.sm['frogpilotPlan'].togglesUpdated:
+      self.frogpilot_toggles = get_frogpilot_toggles()
 
   def params_thread(self, evt):
     while not evt.is_set():

@@ -9,6 +9,7 @@ void FrogPilotAnnotatedCameraWidget::showEvent(QShowEvent *event) {
 
   FrogPilotUIState &fs = *frogpilotUIState();
   FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
+  QJsonObject &frogpilot_toggles = frogpilot_scene.frogpilot_toggles;
 
   if (scene.is_metric || frogpilot_toggles.value("use_si_metrics").toBool()) {
     accelerationUnit = tr(" m/s²");
@@ -29,7 +30,7 @@ void FrogPilotAnnotatedCameraWidget::showEvent(QShowEvent *event) {
   }
 }
 
-void FrogPilotAnnotatedCameraWidget::updateState(const FrogPilotUIState &fs) {
+void FrogPilotAnnotatedCameraWidget::updateState(const FrogPilotUIState &fs, const QJsonObject &frogpilot_toggles) {
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
   const SubMaster &fpsm = *(fs.sm);
 
@@ -38,7 +39,7 @@ void FrogPilotAnnotatedCameraWidget::updateState(const FrogPilotUIState &fs) {
   update();
 }
 
-void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState &s, FrogPilotUIState &fs, SubMaster &sm, SubMaster &fpsm) {
+void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState &s, FrogPilotUIState &fs, SubMaster &sm, SubMaster &fpsm, QJsonObject &frogpilot_toggles) {
   FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
 
   const cereal::CarState::Reader &carState = fpsm["carState"].getCarState();

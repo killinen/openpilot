@@ -11,8 +11,8 @@ class FrogPilotAnnotatedCameraWidget : public QWidget {
 public:
   explicit FrogPilotAnnotatedCameraWidget(QWidget *parent = 0);
 
-  void paintFrogPilotWidgets(QPainter &p, UIState &s, FrogPilotUIState &fs, SubMaster &sm, SubMaster &fpsm);
-  void updateState(const FrogPilotUIState &fs);
+  void paintFrogPilotWidgets(QPainter &p, UIState &s, FrogPilotUIState &fs, SubMaster &sm, SubMaster &fpsm, QJsonObject &frogpilot_toggles);
+  void updateState(const FrogPilotUIState &fs, const QJsonObject &frogpilot_toggles);
 
   bool hideBottomIcons;
   bool rightHandDM;

@@ -5,6 +5,7 @@ FrogPilotOnroadWindow::FrogPilotOnroadWindow(QWidget *parent) : QWidget(parent) 
 
 void FrogPilotOnroadWindow::updateState(const UIState &s, const FrogPilotUIState &fs) {
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
+  const QJsonObject &frogpilot_toggles = frogpilot_scene.frogpilot_toggles;
   const SubMaster &fpsm = *(fs.sm);
 
   const cereal::CarState::Reader &carState = fpsm["carState"].getCarState();
