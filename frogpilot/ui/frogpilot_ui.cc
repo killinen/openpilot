@@ -47,4 +47,6 @@ FrogPilotUIState *frogpilotUIState() {
 
 void FrogPilotUIState::update() {
   update_state(this);
+
+  frogpilot_scene.conditional_status = frogpilot_scene.enabled ? params_memory.getInt("CEStatus") : 0;
 }

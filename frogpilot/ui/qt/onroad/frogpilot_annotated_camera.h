@@ -33,10 +33,20 @@ protected:
   void showEvent(QShowEvent *event) override;
 
 private:
+  void paintCEMStatus(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan, FrogPilotUIScene &frogpilot_scene, SubMaster &sm);
   void paintCompass(QPainter &p, QJsonObject &frogpilot_toggles);
 
   Params params;
   Params params_memory{"", false, true};
 
+  QPoint cemStatusPosition;
   QPoint compassPosition;
+
+  QSharedPointer<QMovie> cemCurveIcon;
+  QSharedPointer<QMovie> cemLeadIcon;
+  QSharedPointer<QMovie> cemSpeedIcon;
+  QSharedPointer<QMovie> cemStopIcon;
+  QSharedPointer<QMovie> cemTurnIcon;
+  QSharedPointer<QMovie> chillModeIcon;
+  QSharedPointer<QMovie> experimentalModeIcon;
 };

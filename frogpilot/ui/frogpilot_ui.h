@@ -12,6 +12,7 @@ struct FrogPilotUIScene {
   bool online;
   bool parked;
 
+  int conditional_status;
   int started_timer;
 
   QJsonObject frogpilot_toggles;
