@@ -11,6 +11,7 @@ struct FrogPilotUIScene {
   bool frogpilot_panel_active;
   bool online;
   bool parked;
+  bool sidebars_open;
   bool use_stock_colors;
 
   int conditional_status;
