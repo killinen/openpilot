@@ -1,5 +1,6 @@
 #include "selfdrive/ui/qt/offroad/settings.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <string>
@@ -66,6 +67,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       tr("When enabled, pressing the accelerator pedal will disengage openpilot."),
       "../assets/offroad/icon_disengage_on_accelerator.svg",
     },
+    {
+      "VisionTurnControl",
+      tr("Vision Turn Speed Control"),
+      tr("Use vision-based curvature predictions to gently lower the cruise set speed for smoother turns."),
+      "../assets/offroad/icon_speed_limit.png",
+    },
 #ifdef ENABLE_MAPS
     {
       "NavSettingTime24h",
@@ -94,6 +101,76 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
     toggle->setEnabled(!locked);
     addItem(toggle);
   }
+
+  auto readPercentParam = [](const std::string &key, int default_value, int min_value, int max_value) {
+    Params local_params;
+    std::string stored_value = local_params.get(key);
+    bool ok = false;
+    int parsed = default_value;
+    if (!stored_value.empty()) {
+      parsed = QString::fromStdString(stored_value).toInt(&ok);
+      if (!ok) {
+        parsed = default_value;
+      }
+    }
+    int clamped = std::max(min_value, std::min(max_value, parsed));
+    if (stored_value.empty() || !ok || clamped != parsed) {
+      local_params.put(key, std::to_string(clamped));
+    }
+    return clamped;
+  };
+
+  const int min_percent = 50;
+  const int max_percent = 200;
+  const int default_percent = 100;
+
+  addItem(horizontal_line(this));
+
+  int current_sensitivity = readPercentParam("CurveSensitivity", default_percent, min_percent, max_percent);
+  auto curveSensitivityControl = new ButtonControl(
+      tr("Curve Detection Sensitivity"),
+      QString("%1%").arg(current_sensitivity),
+      tr("Lower values detect curves sooner and slow down more often. Higher values wait for tighter turns."));
+  QObject::connect(curveSensitivityControl, &ButtonControl::clicked, [=]() mutable {
+    int latest_value = readPercentParam("CurveSensitivity", default_percent, min_percent, max_percent);
+    QString default_text = QString::number(latest_value);
+    QString prompt = tr("Enter a value between %1 and %2").arg(min_percent).arg(max_percent);
+    QString input = InputDialog::getText(tr("Curve Detection Sensitivity"), curveSensitivityControl, prompt, false, -1, default_text);
+    if (input.isEmpty()) return;
+
+    bool ok = false;
+    int value = input.toInt(&ok);
+    if (!ok || value < min_percent || value > max_percent) {
+      ConfirmationDialog::alert(tr("Please enter a number between %1 and %2.").arg(min_percent).arg(max_percent), curveSensitivityControl);
+      return;
+    }
+    Params().put("CurveSensitivity", std::to_string(value));
+    curveSensitivityControl->setText(QString("%1%").arg(value));
+  });
+  addItem(curveSensitivityControl);
+
+  int current_aggressiveness = readPercentParam("TurnAggressiveness", default_percent, min_percent, max_percent);
+  auto turnAggressivenessControl = new ButtonControl(
+      tr("Speed Aggressiveness"),
+      QString("%1%").arg(current_aggressiveness),
+      tr("Higher values keep more speed through curves, lower values prioritize comfort."));
+  QObject::connect(turnAggressivenessControl, &ButtonControl::clicked, [=]() mutable {
+    int latest_value = readPercentParam("TurnAggressiveness", default_percent, min_percent, max_percent);
+    QString default_text = QString::number(latest_value);
+    QString prompt = tr("Enter a value between %1 and %2").arg(min_percent).arg(max_percent);
+    QString input = InputDialog::getText(tr("Speed Aggressiveness"), turnAggressivenessControl, prompt, false, -1, default_text);
+    if (input.isEmpty()) return;
+
+    bool ok = false;
+    int value = input.toInt(&ok);
+    if (!ok || value < min_percent || value > max_percent) {
+      ConfirmationDialog::alert(tr("Please enter a number between %1 and %2.").arg(min_percent).arg(max_percent), turnAggressivenessControl);
+      return;
+    }
+    Params().put("TurnAggressiveness", std::to_string(value));
+    turnAggressivenessControl->setText(QString("%1%").arg(value));
+  });
+  addItem(turnAggressivenessControl);
 }
 
 DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
