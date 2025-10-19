@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, TypedDict, cast
+from typing import Dict, Optional, Tuple, TypedDict, Type, cast
 import os
 import re
 import subprocess
@@ -8,7 +8,16 @@ import shutil
 import platform as py_platform
 import time
 
+import importlib
+from types import ModuleType
+
 import sentry_sdk
+
+requests_exceptions: Optional[ModuleType]
+try:
+  requests_exceptions = importlib.import_module("requests.exceptions")
+except ModuleNotFoundError:
+  requests_exceptions = None
 
 try:
   # Newer style (e.g. `python -m openpilot.tools.teletyped.helper`)
@@ -34,6 +43,25 @@ KEY_PATH_PRIV = os.path.join(PERSIST, "comma", "id_ed25519_goranconnect")
 SENTRY_DSN_DEFAULT = "https://82a4222b21bdd8e738c0f20677110918@o1107536.ingest.us.sentry.io/4509169784848384"
 _SENTRY_INITIALIZED = False
 
+NETWORK_EXCEPTION_TYPES: Tuple[Type[BaseException], ...]
+
+if requests_exceptions is not None:
+  _exception_candidates = (
+    getattr(requests_exceptions, 'ConnectionError', BaseException),
+    getattr(requests_exceptions, 'Timeout', BaseException),
+    getattr(requests_exceptions, 'ReadTimeout', None),
+  )
+  _resolved: Tuple[Type[BaseException], ...] = tuple(
+    exc for exc in _exception_candidates
+    if isinstance(exc, type) and issubclass(exc, BaseException)
+  )
+  NETWORK_EXCEPTION_TYPES = _resolved
+else:
+  NETWORK_EXCEPTION_TYPES = tuple()
+
+
+def _should_filter_exception(exc: BaseException) -> bool:
+  return bool(NETWORK_EXCEPTION_TYPES) and isinstance(exc, NETWORK_EXCEPTION_TYPES)
 
 def _init_sentry() -> None:
   global _SENTRY_INITIALIZED
@@ -44,15 +72,31 @@ def _init_sentry() -> None:
   if not dsn:
     return
 
+  def _before_send(event, hint):
+    exc_info = hint.get("exc_info") if hint else None
+    if exc_info:
+      _, exc, _ = exc_info
+      if exc is not None and _should_filter_exception(exc):
+        return None
+    return event
+
   init_kwargs = {
     "dsn": dsn,
     "send_default_pii": True,
+    "before_send": _before_send,
   }
 
   traces_rate = os.environ.get("GCS_SENTRY_TRACES")
   if traces_rate:
     try:
       init_kwargs["traces_sample_rate"] = float(traces_rate)
+    except ValueError:
+      pass
+
+  sample_rate = os.environ.get("GCS_SENTRY_SAMPLE_RATE")
+  if sample_rate:
+    try:
+      init_kwargs["sample_rate"] = float(sample_rate)
     except ValueError:
       pass
 
@@ -64,6 +108,8 @@ def _init_sentry() -> None:
 
 
 def capture_exception(exc: BaseException) -> None:
+  if _should_filter_exception(exc):
+    return
   try:
     hub = sentry_sdk.Hub.current
     if hub and hub.client:
