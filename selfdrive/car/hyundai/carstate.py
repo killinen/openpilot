@@ -35,6 +35,13 @@ class CarState(CarStateBase):
 
     self.params = CarControllerParams(CP)
 
+    if CP.carFingerprint == CAR.I30:
+      self.i30_angle_offset_needed = True
+      self.i30_angle_offset = 0.0
+      self.i30_angle_aligned = False
+      self.i30_min_error = 0.0
+      self.i30_max_error = 0.0
+
   def update(self, cp, cp_cam):
     if self.CP.carFingerprint in HDA2_CAR:
       return self.update_hda2(cp, cp_cam)
@@ -227,6 +234,29 @@ class CarState(CarStateBase):
     ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
     ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
     ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
+    ret.steeringAngleDegError = 0.0
+    ret.steeringAngleDegDivergence = 0.0
+
+    steering_status_angle = cp_cam.vl["STEERING_STATUS"]["STEERING_ANGLE"] * (16.0 / 26.0)  # convert SSC gear ratio (16/26)
+    if self.i30_angle_offset_needed:
+      self.i30_angle_offset = steering_status_angle - ret.steeringAngleDeg
+      self.i30_angle_offset_needed = False
+    else:
+      ssc_aligned_angle = steering_status_angle - self.i30_angle_offset
+      angle_error = ssc_aligned_angle - ret.steeringAngleDeg
+
+      if not self.i30_angle_aligned and abs(angle_error) < 0.1:
+        self.i30_angle_aligned = True
+        self.i30_min_error = angle_error
+        self.i30_max_error = angle_error
+
+      if self.i30_angle_aligned:
+        self.i30_min_error = min(self.i30_min_error, angle_error)
+        self.i30_max_error = max(self.i30_max_error, angle_error)
+        ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
+
+      ret.steeringAngleDegError = angle_error
+
 
     # emulate driver steering torque - allows lane change assist on blinker hold
     ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane

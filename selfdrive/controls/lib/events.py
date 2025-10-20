@@ -423,6 +423,14 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
     ET.NO_ENTRY: NoEntryAlert("Gear Not Engaged"),
   },
 
+  EventName.steeringDegDiverged: {
+    ET.PERMANENT: Alert(
+      "CHECK SSC ASSEMBLY",
+      "Steering angle sensors diverged",
+      AlertStatus.userPrompt, AlertSize.mid,
+      Priority.LOW, VisualAlert.steerRequired, AudibleAlert.prompt, 3.),
+  },
+
   # ********** events only containing alerts that display while engaged **********
 
   # openpilot tries to learn certain parameters about your car by observing

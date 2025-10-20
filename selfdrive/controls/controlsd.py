@@ -389,6 +389,10 @@ class Controls:
     if planner_fcw or model_fcw:
       self.events.add(EventName.fcw)
 
+    if CS.steeringAngleDegError > 8:
+      self.events.add(EventName.steeringDegDiverged)
+
+
     if TICI:
       for m in messaging.drain_sock(self.log_sock, wait_for_one=False):
         try:
