@@ -419,6 +419,10 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
       Priority.LOW, VisualAlert.ldw, AudibleAlert.prompt, 3.),
   },
 
+  EventName.gearNotEngaged: {
+    ET.NO_ENTRY: NoEntryAlert("Gear Not Engaged"),
+  },
+
   # ********** events only containing alerts that display while engaged **********
 
   # openpilot tries to learn certain parameters about your car by observing
