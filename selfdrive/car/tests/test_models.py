@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # pylint: disable=E1101
+import atexit
 import os
 import importlib
 import unittest
 from collections import defaultdict
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from parameterized import parameterized_class
 
 from cereal import log, car
 from common.realtime import DT_CTRL
 # from selfdrive.boardd.boardd import can_capnp_to_can_list, can_list_to_can_capnp
-from selfdrive.car.fingerprints import all_known_cars
 from selfdrive.car.car_helpers import interfaces
 from selfdrive.car.gm.values import CAR as GM
 # from selfdrive.car.honda.values import CAR as HONDA, HONDA_BOSCH
 from selfdrive.car.hyundai.values import CAR as HYUNDAI
-from selfdrive.car.tests.routes import non_tested_cars, routes, TestRoute
+from selfdrive.car.tests.routes import TestRoute, non_tested_cars, routes
 from selfdrive.test.openpilotci import get_url
 from tools.lib.logreader import LogReader
 from tools.lib.route import Route
@@ -33,15 +33,46 @@ ignore_addr_checks_valid = [
   HYUNDAI.GENESIS_G70_2020,
 ]
 
-# build list of test cases
-routes_by_car = defaultdict(set)
+# build list of test cases limited to cars with defined routes
+routes_by_car = defaultdict(list)
 for r in routes:
-  routes_by_car[r.car_model].add(r)
+  routes_by_car[r.car_model].append(r)
 
-test_cases: List[Tuple[str, Optional[TestRoute]]] = []
-for i, c in enumerate(sorted(all_known_cars())):
-  if i % NUM_JOBS == JOB_ID:
-    test_cases.extend((c, r) for r in routes_by_car.get(c, (None, )))
+filtered_cars = sorted(routes_by_car.keys())
+
+test_cases: List[Tuple[str, TestRoute]] = []
+for idx, car_name in enumerate(filtered_cars):
+  if idx % NUM_JOBS != JOB_ID:
+    continue
+
+  test_cases.extend((car_name, r) for r in routes_by_car[car_name])
+
+_processed_car_routes: List[Tuple[str, TestRoute]] = []
+
+
+def _print_processed_car_routes() -> None:
+  if not _processed_car_routes:
+    return
+
+  # Preserve ordering so the log mirrors execution order across jobs.
+  seen = []
+  included = set()
+  for car_model, test_route in _processed_car_routes:
+    key = (car_model, test_route.route, test_route.segment)
+    if key not in included:
+      seen.append((car_model, test_route))
+      included.add(key)
+
+  job_label = f"{JOB_ID + 1}/{NUM_JOBS}" if NUM_JOBS > 1 else "1/1"
+  print(f"\n[car_models_test] Job {job_label} processed {len(seen)} car model routes:")
+  for car_model, test_route in seen:
+    route_desc = test_route.route or "(no route specified)"
+    segment_desc = f" segment={test_route.segment}" if test_route.segment is not None else ""
+    print(f"  - {car_model}: {route_desc}{segment_desc}")
+  print(flush=True)
+
+
+atexit.register(_print_processed_car_routes)
 
 SKIP_ENV_VAR = "SKIP_LONG_TESTS"
 
@@ -102,6 +133,8 @@ class TestCarModelBase(unittest.TestCase):
     cls.CP = cls.CarInterface.get_params(cls.car_model, fingerprint, [], disable_radar)
     assert cls.CP
     assert cls.CP.carFingerprint == cls.car_model
+
+    _processed_car_routes.append((cls.car_model, cls.test_route))
 
   def setUp(self):
     self.CI = self.CarInterface(self.CP, self.CarController, self.CarState)

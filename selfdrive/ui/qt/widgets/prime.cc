@@ -88,15 +88,13 @@ PairingPopup::PairingPopup(QWidget *parent) : QDialogBase(parent) {
     title->setWordWrap(true);
     vlayout->addWidget(title);
 
-    QLabel *instructions = new QLabel(QString(R"(
+    QLabel *instructions = new QLabel(tr(R"(
       <ol type='1' style='margin-left: 15px;'>
-        <li style='margin-bottom: 50px;'>%1</li>
-        <li style='margin-bottom: 50px;'>%2</li>
-        <li style='margin-bottom: 50px;'>%3</li>
+        <li style='margin-bottom: 50px;'>Go to https://connect.comma.ai on your phone</li>
+        <li style='margin-bottom: 50px;'>Click "add new device" and scan the QR code on the right</li>
+        <li style='margin-bottom: 50px;'>Bookmark connect.comma.ai to your home screen to use it like an app</li>
       </ol>
-    )").arg(tr("Go to https://connect.comma.ai on your phone"))
-    .arg(tr("Click \"add new device\" and scan the QR code on the right"))
-    .arg(tr("Bookmark connect.comma.ai to your home screen to use it like an app")), this);
+    )"), this);
 
     instructions->setStyleSheet("font-size: 47px; font-weight: bold; color: black;");
     instructions->setWordWrap(true);
@@ -201,10 +199,13 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->addWidget(features, 0, Qt::AlignBottom);
   main_layout->addSpacing(30);
 
-  QVector<QString> bullets = {tr("Remote access"), tr("1 year of storage"), tr("Developer perks")};
-  for (auto &b: bullets) {
-    const QString check = "<b><font color='#465BEA'>✓</font></b> ";
-    QLabel *l = new QLabel(check + b);
+  QVector<QString> bullets = {
+    tr("<b><font color='#465BEA'>✓</font></b> Remote access"),
+    tr("<b><font color='#465BEA'>✓</font></b> 1 year of storage"),
+    tr("<b><font color='#465BEA'>✓</font></b> Developer perks")
+  };
+  for (const QString &b : bullets) {
+    QLabel *l = new QLabel(b);
     l->setAlignment(Qt::AlignLeft);
     l->setStyleSheet("font-size: 50px; margin-bottom: 15px;");
     main_layout->addWidget(l, 0, Qt::AlignBottom);

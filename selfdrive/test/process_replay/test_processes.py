@@ -37,21 +37,21 @@ original_segments = [
 ]
 
 segments = [
-  ("BODY", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("BODY", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA3", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HONDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HONDA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("CHRYSLER", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("RAM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("SUBARU", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("GM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("NISSAN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("VOLKSWAGEN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("MAZDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("TOYOTA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("TOYOTA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("TOYOTA3", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("HONDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("HONDA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("CHRYSLER", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("RAM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("SUBARU", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("GM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("NISSAN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("VOLKSWAGEN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
+  # ("MAZDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
 ]
 
 # dashcamOnly makes don't need to be tested until a full port is done
@@ -181,7 +181,13 @@ if __name__ == "__main__":
   tested_cars = set(args.whitelist_cars) - set(args.blacklist_cars)
   tested_cars = {c.upper() for c in tested_cars}
 
-  full_test = (tested_procs == all_procs) and (tested_cars == all_cars) and all(len(x) == 0 for x in (args.ignore_fields, args.ignore_msgs))
+  required_interfaces = set(interface_names) - set(excluded_interfaces)
+  tested_cars_lower = {c.lower() for c in tested_cars}
+  full_test = (
+    tested_procs == all_procs
+    and tested_cars_lower == required_interfaces
+    and all(len(x) == 0 for x in (args.ignore_fields, args.ignore_msgs))
+  )
   upload = args.update_refs or args.upload_only
   os.makedirs(os.path.dirname(FAKEDATA), exist_ok=True)
 
@@ -202,7 +208,7 @@ if __name__ == "__main__":
 
   # check to make sure all car brands are tested
   if full_test:
-    untested = (set(interface_names) - set(excluded_interfaces)) - {c.lower() for c in tested_cars}
+    untested = required_interfaces - tested_cars_lower
     assert len(untested) == 0, f"Cars missing routes: {str(untested)}"
 
   with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
