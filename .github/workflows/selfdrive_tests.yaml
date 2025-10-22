@@ -447,6 +447,7 @@ jobs:
 
   test_cars:
     name: cars
+    needs: build_all
     runs-on: ubuntu-22.04
     timeout-minutes: 50
     strategy:
@@ -466,8 +467,6 @@ jobs:
     - name: Cache scons
       id: scons-cache
       uses: actions/cache@v3
-      env:
-        CACHE_SKIP_SAVE: true
       with:
         path: /tmp/scons_cache
         key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
