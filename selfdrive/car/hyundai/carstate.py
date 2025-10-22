@@ -19,6 +19,7 @@ class CarState(CarStateBase):
 
     self.cruise_buttons = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
     self.main_buttons = deque([Buttons.NONE] * PREV_BUTTON_SAMPLES, maxlen=PREV_BUTTON_SAMPLES)
+    self.prev_cruise_buttons = Buttons.NONE
 
     if CP.carFingerprint in HDA2_CAR:
       self.shifter_values = can_define.dv["ACCELERATOR"]["GEAR"]
@@ -181,6 +182,7 @@ class CarState(CarStateBase):
     speed_factor = CV.MPH_TO_MS if cp.vl["CLUSTER_INFO"]["DISTANCE_UNIT"] == 1 else CV.KPH_TO_MS
     ret.cruiseState.speed = cp.vl["CRUISE_INFO"]["SET_SPEED"] * speed_factor
 
+    self.prev_cruise_buttons = self.cruise_buttons[-1]
     self.cruise_buttons.extend(cp.vl_all["CRUISE_BUTTONS"]["CRUISE_BUTTONS"])
     self.main_buttons.extend(cp.vl_all["CRUISE_BUTTONS"]["ADAPTIVE_CRUISE_MAIN_BTN"])
     self.buttons_counter = cp.vl["CRUISE_BUTTONS"]["COUNTER"]
