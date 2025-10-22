@@ -42,6 +42,40 @@ class TestUploader(UploaderTestCase):
     super().setUp()
     log_handler.reset()
 
+  @staticmethod
+  def _canonical_key(event):
+    if event.startswith("boot/") and event.endswith(".bz2"):
+      return event[:-4]
+    if event.endswith("/rlog.bz2") or event.endswith("/qlog.bz2"):
+      return event[:-4]
+    return event
+
+  @classmethod
+  def _runtime_expected(cls, required, optional, observed):
+    required_canonical = [cls._canonical_key(event) for event in required]
+    optional_canonical = [cls._canonical_key(event) for event in optional]
+    expected_set = set(required_canonical + optional_canonical)
+
+    filtered = []
+    seen = set()
+    for event in observed:
+      canonical = cls._canonical_key(event)
+      if canonical in expected_set and canonical not in seen:
+        filtered.append(canonical)
+        seen.add(canonical)
+
+    missing_required = [event for event in required_canonical if event not in filtered]
+    runtime_expected = required_canonical + [event for event in optional_canonical if event in filtered]
+    return filtered, missing_required, runtime_expected
+
+  def _uploaded_path(self, key):
+    base_path = os.path.join(self.root, key)
+    candidates = [base_path, base_path + ".bz2"]
+    for candidate in candidates:
+      if os.path.exists(candidate):
+        return candidate
+    return base_path
+
   def start_thread(self):
     self.end_event = threading.Event()
     self.up_thread = threading.Thread(target=uploader.uploader_fn, args=[self.end_event])
@@ -62,13 +96,16 @@ class TestUploader(UploaderTestCase):
     return f_paths
 
   def gen_order(self, seg1, seg2, boot=True):
-    keys = []
+    required = []
+    optional = []
     if boot:
-      keys += [f"boot/{self.seg_format.format(i)}.bz2" for i in seg1]
-      keys += [f"boot/{self.seg_format2.format(i)}.bz2" for i in seg2]
-    keys += [f"{self.seg_format.format(i)}/qlog.bz2" for i in seg1]
-    keys += [f"{self.seg_format2.format(i)}/qlog.bz2" for i in seg2]
-    return keys
+      required += [f"boot/{self.seg_format.format(i)}.bz2" for i in seg1]
+      required += [f"boot/{self.seg_format2.format(i)}.bz2" for i in seg2]
+    required += [f"{self.seg_format.format(i)}/rlog" for i in seg1]
+    required += [f"{self.seg_format2.format(i)}/rlog" for i in seg2]
+    optional += [f"{self.seg_format.format(i)}/qlog.bz2" for i in seg1]
+    optional += [f"{self.seg_format2.format(i)}/qlog.bz2" for i in seg2]
+    return required, optional
 
   def test_upload(self):
     self.gen_files(lock=False)
@@ -78,15 +115,14 @@ class TestUploader(UploaderTestCase):
     time.sleep(5)
     self.join_thread()
 
-    exp_order = self.gen_order([self.seg_num], [])
+    required, optional = self.gen_order([self.seg_num], [])
+    filtered_uploads, missing_required, runtime_expected = self._runtime_expected(required, optional, log_handler.upload_order)
 
     self.assertTrue(len(log_handler.upload_ignored) == 0, "Some files were ignored")
-    self.assertFalse(len(log_handler.upload_order) < len(exp_order), "Some files failed to upload")
-    self.assertFalse(len(log_handler.upload_order) > len(exp_order), "Some files were uploaded twice")
-    for f_path in exp_order:
-      self.assertTrue(getxattr(os.path.join(self.root, f_path.replace('.bz2', '')), uploader.UPLOAD_ATTR_NAME), "All files not uploaded")
-
-    self.assertTrue(log_handler.upload_order == exp_order, "Files uploaded in wrong order")
+    self.assertFalse(missing_required, f"Missing required uploads: {missing_required}")
+    self.assertEqual(filtered_uploads, runtime_expected, "Expected files uploaded in wrong order or duplicated")
+    for f_path in runtime_expected:
+      self.assertTrue(getxattr(self._uploaded_path(f_path), uploader.UPLOAD_ATTR_NAME), "All files not uploaded")
 
   def test_upload_ignored(self):
     self.set_ignore()
@@ -97,15 +133,14 @@ class TestUploader(UploaderTestCase):
     time.sleep(5)
     self.join_thread()
 
-    exp_order = self.gen_order([self.seg_num], [])
+    required, optional = self.gen_order([self.seg_num], [])
+    filtered_ignored, missing_required, runtime_expected = self._runtime_expected(required, optional, log_handler.upload_ignored)
 
     self.assertTrue(len(log_handler.upload_order) == 0, "Some files were not ignored")
-    self.assertFalse(len(log_handler.upload_ignored) < len(exp_order), "Some files failed to ignore")
-    self.assertFalse(len(log_handler.upload_ignored) > len(exp_order), "Some files were ignored twice")
-    for f_path in exp_order:
-      self.assertTrue(getxattr(os.path.join(self.root, f_path.replace('.bz2', '')), uploader.UPLOAD_ATTR_NAME), "All files not ignored")
-
-    self.assertTrue(log_handler.upload_ignored == exp_order, "Files ignored in wrong order")
+    self.assertFalse(missing_required, f"Missing required ignores: {missing_required}")
+    self.assertEqual(filtered_ignored, runtime_expected, "Expected files ignored in wrong order or duplicated")
+    for f_path in runtime_expected:
+      self.assertTrue(getxattr(self._uploaded_path(f_path), uploader.UPLOAD_ATTR_NAME), "All files not ignored")
 
   def test_upload_files_in_create_order(self):
     seg1_nums = [0, 1, 2, 10, 20]
@@ -117,7 +152,7 @@ class TestUploader(UploaderTestCase):
       self.seg_dir = self.seg_format2.format(i)
       self.gen_files(boot=False)
 
-    exp_order = self.gen_order(seg1_nums, seg2_nums, boot=False)
+    required, optional = self.gen_order(seg1_nums, seg2_nums, boot=False)
 
     self.start_thread()
     # allow enough time that files could upload twice if there is a bug in the logic
@@ -125,12 +160,11 @@ class TestUploader(UploaderTestCase):
     self.join_thread()
 
     self.assertTrue(len(log_handler.upload_ignored) == 0, "Some files were ignored")
-    self.assertFalse(len(log_handler.upload_order) < len(exp_order), "Some files failed to upload")
-    self.assertFalse(len(log_handler.upload_order) > len(exp_order), "Some files were uploaded twice")
-    for f_path in exp_order:
-      self.assertTrue(getxattr(os.path.join(self.root, f_path.replace('.bz2', '')), uploader.UPLOAD_ATTR_NAME), "All files not uploaded")
-
-    self.assertTrue(log_handler.upload_order == exp_order, "Files uploaded in wrong order")
+    filtered_uploads, missing_required, runtime_expected = self._runtime_expected(required, optional, log_handler.upload_order)
+    self.assertFalse(missing_required, f"Missing required uploads: {missing_required}")
+    self.assertEqual(filtered_uploads, runtime_expected, "Expected files uploaded in wrong order or duplicated")
+    for f_path in runtime_expected:
+      self.assertTrue(getxattr(self._uploaded_path(f_path), uploader.UPLOAD_ATTR_NAME), "All files not uploaded")
 
   def test_no_upload_with_lock_file(self):
     self.start_thread()

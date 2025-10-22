@@ -22,7 +22,7 @@ QString getBrand() {
 }
 
 QString getBrandVersion() {
-  return getBrand() + " v" + getVersion().left(14).trimmed();
+  return QObject::tr("%1 v%2").arg(getBrand()).arg(getVersion().left(14).trimmed());
 }
 
 QString getUserAgent() {

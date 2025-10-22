@@ -129,7 +129,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
   int current_sensitivity = readPercentParam("CurveSensitivity", default_percent, min_percent, max_percent);
   auto curveSensitivityControl = new ButtonControl(
       tr("Curve Detection Sensitivity"),
-      QString("%1%").arg(current_sensitivity),
+      tr("%1%").arg(current_sensitivity),
       tr("Lower values detect curves sooner and slow down more often. Higher values wait for tighter turns."));
   QObject::connect(curveSensitivityControl, &ButtonControl::clicked, [=]() mutable {
     int latest_value = readPercentParam("CurveSensitivity", default_percent, min_percent, max_percent);
@@ -145,14 +145,14 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       return;
     }
     Params().put("CurveSensitivity", std::to_string(value));
-    curveSensitivityControl->setText(QString("%1%").arg(value));
+    curveSensitivityControl->setText(tr("%1%").arg(value));
   });
   addItem(curveSensitivityControl);
 
   int current_aggressiveness = readPercentParam("TurnAggressiveness", default_percent, min_percent, max_percent);
   auto turnAggressivenessControl = new ButtonControl(
       tr("Speed Aggressiveness"),
-      QString("%1%").arg(current_aggressiveness),
+      tr("%1%").arg(current_aggressiveness),
       tr("Higher values keep more speed through curves, lower values prioritize comfort."));
   QObject::connect(turnAggressivenessControl, &ButtonControl::clicked, [=]() mutable {
     int latest_value = readPercentParam("TurnAggressiveness", default_percent, min_percent, max_percent);
@@ -168,7 +168,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       return;
     }
     Params().put("TurnAggressiveness", std::to_string(value));
-    turnAggressivenessControl->setText(QString("%1%").arg(value));
+    turnAggressivenessControl->setText(tr("%1%").arg(value));
   });
   addItem(turnAggressivenessControl);
 }
