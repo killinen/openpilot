@@ -4,18 +4,17 @@ import os
 import importlib
 import unittest
 from collections import defaultdict
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from parameterized import parameterized_class
 
 from cereal import log, car
 from common.realtime import DT_CTRL
 # from selfdrive.boardd.boardd import can_capnp_to_can_list, can_list_to_can_capnp
-from selfdrive.car.fingerprints import all_known_cars
 from selfdrive.car.car_helpers import interfaces
 from selfdrive.car.gm.values import CAR as GM
 # from selfdrive.car.honda.values import CAR as HONDA, HONDA_BOSCH
 from selfdrive.car.hyundai.values import CAR as HYUNDAI
-from selfdrive.car.tests.routes import non_tested_cars, routes, TestRoute
+from selfdrive.car.tests.routes import TestRoute, non_tested_cars, routes
 from selfdrive.test.openpilotci import get_url
 from tools.lib.logreader import LogReader
 from tools.lib.route import Route
@@ -33,15 +32,19 @@ ignore_addr_checks_valid = [
   HYUNDAI.GENESIS_G70_2020,
 ]
 
-# build list of test cases
-routes_by_car = defaultdict(set)
+# build list of test cases limited to cars with defined routes
+routes_by_car = defaultdict(list)
 for r in routes:
-  routes_by_car[r.car_model].add(r)
+  routes_by_car[r.car_model].append(r)
 
-test_cases: List[Tuple[str, Optional[TestRoute]]] = []
-for i, c in enumerate(sorted(all_known_cars())):
-  if i % NUM_JOBS == JOB_ID:
-    test_cases.extend((c, r) for r in routes_by_car.get(c, (None, )))
+filtered_cars = sorted(routes_by_car.keys())
+
+test_cases: List[Tuple[str, TestRoute]] = []
+for idx, car_name in enumerate(filtered_cars):
+  if idx % NUM_JOBS != JOB_ID:
+    continue
+
+  test_cases.extend((car_name, r) for r in routes_by_car[car_name])
 
 SKIP_ENV_VAR = "SKIP_LONG_TESTS"
 
