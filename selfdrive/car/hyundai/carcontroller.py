@@ -169,8 +169,9 @@ class CarController:
 
     can_sends = []
 
-    # Send SSC steering command
-    can_sends.append(hyundaican.create_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq, self.frame))
+    # Send SSC steering command on platforms that expect the standalone steering message
+    if self.CP.carFingerprint == CAR.I30:
+      can_sends.append(hyundaican.create_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq, self.frame))
 
     if self.CP.carFingerprint in HDA2_CAR:
       # steering control
