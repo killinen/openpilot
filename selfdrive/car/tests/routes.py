@@ -1,52 +1,20 @@
 #!/usr/bin/env python3
 from collections import namedtuple
 
-from selfdrive.car.chrysler.values import CAR as CHRYSLER
-from selfdrive.car.gm.values import CAR as GM
-from selfdrive.car.ford.values import CAR as FORD
 from selfdrive.car.honda.values import CAR as HONDA
 from selfdrive.car.hyundai.values import CAR as HYUNDAI
-from selfdrive.car.nissan.values import CAR as NISSAN
-from selfdrive.car.mazda.values import CAR as MAZDA
-from selfdrive.car.subaru.values import CAR as SUBARU
 from selfdrive.car.toyota.values import CAR as TOYOTA
 from selfdrive.car.volkswagen.values import CAR as VOLKSWAGEN
-from selfdrive.car.tesla.values import CAR as TESLA
-from selfdrive.car.body.values import CAR as COMMA
 
 # TODO: add routes for these cars
 non_tested_cars = [
-  FORD.ESCAPE_MK4,
-  FORD.FOCUS_MK4,
-  GM.CADILLAC_ATS,
-  GM.HOLDEN_ASTRA,
-  GM.MALIBU,
   HYUNDAI.ELANTRA_GT_I30,
-  HYUNDAI.GENESIS_G90,
   HYUNDAI.KIA_OPTIMA_H,
 ]
 
 TestRoute = namedtuple('TestRoute', ['route', 'car_model', 'segment'], defaults=(None,))
 
 routes = [
-  TestRoute("efdf9af95e71cd84|2022-05-13--19-03-31", COMMA.BODY),
-
-  TestRoute("0c94aa1e1296d7c6|2021-05-05--19-48-37", CHRYSLER.JEEP_CHEROKEE),
-  TestRoute("91dfedae61d7bd75|2021-05-22--20-07-52", CHRYSLER.JEEP_CHEROKEE_2019),
-  TestRoute("420a8e183f1aed48|2020-03-05--07-15-29", CHRYSLER.PACIFICA_2017_HYBRID),
-  TestRoute("43a685a66291579b|2021-05-27--19-47-29", CHRYSLER.PACIFICA_2018),
-  TestRoute("378472f830ee7395|2021-05-28--07-38-43", CHRYSLER.PACIFICA_2018_HYBRID),
-  TestRoute("8190c7275a24557b|2020-01-29--08-33-58", CHRYSLER.PACIFICA_2019_HYBRID),
-  TestRoute("3d84727705fecd04|2021-05-25--08-38-56", CHRYSLER.PACIFICA_2020),
-  TestRoute("221c253375af4ee9|2022-06-15--18-38-24", CHRYSLER.RAM_1500),
-
-  #TestRoute("f1b4c567731f4a1b|2018-04-30--10-15-35", FORD.FUSION),
-
-  TestRoute("7cc2a8365b4dd8a9|2018-12-02--12-10-44", GM.ACADIA),
-  TestRoute("aa20e335f61ba898|2019-02-05--16-59-04", GM.BUICK_REGAL),
-  TestRoute("46460f0da08e621e|2021-10-26--07-21-46", GM.ESCALADE_ESV),
-  TestRoute("c950e28c26b5b168|2018-05-30--22-03-41", GM.VOLT),
-
   TestRoute("0e7a2ba168465df5|2020-10-18--14-14-22", HONDA.ACURA_RDX_3G),
   TestRoute("a74b011b32b51b56|2020-07-26--17-09-36", HONDA.CIVIC),
   TestRoute("a859a044a447c2b0|2020-03-03--18-42-45", HONDA.CRV_EU),
@@ -219,3 +187,13 @@ routes = [
   # Controls mismatch due to standstill threshold
   TestRoute("bec2dcfde6a64235|2022-04-08--14-21-32", HONDA.CRV_HYBRID, segment=22),
 ]
+
+ALLOWED_MAKES = (HONDA, HYUNDAI, TOYOTA, VOLKSWAGEN)
+
+
+def _cars_for_make(make):
+  return {getattr(make, attr) for attr in dir(make) if attr.isupper()}
+
+
+ALLOWED_CARS = set().union(*(_cars_for_make(make) for make in ALLOWED_MAKES))
+routes = [route for route in routes if route.car_model in ALLOWED_CARS]

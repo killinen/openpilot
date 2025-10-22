@@ -37,21 +37,7 @@ original_segments = [
 ]
 
 segments = [
-  ("BODY", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
   ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HYUNDAI", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("TOYOTA3", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HONDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("HONDA2", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("CHRYSLER", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("RAM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("SUBARU", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("GM", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("NISSAN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("VOLKSWAGEN", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
-  ("MAZDA", "regenAA0FC4ED71E|2025-04-20--14-41-54--0"),
 ]
 
 # dashcamOnly makes don't need to be tested until a full port is done

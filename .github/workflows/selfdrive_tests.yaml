@@ -453,7 +453,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        job: [0, 1, 2, 3, 4]
+        job: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
     - uses: actions/checkout@v3
       with:
@@ -482,7 +482,7 @@ jobs:
                         coverage xml && \
                         chmod -R 777 /tmp/comma_download_cache"
       env:
-        NUM_JOBS: 5
+        NUM_JOBS: 12
         JOB_ID: ${{ matrix.job }}
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v2
