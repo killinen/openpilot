@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <mutex>
+#include <condition_variable>
 
 #include <OMX_Component.h>
 extern "C" {
@@ -36,6 +38,7 @@ private:
   void wait_for_state(OMX_STATETYPE state);
   static void handle_out_buf(OmxEncoder *e, OMX_BUFFERHEADERTYPE *out_buf);
 
+#ifdef QCOM2
   int width, height, fps;
   char vid_path[1024];
   char lock_path[1024];
@@ -65,4 +68,37 @@ private:
 
   AVFormatContext *ofmt_ctx;
   AVStream *out_stream;
+#else
+  [[maybe_unused]] int width = 0;
+  [[maybe_unused]] int height = 0;
+  [[maybe_unused]] int fps = 0;
+  [[maybe_unused]] char vid_path[1024] = {};
+  [[maybe_unused]] char lock_path[1024] = {};
+  [[maybe_unused]] bool dirty = false;
+  [[maybe_unused]] int counter = 0;
+
+  [[maybe_unused]] std::string path;
+  [[maybe_unused]] FILE *of = nullptr;
+
+  [[maybe_unused]] size_t codec_config_len = 0;
+  [[maybe_unused]] uint8_t *codec_config = nullptr;
+  [[maybe_unused]] bool wrote_codec_config = false;
+
+  [[maybe_unused]] std::mutex state_lock;
+  [[maybe_unused]] std::condition_variable state_cv;
+  [[maybe_unused]] OMX_STATETYPE state = OMX_StateLoaded;
+
+  [[maybe_unused]] OMX_HANDLETYPE handle = nullptr;
+
+  [[maybe_unused]] std::vector<OMX_BUFFERHEADERTYPE *> in_buf_headers;
+  [[maybe_unused]] std::vector<OMX_BUFFERHEADERTYPE *> out_buf_headers;
+
+  [[maybe_unused]] uint64_t last_t = 0;
+
+  [[maybe_unused]] SafeQueue<OMX_BUFFERHEADERTYPE *> free_in;
+  [[maybe_unused]] SafeQueue<OMX_BUFFERHEADERTYPE *> done_out;
+
+  [[maybe_unused]] AVFormatContext *ofmt_ctx = nullptr;
+  [[maybe_unused]] AVStream *out_stream = nullptr;
+#endif
 };

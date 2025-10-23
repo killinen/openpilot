@@ -2,7 +2,10 @@ import json
 Import('env', 'qt_env', 'arch', 'common', 'messaging', 'visionipc', 'transformations')
 
 base_libs = [common, messaging, visionipc, transformations,
-             'm', 'OpenCL', 'ssl', 'crypto', 'pthread', 'avcodec', 'avformat', 'avutil', 'yuv', 'OmxCore'] + qt_env["LIBS"]
+             'm', 'OpenCL', 'ssl', 'crypto', 'pthread', 'avcodec', 'avformat', 'avutil', 'yuv'] + qt_env["LIBS"]
+
+if arch == 'larch64':
+  base_libs.append('OmxCore')
 
 if arch == 'larch64':
   base_libs.append('EGL')

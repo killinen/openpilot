@@ -1,5 +1,7 @@
 #include "frogpilot/ui/screenrecorder/omx_encoder.h"
 
+#ifdef QCOM2
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -647,3 +649,72 @@ OmxEncoder::~OmxEncoder() {
   in_buf_headers.clear();
   out_buf_headers.clear();
 }
+
+#else
+
+#include "common/swaglog.h"
+
+OmxEncoder::OmxEncoder(const char* path, int width, int height, int fps, int bitrate)
+    : width(width), height(height), fps(fps), path(path ? path : ""), of(nullptr), codec_config_len(0),
+      codec_config(nullptr), wrote_codec_config(false), state(OMX_StateLoaded), handle(nullptr),
+      last_t(0), ofmt_ctx(nullptr), out_stream(nullptr) {
+  (void)bitrate;
+  LOGW("Screen recorder is not available on this platform");
+}
+
+OmxEncoder::~OmxEncoder() = default;
+
+int OmxEncoder::encode_frame_rgba(const uint8_t *ptr, int in_width, int in_height, uint64_t ts) {
+  (void)ptr;
+  (void)in_width;
+  (void)in_height;
+  (void)ts;
+  return 0;
+}
+
+void OmxEncoder::encoder_open(const char* filename) {
+  (void)filename;
+  is_open = false;
+}
+
+void OmxEncoder::encoder_close() {
+  is_open = false;
+}
+
+void OmxEncoder::wait_for_state(OMX_STATETYPE state_) {
+  (void)state_;
+}
+
+void OmxEncoder::handle_out_buf(OmxEncoder *e, OMX_BUFFERHEADERTYPE *out_buf) {
+  (void)e;
+  (void)out_buf;
+}
+
+OMX_ERRORTYPE OmxEncoder::event_handler(OMX_HANDLETYPE component, OMX_PTR app_data, OMX_EVENTTYPE event,
+                                        OMX_U32 data1, OMX_U32 data2, OMX_PTR event_data) {
+  (void)component;
+  (void)app_data;
+  (void)event;
+  (void)data1;
+  (void)data2;
+  (void)event_data;
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OmxEncoder::empty_buffer_done(OMX_HANDLETYPE component, OMX_PTR app_data,
+                                            OMX_BUFFERHEADERTYPE *buffer) {
+  (void)component;
+  (void)app_data;
+  (void)buffer;
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE OmxEncoder::fill_buffer_done(OMX_HANDLETYPE component, OMX_PTR app_data,
+                                           OMX_BUFFERHEADERTYPE *buffer) {
+  (void)component;
+  (void)app_data;
+  (void)buffer;
+  return OMX_ErrorNone;
+}
+
+#endif  // QCOM2

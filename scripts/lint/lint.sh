@@ -14,7 +14,8 @@ cd $ROOT
 FAILED=0
 
 IGNORED_FILES="uv\.lock|docs\/CARS.md"
-IGNORED_DIRS="^third_party.*|^msgq.*|^msgq_repo.*|^opendbc.*|^opendbc_repo.*|^cereal.*|^panda.*|^rednose.*|^rednose_repo.*|^tinygrad.*|^tinygrad_repo.*|^teleoprtc.*|^teleoprtc_repo.*"
+IGNORED_DIRS="^third_party.*|^frogpilot/third_party.*|^msgq.*|^msgq_repo.*|^opendbc.*|^opendbc_repo.*|^cereal.*|^panda.*|^rednose.*|^rednose_repo.*|^tinygrad.*|^tinygrad_repo.*|^teleoprtc.*|^teleoprtc_repo.*"
+IGNORED_PATTERN="$IGNORED_FILES|$IGNORED_DIRS"
 
 function run() {
   shopt -s extglob
@@ -105,7 +106,7 @@ done
 RUN=$([ -z "$RUN" ] && echo "" || echo "!($(echo $RUN | sed 's/ /|/g'))")
 SKIP="@($(echo $SKIP | sed 's/ /|/g'))"
 
-GIT_FILES="$(git ls-files | sed -E "s/$IGNORED_FILES|$IGNORED_DIRS//g")"
+GIT_FILES="$(git ls-files | sed -E "s~$IGNORED_PATTERN~~g")"
 ALL_FILES=""
 for f in $GIT_FILES; do
   if [[ -f $f ]]; then

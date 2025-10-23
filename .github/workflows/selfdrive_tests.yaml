@@ -2,8 +2,6 @@ name: selfdrive
 
 on:
   push:
-    branches:
-      - master
   pull_request:
   workflow_dispatch:
   workflow_call:
@@ -32,6 +30,7 @@ env:
 jobs:
   build_release:
     name: build release
+    if: false  # temporarily disabled in forks
     runs-on: ${{
       (github.repository == 'commaai/openpilot') &&
       ((github.event_name != 'pull_request') ||
