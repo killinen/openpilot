@@ -1,18 +1,33 @@
 #!/usr/bin/env python3
-import json
-import re
 import requests
 import shutil
-import time
-import urllib.parse
 
 from pathlib import Path
 from urllib.parse import quote_plus
 
 from openpilot.common.basedir import BASEDIR
-from openpilot.frogpilot.assets.download_functions import GITLAB_URL, download_file, get_remote_file_size, get_repository_url, handle_error, handle_request_error, verify_download
-from openpilot.frogpilot.common.frogpilot_utilities import delete_file, extract_tar, load_json_file, update_json_file
-from openpilot.frogpilot.common.frogpilot_variables import DEFAULT_MODEL, MODELS_PATH, RESOURCES_REPO, TINYGRAD_FILES, update_frogpilot_toggles
+from openpilot.frogpilot.assets.download_functions import (
+  GITLAB_URL,
+  download_file,
+  get_remote_file_size,
+  get_repository_url,
+  handle_error,
+  handle_request_error,
+  verify_download,
+)
+from openpilot.frogpilot.common.frogpilot_utilities import (
+  delete_file,
+  extract_tar,
+  load_json_file,
+  update_json_file,
+)
+from openpilot.frogpilot.common.frogpilot_variables import (
+  DEFAULT_MODEL,
+  MODELS_PATH,
+  RESOURCES_REPO,
+  TINYGRAD_FILES,
+  update_frogpilot_toggles,
+)
 
 VERSION = "v17"
 VERSION_PATH = MODELS_PATH / "model_version"
@@ -133,21 +148,38 @@ class ModelManager:
   def download_all_models(self):
     repo_url = get_repository_url(self.session)
     if not repo_url:
-      handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+      handle_error(
+        None,
+        "GitHub and GitLab are offline...",
+        "Repository unavailable",
+        MODEL_DOWNLOAD_PARAM,
+        DOWNLOAD_PROGRESS_PARAM,
+        self.params_memory,
+      )
       return
 
     self.fetch_models(f"{repo_url}/Versions/model_names_{VERSION}.json", repo_url)
 
     for model in self.available_models:
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
-        handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_ALL_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          None,
+          "Download cancelled...",
+          "Download cancelled...",
+          MODEL_DOWNLOAD_ALL_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         return
 
       if all((MODELS_PATH / f"{model}_{filename}").is_file() for filename, _ in TINYGRAD_FILES):
         continue
 
       print(f"Model {model} is not downloaded. Preparing to download...")
-      self.params_memory.put(DOWNLOAD_PROGRESS_PARAM, f"Downloading \"{self.available_model_names[self.available_models.index(model)]}\"...")
+      self.params_memory.put(
+        DOWNLOAD_PROGRESS_PARAM,
+        f'Downloading "{self.available_model_names[self.available_models.index(model)]}"...',
+      )
       self.download_model(model)
 
     self.params_memory.put(DOWNLOAD_PROGRESS_PARAM, "All models downloaded!")
@@ -158,7 +190,14 @@ class ModelManager:
 
     repo_url = get_repository_url(self.session)
     if not repo_url:
-      handle_error(None, "GitHub and GitLab are offline...", "Repository unavailable", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+      handle_error(
+        None,
+        "GitHub and GitLab are offline...",
+        "Repository unavailable",
+        MODEL_DOWNLOAD_PARAM,
+        DOWNLOAD_PROGRESS_PARAM,
+        self.params_memory,
+      )
       self.downloading_model = False
       return
 
@@ -170,7 +209,14 @@ class ModelManager:
 
     missing = [name for name in tinygrad_filenames if int(all_model_sizes.get(name, 0)) <= 0]
     if missing:
-      handle_error(None, "Missing size metadata...", f"Sizes not found for: {', '.join(missing)}...", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+      handle_error(
+        None,
+        "Missing size metadata...",
+        f"Sizes not found for: {', '.join(missing)}...",
+        MODEL_DOWNLOAD_PARAM,
+        DOWNLOAD_PROGRESS_PARAM,
+        self.params_memory,
+      )
       self.downloading_model = False
       return
 
@@ -184,17 +230,39 @@ class ModelManager:
     known_file_sizes = [size for size in file_sizes if size > 0]
     total_model_bytes = sum(known_file_sizes) if len(known_file_sizes) == len(file_sizes) else 0
 
-    for (file_key, description), part_bytes, (primary_url, fallback_url) in zip(TINYGRAD_FILES, file_sizes, file_sources):
+    for (file_key, description), part_bytes, (primary_url, fallback_url) in zip(
+      TINYGRAD_FILES,
+      file_sizes,
+      file_sources,
+      strict=False,
+    ):
       filename = f"{model_to_download}_{file_key}"
       model_path = MODELS_PATH / filename
 
       print(f"Downloading {description} for model: {model_to_download}")
-      download_file(CANCEL_DOWNLOAD_PARAM, model_path, DOWNLOAD_PROGRESS_PARAM, primary_url, MODEL_DOWNLOAD_PARAM, self.session, self.params_memory, offset_bytes=downloaded_offset_bytes, total_bytes=total_model_bytes)
+      download_file(
+        CANCEL_DOWNLOAD_PARAM,
+        model_path,
+        DOWNLOAD_PROGRESS_PARAM,
+        primary_url,
+        MODEL_DOWNLOAD_PARAM,
+        self.session,
+        self.params_memory,
+        offset_bytes=downloaded_offset_bytes,
+        total_bytes=total_model_bytes,
+      )
 
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         delete_file(model_path)
 
-        handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          None,
+          "Download cancelled...",
+          "Download cancelled...",
+          MODEL_DOWNLOAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         self.downloading_model = False
         return
 
@@ -206,12 +274,29 @@ class ModelManager:
 
       print(f"Verification failed for {filename}. Retrying from GitLab...")
       fallback_url = f"{GITLAB_URL}/Models/compiled/{filename}"
-      download_file(CANCEL_DOWNLOAD_PARAM, model_path, DOWNLOAD_PROGRESS_PARAM, fallback_url, MODEL_DOWNLOAD_PARAM, self.session, self.params_memory, offset_bytes=downloaded_offset_bytes, total_bytes=total_model_bytes)
+      download_file(
+        CANCEL_DOWNLOAD_PARAM,
+        model_path,
+        DOWNLOAD_PROGRESS_PARAM,
+        fallback_url,
+        MODEL_DOWNLOAD_PARAM,
+        self.session,
+        self.params_memory,
+        offset_bytes=downloaded_offset_bytes,
+        total_bytes=total_model_bytes,
+      )
 
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         delete_file(model_path)
 
-        handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          None,
+          "Download cancelled...",
+          "Download cancelled...",
+          MODEL_DOWNLOAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         self.downloading_model = False
         return
 
@@ -220,7 +305,14 @@ class ModelManager:
         if total_model_bytes:
           downloaded_offset_bytes += part_bytes
       else:
-        handle_error(model_path, "Verification failed...", f"GitLab verification failed for {filename}", MODEL_DOWNLOAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          model_path,
+          "Verification failed...",
+          f"GitLab verification failed for {filename}",
+          MODEL_DOWNLOAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         self.downloading_model = False
         return
 
@@ -338,28 +430,65 @@ class ModelManager:
     tinygrad_tar_path = Path("/data/tmp/tinygrad.tar.gz")
     try:
       print(f"Attempting to download tinygrad from {primary_url}...")
-      download_file(CANCEL_DOWNLOAD_PARAM, tinygrad_tar_path, DOWNLOAD_PROGRESS_PARAM, primary_url, UPDATE_TINYGRAD_PARAM, self.session, self.params_memory)
+      download_file(
+        CANCEL_DOWNLOAD_PARAM,
+        tinygrad_tar_path,
+        DOWNLOAD_PROGRESS_PARAM,
+        primary_url,
+        UPDATE_TINYGRAD_PARAM,
+        self.session,
+        self.params_memory,
+      )
 
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         delete_file(tinygrad_tar_path)
 
-        handle_error(None, "Tinygrad update cancelled...", "Tinygrad update cancelled...", UPDATE_TINYGRAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          None,
+          "Tinygrad update cancelled...",
+          "Tinygrad update cancelled...",
+          UPDATE_TINYGRAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         self.params_memory.remove("CancelModelDownload")
         return
 
       if not verify_download(tinygrad_tar_path, primary_url, self.session, self.params_memory):
         print(f"Verification failed for {primary_url}. Retrying from GitLab...")
-        download_file(CANCEL_DOWNLOAD_PARAM, tinygrad_tar_path, DOWNLOAD_PROGRESS_PARAM, fallback_url, UPDATE_TINYGRAD_PARAM, self.session, self.params_memory)
+        download_file(
+          CANCEL_DOWNLOAD_PARAM,
+          tinygrad_tar_path,
+          DOWNLOAD_PROGRESS_PARAM,
+          fallback_url,
+          UPDATE_TINYGRAD_PARAM,
+          self.session,
+          self.params_memory,
+        )
 
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         delete_file(tinygrad_tar_path)
 
-        handle_error(None, "Tinygrad update cancelled...", "Tinygrad update cancelled...", UPDATE_TINYGRAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          None,
+          "Tinygrad update cancelled...",
+          "Tinygrad update cancelled...",
+          UPDATE_TINYGRAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         self.params_memory.remove("CancelModelDownload")
         return
 
       if not verify_download(tinygrad_tar_path, fallback_url, self.session, self.params_memory):
-        handle_error(tinygrad_tar_path, "Verification Failed", "Tinygrad verification failed", UPDATE_TINYGRAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(
+          tinygrad_tar_path,
+          "Verification Failed",
+          "Tinygrad verification failed",
+          UPDATE_TINYGRAD_PARAM,
+          DOWNLOAD_PROGRESS_PARAM,
+          self.params_memory,
+        )
         return
 
       print("Tinygrad downloaded successfully! Proceeding with installation...")
@@ -384,7 +513,14 @@ class ModelManager:
 
       self.update_tinygrad_models(repo_url)
     except Exception as exception:
-      handle_error(tinygrad_tar_path, "Update Failed", f"An unexpected error occurred: {exception}", UPDATE_TINYGRAD_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+      handle_error(
+        tinygrad_tar_path,
+        "Update Failed",
+        f"An unexpected error occurred: {exception}",
+        UPDATE_TINYGRAD_PARAM,
+        DOWNLOAD_PROGRESS_PARAM,
+        self.params_memory,
+      )
 
   def update_tinygrad_models(self, repo_url=None):
     print("Updating old Tinygrad models...")

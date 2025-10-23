@@ -99,14 +99,25 @@ def handle_error(destination, error_message, error, download_param, progress_par
     params_memory.remove(download_param)
 
 def handle_request_error(error, destination, download_param, progress_param, params_memory):
+  def format_http_error(exception):
+    response = getattr(exception, "response", None)
+    if response is not None:
+      return f"Server error ({response.status_code})"
+    return "Server error"
+
   error_map = {
     requests.exceptions.ConnectionError: "Connection dropped",
-    requests.exceptions.HTTPError: lambda error: f"Server error ({error.response.status_code})" if error and getattr(error, "response", None) else "Server error",
+    requests.exceptions.HTTPError: format_http_error,
     requests.exceptions.RequestException: "Network request error. Check connection",
     requests.exceptions.Timeout: "Download timed out",
   }
 
-  error_message = error_map.get(type(error), "Unexpected error")
+  error_message_or_callable = error_map.get(type(error))
+  if callable(error_message_or_callable):
+    error_message = error_message_or_callable(error)
+  else:
+    error_message = error_message_or_callable or "Unexpected error"
+
   handle_error(destination, f"Failed: {error_message}", error, download_param, progress_param, params_memory)
 
 def verify_download(file_path, url, session, params_memory):

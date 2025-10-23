@@ -7,7 +7,8 @@ from openpilot.system.version import get_version
 
 from openpilot.frogpilot.common.frogpilot_utilities import use_konik_server
 
-API_HOST = os.getenv('API_HOST', f'https://api.{'konik.ai' if use_konik_server() else 'commadotai.com'}')
+_DEFAULT_HOST = "konik.ai" if use_konik_server() else "commadotai.com"
+API_HOST = os.getenv("API_HOST", f"https://api.{_DEFAULT_HOST}")
 
 class Api:
   def __init__(self, dongle_id):
