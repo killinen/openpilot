@@ -1,0 +1,78 @@
+name: selfdrive
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      run_number:
+        description: "Sequence number shared across matrix jobs"
+        type: string
+        required: false
+        default: "1"
+
+concurrency:
+  group: selfdrive-tests-ci-run-${{ inputs.run_number || github.run_number }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && github.run_id || github.head_ref || github.ref }}-${{ github.workflow }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  PYTHONWARNINGS: error
+
+jobs:
+  python-syntax:
+    name: Python syntax checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile selfdrive sources
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m compileall common frogpilot openpilot selfdrive system
+
+  static-analysis:
+    name: static analysis
+    runs-on: ubuntu-latest
+    env:
+      PYTHONWARNINGS: default
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff==0.5.5" "mypy==1.10.0"
+
+      - name: Run lint suite
+        run: bash tools/lint/lint.sh
+
+  opendbc-tests:
+    name: opendbc tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pytest" "cantools"
+
+      - name: Run opendbc tests
+        run: pytest tests/opendbc

@@ -1,0 +1,59 @@
+[tool.mypy]
+python_version = "3.11"
+exclude = [
+  "cereal/",
+  "frogpilot/assets/",
+  "frogpilot/third_party/",
+  "msgq/",
+  "msgq_repo/",
+  "opendbc/",
+  "openpilot/third_party/",
+  "panda/",
+  "rednose/",
+  "rednose_repo/",
+  "third_party/",
+  "tinygrad/",
+  "tinygrad_repo/",
+]
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+  "openpilot.third_party.*",
+  "third_party.*",
+]
+ignore_errors = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = [
+  "tinygrad",
+  "tinygrad.*",
+  "tinygrad_repo",
+  "tinygrad_repo.*",
+]
+ignore_errors = true
+follow_imports = "skip"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 160
+exclude = [
+  "cereal",
+  "frogpilot/third_party",
+  "msgq",
+  "msgq_repo",
+  "opendbc",
+  "openpilot/third_party",
+  "panda",
+  "rednose",
+  "rednose_repo",
+  "third_party",
+  "tinygrad",
+  "tinygrad_repo",
+]
