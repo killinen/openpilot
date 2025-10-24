@@ -121,9 +121,7 @@ class SpeedLimitController:
 
         future_latitude, future_longitude = calculate_bearing_offset(current_latitude, current_longitude, current_bearing, v_ego)
 
-        url = (f"{self.mapbox_host}/matching/v5/mapbox/driving/"
-               f"{current_longitude},{current_latitude};"
-               f"{future_longitude},{future_latitude}.json")
+        url = f"{self.mapbox_host}/matching/v5/mapbox/driving/{current_longitude},{current_latitude};{future_longitude},{future_latitude}.json"
         mapbox_params = {
           "access_token": self.mapbox_token,
           "annotations": "maxspeed,distance",

@@ -1281,12 +1281,12 @@ def setup(app):
         if not DISCORD_WEBHOOK_URL_THEME:
           return
 
-        message = (f"🎨 **New Theme Submission**\n"
-                   f"User: `{username}`\n"
-                   f"Theme: `{theme_name}`\n"
-                   f"Assets: {', '.join(asset_types)}\n"
-                   f"[View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)\n"
-                   f"<@263565721336807424>")
+        message = f"""🎨 **New Theme Submission**
+                   User: `{username}`
+                   Theme: `{theme_name}`
+                   Assets: {', '.join(asset_types)}
+                   [View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)
+                   <@263565721336807424>"""
         payload = {"content": message}
         try:
           resp = requests.post(DISCORD_WEBHOOK_URL_THEME, json=payload)

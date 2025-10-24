@@ -142,11 +142,13 @@ class MapSpeedLogger:
     self.cached_box = {"min_latitude": min_lat, "max_latitude": max_lat, "min_longitude": min_lon, "max_longitude": max_lon}
     self.cached_segments.clear()
 
-              query = (f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
-                       f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
-                       "[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
-                       "secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
-                       "out geom qt;")    try:
+    query = (f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
+             f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
+             f"[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
+             f"secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
+             f"out geom qt;")
+    try:
+    try:
       response = self.session.post(OVERPASS_API_URL, data=query, timeout=90)
       self.record_overpass_request(len(response.content))
 
@@ -383,19 +385,19 @@ def main():
 
       previously_started = True
     elif previously_started:
-      existing_dataset = self.params.get("SpeedLimits")
+      existing_dataset = logger.params.get("SpeedLimits")
       existing_dataset.extend(logger.dataset_additions)
 
       new_dataset = logger.cleanup_dataset(existing_dataset)
-      self.params.put("SpeedLimits", list(new_dataset))
+      logger.params.put("SpeedLimits", list(new_dataset))
 
       if logger.sm["deviceState"].networkType in (NetworkType.ethernet, NetworkType.wifi):
-        self.params_memory.put_bool("UpdateSpeedLimits", True)
+        logger.params_memory.put_bool("UpdateSpeedLimits", True)
 
       logger.dataset_additions.clear()
 
       previously_started = False
-    elif self.params_memory.get_bool("UpdateSpeedLimits"):
+    elif logger.params_memory.get_bool("UpdateSpeedLimits"):
       logger.process_speed_limits()
       logger.process_speed_limits()
     else:
