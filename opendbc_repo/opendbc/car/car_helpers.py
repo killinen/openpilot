@@ -1,5 +1,6 @@
 import os
 import time
+from enum import Enum
 
 from types import SimpleNamespace
 
@@ -20,6 +21,12 @@ FRAME_FINGERPRINT = 100  # 1s
 
 # FrogPilot variables
 FrogPilotCarParams = custom.FrogPilotCarParams
+
+
+def _normalize_candidate(candidate):
+  if isinstance(candidate, Enum):
+    return candidate.value
+  return candidate
 
 
 def load_interfaces(brand_names):
@@ -170,10 +177,11 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
       setattr(frogpilot_toggles, attr, default)
 
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
+  candidate = _normalize_candidate(candidate)
 
   if candidate is None or frogpilot_toggles.force_fingerprint:
     if frogpilot_toggles.car_model is not None:
-      candidate = frogpilot_toggles.car_model
+      candidate = _normalize_candidate(frogpilot_toggles.car_model)
     else:
       carlog.error({"event": "car doesn't match any fingerprints", "fingerprints": repr(fingerprints)})
       candidate = "MOCK"
@@ -182,7 +190,7 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     params.put_nonblocking("CarModel", candidate)
 
   if frogpilot_toggles.block_user:
-    candidate = MOCK.MOCK
+    candidate = _normalize_candidate(MOCK.MOCK)
 
   CarInterface = interfaces[candidate]
   CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False, frogpilot_toggles=None)

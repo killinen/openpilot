@@ -225,6 +225,7 @@ lint.select = [
 lint.ignore = [
   "E741",
   "E402",
+  "E501",  # allow long lines (handled by formatter/tests instead)
   "C408",
   "ISC003",
   "B027",
