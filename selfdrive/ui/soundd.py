@@ -233,9 +233,9 @@ class Soundd:
         if sm['frogpilotPlan'].togglesUpdated:
           self.frogpilot_toggles = get_frogpilot_toggles()
 
-          self.update_frogpilot_sounds()
+          self.update_frogpilot_sounds(stream)
 
-  def update_frogpilot_sounds(self):
+  def update_frogpilot_sounds(self, stream=None):
     self.volume_map = {
       AudibleAlert.engage: self.frogpilot_toggles.engage_volume / 100.0,
       AudibleAlert.disengage: self.frogpilot_toggles.disengage_volume / 100.0,

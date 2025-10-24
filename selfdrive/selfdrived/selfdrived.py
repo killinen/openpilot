@@ -24,7 +24,7 @@ from openpilot.selfdrive.selfdrived.state import StateMachine
 from openpilot.selfdrive.selfdrived.alertmanager import AlertManager, set_offroad_alert
 
 from openpilot.system.hardware import HARDWARE
-from openpilot.system.version import get_build_metadata
+
 
 from openpilot.frogpilot.common.frogpilot_utilities import contains_event_type
 from openpilot.frogpilot.common.frogpilot_variables import DISPLAY_MENU_TIMER, get_frogpilot_toggles
