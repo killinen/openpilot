@@ -230,12 +230,9 @@ class ModelManager:
     known_file_sizes = [size for size in file_sizes if size > 0]
     total_model_bytes = sum(known_file_sizes) if len(known_file_sizes) == len(file_sizes) else 0
 
-    for (file_key, description), part_bytes, (primary_url, fallback_url) in zip(
-      TINYGRAD_FILES,
-      file_sizes,
-      file_sources,
-      strict=False,
-    ):
+    for idx, (file_key, description) in enumerate(TINYGRAD_FILES):
+      part_bytes = file_sizes[idx]
+      primary_url, fallback_url = file_sources[idx]
       filename = f"{model_to_download}_{file_key}"
       model_path = MODELS_PATH / filename
 

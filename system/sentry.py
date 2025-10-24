@@ -7,7 +7,7 @@ from enum import Enum
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
 from openpilot.common.params import Params
-from openpilot.system.hardware import HARDWARE, PC
+from openpilot.system.hardware import PC
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.version import get_build_metadata, get_version
 
@@ -18,7 +18,7 @@ class SentryProject(Enum):
   # python project
   SELFDRIVE = os.environ.get("SENTRY_DSN", "")
   # native project
-  SELFDRIVE_NATIVE = os.environ.get("SENTRY_DSN", "")
+  SELFDRIVE_NATIVE = os.environ.get("SENTRY_DSN_NATIVE", SELFDRIVE)
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
@@ -32,7 +32,7 @@ def report_tombstone(fn: str, message: str, contents: str) -> None:
 
 
 def capture_block() -> None:
-  with sentry_sdk.push_scope() as scope:
+  with sentry_sdk.push_scope():
     sentry_sdk.capture_message("Blocked user from using the development branch", level='info')
     sentry_sdk.flush()
 
@@ -67,6 +67,7 @@ def save_exception(exc_text: str, crash_log) -> None:
   ]
 
   for file_path in files:
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     if file_path.name == "error.txt" and crash_log:
       lines = exc_text.splitlines()[-10:]
       file_path.write_text("\n".join(lines))

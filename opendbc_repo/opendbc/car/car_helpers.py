@@ -158,6 +158,17 @@ def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_mu
 
 def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multiplexing: ObdCallback, alpha_long_allowed: bool,
             is_release: bool, params: Params, num_pandas: int = 1, cached_params: CarParamsT | None = None, frogpilot_toggles: SimpleNamespace = None):
+  if frogpilot_toggles is None:
+    frogpilot_toggles = SimpleNamespace()
+
+  for attr, default in [
+    ("force_fingerprint", False),
+    ("car_model", None),
+    ("block_user", False),
+  ]:
+    if not hasattr(frogpilot_toggles, attr):
+      setattr(frogpilot_toggles, attr, default)
+
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
 
   if candidate is None or frogpilot_toggles.force_fingerprint:
