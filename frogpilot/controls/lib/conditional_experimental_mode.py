@@ -4,7 +4,7 @@ from enum import IntEnum
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
 
-from openpilot.frogpilot.common.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED, THRESHOLD
+from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, THRESHOLD
 
 class CEStatus(IntEnum):
   OFF = 0               # Off

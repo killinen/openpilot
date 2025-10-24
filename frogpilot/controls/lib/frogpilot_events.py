@@ -2,6 +2,7 @@
 import random
 
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY, CV
+from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.controls.lib.desire_helper import TurnDirection
 from openpilot.selfdrive.selfdrived.events import ET, FROGPILOT_EVENT_NAME, EventName, FrogPilotEventName, Events
@@ -10,6 +11,8 @@ from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, NON_D
 
 DEJA_VU_G_FORCE = 0.75
 RANDOM_EVENTS_CHANCE = 0.01 * DT_MDL
+
+params_memory = Params(memory=True)
 
 class FrogPilotEvents:
   def __init__(self, FrogPilotPlanner, error_log, ThemeManager):

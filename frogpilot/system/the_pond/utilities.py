@@ -7,13 +7,13 @@ import re
 import secrets
 import shutil
 import subprocess
-import time
+
 import uuid
 
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
-from typing import List
+
 from werkzeug.utils import secure_filename
 
 from openpilot.common.constants import CV

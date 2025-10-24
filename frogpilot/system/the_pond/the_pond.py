@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import base64
-import errno
+
 import hashlib
 import json
 import os
@@ -8,13 +8,13 @@ import re
 import requests
 import secrets
 import shutil
-import signal
+
 import subprocess
 import time
-import traceback
+
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from flask import Flask, Response, jsonify, render_template, request, send_file, send_from_directory
 from io import BytesIO
 from pathlib import Path
@@ -23,14 +23,16 @@ from werkzeug.utils import secure_filename
 from cereal import car, messaging
 from opendbc.can.parser import CANParser
 from opendbc.car.toyota.carcontroller import LOCK_CMD, UNLOCK_CMD
-from openpilot.common.realtime import DT_HW
+from openpilot.common.params import Params
+
+params_memory = Params(memory=True)
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.system.hardware.hw import Paths
 from openpilot.system.loggerd.deleter import PRESERVE_ATTR_NAME, PRESERVE_ATTR_VALUE, PRESERVE_COUNT
 from openpilot.system.version import get_build_metadata
 from panda import Panda
 
-from openpilot.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH, THEME_COMPONENT_PARAMS
+from openpilot.frogpilot.assets.theme_manager import HOLIDAY_THEME_PATH
 from openpilot.frogpilot.common.frogpilot_utilities import delete_file, get_lock_status, run_cmd, extract_tar
 from openpilot.frogpilot.common.frogpilot_variables import ACTIVE_THEME_PATH, DISCORD_WEBHOOK_URL_THEME, ERROR_LOGS_PATH, EXCLUDED_KEYS, \
                                                            RESOURCES_REPO, SCREEN_RECORDINGS_PATH, THEME_SAVE_PATH, update_frogpilot_toggles
@@ -362,7 +364,7 @@ def setup(app):
         for segment in os.listdir(footage_path):
           route_names.add(segment.split("--")[0])
 
-    for route_name in sorted(list(route_names)):
+    for route_name in sorted(route_names):
       for footage_path in FOOTAGE_PATHS:
         if os.path.exists(footage_path):
           for segment in os.listdir(footage_path):
@@ -624,7 +626,7 @@ def setup(app):
   @app.route("/api/speed_limits", methods=["GET"])
   def speed_limits():
     data = utilities.params.get("SpeedLimitsFiltered")
-    current_time = (datetime.now(timezone.utc) - timedelta(days=6, hours=23)).isoformat()
+    current_time = (datetime.now(UTC) - timedelta(days=6, hours=23)).isoformat()
     data = [{**e, "last_vetted": current_time} for e in data]
 
     utilities.params.put("SpeedLimitsFiltered", data)
@@ -653,7 +655,7 @@ def setup(app):
       response = requests.get(f"https://api.comma.ai/v1/devices/{utilities.params.get('DongleId', encoding='utf8')}/firehose_stats", timeout=10)
       response.raise_for_status()
       firehose_stats = response.json().get("firehose", 0)
-    except (requests.RequestException, ValueError) as e:
+    except (requests.RequestException, ValueError):
       firehose_stats = 0
 
     return {
@@ -815,7 +817,7 @@ def setup(app):
       return jsonify({"error": "Missing component or name"}), 400
 
     component = "steering_wheels" if raw_component == "steering_wheel" else ("signals" if raw_component == "turn_signals" else raw_component)
-    mem_key = THEME_COMPONENT_utilities.params.get(component)
+    mem_key = utilities.params.get(component)
     if not mem_key:
       return jsonify({"error": "Unknown component"}), 400
 
@@ -994,7 +996,7 @@ def setup(app):
 
     colors_path = ACTIVE_THEME_PATH / "colors" / "colors.json"
     if colors_path.exists():
-      with open(colors_path, "r") as f:
+      with open(colors_path) as f:
         theme_data["colors"] = json.load(f)
 
     signals_dir = ACTIVE_THEME_PATH / "signals"
@@ -1262,7 +1264,7 @@ def setup(app):
 
       safe_theme_name = utilities.normalize_theme_name(theme_name, for_path=True)
       combined_name = f"{safe_theme_name}~{discord_username}"
-      timestamp = int(time.time())
+      timestamp = int(time.monotonic())
 
       def gitlab_post(project_id, endpoint, payload):
         url = f"{GITLAB_API}/projects/{project_id}/{endpoint}"
@@ -1279,14 +1281,12 @@ def setup(app):
         if not DISCORD_WEBHOOK_URL_THEME:
           return
 
-        message = (
-          f"🎨 **New Theme Submission**\n"
-          f"User: `{username}`\n"
-          f"Theme: `{theme_name}`\n"
-          f"Assets: {', '.join(asset_types)}\n"
-          f"[View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)\n"
-          f"<@263565721336807424>"
-        )
+        message = (f"🎨 **New Theme Submission**\n"
+                   f"User: `{username}`\n"
+                   f"Theme: `{theme_name}`\n"
+                   f"Assets: {', '.join(asset_types)}\n"
+                   f"[View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)\n"
+                   f"<@263565721336807424>")
         payload = {"content": message}
         try:
           resp = requests.post(DISCORD_WEBHOOK_URL_THEME, json=payload)

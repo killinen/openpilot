@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import datetime
+from datetime import UTC
 import os
 import time
 
@@ -83,7 +84,7 @@ def frogpilot_thread():
 
   frogpilot_toggles = get_frogpilot_toggles()
 
-  toggles_last_updated = datetime.datetime.now(datetime.timezone.utc)
+  toggles_last_updated = datetime.datetime.now(UTC)
 
   error_log = ERROR_LOGS_PATH / "error.txt"
   if error_log.is_file():
@@ -92,7 +93,7 @@ def frogpilot_thread():
   while True:
     sm.update()
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.datetime.now(UTC)
 
     started = sm["deviceState"].started
 

@@ -50,7 +50,7 @@ class FrogPilotTracking:
     self.enabled |= sm["selfdriveState"].enabled or sm["frogpilotCarState"].alwaysOnLateralEnabled
     self.tracked_time += DT_MDL
 
-    current_events = {event for event in self.frogpilot_events.event_names}
+    current_events = set(self.frogpilot_events.event_names)
     if len(current_events) > 0:
       new_events = current_events - self.previous_events
 

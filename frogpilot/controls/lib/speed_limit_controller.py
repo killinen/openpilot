@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # PFEIFER - SLC - Modified by FrogAi for FrogPilot
 import calendar
-import json
-import math
+
+
 import numpy as np
 import requests
 
@@ -94,10 +94,10 @@ class SpeedLimitController:
       return
 
     def make_request():
+      result = None
+      successful = False
       try:
         self.calling_mapbox = True
-
-        successful = False
 
         if not is_url_pingable(self.mapbox_host):
           self.segment_distance = 1000
@@ -121,13 +121,9 @@ class SpeedLimitController:
 
         future_latitude, future_longitude = calculate_bearing_offset(current_latitude, current_longitude, current_bearing, v_ego)
 
-        url = (
-          f"{self.mapbox_host}/matching/v5/mapbox/driving/"
-          f"{current_longitude},{current_latitude};"
-          f"{future_longitude},{future_latitude}.json"
-        )
-
-        mapbox_params = {
+                  url = (f"{self.mapbox_host}/matching/v5/mapbox/driving/"
+                         f"{current_longitude},{current_latitude};"
+                         f"{future_longitude},{future_latitude}.json")        mapbox_params = {
           "access_token": self.mapbox_token,
           "annotations": "maxspeed,distance",
           "geometries": "polyline6",
@@ -141,8 +137,7 @@ class SpeedLimitController:
         response.raise_for_status()
 
         successful = True
-
-        return response.json()
+        result = response.json()
       except Exception as exception:
         print(f"Unexpected error in Mapbox request: {exception}")
       finally:
@@ -152,7 +147,7 @@ class SpeedLimitController:
           self.mapbox_limit = 0
           self.segment_distance = v_ego
 
-          return None
+      return result
 
     def complete_request(future):
       try:

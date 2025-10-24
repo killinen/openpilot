@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
-from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import COMFORT_BRAKE
+
 
 from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController

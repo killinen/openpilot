@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import cereal.messaging as messaging
 
-from cereal import car, log
+from cereal import car
 from openpilot.common.constants import CV
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.gps import get_gps_location_service

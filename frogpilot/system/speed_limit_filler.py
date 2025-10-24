@@ -5,7 +5,7 @@ import requests
 import time
 
 from collections import OrderedDict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from cereal import log, messaging
 
@@ -39,7 +39,7 @@ class MapSpeedLogger:
     self.dataset_additions = deque(maxlen=MAX_ENTRIES)
 
     self.overpass_requests = self.params.get("OverpassRequests")
-    self.overpass_requests.setdefault("day", datetime.now(timezone.utc).day)
+    self.overpass_requests.setdefault("day", datetime.now(UTC).day)
     self.overpass_requests.setdefault("total_bytes", 0)
     self.overpass_requests.setdefault("total_requests", 0)
 
@@ -47,7 +47,7 @@ class MapSpeedLogger:
     self.session.headers.update({"Accept-Language": "en"})
     self.session.headers.update({"User-Agent": "frogpilot-map-speed-logger/1.0 (https://github.com/FrogAi/FrogPilot)"})
 
-    self.gps_location_service = get_gps_location_service(params)
+    self.gps_location_service = get_gps_location_service(self.params)
 
     self.sm = messaging.SubMaster(["deviceState", "frogpilotCarState", "frogpilotPlan", self.gps_location_service, "modelV2"])
 
@@ -57,7 +57,7 @@ class MapSpeedLogger:
 
   @property
   def should_stop_processing(self):
-    return self.sm["deviceState"].started or not params_memory.get_bool("UpdateSpeedLimits")
+    return self.sm["deviceState"].started or not self.params_memory.get_bool("UpdateSpeedLimits")
 
   @staticmethod
   def cleanup_dataset(dataset):
@@ -109,7 +109,7 @@ class MapSpeedLogger:
     self.overpass_requests["total_requests"] += 1
 
   def reset_daily_api_limits(self):
-    current_day = datetime.now(timezone.utc).day
+    current_day = datetime.now(UTC).day
     if current_day != self.overpass_requests["day"]:
       self.overpass_requests.update({
         "day": current_day,
@@ -142,15 +142,11 @@ class MapSpeedLogger:
     self.cached_box = {"min_latitude": min_lat, "max_latitude": max_lat, "min_longitude": min_lon, "max_longitude": max_lon}
     self.cached_segments.clear()
 
-    query = (
-      f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
-      f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
-      "[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
-      "secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
-      "out geom qt;"
-    )
-
-    try:
+              query = (f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
+                       f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
+                       "[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
+                       "secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
+                       "out geom qt;")    try:
       response = self.session.post(OVERPASS_API_URL, data=query, timeout=90)
       self.record_overpass_request(len(response.content))
 
@@ -223,14 +219,14 @@ class MapSpeedLogger:
     current_speed_source = self.get_speed_limit_source()
     valid_sources = {source[0] for source in [current_speed_source] if source and source[0] > 0}
 
-    map_speed = params_memory.get("MapSpeedLimit")
+    map_speed = self.params_memory.get("MapSpeedLimit")
     is_incorrect_limit = bool(map_speed > 0 and valid_sources and all(abs(map_speed - source) > 1 for source in valid_sources))
 
     if map_speed > 0 and not is_incorrect_limit:
       self.previous_coordinates = None
       return
 
-    road_name = params_memory.get("RoadName")
+    road_name = self.params_memory.get("RoadName")
     if not road_name or not current_speed_source:
       return
 
@@ -268,12 +264,9 @@ class MapSpeedLogger:
       if self.should_stop_processing:
         break
 
-      if not self.can_make_overpass_request:
-        params_memory.put("UpdateSpeedLimitsStatus", "Hit API limit...")
-        time.sleep(5)
-        break
+        self.params_memory.put("UpdateSpeedLimitsStatus", "Hit API limit...")
 
-      params_memory.put("UpdateSpeedLimitsStatus", f"Processing: {i + 1} / {total_entries}")
+      self.params_memory.put("UpdateSpeedLimitsStatus", f"Processing: {i + 1} / {total_entries}")
 
       start_coords = entry["start_coordinates"]
       self.update_cached_segments(start_coords["latitude"], start_coords["longitude"])
@@ -292,7 +285,7 @@ class MapSpeedLogger:
 
         filtered_dataset.append({
           "incorrect_limit": entry.get("incorrect_limit"),
-          "last_vetted": datetime.now(timezone.utc).isoformat(),
+          "last_vetted": datetime.now(UTC).isoformat(),
           "segment_id": segment_id,
           "source": entry["source"],
           "speed_limit": entry["speed_limit"],
@@ -319,12 +312,12 @@ class MapSpeedLogger:
 
     if dataset and not self.should_stop_processing:
       self.cached_box, self.cached_segments = None, {}
-      params_memory.put("UpdateSpeedLimitsStatus", "Calculating...")
+      self.params_memory.put("UpdateSpeedLimitsStatus", "Calculating...")
       self.process_new_entries(dataset, filtered_dataset)
 
     self.update_params(dataset, filtered_dataset)
-    params_memory.put("UpdateSpeedLimitsStatus", "Completed!")
-    params_memory.remove("UpdateSpeedLimits")
+    self.params_memory.put("UpdateSpeedLimitsStatus", "Completed!")
+    self.params_memory.remove("UpdateSpeedLimits")
 
   def update_cached_segments(self, latitude, longitude, vetting=False):
     if not self.is_in_cached_box(latitude, longitude):
@@ -355,15 +348,15 @@ class MapSpeedLogger:
         break
 
       if not self.can_make_overpass_request:
-        params_memory.put("UpdateSpeedLimitsStatus", "Hit API limit...")
+        self.params_memory.put("UpdateSpeedLimitsStatus", "Hit API limit...")
         time.sleep(5)
         vetted_entries.extend(dataset_list[i:])
         break
 
-      params_memory.put("UpdateSpeedLimitsStatus", f"Vetting: {i + 1} / {total_to_vet}")
+      self.params_memory.put("UpdateSpeedLimitsStatus", f"Vetting: {i + 1} / {total_to_vet}")
 
       last_vetted_time = datetime.fromisoformat(entry["last_vetted"])
-      if datetime.now(timezone.utc) - last_vetted_time < timedelta(days=VETTING_INTERVAL_DAYS):
+      if datetime.now(UTC) - last_vetted_time < timedelta(days=VETTING_INTERVAL_DAYS):
         vetted_entries.append(entry)
         continue
 
@@ -372,7 +365,7 @@ class MapSpeedLogger:
 
       current_maxspeed = self.cached_segments.get(entry["segment_id"])
       if current_maxspeed is None or (entry.get("incorrect_limit") and current_maxspeed != entry.get("speed_limit")):
-        entry["last_vetted"] = datetime.now(timezone.utc).isoformat()
+        entry["last_vetted"] = datetime.now(UTC).isoformat()
         vetted_entries.append(entry)
 
     return self.cleanup_dataset(list(vetted_entries))
@@ -397,12 +390,13 @@ def main():
       self.params.put("SpeedLimits", list(new_dataset))
 
       if logger.sm["deviceState"].networkType in (NetworkType.ethernet, NetworkType.wifi):
-        params_memory.put_bool("UpdateSpeedLimits", True)
+        self.params_memory.put_bool("UpdateSpeedLimits", True)
 
       logger.dataset_additions.clear()
 
       previously_started = False
-    elif params_memory.get_bool("UpdateSpeedLimits"):
+    elif self.params_memory.get_bool("UpdateSpeedLimits"):
+      logger.process_speed_limits()
       logger.process_speed_limits()
     else:
       time.sleep(5)

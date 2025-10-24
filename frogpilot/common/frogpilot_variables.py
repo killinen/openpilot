@@ -211,11 +211,11 @@ class FrogPilotVariables:
     has_sng = CP.autoResumeSng
     toggle.has_zss = toggle.car_make == "toyota" and bool(FPCP.flags & ToyotaFrogPilotFlags.ZSS.value)
     latAccelFactor = FPCP.lateralTuning.torque.latAccelFactor
-    longitudinalActuatorDelay = CP.longitudinalActuatorDelay
+    
     toggle.openpilot_longitudinal = CP.openpilotLongitudinalControl and not toggle.disable_openpilot_long
     pcm_cruise = CP.pcmCruise
-    startAccel = CP.startAccel
-    stopAccel = CP.stopAccel
+    
+    
     steerActuatorDelay = CP.steerActuatorDelay
     steerKp = FPCP.lateralTuning.torque.kp
     steerRatio = CP.steerRatio
