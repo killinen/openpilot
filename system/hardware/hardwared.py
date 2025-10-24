@@ -428,8 +428,8 @@ def hardware_thread(end_event, hw_queue) -> None:
     # FrogPilot variables
     fpmsg = messaging.new_message('frogpilotDeviceState')
 
-    fpmsg.frogpilotDeviceState.freeSpace = round(get_available_bytes(default=32.0 * (2 ** 30)) / (2 ** 30))
-    fpmsg.frogpilotDeviceState.usedSpace = round(get_used_bytes(default=0.0) / (2 ** 30))
+    fpmsg.frogpilotDeviceState.freeSpace = round(get_available_bytes(default=32 * (2 ** 30)) / (2 ** 30))
+    fpmsg.frogpilotDeviceState.usedSpace = round(get_used_bytes(default=0) / (2 ** 30))
 
     pm.send("frogpilotDeviceState", fpmsg)
 

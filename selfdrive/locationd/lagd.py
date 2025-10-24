@@ -4,6 +4,7 @@ import numpy as np
 import capnp
 from collections import deque
 from functools import partial
+from types import SimpleNamespace
 
 import cereal.messaging as messaging
 from cereal import car, log
@@ -174,6 +175,8 @@ class LateralLagEstimator:
     self.min_confidence = min_confidence
     self.max_lat_accel = max_lat_accel
     self.max_lat_accel_diff = max_lat_accel_diff
+
+    self.frogpilot_toggles: SimpleNamespace = get_frogpilot_toggles()
 
     self.t = 0.0
     self.lat_active = False
@@ -380,8 +383,6 @@ def main():
 
   # FrogPilot variables
   sm = sm.extend(['frogpilotPlan'])
-
-  lag_learner.frogpilot_toggles = get_frogpilot_toggles()
 
   while True:
     sm.update()

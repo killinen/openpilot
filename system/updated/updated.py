@@ -430,7 +430,7 @@ def main() -> None:
       cloudlog.event("update installed")
 
     updater = Updater()
-    update_failed_count = 0 # TODO: Load from param?
+    update_failed_count: int = 0
     wait_helper = WaitTimeHelper()
 
     # invalidate old finalized update
@@ -495,7 +495,7 @@ def main() -> None:
           else:
             updater.fetch_update()
             write_time_to_param(params, "UpdaterLastFetchTime")
-        update_failed_count = 0
+            update_failed_count = 0
       except subprocess.CalledProcessError as e:
         cloudlog.event(
           "update process failed",
@@ -513,7 +513,7 @@ def main() -> None:
       try:
         params.put("UpdaterState", "idle")
         update_successful = (update_failed_count == 0)
-        updater.set_params(update_successful, update_failed_count, exception)
+        updater.set_params(update_successful, int(update_failed_count), exception)
       except Exception:
         cloudlog.exception("uncaught updated exception while setting params, shouldn't happen")
 
@@ -525,7 +525,7 @@ def main() -> None:
         if update_failed_count > 0 and updater.has_internet:
           delay = 5*60
         else:
-          delay = 1.5*60*60
+          delay = 5400
       wait_helper.sleep(delay)
 
 

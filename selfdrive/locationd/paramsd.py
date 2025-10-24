@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import capnp
+from types import SimpleNamespace
 
 import cereal.messaging as messaging
 from cereal import car, log
@@ -60,6 +61,7 @@ class VehicleParamsLearner:
 
     # FrogPilot variables
     self.CP = CP
+    self.frogpilot_toggles: SimpleNamespace = get_frogpilot_toggles()
 
   def reset(self, t: float | None):
     self.kf.init_state(self.x_initial, covs=self.P_initial, filter_time=t)
@@ -287,7 +289,6 @@ def main():
   # FrogPilot variables
   sm = sm.extend(['frogpilotPlan'])
 
-  learner.frogpilot_toggles = get_frogpilot_toggles()
 
   while True:
     sm.update()

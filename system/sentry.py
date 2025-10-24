@@ -40,7 +40,7 @@ def capture_block() -> None:
 def capture_exception(*args, crash_log=True, **kwargs) -> None:
   exc_text = traceback.format_exc()
 
-  errors_to_ignore = [
+  errors_to_ignore: list[str] = [
   ]
 
   if any(error in exc_text for error in errors_to_ignore):
@@ -85,7 +85,7 @@ def init(project: SentryProject) -> bool:
   short_branch = build_metadata.channel
 
   if short_branch in ["COMMA", "HEAD"]:
-    return
+    return False
   elif short_branch == "FrogPilot-Development":
     env = "Development"
   elif build_metadata.release_channel:

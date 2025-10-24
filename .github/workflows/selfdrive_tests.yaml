@@ -139,7 +139,7 @@ jobs:
     - uses: ./.github/workflows/setup-with-retry
     - name: Static analysis
       timeout-minutes: 1
-      run: ${{ env.RUN }} "scripts/lint/lint.sh"
+      run: ${{ env.RUN }} "source /home/batman/.venv/bin/activate && scripts/lint/lint.sh"
 
   unit_tests:
     name: unit tests

@@ -85,6 +85,7 @@ testing = [
   "pytest",
   "pytest-cpp",
   "pytest-subtests",
+  "types-python-dateutil",
   # https://github.com/pytest-dev/pytest-xdist/pull/1229
   "pytest-xdist @ git+https://github.com/sshane/pytest-xdist@2b4372bd62699fb412c4fe2f95bf9f01bd2018da",
   "pytest-timeout",
@@ -209,6 +210,10 @@ implicit_optional = true
 local_partial_types=true
 explicit_package_bases=true
 disable_error_code = "annotation-unchecked"
+
+[[tool.mypy.overrides]]
+module = "dateutil.*"
+ignore_missing_imports = true
 
 # https://beta.ruff.rs/docs/configuration/#using-pyprojecttoml
 [tool.ruff]

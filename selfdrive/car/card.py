@@ -186,7 +186,7 @@ class Car:
 
     update_frogpilot_toggles()
 
-  def state_update(self) -> tuple[car.CarState, structs.RadarDataT | None]:
+  def state_update(self) -> tuple[car.CarState, structs.RadarDataT | None, custom.FrogPilotCarState]:
     """carState update loop, driven by can"""
 
     can_strs = messaging.drain_sock_raw(self.can_sock, wait_for_one=True)
@@ -195,7 +195,7 @@ class Car:
     # Update carState from CAN
     CS, FPCS = self.CI.update(can_list, self.frogpilot_toggles)
     if self.CP.brand == 'mock':
-      CS, FPCS = self.mock_carstate.update(CS)
+      CS, FPCS = self.mock_carstate.update(CS, FPCS)
 
     # Update radar tracks from CAN
     RD: structs.RadarDataT | None = self.RI.update(can_list)
