@@ -3,7 +3,6 @@ import numpy as np
 import os
 import random
 
-from functools import cache
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,14 +14,11 @@ from opendbc.car import gen_empty_fingerprint
 from opendbc.car.car_helpers import interfaces
 from opendbc.car.gm.values import GMFlags
 from opendbc.car.interfaces import CarInterfaceBase
-from opendbc.car.mock.interface import CarInterface
 from opendbc.car.mock.values import CAR as MOCK
 from opendbc.car.toyota.values import ToyotaFrogPilotFlags
 from opendbc.safety import ALTERNATIVE_EXPERIENCE
-from openpilot.common.basedir import BASEDIR
 from openpilot.common.constants import CV
 from openpilot.common.params import Params
-from openpilot.selfdrive.controls.lib.desire_helper import LANE_CHANGE_SPEED_MIN
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.hardware.power_monitoring import VBATT_PAUSE_CHARGING
@@ -214,7 +210,6 @@ class FrogPilotVariables:
     toggle.has_sdsu = toggle.car_make == "toyota" and bool(FPCP.flags & ToyotaFrogPilotFlags.SMART_DSU.value)
     has_sng = CP.autoResumeSng
     toggle.has_zss = toggle.car_make == "toyota" and bool(FPCP.flags & ToyotaFrogPilotFlags.ZSS.value)
-    is_angle_car = CP.steerControlType == structs.CarParams.SteerControlType.angle
     latAccelFactor = FPCP.lateralTuning.torque.latAccelFactor
     longitudinalActuatorDelay = CP.longitudinalActuatorDelay
     toggle.openpilot_longitudinal = CP.openpilotLongitudinalControl and not toggle.disable_openpilot_long
@@ -487,8 +482,8 @@ class FrogPilotVariables:
       model = ((self.params.get("Model") if tuning_level >= level["Model"] else default["Model"]) or DEFAULT_MODEL).removesuffix("_default")
       if model in downloaded_models:
         toggle.model = model
-        toggle.model_name = dict(zip(toggle.available_models.split(","), toggle.available_model_names.split(",")))[toggle.model]
-        toggle.model_version = dict(zip(toggle.available_models.split(","), model_versions.split(",")))[toggle.model]
+        toggle.model_name = dict(zip(toggle.available_models.split(","), toggle.available_model_names.split(","), strict=False))[toggle.model]
+        toggle.model_version = dict(zip(toggle.available_models.split(","), model_versions.split(","), strict=False))[toggle.model]
       else:
         toggle.model = DEFAULT_MODEL
         toggle.model_name = DEFAULT_MODEL_NAME

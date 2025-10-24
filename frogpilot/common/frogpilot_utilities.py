@@ -120,15 +120,16 @@ def capture_report(discord_user, report, frogpilot_toggles):
 
   toggles_bytes = io.BytesIO(json.dumps(frogpilot_toggles, indent=2).encode("utf-8"))
 
-  message = (
-    f"**🚨 New Error Report**\n\n"
-    f"**User:** `{discord_user}`\n\n"
-    f"**Report:**\n"
-    f"```{report}```\n"
-    f"**Error Log:**\n"
-    f"```{error_content}```\n"
-    f"**Toggle Settings:**\n"
-  )
+  message = f"""**🚨 New Error Report**
+
+**User:** `{discord_user}`
+
+**Report:**
+```{report}```
+**Error Log:**
+```{error_content}```
+**Toggle Settings:**
+"""
 
   try:
     resp = requests.post(
@@ -174,7 +175,7 @@ def extract_tar(tar_file, extract_path):
     tar.extractall(path=extract_path)
 
   tar_file.unlink()
-  print(f"Extraction completed!")
+  print("Extraction completed!")
 
 
 def extract_zip(zip_file, extract_path):
@@ -183,7 +184,7 @@ def extract_zip(zip_file, extract_path):
     zip_ref.extractall(extract_path)
 
   zip_file.unlink()
-  print(f"Extraction completed!")
+  print("Extraction completed!")
 
 
 def flash_panda(params_memory):
