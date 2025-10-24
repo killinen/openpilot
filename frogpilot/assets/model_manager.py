@@ -164,7 +164,7 @@ class ModelManager:
         handle_error(
           None,
           "Download canceled...",
-          "Download cancelled...",
+          "Download canceled...",
           MODEL_DOWNLOAD_ALL_PARAM,
           DOWNLOAD_PROGRESS_PARAM,
           self.params_memory,
@@ -253,8 +253,8 @@ class ModelManager:
 
         handle_error(
           None,
-          "Download cancelled...",
-          "Download cancelled...",
+          "Download canceled...",
+          "Download canceled...",
           MODEL_DOWNLOAD_PARAM,
           DOWNLOAD_PROGRESS_PARAM,
           self.params_memory,
@@ -287,8 +287,8 @@ class ModelManager:
 
         handle_error(
           None,
-          "Download cancelled...",
-          "Download cancelled...",
+          "Download canceled...",
+          "Download canceled...",
           MODEL_DOWNLOAD_PARAM,
           DOWNLOAD_PROGRESS_PARAM,
           self.params_memory,
@@ -441,8 +441,8 @@ class ModelManager:
 
         handle_error(
           None,
-          "Tinygrad update cancelled...",
-          "Tinygrad update cancelled...",
+          "Tinygrad update canceled...",
+          "Tinygrad update canceled...",
           UPDATE_TINYGRAD_PARAM,
           DOWNLOAD_PROGRESS_PARAM,
           self.params_memory,
@@ -467,8 +467,8 @@ class ModelManager:
 
         handle_error(
           None,
-          "Tinygrad update cancelled...",
-          "Tinygrad update cancelled...",
+          "Tinygrad update canceled...",
+          "Tinygrad update canceled...",
           UPDATE_TINYGRAD_PARAM,
           DOWNLOAD_PROGRESS_PARAM,
           self.params_memory,
@@ -551,7 +551,7 @@ class ModelManager:
 
       for model in models_to_redownload:
         if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
-          handle_error(None, "Download cancelled...", "Download cancelled...", MODEL_DOWNLOAD_ALL_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+          handle_error(None, "Download canceled...", "Download canceled...", MODEL_DOWNLOAD_ALL_PARAM, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
           return
 
         self.params_memory.put(DOWNLOAD_PROGRESS_PARAM, f"Downloading \"{self.available_model_names[self.available_models.index(model)]}\"...")

@@ -160,7 +160,7 @@ typedef enum OMX_QCOMFramePackingFormat
 
   /*  4 - Only one complete subframe per buffer, no partial subframe
    *  Example: In H264, one complete NAL per buffer, where one frame
-   *  can contatin multiple NAL
+   *  can contain multiple NAL
    */
   OMX_QCOM_FramePacking_OnlyOneCompleteSubFrame,
 
@@ -629,7 +629,7 @@ typedef struct QOMX_EXTNINDEX_VIDEO_HIER_P_LAYERS {
 * nTemporalLayerBitrateRatio[OMX_VIDEO_MAX_HP_LAYERS] : Bitrate to
 *                    be set for each enhancement layer
 * nMinQuantizer  : minimum session QP
-* nMaxQuantizer  : Maximun session QP
+* nMaxQuantizer  : Maximum session QP
 */
 
 typedef struct QOMX_EXTNINDEX_VIDEO_HYBRID_HP_MODE {
