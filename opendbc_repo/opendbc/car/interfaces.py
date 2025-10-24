@@ -10,7 +10,7 @@ from collections.abc import Callable
 from functools import cache
 from types import SimpleNamespace
 
-from cereal import custom
+from cereal import car, custom
 from opendbc.car import DT_CTRL, apply_hysteresis, gen_empty_fingerprint, scale_rot_inertia, scale_tire_stiffness, STD_CARGO_KG
 from opendbc.car import structs
 from opendbc.car.can_definitions import CanData, CanRecvCallable, CanSendCallable
@@ -185,7 +185,7 @@ class CarInterfaceBase(ABC):
 
     fp_ret.flags |= int(platform.config.flags)
     fp_ret.safetyConfigs = [custom.FrogPilotCarParams.SafetyConfig.new_message()]
-    fp_ret.safetyConfigs[0].safetyParam = CP.safetyParam
+    fp_ret.safetyConfigs[0].safetyParam = CP.safetyConfigs[0].safetyParam
 
     if platform not in MockCAR:
       if platform in ChryslerCAR:
@@ -200,22 +200,23 @@ class CarInterfaceBase(ABC):
         fp_ret.canUsePedal = candidate not in HONDA_BOSCH
 
         if candidate == HondaCAR.HONDA_CLARITY:
-          fp_ret.safetyConfigs[0].safetyParam |= FrogPilotHondaSafetyFlags.CLARITY
+          fp_ret.safetyConfigs[0].safetyParam |= int(FrogPilotHondaSafetyFlags.CLARITY)
 
         if CP.enableGasInterceptorDEPRECATED:
-          fp_ret.safetyConfigs[0].safetyParam |= FrogPilotHondaSafetyFlags.GAS_INTERCEPTOR
+          fp_ret.safetyConfigs[0].safetyParam |= int(FrogPilotHondaSafetyFlags.GAS_INTERCEPTOR)
 
       elif platform in HyundaiCAR:
         if candidate in CANFD_CAR:
           hda2 = Ecu.adas in [fw.ecu for fw in car_fw]
 
-          if 0x1fa in fingerprint[CanBus(None, hda2, fingerprint).ECAN]:
+          ecan = CanBus(CP).ECAN if CP is not None else CanBus(None, fingerprint).ECAN
+          if 0x1fa in fingerprint.get(ecan, {}):
             fp_ret.flags |= HyundaiFrogPilotFlags.NAV_MSG.value
 
           fp_ret.isHDA2 = hda2
 
           if frogpilot_toggles.taco_tune_hack:
-            fp_ret.safetyConfigs[0].safetyParam |= HyundaiFrogPilotSafetyFlags.TACO_TUNE_HACK
+            fp_ret.safetyConfigs[0].safetyParam |= int(HyundaiFrogPilotSafetyFlags.TACO_TUNE_HACK)
         else:
           if 0x53E in fingerprint[2]:
             fp_ret.flags |= HyundaiFrogPilotFlags.LKAS12.value
@@ -235,7 +236,7 @@ class CarInterfaceBase(ABC):
             fp_ret.flags |= ToyotaFrogPilotFlags.ZSS.value
 
         if CP.enableGasInterceptorDEPRECATED:
-          fp_ret.safetyConfigs[0].safetyParam |= ToyotaFrogPilotSafetyFlags.GAS_INTERCEPTOR
+          fp_ret.safetyConfigs[0].safetyParam |= int(ToyotaFrogPilotSafetyFlags.GAS_INTERCEPTOR)
 
       if CP.steerControlType != car.CarParams.SteerControlType.angle:
         if CP.lateralTuning.which() == "torque" or CP.lateralTuning.which() == "pid" and frogpilot_toggles.force_torque_controller:

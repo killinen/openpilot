@@ -110,6 +110,7 @@ def fingerprint(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_mu
       carlog.warning("Using cached CarParams")
       vin_rx_addr, vin_rx_bus, vin = -1, -1, cached_params.carVin
       car_fw = list(cached_params.carFw)
+      finger = {}
       cached = True
     else:
       carlog.warning("Getting VIN & FW versions")
@@ -172,11 +173,20 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     ("force_fingerprint", False),
     ("car_model", None),
     ("block_user", False),
+    ("disable_openpilot_long", False),
+    ("use_custom_steerRatio", False),
+    ("steerRatio", 0.0),
+    ("taco_tune", False),
+    ("use_custom_steerActuatorDelay", False),
+    ("steerActuatorDelay", 0.0),
+    ("lead_detection_probability", 0.0),
   ]:
     if not hasattr(frogpilot_toggles, attr):
       setattr(frogpilot_toggles, attr, default)
 
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(can_recv, can_send, set_obd_multiplexing, num_pandas, cached_params)
+  if not isinstance(fingerprints, dict):
+    fingerprints = {}
   candidate = _normalize_candidate(candidate)
 
   if candidate is None or frogpilot_toggles.force_fingerprint:
@@ -193,7 +203,7 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     candidate = _normalize_candidate(MOCK.MOCK)
 
   CarInterface = interfaces[candidate]
-  CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False, frogpilot_toggles=None)
+  CP: CarParams = CarInterface.get_params(candidate, fingerprints, car_fw, alpha_long_allowed, is_release, docs=False, frogpilot_toggles=frogpilot_toggles)
   CP.carVin = vin
   CP.carFw = car_fw
   CP.fingerprintSource = source
@@ -208,7 +218,9 @@ def get_car(can_recv: CanRecvCallable, can_send: CanSendCallable, set_obd_multip
     CP.openpilotLongitudinalControl = True
 
   if FPCP.lateralTuning.which() == "torque":
-    CP.lateralTuning = FPCP.lateralTuning
+    CP.lateralTuning.torque = FPCP.lateralTuning.torque
+  elif FPCP.lateralTuning.which() == "pid":
+    CP.lateralTuning.pid = FPCP.lateralTuning.pid
 
   return interfaces[CP.carFingerprint](CP, FPCP)
 

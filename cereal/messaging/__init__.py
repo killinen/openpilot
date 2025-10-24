@@ -260,7 +260,17 @@ class PubMaster:
   def send(self, s: str, dat: Union[bytes, capnp.lib.capnp._DynamicStructBuilder]) -> None:
     if not isinstance(dat, bytes):
       dat = dat.to_bytes()
-    self.sock[s].send(dat)
+    for _ in range(6):
+      try:
+        self.sock[s].send(dat)
+        return
+      except MultiplePublishersError:
+        time.sleep(0.05)
+        try:
+          self.sock[s] = pub_sock(s)
+        except MultiplePublishersError:
+          continue
+    raise MultiplePublishersError
 
   def wait_for_readers_to_update(self, s: str, timeout: int, dt: float = 0.05) -> bool:
     for _ in range(int(timeout*(1./dt))):

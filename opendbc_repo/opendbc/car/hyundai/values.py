@@ -88,6 +88,7 @@ class HyundaiFlags(IntFlag):
   # with LKA commands forwarded to the ADAS DRV ECU.
   # Most HDA2 trims are assumed to be equipped with the ADAS DRV ECU, though some variants may not be equipped with one.
   CANFD_LKA_STEERING = 1
+  CANFD_HDA2 = CANFD_LKA_STEERING  # legacy alias
   CANFD_ALT_BUTTONS = 2
   CANFD_ALT_GEARS = 2 ** 2
   CANFD_CAMERA_SCC = 2 ** 3

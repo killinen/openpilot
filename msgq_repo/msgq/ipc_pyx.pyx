@@ -49,7 +49,13 @@ def wait_for_one_event(list events, int timeout=-1):
   cdef vector[cppEvent] items
   for event in events:
     items.push_back(dereference(<cppEvent*><size_t>event.ptr))
-  return cppEvent.wait_for_one(items, timeout)
+  while True:
+    try:
+      return cppEvent.wait_for_one(items, timeout)
+    except RuntimeError:
+      if errno.errno == errno.EINTR:
+        continue
+      raise
 
 
 cdef class Event:

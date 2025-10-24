@@ -95,7 +95,26 @@ def get_frogpilot_toggles():
   if not hasattr(get_frogpilot_toggles, "_params_memory"):
     get_frogpilot_toggles._params_memory = Params(memory=True)
 
-  return SimpleNamespace(**get_frogpilot_toggles._params_memory.get("FrogPilotToggles", return_default=True))
+  default_toggles = {
+    "taco_tune": False,
+    "use_custom_steerRatio": False,
+    "steerRatio": 0.0,
+    "disable_openpilot_long": False,
+    "use_custom_steerActuatorDelay": False,
+    "steerActuatorDelay": 0.0,
+    "longitudinalActuatorDelay": 0.0,
+    "lead_detection_probability": 0.25,
+    "vEgoStopping": 0.01,
+    "adjacent_lead_tracking": False,
+    "liveValid": False,
+    "human_lane_changes": False,
+    "use_custom_latAccelFactor": False,
+    "use_custom_friction": False,
+  }
+  toggles = get_frogpilot_toggles._params_memory.get("FrogPilotToggles", return_default=True)
+  if toggles:
+    default_toggles.update(toggles)
+  return SimpleNamespace(**default_toggles)
 
 def update_frogpilot_toggles():
   if not hasattr(update_frogpilot_toggles, "_params_memory"):
@@ -193,7 +212,10 @@ class FrogPilotVariables:
 
     is_torque_car = FPCP.lateralTuning.which() == "torque"
     if not is_torque_car:
-      FPCP_builder = FPCP.as_builder()
+      if not hasattr(FPCP, 'as_builder'):
+        FPCP_builder = FPCP
+      else:
+        FPCP_builder = FPCP.as_builder()
       CarInterfaceBase.configure_torque_tune(MOCK.MOCK, FPCP_builder.lateralTuning)
       FPCP = FPCP_builder.as_reader()
 

@@ -7,7 +7,7 @@ from opendbc.can import CANDefine, CANParser
 from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.hyundai.hyundaicanfd import CanBus
-from opendbc.car.hyundai.values import HyundaiFlags, HyundaiFrogPilotFlags, CAR, DBC, Buttons, CarControllerParams
+from opendbc.car.hyundai.values import HyundaiFlags, HyundaiFrogPilotFlags, CAR, DBC, Buttons, CarControllerParams, CANFD_CAR
 from opendbc.car.interfaces import CarStateBase
 
 ButtonType = structs.CarState.ButtonEvent.Type
@@ -29,7 +29,10 @@ def calculate_speed_limit(CP, FPCP, cp, cp_cam):
       speed_limit_bus = cp
     else:
       speed_limit_bus = cp_cam
-    speed_limit = speed_limit_bus.vl["CLUSTER_SPEED_LIMIT"]["SPEED_LIMIT_1"]
+    try:
+      speed_limit = speed_limit_bus.vl["CLUSTER_SPEED_LIMIT"]["SPEED_LIMIT_1"]
+    except (AssertionError, KeyError):
+      speed_limit = 0
   else:
     if FPCP.flags & HyundaiFrogPilotFlags.LKAS12:
       speed_limit = cp_cam.vl["LKAS12"]["CF_Lkas_TsrSpeed_Display_Clu"]
@@ -88,6 +91,7 @@ class CarState(CarStateBase):
 
     # FrogPilot variables
     self.drive_mode = 0
+    self.distance_button = 0
 
   def recent_button_interaction(self) -> bool:
     # On some newer model years, the CANCEL button acts as a pause/resume button based on the PCM state
@@ -100,7 +104,7 @@ class CarState(CarStateBase):
     cp_cam = can_parsers[Bus.cam]
 
     if self.CP.flags & HyundaiFlags.CANFD:
-      return self.update_canfd(can_parsers)
+      return self.update_canfd(can_parsers, frogpilot_toggles)
 
     ret = structs.CarState()
     cp_cruise = cp_cam if self.CP.flags & HyundaiFlags.CAMERA_SCC else cp
@@ -212,6 +216,7 @@ class CarState(CarStateBase):
     prev_lda_button = self.lda_button
     self.cruise_buttons.extend(cp.vl_all["CLU11"]["CF_Clu_CruiseSwState"])
     self.main_buttons.extend(cp.vl_all["CLU11"]["CF_Clu_CruiseSwMain"])
+    self.distance_button = cp.vl["CLU11"]["CF_Clu_CruiseSwState"]
     if self.CP.flags & HyundaiFlags.HAS_LDA_BUTTON:
       self.lda_button = cp.vl["BCM_PO_11"]["LDA_BTN"]
 
@@ -238,7 +243,7 @@ class CarState(CarStateBase):
 
     return ret, fp_ret
 
-  def update_canfd(self, can_parsers) -> structs.CarState:
+  def update_canfd(self, can_parsers, frogpilot_toggles) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
 
@@ -313,6 +318,7 @@ class CarState(CarStateBase):
     prev_lda_button = self.lda_button
     self.cruise_buttons.extend(cp.vl_all[self.cruise_btns_msg_canfd]["CRUISE_BUTTONS"])
     self.main_buttons.extend(cp.vl_all[self.cruise_btns_msg_canfd]["ADAPTIVE_CRUISE_MAIN_BTN"])
+    self.distance_button = cp.vl[self.cruise_btns_msg_canfd]["CRUISE_BUTTONS"]
     self.lda_button = cp.vl[self.cruise_btns_msg_canfd]["LDA_BTN"]
     self.buttons_counter = cp.vl[self.cruise_btns_msg_canfd]["COUNTER"]
     ret.accFaulted = cp.vl["TCS"]["ACCEnable"] != 0  # 0 ACC CONTROL ENABLED, 1-3 ACC CONTROL DISABLED
@@ -342,7 +348,8 @@ class CarState(CarStateBase):
     fp_ret.ecoGear = self.drive_mode == 2
     fp_ret.sportGear = self.drive_mode == 3
 
-    self.params = CarControllerParams(self.CP, ret.vEgoRaw, frogpilot_toggles.taco_tune_hack)
+    taco_tune = getattr(frogpilot_toggles, "taco_tune_hack", False)
+    self.params = CarControllerParams(self.CP, ret.vEgoRaw, taco_tune)
 
     return ret, fp_ret
 

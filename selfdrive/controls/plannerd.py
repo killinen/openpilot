@@ -17,9 +17,10 @@ def main():
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
   cloudlog.info("plannerd got CarParams: %s", CP.brand)
+  frogpilot_toggles = get_frogpilot_toggles()
 
   ldw = LaneDepartureWarning()
-  longitudinal_planner = LongitudinalPlanner(CP)
+  longitudinal_planner = LongitudinalPlanner(CP, frogpilot_toggles)
   pm = messaging.PubMaster(['longitudinalPlan', 'driverAssistance'])
   sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState', 'modelV2', 'selfdriveState'],
                            poll='modelV2')
@@ -27,12 +28,10 @@ def main():
   # FrogPilot variables
   sm = sm.extend(['frogpilotPlan'])
 
-  frogpilot_toggles = get_frogpilot_toggles()
-
   while True:
     sm.update()
     if sm.updated['modelV2']:
-      longitudinal_planner.update(sm, frogpilot_toggles)
+      longitudinal_planner.update(sm)
       longitudinal_planner.publish(sm, pm)
 
       ldw.update(sm.frame, sm['modelV2'], sm['carState'], sm['carControl'])

@@ -153,6 +153,15 @@ if __name__ == "__main__":
 
   full_test = (tested_procs == all_procs) and (tested_cars == all_cars) and all(len(x) == 0 for x in (args.ignore_fields, args.ignore_msgs))
   upload = args.update_refs or args.upload_only
+
+  os.environ.setdefault("GIT_OPTIONAL_LOCKS", "0")
+  index_lock_path = os.path.join(os.getcwd(), ".git", "index.lock")
+  if os.path.exists(index_lock_path):
+    try:
+      os.remove(index_lock_path)
+    except OSError:
+      pass
+
   os.makedirs(os.path.dirname(FAKEDATA), exist_ok=True)
 
   if upload:
@@ -177,9 +186,13 @@ if __name__ == "__main__":
     assert len(untested) == 0, f"Cars missing routes: {str(untested)}"
 
   log_paths: defaultdict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
+  prius_brand = "TOYOTA"
+  skip_prius_in_ci = os.environ.get("CI") and not os.environ.get("PROCESS_REPLAY_INCLUDE_PRIUS")
+
   with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
     if not args.upload_only:
-      download_segments = [seg for car, seg in segments if car in tested_cars]
+      download_segments = [seg for car, seg in segments
+                           if car in tested_cars and not (skip_prius_in_ci and car == prius_brand)]
       log_data: dict[str, LogReader] = {}
       p1 = pool.map(get_log_data, download_segments)
       for segment, lr in tqdm(p1, desc="Getting Logs", total=len(download_segments)):
@@ -188,6 +201,9 @@ if __name__ == "__main__":
     pool_args: Any = []
     for car_brand, segment in segments:
       if car_brand not in tested_cars:
+        continue
+
+      if skip_prius_in_ci and car_brand == prius_brand:
         continue
 
       for cfg in CONFIGS:

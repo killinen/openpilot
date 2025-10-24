@@ -1,3 +1,5 @@
+import os
+
 from opendbc.car.carlog import carlog
 from opendbc.car.isotp_parallel_query import IsoTpParallelQuery
 
@@ -13,6 +15,10 @@ def disable_ecu(can_recv, can_send, bus=0, addr=0x7d0, sub_addr=None, com_cont_r
 
   This is used to disable the radar in some cars. Openpilot will emulate the radar.
   WARNING: THIS DISABLES AEB!"""
+  if os.environ.get("SKIP_ECU_DISABLE") or os.environ.get("CI") or "REPLAY" in os.environ:
+    carlog.warning(f"Skipping ecu disable {hex(addr), sub_addr} in replay/test environment")
+    return True
+
   carlog.warning(f"ecu disable {hex(addr), sub_addr} ...")
 
   for i in range(retry):

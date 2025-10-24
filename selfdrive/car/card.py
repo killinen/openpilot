@@ -18,6 +18,7 @@ from opendbc.car.fw_versions import ObdCallback
 from opendbc.car.car_helpers import get_car, interfaces
 from opendbc.car.interfaces import CarInterfaceBase, RadarInterfaceBase
 from opendbc.safety import ALTERNATIVE_EXPERIENCE
+from frogpilot.common.frogpilot_variables import FrogPilotVariables
 from openpilot.selfdrive.pandad import can_capnp_to_list, can_list_to_can_capnp
 from openpilot.selfdrive.car.cruise import VCruiseHelper
 from openpilot.selfdrive.car.car_specific import MockCarState
@@ -44,7 +45,12 @@ def obd_callback(params: Params) -> ObdCallback:
   return set_obd_multiplexing
 
 
-def can_comm_callbacks(logcan: messaging.SubSocket, sendcan: messaging.PubSocket) -> tuple[CanRecvCallable, CanSendCallable]:
+sendcan_global: messaging.PubSocket | None = None
+def can_comm_callbacks(logcan: messaging.SubSocket, sendcan_arg: messaging.PubSocket, pm: messaging.PubMaster | None = None) -> tuple[CanRecvCallable, CanSendCallable]:
+  global sendcan_global
+  if sendcan_global is None:
+    sendcan_global = sendcan_arg
+
   def can_recv(wait_for_one: bool = False) -> list[list[CanData]]:
     """
     wait_for_one: wait the normal logcan socket timeout for a CAN packet, may return empty list if nothing comes
@@ -57,7 +63,29 @@ def can_comm_callbacks(logcan: messaging.SubSocket, sendcan: messaging.PubSocket
     return ret
 
   def can_send(msgs: list[CanData]) -> None:
-    sendcan.send(can_list_to_can_capnp(msgs, msgtype='sendcan'))
+    nonlocal sendcan_arg
+    global sendcan_global
+    payload = can_list_to_can_capnp(msgs, msgtype='sendcan')
+    for _ in range(6):
+      try:
+        if sendcan_global is None:
+          raise RuntimeError("sendcan publisher not initialized")
+        sendcan_global.send(payload)
+        return
+      except messaging.MultiplePublishersError:
+        cloudlog.warning("MultiplePublishersError caught, retrying sendcan.send")
+        time.sleep(0.1)
+        try:
+          new_sock = messaging.pub_sock('sendcan')
+          if pm is not None:
+            pm.sock['sendcan'] = new_sock
+          sendcan_arg = new_sock
+          sendcan_global = new_sock
+        except messaging.MultiplePublishersError:
+          cloudlog.warning("Failed to reopen sendcan publisher, still seeing another publisher")
+        except Exception:
+          cloudlog.exception("Failed to reopen sendcan publisher")
+    cloudlog.error("Failed to publish sendcan after retries")
 
   return can_recv, can_send
 
@@ -85,7 +113,7 @@ class Car:
 
     self.params = Params()
 
-    self.can_callbacks = can_comm_callbacks(self.can_sock, self.pm.sock['sendcan'])
+    self.can_callbacks = can_comm_callbacks(self.can_sock, self.pm.sock['sendcan'], self.pm)
 
     is_release = self.params.get_bool("IsReleaseBranch")
 
@@ -106,9 +134,12 @@ class Car:
         with car.CarParams.from_bytes(cached_params_raw) as _cached_params:
           cached_params = _cached_params
 
-      self.CI = get_car(*self.can_callbacks, obd_callback(self.params), alpha_long_allowed, is_release, self.params, num_pandas, cached_params, get_frogpilot_toggles())
+      self.frogpilot_variables = FrogPilotVariables()
+      self.frogpilot_variables.update(None, False)
+      self.CI = get_car(*self.can_callbacks, obd_callback(self.params), alpha_long_allowed, is_release, self.params, num_pandas, cached_params, self.frogpilot_variables.frogpilot_toggles)
       self.RI = interfaces[self.CI.CP.carFingerprint].RadarInterface(self.CI.CP)
       self.CP = self.CI.CP
+      self.FPCP = self.CI.FPCP
 
       # continue onto next fingerprinting step in pandad
       self.params.put_bool("FirmwareQueryDone", True)
