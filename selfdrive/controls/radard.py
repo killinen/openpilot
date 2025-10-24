@@ -126,10 +126,10 @@ class Track:
     if standstill or self.vLead < 1 or self.leadTrackID == self.identifier:
       return False
 
-    far_left_lane = interp(self.dRel, model_data.laneLines[0].x, model_data.laneLines[0].y)
-    left_lane = interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
-    right_lane = interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
-    far_right_lane = interp(self.dRel, model_data.laneLines[3].x, model_data.laneLines[3].y)
+    far_left_lane = np.interp(self.dRel, model_data.laneLines[0].x, model_data.laneLines[0].y)
+    left_lane = np.interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
+    right_lane = np.interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
+    far_right_lane = np.interp(self.dRel, model_data.laneLines[3].x, model_data.laneLines[3].y)
 
     self.leadLeft = far_left_lane < -self.yRel < left_lane
     self.leadRight = right_lane < -self.yRel < far_right_lane
@@ -143,7 +143,7 @@ class Track:
     if standstill or self.vLead < 1:
       return False
 
-    left_lane = interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
+    left_lane = np.interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
     right_lane = interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
 
     if left_lane < -self.yRel < right_lane:

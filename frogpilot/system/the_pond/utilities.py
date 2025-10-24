@@ -137,7 +137,7 @@ def create_theme(form_data, files, temporary=False):
     colors_str = form_data.get("colors")
     if colors_str:
       color_data = json.loads(colors_str)
-      for key, values in color_data.items():
+      for _key, values in color_data.items():
         if "alpha" in values:
           values["alpha"] = values.pop("alpha")
       colors_file = theme_path / "colors" / "colors.json"
@@ -377,7 +377,7 @@ def ffmpeg_concat_segments_to_mp4(input_files, cache_key=None):
     except subprocess.CalledProcessError:
       if cache_path.exists():
         cache_path.unlink()
-      raise ValueError(f"Cannot process concatenated video segments: {input_files}")
+      raise ValueError(f"Cannot process concatenated video segments: {input_files}") from None
   finally:
     if list_file.exists():
       list_file.unlink()
@@ -404,7 +404,7 @@ def ffmpeg_mp4_wrap_process_builder(filename):
     for cache_file in VIDEO_CACHE_PATH.glob("*.mp4"):
       try:
         cache_file.unlink()
-      except:
+      except Exception:
         pass
 
   file_hash = hashlib.md5(str(input_path).encode()).hexdigest()
@@ -421,7 +421,7 @@ def ffmpeg_mp4_wrap_process_builder(filename):
     except subprocess.CalledProcessError:
       if cache_path.exists():
         cache_path.unlink()
-      raise ValueError(f"Cannot process video file: {input_path}")
+      raise ValueError(f"Cannot process video file: {input_path}") from None
 
   return open(cache_path, "rb")
 

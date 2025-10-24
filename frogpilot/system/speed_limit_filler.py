@@ -142,12 +142,11 @@ class MapSpeedLogger:
     self.cached_box = {"min_latitude": min_lat, "max_latitude": max_lat, "min_longitude": min_lon, "max_longitude": max_lon}
     self.cached_segments.clear()
 
-    query = (f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
-             f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
-             f"[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
-             f"secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
-             f"out geom qt;")
-    try:
+    query = f"""[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];
+             way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})
+             [highway~'^(motorway|motorway_link|primary|primary_link|residential|
+             secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];
+             out geom qt;"""
     try:
       response = self.session.post(OVERPASS_API_URL, data=query, timeout=90)
       self.record_overpass_request(len(response.content))

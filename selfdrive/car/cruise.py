@@ -153,6 +153,6 @@ class VCruiseHelper:
       if desired_speed_limit != 0 and frogpilot_toggles.set_speed_limit:
         self.v_cruise_kph = int(round(desired_speed_limit * CV.MS_TO_KPH))
       else:
-        self.v_cruise_kph = int(round(clip(CS.vEgo * CV.MS_TO_KPH, initial, V_CRUISE_MAX)))
+        self.v_cruise_kph = int(round(np.clip(CS.vEgo * CV.MS_TO_KPH, initial, V_CRUISE_MAX)))
 
     self.v_cruise_cluster_kph = self.v_cruise_kph
