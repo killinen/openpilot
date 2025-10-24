@@ -196,13 +196,14 @@ class Soundd:
   def soundd_thread(self):
     # sounddevice must be imported after forking processes
     import sounddevice as sd
+    self.sd = sd
 
     sm = messaging.SubMaster(['selfdriveState', 'soundPressure'])
 
     # FrogPilot variables
     sm = sm.extend(['frogpilotSelfdriveState', 'frogpilotPlan'])
 
-    with self.get_stream(sd) as stream:
+    with self.get_stream() as stream:
       rk = Ratekeeper(20)
 
       cloudlog.info(f"soundd stream started: {stream.samplerate=} {stream.channels=} {stream.dtype=} {stream.device=}, {stream.blocksize=}")
@@ -232,9 +233,9 @@ class Soundd:
         if sm['frogpilotPlan'].togglesUpdated:
           self.frogpilot_toggles = get_frogpilot_toggles()
 
-          self.update_frogpilot_sounds(stream)
+          self.update_frogpilot_sounds()
 
-  def update_frogpilot_sounds(self, stream=None):
+  def update_frogpilot_sounds(self):
     self.volume_map = {
       AudibleAlert.engage: self.frogpilot_toggles.engage_volume / 100.0,
       AudibleAlert.disengage: self.frogpilot_toggles.disengage_volume / 100.0,
@@ -262,7 +263,7 @@ class Soundd:
 
       if stream is not None:
         stream.close()
-        stream = self.get_stream(sd)
+        stream = self.get_stream()
         stream.start()
 
 

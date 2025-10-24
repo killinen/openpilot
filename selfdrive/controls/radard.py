@@ -144,7 +144,7 @@ class Track:
       return False
 
     left_lane = np.interp(self.dRel, model_data.laneLines[1].x, model_data.laneLines[1].y)
-    right_lane = interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
+    right_lane = np.interp(self.dRel, model_data.laneLines[2].x, model_data.laneLines[2].y)
 
     if left_lane < -self.yRel < right_lane:
       self.radarfulFilter.update(1)

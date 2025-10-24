@@ -261,7 +261,7 @@ def translate_file(path: pathlib.Path, language: str, all_: bool, vet_translatio
           item = future_map[future]
           print(f"Task failed for '{item[2][:40]}...': {e}")
 
-    for message, translation, text, numerus, chosen_translation, was_vetted in results:
+    for _message, translation, text, numerus, chosen_translation, was_vetted in results:
       print(f"Source: {text}\nCurrent translation: {translation.text}\nLLM translation: {chosen_translation}")
 
       if was_vetted:
