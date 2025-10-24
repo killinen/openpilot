@@ -225,10 +225,10 @@ void FrogPilotMapsPanel::cancelDownload() {
 
   downloadMapsButton->setEnabled(false);
 
-  downloadETA->setText("Cancelling...");
-  downloadMapsButton->setText(tr("CANCELLED"));
-  downloadStatus->setText("Cancelling...");
-  downloadTimeElapsed->setText("Cancelling...");
+  downloadETA->setText("Canceling...");
+  downloadMapsButton->setText(tr("CANCELED"));
+  downloadStatus->setText("Canceling...");
+  downloadTimeElapsed->setText("Canceling...");
 
   params.remove("OSMDownloadProgress");
   params_memory.remove("OSMDownloadLocations");

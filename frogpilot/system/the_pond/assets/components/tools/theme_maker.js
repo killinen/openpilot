@@ -780,7 +780,7 @@ export function ThemeMaker() {
           if (/Downloaded!/i.test(txt)) {
             clearInterval(timer);
             resolve({ ok: true, status: "done" });
-          } else if (/failed|cancelled/i.test(txt)) {
+          } else if (/failed|canceled/i.test(txt)) {
             clearInterval(timer);
             resolve({ ok: false, status: txt });
           }

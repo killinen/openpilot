@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from enum import IntEnum
 
 from openpilot.common.filter_simple import FirstOrderFilter

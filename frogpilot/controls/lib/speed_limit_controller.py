@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # PFEIFER - SLC - Modified by FrogAi for FrogPilot
 import calendar
 

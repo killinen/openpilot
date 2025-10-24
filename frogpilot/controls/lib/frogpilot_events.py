@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import random
 
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY, CV

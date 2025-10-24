@@ -745,7 +745,7 @@ void FrogPilotThemesPanel::updateState(const UIState &s, const FrogPilotUIState 
 
   if (themeDownloading) {
     QString progress = QString::fromStdString(params_memory.get("ThemeDownloadProgress"));
-    bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
+    bool downloadFailed = progress.contains(QRegularExpression("canceled|exists|failed|offline", QRegularExpression::CaseInsensitiveOption));
 
     if (progress != "Downloading...") {
       downloadStatusLabel->setText(progress);

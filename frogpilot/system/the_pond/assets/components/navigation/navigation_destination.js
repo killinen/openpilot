@@ -721,7 +721,7 @@ function NavigationDestination({
   steps = []
 }) {
   async function cancelNavigation() {
-    showSnackbar("Navigation cancelled...");
+    showSnackbar("Navigation canceled...");
     removeRouteFromMap(map);
     cancelNavigationFn();
     localStorage.removeItem("activeRouteId");

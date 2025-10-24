@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import math
 import numpy as np
 from collections import deque

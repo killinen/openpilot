@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.car.cruise import V_CRUISE_MAX

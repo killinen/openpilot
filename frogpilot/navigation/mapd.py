@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # PFEIFER - MAPD - Modified by FrogAi for FrogPilot
 import json
 import os

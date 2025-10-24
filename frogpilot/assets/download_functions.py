@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import requests
 import tempfile
 
@@ -50,7 +49,7 @@ def download_file(cancel_param, destination, progress_param, url, download_param
         for chunk in response.iter_content(chunk_size=16384):
           if params_memory.get_bool(cancel_param):
             temp_file_path.unlink(missing_ok=True)
-            handle_error(None, "Download cancelled...", "Download cancelled...", download_param, progress_param, params_memory)
+            handle_error(None, "Download canceled...", "Download canceled...", download_param, progress_param, params_memory)
             return
 
           if chunk:

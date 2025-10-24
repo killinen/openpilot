@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import numpy as np
 
 from openpilot.common.realtime import DT_MDL

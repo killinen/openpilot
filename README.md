@@ -133,7 +133,7 @@ With **"Always On Lateral"**, lane-centering stays active whenever cruise contro
 
 ### 🧠 Conditional Experimental Mode (CEM)
 
-**["Experimental Mode"](https://blog.comma.ai/090release/#experimental-mode)** lets openpilot drive at the speed it thinks a human would to allow slowing for curves, stopping at stoplights/stop signs, and adapting to traffic. This makes it powerful in complex scenarios, but it's still, well, "experimental" and less predictable than **"Chill Mode"**. But **"Conditional Experimental Mode"** gives you the best of both worlds by automatically switching between **"Chill Mode"** for steady cruising and **"Experimental Mode"** for more advanced situations to help fully automate your driving experience!
+**["Experimental Mode"](https://blog.comma.ai/090release/#experimental-mode)** let's openpilot drive at the speed it thinks a human would to allow slowing for curves, stopping at stoplights/stop signs, and adapting to traffic. This makes it powerful in complex scenarios, but it's still, well, "experimental" and less predictable than **"Chill Mode"**. But **"Conditional Experimental Mode"** gives you the best of both worlds by automatically switching between **"Chill Mode"** for steady cruising and **"Experimental Mode"** for more advanced situations to help fully automate your driving experience!
 
 **"Conditional Experimental Mode"** switches into **"Experimental Mode"** when conditions like these are met:
 - Approaching curves and turns

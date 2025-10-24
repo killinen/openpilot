@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import numpy as np
 
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import CRUISE_MIN_ACCEL

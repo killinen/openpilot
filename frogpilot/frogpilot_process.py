@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import datetime
 from datetime import UTC
 import os

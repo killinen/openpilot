@@ -45,7 +45,7 @@ FrogPilotNavigationPanel::FrogPilotNavigationPanel(FrogPilotSettingsWindow *pare
         updatingLimits = false;
 
         updateSpeedLimitsToggle->setEnabledButton(0, false);
-        updateSpeedLimitsToggle->setValue(tr("Cancelled..."));
+        updateSpeedLimitsToggle->setValue(tr("Canceled..."));
 
         params_memory.remove("UpdateSpeedLimits");
 

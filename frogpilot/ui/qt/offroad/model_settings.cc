@@ -303,7 +303,7 @@ FrogPilotModelPanel::FrogPilotModelPanel(FrogPilotSettingsWindow *parent) : Frog
           params_memory.putBool("CancelModelDownload", true);
 
           updateTinygradButton->setEnabled(false);
-          updateTinygradButton->setValue(tr("Cancelling..."));
+          updateTinygradButton->setValue(tr("Canceling..."));
 
           cancellingDownload = true;
         } else {
@@ -444,7 +444,7 @@ void FrogPilotModelPanel::updateState(const UIState &s, const FrogPilotUIState &
 
   if (allModelsDownloading || modelDownloading) {
     QString progress = QString::fromStdString(params_memory.get("ModelDownloadProgress"));
-    bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|missing|offline", QRegularExpression::CaseInsensitiveOption));
+    bool downloadFailed = progress.contains(QRegularExpression("canceled|exists|failed|missing|offline", QRegularExpression::CaseInsensitiveOption));
 
     if (progress != "Downloading...") {
       downloadModelButton->setValue(progress);
@@ -481,7 +481,7 @@ void FrogPilotModelPanel::updateState(const UIState &s, const FrogPilotUIState &
 
   if (updatingTinygrad) {
     QString progress = QString::fromStdString(params_memory.get("ModelDownloadProgress"));
-    bool downloadFailed = progress.contains(QRegularExpression("cancelled|exists|failed|missing|offline", QRegularExpression::CaseInsensitiveOption));
+    bool downloadFailed = progress.contains(QRegularExpression("canceled|exists|failed|missing|offline", QRegularExpression::CaseInsensitiveOption));
 
     if (progress != "Downloading...") {
       updateTinygradButton->setValue(progress);

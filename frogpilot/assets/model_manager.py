@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import requests
 import shutil
 
@@ -164,7 +163,7 @@ class ModelManager:
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         handle_error(
           None,
-          "Download cancelled...",
+          "Download canceled...",
           "Download cancelled...",
           MODEL_DOWNLOAD_ALL_PARAM,
           DOWNLOAD_PROGRESS_PARAM,

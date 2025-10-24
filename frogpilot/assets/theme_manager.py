@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import random
 import requests
 import shutil
@@ -127,7 +126,7 @@ class ThemeManager:
 
       if self.params_memory.get_bool(CANCEL_DOWNLOAD_PARAM):
         delete_file(theme_path)
-        handle_error(None, "Download cancelled...", "Download cancelled...", asset_param, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
+        handle_error(canceled, "Download cancelled...", asset_param, DOWNLOAD_PROGRESS_PARAM, self.params_memory)
 
         self.downloading_theme = False
         return
