@@ -6,6 +6,7 @@ from selfdrive.controls.lib.lateral_mpc_lib.lat_mpc import LateralMpc
 from selfdrive.controls.lib.drive_helpers import CONTROL_N, MPC_COST_LAT, LAT_MPC_N
 from selfdrive.controls.lib.lane_planner import LanePlanner, TRAJECTORY_SIZE
 from selfdrive.controls.lib.desire_helper import DesireHelper
+from common.params import Params
 import cereal.messaging as messaging
 from cereal import log
 
@@ -71,6 +72,11 @@ class LateralPlanner:
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
 
+    self.params = Params()
+    self.dirt_road_mode = False
+    self._last_param_check = 0.0
+    self.using_lane_boundaries = self.use_lanelines
+
   def reset_mpc(self, x0=np.zeros(4)):
     self.x0 = x0
     self.lat_mpc.reset(x0=self.x0)
@@ -78,6 +84,11 @@ class LateralPlanner:
   def update(self, sm):
     v_ego = sm['carState'].vEgo
     measured_curvature = sm['controlsState'].curvature
+
+    t_now = sec_since_boot()
+    if t_now - self._last_param_check > 1.0:
+      self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
+      self._last_param_check = t_now
 
     # Parse model predictions
     md = sm['modelV2']
@@ -98,6 +109,14 @@ class LateralPlanner:
     if len(md.position.xStd) == TRAJECTORY_SIZE:
       self.path_xyz_stds = np.column_stack([md.position.xStd, md.position.yStd, md.position.zStd])
 
+    lane_guidance_active = False
+    edge_applied = False
+    d_path_xyz = self.path_xyz
+
+    if self.dirt_road_mode:
+      d_path_xyz, edge_applied = self.LP.get_road_edge_path(v_ego, self.t_idxs, self.path_xyz)
+      lane_guidance_active = edge_applied
+
     # Lane change logic
     lane_change_prob = self.LP.l_lane_change_prob + self.LP.r_lane_change_prob
     self.DH.update(sm['carState'], sm['controlsState'].active, lane_change_prob,
@@ -109,14 +128,19 @@ class LateralPlanner:
       self.LP.rll_prob *= self.DH.lane_change_ll_prob
 
     # Calculate final driving path and set MPC costs
-    if self.use_lanelines:
+    if edge_applied:
+      self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
+    elif self.use_lanelines:
       d_path_xyz = self.LP.get_d_path(v_ego, self.t_idxs, self.path_xyz)
       self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
+      lane_guidance_active = True
     else:
       d_path_xyz = self.path_xyz
       # Heading cost is useful at low speed, otherwise end of plan can be off-heading
       heading_cost = interp(v_ego, [5.0, 10.0], [MPC_COST_LAT.HEADING, 0.15])
       self.lat_mpc.set_weights(MPC_COST_LAT.PATH, heading_cost, MPC_COST_LAT.STEER_RATE)
+
+    self.using_lane_boundaries = lane_guidance_active
 
     y_pts = np.interp(v_ego * self.t_idxs[:LAT_MPC_N + 1], np.linalg.norm(d_path_xyz, axis=1), d_path_xyz[:, 1])
     heading_pts = np.interp(v_ego * self.t_idxs[:LAT_MPC_N + 1], np.linalg.norm(self.path_xyz, axis=1), self.plan_yaw)
@@ -174,7 +198,7 @@ class LateralPlanner:
     lateralPlan.solverExecutionTime = self.lat_mpc.solve_time
 
     lateralPlan.desire = self.DH.desire
-    lateralPlan.useLaneLines = self.use_lanelines
+    lateralPlan.useLaneLines = self.using_lane_boundaries
     lateralPlan.laneChangeState = self.DH.lane_change_state
     lateralPlan.laneChangeDirection = self.DH.lane_change_direction
 

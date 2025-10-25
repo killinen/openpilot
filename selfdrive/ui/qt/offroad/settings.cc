@@ -74,6 +74,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_road.png",
     },
     {
+      "DirtRoadMode",
+      tr("Dirt Road Mode"),
+      tr("Prioritize road edges to keep centered when lane lines are faint or missing. Can be toggled on-road and takes effect immediately."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "VisionTurnControl",
       tr("Vision Turn Speed Control"),
       tr("Use vision-based curvature predictions to gently lower the cruise set speed for smoother turns."),

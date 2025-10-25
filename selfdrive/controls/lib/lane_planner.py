@@ -27,6 +27,9 @@ class LanePlanner:
     self.ll_x = np.zeros((TRAJECTORY_SIZE,))
     self.lll_y = np.zeros((TRAJECTORY_SIZE,))
     self.rll_y = np.zeros((TRAJECTORY_SIZE,))
+    self.edge_t = np.zeros((TRAJECTORY_SIZE,))
+    self.left_edge_y = np.zeros((TRAJECTORY_SIZE,))
+    self.right_edge_y = np.zeros((TRAJECTORY_SIZE,))
     self.lane_width_estimate = FirstOrderFilter(3.7, 9.95, DT_MDL)
     self.lane_width_certainty = FirstOrderFilter(1.0, 0.95, DT_MDL)
     self.lane_width = 3.7
@@ -37,6 +40,8 @@ class LanePlanner:
 
     self.lll_std = 0.
     self.rll_std = 0.
+
+    self.edge_data_valid = False
 
     self.l_lane_change_prob = 0.
     self.r_lane_change_prob = 0.
@@ -61,6 +66,15 @@ class LanePlanner:
     if len(desire_state):
       self.l_lane_change_prob = desire_state[log.LateralPlan.Desire.laneChangeLeft]
       self.r_lane_change_prob = desire_state[log.LateralPlan.Desire.laneChangeRight]
+
+    self.edge_data_valid = False
+    road_edges = md.roadEdges
+    if len(road_edges) >= 2 and len(road_edges[0].t) == TRAJECTORY_SIZE and len(road_edges[1].t) == TRAJECTORY_SIZE:
+      self.edge_t = np.array(road_edges[0].t)
+      self.left_edge_y = np.array(road_edges[0].y) + self.camera_offset
+      self.right_edge_y = np.array(road_edges[1].y) + self.camera_offset
+
+      self.edge_data_valid = True
 
   def get_d_path(self, v_ego, path_t, path_xyz):
     # Reduce reliance on lanelines that are too far apart or
@@ -103,3 +117,30 @@ class LanePlanner:
     else:
       cloudlog.warning("Lateral mpc - NaNs in laneline times, ignoring")
     return path_xyz
+
+  def get_road_edge_path(self, v_ego, path_t, path_xyz):
+    if not self.edge_data_valid:
+      return path_xyz, False
+
+    width_pts = self.right_edge_y - self.left_edge_y
+    if not np.all(np.isfinite(width_pts)):
+      return path_xyz, False
+
+    avg_width = float(np.clip(np.mean(width_pts), 2.5, 6.0))
+    center_y = (self.left_edge_y + self.right_edge_y) / 2.0
+
+    valid = np.isfinite(self.edge_t) & np.isfinite(center_y)
+    if not np.any(valid):
+      return path_xyz, False
+
+    lane_path_y_interp = np.interp(path_t, self.edge_t[valid], center_y[valid])
+
+    path_xyz[:, 1] = lane_path_y_interp
+
+    # Treat road edges as high-confidence lane guidance
+    self.lane_width_estimate.update(avg_width)
+    self.lane_width_certainty.update(1.0)
+    self.lane_width = float(self.lane_width_estimate.x)
+    self.d_prob = 1.0
+
+    return path_xyz, True
