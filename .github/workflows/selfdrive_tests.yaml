@@ -389,7 +389,7 @@ jobs:
       #- name: Set OPENPILOT_PREFIX
         #run: echo "OPENPILOT_PREFIX=/tmp/openpilot" >> $GITHUB_ENV
 
-      - name: Run process replay with update-refs
+      - name: Run process replay with update-refs (lane-line mode)
         run: |
           {
             ${{ env.RUN }} "\
@@ -398,8 +398,25 @@ jobs:
               cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
               ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
               scons -j$(nproc) --cache-populate && \
+              echo '=== Process replay (DirtRoadMode=0) ===' && \
+              python3 -c \"from common.params import Params; Params().put('DirtRoadMode', '0')\" && \
               FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs -j$(nproc) --whitelist-cars HYUNDAI"
           } 2>&1 | tee process_replay.log
+
+      - name: Run process replay with Dirt Road Mode enabled
+        run: |
+          {
+            ${{ env.RUN }} "\
+              echo '=== Process replay (DirtRoadMode=1) ===' && \
+              unset FINGERPRINT && \
+              mkdir -p /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+              cp tools/testdata/rlog.bz2 /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0/rlog.bz2 && \
+              ls -l /tmp/fakedata/regenAA0FC4ED71E/2025-04-20--14-41-54/0 && \
+              python3 -c \"from common.params import Params; Params().put('DirtRoadMode', '1')\" && \
+              FILEREADER_CACHE=1 python3 selfdrive/test/process_replay/test_processes.py --update-refs -j$(nproc) --whitelist-cars HYUNDAI && \
+              python3 -c \"from common.params import Params; Params().put('DirtRoadMode', '0')\" && \
+              git checkout -- selfdrive/test/process_replay"
+          } 2>&1 | tee -a process_replay.log
       - name: Check logs for crash indicators
         run: |
           # Look for known exception patterns that indicate failure
