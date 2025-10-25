@@ -10,6 +10,42 @@ import cereal.messaging as messaging
 from cereal import log
 
 
+def _calculate_lane_width(lane, current_lane, road_edge=None):
+  try:
+    current_x = np.asarray(current_lane.x)
+    current_y = np.asarray(current_lane.y)
+    lane_x = np.asarray(lane.x)
+    lane_y = np.asarray(lane.y)
+  except AttributeError:
+    return 0.0
+
+  if current_x.size == 0 or lane_x.size == 0:
+    return 0.0
+
+  lane_y_interp = np.interp(current_x, lane_x, lane_y)
+  distance_to_lane = float(np.mean(np.abs(current_y - lane_y_interp)))
+
+  if road_edge is None:
+    return distance_to_lane
+
+  try:
+    road_edge_x = np.asarray(road_edge.x)
+    road_edge_y = np.asarray(road_edge.y)
+  except AttributeError:
+    return distance_to_lane
+
+  if road_edge_x.size == 0:
+    return distance_to_lane
+
+  road_edge_y_interp = np.interp(current_x, road_edge_x, road_edge_y)
+  distance_to_road_edge = float(np.mean(np.abs(current_y - road_edge_y_interp)))
+
+  if distance_to_road_edge < distance_to_lane:
+    return 0.0
+
+  return distance_to_lane
+
+
 class LateralPlanner:
   def __init__(self, CP, use_lanelines=True, wide_camera=False):
     self.use_lanelines = use_lanelines
@@ -29,6 +65,9 @@ class LateralPlanner:
     self.t_idxs = np.arange(TRAJECTORY_SIZE)
     self.y_pts = np.zeros(TRAJECTORY_SIZE)
 
+    self.lane_width_left = 0.0
+    self.lane_width_right = 0.0
+
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
 
@@ -43,6 +82,15 @@ class LateralPlanner:
     # Parse model predictions
     md = sm['modelV2']
     self.LP.parse_model(md)
+    if len(md.laneLines) >= 4:
+      road_edges = md.roadEdges if len(md.roadEdges) >= 2 else []
+      left_edge = road_edges[0] if len(road_edges) > 0 else None
+      right_edge = road_edges[1] if len(road_edges) > 1 else None
+      self.lane_width_left = _calculate_lane_width(md.laneLines[0], md.laneLines[1], left_edge)
+      self.lane_width_right = _calculate_lane_width(md.laneLines[3], md.laneLines[2], right_edge)
+    else:
+      self.lane_width_left = 0.0
+      self.lane_width_right = 0.0
     if len(md.position.x) == TRAJECTORY_SIZE and len(md.orientation.x) == TRAJECTORY_SIZE:
       self.path_xyz = np.column_stack([md.position.x, md.position.y, md.position.z])
       self.t_idxs = np.array(md.position.t)
@@ -52,7 +100,8 @@ class LateralPlanner:
 
     # Lane change logic
     lane_change_prob = self.LP.l_lane_change_prob + self.LP.r_lane_change_prob
-    self.DH.update(sm['carState'], sm['controlsState'].active, lane_change_prob)
+    self.DH.update(sm['carState'], sm['controlsState'].active, lane_change_prob,
+                   self.lane_width_left, self.lane_width_right)
 
     # Turn off lanes during lane change
     if self.DH.desire == log.LateralPlan.Desire.laneChangeRight or self.DH.desire == log.LateralPlan.Desire.laneChangeLeft:

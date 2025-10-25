@@ -1,6 +1,12 @@
 from cereal import log
 from common.conversions import Conversions as CV
-from common.realtime import DT_MDL
+from common.params import Params
+from common.realtime import DT_MDL, sec_since_boot
+
+FOOT_TO_METER = 0.3048
+LANE_CHANGE_DELAY_DEFAULT = 2.0
+LANE_DETECTION_WIDTH_DEFAULT_METERS = 2.7  # ~9 ft
+PARAM_REFRESH_TIME = 1.0
 
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
@@ -29,6 +35,60 @@ DESIRES = {
   },
 }
 
+class LaneChangeConfig:
+  def __init__(self):
+    self.params = Params()
+    self.last_update = -1.0
+
+    self.nudgeless = False
+    self.lane_detection_width = LANE_DETECTION_WIDTH_DEFAULT_METERS
+    self.lane_detection = True
+    self.lane_change_delay = LANE_CHANGE_DELAY_DEFAULT
+    self.minimum_lane_change_speed = LANE_CHANGE_SPEED_MIN
+    self.one_lane_change = False
+    self.is_metric = self.params.get_bool("IsMetric")
+
+  def _get_float(self, key, default):
+    value = self.params.get(key)
+    if value is None:
+      return default
+
+    try:
+      return float(value.decode('utf-8'))
+    except (ValueError, AttributeError):
+      return default
+
+  def update(self):
+    now = sec_since_boot()
+    if self.last_update >= 0 and now - self.last_update < PARAM_REFRESH_TIME:
+      return
+
+    self.last_update = now
+    self.is_metric = self.params.get_bool("IsMetric")
+
+    # Toggle flags
+    self.nudgeless = self.params.get_bool("NudgelessLaneChange")
+
+    # Lane change delay (seconds)
+    self.lane_change_delay = max(0.0, self._get_float("LaneChangeTime", LANE_CHANGE_DELAY_DEFAULT))
+
+    # Minimum lane change speed is stored in km/h
+    default_min_speed_kph = 32.0 if self.nudgeless else (LANE_CHANGE_SPEED_MIN * CV.MS_TO_KPH)
+    min_speed_kph = self._get_float("MinimumLaneChangeSpeed", default_min_speed_kph)
+    self.minimum_lane_change_speed = max(0.0, min_speed_kph) * CV.KPH_TO_MS
+
+    # Lane detection width (stored in user units; convert to meters)
+    default_width_raw = LANE_DETECTION_WIDTH_DEFAULT_METERS / (1.0 if self.is_metric else FOOT_TO_METER)
+    lane_detection_raw = self._get_float("LaneDetectionWidth", default_width_raw)
+    width_m = lane_detection_raw * (1.0 if self.is_metric else FOOT_TO_METER)
+    self.lane_detection_width = max(0.0, width_m)
+    self.lane_detection = self.nudgeless and self.lane_detection_width > 0.0
+
+    # Allow one lane change per signal by default when nudgeless is active
+    one_lane_raw = self.params.get("OneLaneChange")
+    one_lane_enabled = True if one_lane_raw is None else one_lane_raw != b"0"
+    self.one_lane_change = self.nudgeless and one_lane_enabled
+
 
 class DesireHelper:
   def __init__(self):
@@ -40,10 +100,16 @@ class DesireHelper:
     self.prev_one_blinker = False
     self.desire = log.LateralPlan.Desire.none
 
-  def update(self, carstate, active, lane_change_prob):
+    self.lane_change_completed = False
+    self.lane_change_wait_timer = 0.0
+    self.config = LaneChangeConfig()
+
+  def update(self, carstate, active, lane_change_prob, lane_width_left=0.0, lane_width_right=0.0):
+    self.config.update()
+
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
-    below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
+    below_lane_change_speed = v_ego < self.config.minimum_lane_change_speed
 
     if not active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
       self.lane_change_state = LaneChangeState.off
@@ -53,25 +119,40 @@ class DesireHelper:
       if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
         self.lane_change_state = LaneChangeState.preLaneChange
         self.lane_change_ll_prob = 1.0
+        self.lane_change_wait_timer = 0.0
 
       # LaneChangeState.preLaneChange
       elif self.lane_change_state == LaneChangeState.preLaneChange:
+        self.lane_change_wait_timer += DT_MDL
+
         # Set lane change direction
         self.lane_change_direction = LaneChangeDirection.left if \
           carstate.leftBlinker else LaneChangeDirection.right
 
-        # Use this with SSC to detect safe lane change, unless you can make driver torque detection work
-        torque_applied = carstate.steeringPressed #and \
-                        #  ((carstate.steeringTorque > 0 and self.lane_change_direction == LaneChangeDirection.left) or
-                        #   (carstate.steeringTorque < 0 and self.lane_change_direction == LaneChangeDirection.right))
+        # Driver torque request takes priority
+        manual_torque = carstate.steeringPressed
+
+        desired_lane_width = lane_width_left if carstate.leftBlinker else lane_width_right
+        lane_available = desired_lane_width >= self.config.lane_detection_width or not self.config.lane_detection
+        nudgeless_ready = self.config.nudgeless and not manual_torque and lane_available and \
+                          self.lane_change_wait_timer >= self.config.lane_change_delay
+
+        if manual_torque:
+          # Skip the delay so nudgeless logic doesn't immediately retrigger
+          self.lane_change_wait_timer = self.config.lane_change_delay
+
+        torque_applied = manual_torque or nudgeless_ready
 
         blindspot_detected = ((carstate.leftBlindspot and self.lane_change_direction == LaneChangeDirection.left) or
                               (carstate.rightBlindspot and self.lane_change_direction == LaneChangeDirection.right))
 
-        if not one_blinker or below_lane_change_speed:
+        if not one_blinker or below_lane_change_speed or self.lane_change_completed:
           self.lane_change_state = LaneChangeState.off
+          self.lane_change_direction = LaneChangeDirection.none
         elif torque_applied and not blindspot_detected:
           self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_completed = self.config.one_lane_change
+          self.lane_change_wait_timer = 0.0
 
       # LaneChangeState.laneChangeStarting
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
@@ -99,6 +180,7 @@ class DesireHelper:
     else:
       self.lane_change_timer += DT_MDL
 
+    self.lane_change_completed &= one_blinker
     self.prev_one_blinker = one_blinker
 
     self.desire = DESIRES[self.lane_change_direction][self.lane_change_state]

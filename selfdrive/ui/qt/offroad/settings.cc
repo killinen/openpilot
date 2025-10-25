@@ -68,6 +68,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_disengage_on_accelerator.svg",
     },
     {
+      "NudgelessLaneChange",
+      tr("Nudgeless Lane Changes"),
+      tr("Automatically initiate a lane change when the adjacent lane is clear and your turn signal stays on, without needing to nudge the wheel. Can be toggled on-road and takes effect immediately."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "VisionTurnControl",
       tr("Vision Turn Speed Control"),
       tr("Use vision-based curvature predictions to gently lower the cruise set speed for smoother turns."),
@@ -86,6 +92,55 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
 
   Params params;
 
+  auto readFloatParam = [](const std::string &key, float default_value, float min_value, float max_value) {
+    Params local_params;
+    std::string stored_value = local_params.get(key);
+    bool ok = false;
+    float parsed = default_value;
+    if (!stored_value.empty()) {
+      parsed = QString::fromStdString(stored_value).toFloat(&ok);
+      if (!ok) {
+        parsed = default_value;
+      }
+    }
+    float clamped = std::clamp(parsed, min_value, max_value);
+    if (stored_value.empty() || !ok || clamped != parsed) {
+      local_params.put(key, QString::number(clamped, 'f', 2).toStdString());
+    }
+    return clamped;
+  };
+
+  const float lane_change_delay_min = 0.0f;
+  const float lane_change_delay_max = 5.0f;
+  const float lane_change_delay_default = 2.0f;
+
+  auto createLaneChangeDelayControl = [&]() {
+    float lane_change_delay = readFloatParam("LaneChangeTime", lane_change_delay_default, lane_change_delay_min, lane_change_delay_max);
+    auto control = new ButtonControl(
+        tr("Lane Change Delay"),
+        tr("%1 s").arg(lane_change_delay, 0, 'f', 1),
+        tr("Time to wait after the turn signal turns on before a nudgeless lane change begins."));
+    QObject::connect(control, &ButtonControl::clicked, [=]() mutable {
+      float latest_value = readFloatParam("LaneChangeTime", lane_change_delay_default, lane_change_delay_min, lane_change_delay_max);
+      QString default_text = QString::number(latest_value, 'f', 1);
+      QString prompt = tr("Enter a value between %1 and %2 seconds.").arg(lane_change_delay_min).arg(lane_change_delay_max);
+      QString input = InputDialog::getText(tr("Lane Change Delay"), control, prompt, false, -1, default_text);
+      if (input.isEmpty()) return;
+
+      bool ok = false;
+      float value = input.toFloat(&ok);
+      if (!ok || value < lane_change_delay_min || value > lane_change_delay_max) {
+        ConfirmationDialog::alert(tr("Please enter a number between %1 and %2.").arg(lane_change_delay_min).arg(lane_change_delay_max), control);
+        return;
+      }
+      Params().put("LaneChangeTime", QString::number(value, 'f', 2).toStdString());
+      control->setText(tr("%1 s").arg(value, 0, 'f', 1));
+    });
+    return control;
+  };
+
+  ButtonControl *laneChangeDelayControl = nullptr;
+
   if (params.getBool("DisableRadar_Allow")) {
     toggles.push_back({
       "DisableRadar",
@@ -100,6 +155,13 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
     bool locked = params.getBool((param + "Lock").toStdString());
     toggle->setEnabled(!locked);
     addItem(toggle);
+
+    if (param == "NudgelessLaneChange") {
+      if (laneChangeDelayControl == nullptr) {
+        laneChangeDelayControl = createLaneChangeDelayControl();
+      }
+      addItem(laneChangeDelayControl);
+    }
   }
 
   auto readPercentParam = [](const std::string &key, int default_value, int min_value, int max_value) {
