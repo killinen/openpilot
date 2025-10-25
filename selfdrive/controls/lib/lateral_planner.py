@@ -76,6 +76,7 @@ class LateralPlanner:
     self.dirt_road_mode = False
     self._last_param_check = 0.0
     self.using_lane_boundaries = self.use_lanelines
+    self.path_cost = MPC_COST_LAT.PATH
 
   def reset_mpc(self, x0=np.zeros(4)):
     self.x0 = x0
@@ -88,6 +89,16 @@ class LateralPlanner:
     t_now = sec_since_boot()
     if t_now - self._last_param_check > 1.0:
       self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
+      path_cost_param = self.params.get("LatMpcPathCost")
+      if path_cost_param is not None:
+        try:
+          path_cost_val = float(path_cost_param)
+          path_cost_val = max(0.5, min(3.0, path_cost_val))
+          self.path_cost = path_cost_val
+        except (ValueError, TypeError):
+          self.path_cost = MPC_COST_LAT.PATH
+      else:
+        self.path_cost = MPC_COST_LAT.PATH
       self._last_param_check = t_now
 
     # Parse model predictions
@@ -129,16 +140,16 @@ class LateralPlanner:
 
     # Calculate final driving path and set MPC costs
     if edge_applied:
-      self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
+      self.lat_mpc.set_weights(self.path_cost, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
     elif self.use_lanelines:
       d_path_xyz = self.LP.get_d_path(v_ego, self.t_idxs, self.path_xyz)
-      self.lat_mpc.set_weights(MPC_COST_LAT.PATH, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
+      self.lat_mpc.set_weights(self.path_cost, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
       lane_guidance_active = True
     else:
       d_path_xyz = self.path_xyz
       # Heading cost is useful at low speed, otherwise end of plan can be off-heading
       heading_cost = interp(v_ego, [5.0, 10.0], [MPC_COST_LAT.HEADING, 0.15])
-      self.lat_mpc.set_weights(MPC_COST_LAT.PATH, heading_cost, MPC_COST_LAT.STEER_RATE)
+      self.lat_mpc.set_weights(self.path_cost, heading_cost, MPC_COST_LAT.STEER_RATE)
 
     self.using_lane_boundaries = lane_guidance_active
 

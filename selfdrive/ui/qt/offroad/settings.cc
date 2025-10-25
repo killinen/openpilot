@@ -146,6 +146,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
   };
 
   ButtonControl *laneChangeDelayControl = nullptr;
+  ButtonControl *pathCostControl = nullptr;
 
   if (params.getBool("DisableRadar_Allow")) {
     toggles.push_back({
@@ -167,6 +168,34 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
         laneChangeDelayControl = createLaneChangeDelayControl();
       }
       addItem(laneChangeDelayControl);
+      if (pathCostControl == nullptr) {
+        const float path_cost_min = 0.5f;
+        const float path_cost_max = 3.0f;
+        const float path_cost_default = 1.3f;
+
+        float path_cost = readFloatParam("LatMpcPathCost", path_cost_default, path_cost_min, path_cost_max);
+        pathCostControl = new ButtonControl(
+            tr("MPC Path Cost"),
+            tr("%1").arg(path_cost, 0, 'f', 2),
+            tr("Adjust the lateral MPC path weight. Default: 1.30. Higher values hug the predicted path more tightly."));
+        QObject::connect(pathCostControl, &ButtonControl::clicked, [=]() mutable {
+          float latest_value = readFloatParam("LatMpcPathCost", path_cost_default, path_cost_min, path_cost_max);
+          QString default_text = QString::number(latest_value, 'f', 2);
+          QString prompt = tr("Enter a value between %1 and %2.").arg(path_cost_min).arg(path_cost_max);
+          QString input = InputDialog::getText(tr("MPC Path Cost"), pathCostControl, prompt, false, -1, default_text);
+          if (input.isEmpty()) return;
+
+          bool ok = false;
+          float value = input.toFloat(&ok);
+          if (!ok || value < path_cost_min || value > path_cost_max) {
+            ConfirmationDialog::alert(tr("Please enter a number between %1 and %2.").arg(path_cost_min).arg(path_cost_max), pathCostControl);
+            return;
+          }
+          Params().put("LatMpcPathCost", QString::number(value, 'f', 2).toStdString());
+          pathCostControl->setText(tr("%1").arg(value, 0, 'f', 2));
+        });
+      }
+      addItem(pathCostControl);
     }
   }
 
