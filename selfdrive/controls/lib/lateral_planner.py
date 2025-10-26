@@ -123,6 +123,7 @@ class LateralPlanner:
     if t_now - self._last_param_check > 1.0:
       self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
       self.right_hand_drive = self.params.get_bool("IsRHD")
+      self.use_lanelines = self.params.get_bool("UseLaneLines")
       path_cost_param = self.params.get("LatMpcPathCost")
       if path_cost_param is not None:
         try:

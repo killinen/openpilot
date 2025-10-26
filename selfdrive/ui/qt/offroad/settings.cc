@@ -74,6 +74,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_road.png",
     },
     {
+      "UseLaneLines",
+      tr("Use Lane Lines"),
+      tr("Allow openpilot to follow detected lane lines when available. Disable to rely more on the vision model path. Can be toggled on-road and takes effect within a second."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "DirtRoadMode",
       tr("Dirt Road Mode"),
       tr("Prioritize road edges to keep centered when lane lines are faint or missing. Can be toggled on-road and takes effect immediately."),
