@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QtConcurrent>
 
+#include <algorithm>
+
 #include <capnp/dynamic.h>
 #include "cereal/services.h"
 #include "common/params.h"
@@ -192,10 +194,18 @@ void Replay::segmentLoadFinished(bool success) {
 }
 
 void Replay::queueSegment() {
-  if (segments_.empty()) return;
-
   SegmentMap::iterator cur, end;
-  cur = end = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
+
+  const int requested = current_segment_.load();
+  const int first_segment = segments_.begin()->first;
+  const int last_segment = segments_.rbegin()->first;
+  const int clamped = std::clamp(requested, first_segment, last_segment);
+
+  cur = end = segments_.lower_bound(clamped);
+  if (cur == segments_.end()) {
+    cur = std::prev(segments_.end());
+    end = cur;
+  }
   for (int i = 0; end != segments_.end() && i <= FORWARD_SEGS; ++i) {
     ++end;
   }
@@ -213,6 +223,10 @@ void Replay::queueSegment() {
   }
 
   const auto &cur_segment = cur->second;
+  if (!cur_segment) {
+    rWarning("current segment %d is unavailable", cur->first);
+    return;
+  }
   // merge the previous adjacent segment if it's loaded
   auto begin = segments_.find(cur_segment->seg_num - 1);
   if (begin == segments_.end() || !(begin->second && begin->second->isLoaded())) {
