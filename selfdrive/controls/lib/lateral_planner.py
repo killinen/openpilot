@@ -10,6 +10,11 @@ from common.params import Params
 import cereal.messaging as messaging
 from cereal import log
 
+DIRT_ROAD_EDGE_MARGIN = 0.8          # minimum distance to keep from road edges in meters
+DIRT_ROAD_LANE_BIAS_RATIO = 0.2      # portion of detected road width used for lateral biasing
+DIRT_ROAD_LANE_BIAS_MAX = 0.75       # cap the maximum lateral bias in meters
+DIRT_ROAD_MARGIN_BUFFER = 0.1        # preserve a small buffer when computing dynamic edge margins
+
 
 def _calculate_lane_width(lane, current_lane, road_edge=None):
   try:
@@ -74,6 +79,7 @@ class LateralPlanner:
 
     self.params = Params()
     self.dirt_road_mode = False
+    self.right_hand_drive = False
     self._last_param_check = 0.0
     self.using_lane_boundaries = self.use_lanelines
     self.path_cost = MPC_COST_LAT.PATH
@@ -82,6 +88,33 @@ class LateralPlanner:
     self.x0 = x0
     self.lat_mpc.reset(x0=self.x0)
 
+  def _apply_dirt_road_bias(self, path_xyz):
+    left_edge = np.asarray(self.LP.left_edge_y)
+    right_edge = np.asarray(self.LP.right_edge_y)
+    if left_edge.shape != right_edge.shape or left_edge.shape[0] != path_xyz.shape[0]:
+      return
+
+    valid = np.isfinite(left_edge) & np.isfinite(right_edge)
+    if not np.any(valid):
+      return
+
+    width = right_edge - left_edge
+    width = np.maximum(width, 0.5)
+
+    base_bias = np.clip(width * DIRT_ROAD_LANE_BIAS_RATIO, 0.0, DIRT_ROAD_LANE_BIAS_MAX)
+    margin = np.minimum(DIRT_ROAD_EDGE_MARGIN, np.maximum(width / 2.0 - DIRT_ROAD_MARGIN_BUFFER, 0.0))
+
+    direction = -1.0 if self.right_hand_drive else 1.0
+    target = path_xyz[:, 1] + (base_bias * direction)
+
+    left_limit = left_edge + margin
+    right_limit = right_edge - margin
+
+    safe_left = np.minimum(left_limit, right_limit)
+    safe_right = np.maximum(left_limit, right_limit)
+
+    path_xyz[valid, 1] = np.clip(target[valid], safe_left[valid], safe_right[valid])
+
   def update(self, sm):
     v_ego = sm['carState'].vEgo
     measured_curvature = sm['controlsState'].curvature
@@ -89,6 +122,7 @@ class LateralPlanner:
     t_now = sec_since_boot()
     if t_now - self._last_param_check > 1.0:
       self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
+      self.right_hand_drive = self.params.get_bool("IsRHD")
       path_cost_param = self.params.get("LatMpcPathCost")
       if path_cost_param is not None:
         try:
@@ -140,6 +174,8 @@ class LateralPlanner:
 
     # Calculate final driving path and set MPC costs
     if edge_applied:
+      if self.dirt_road_mode:
+        self._apply_dirt_road_bias(d_path_xyz)
       self.lat_mpc.set_weights(self.path_cost, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
     elif self.use_lanelines:
       d_path_xyz = self.LP.get_d_path(v_ego, self.t_idxs, self.path_xyz)
