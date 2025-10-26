@@ -74,6 +74,9 @@ comma*.sh
 selfdrive/modeld/thneed/compile
 selfdrive/modeld/models/*.thneed
 selfdrive/modeld/models/*.pkl
+frogpilot/tinygrad_modeld/models/*.pkl
+frogpilot/tinygrad_modeld/models/commonmodel_pyx.cpp
+frogpilot/ui/**/moc_*.cc
 
 *.bz2
 

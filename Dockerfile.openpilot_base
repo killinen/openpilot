@@ -1,25 +1,10 @@
 FROM ubuntu:20.04
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends sudo tzdata locales ssh pulseaudio xvfb x11-xserver-utils gnome-screenshot && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
-
-COPY tools/install_ubuntu_dependencies.sh /tmp/tools/
-RUN INSTALL_EXTRA_PACKAGES=no /tmp/tools/install_ubuntu_dependencies.sh && \
-    rm -rf /var/lib/apt/lists/* /tmp/* && \
-    cd /usr/lib/gcc/arm-none-eabi/9.2.1 && \
-    rm -rf arm/ thumb/nofp thumb/v6* thumb/v8* thumb/v7+fp thumb/v7-r+fp.sp
-
-# Add OpenCL
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo tzdata locales ssh pulseaudio xvfb x11-xserver-utils gnome-screenshot \
     apt-utils \
     alien \
     unzip \
@@ -32,7 +17,46 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim \
     lsb-core \
     libx11-6 \
+    ca-certificates \
+    gnupg \
   && rm -rf /var/lib/apt/lists/*
+
+RUN install -d -m 0755 /usr/share/keyrings && \
+  curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg && \
+  echo "deb [signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/focal/ llvm-toolchain-focal-18 main" > /etc/apt/sources.list.d/llvm-toolchain.list && \
+  apt-get update && apt-get install -y --no-install-recommends \
+    llvm-18 \
+    llvm-18-dev \
+    clang-18 \
+    libomxil-bellagio-dev \
+  && LLVM_LIBDIR=$(llvm-config-18 --libdir) && \
+  echo "${LLVM_LIBDIR}" > /etc/ld.so.conf.d/llvm.conf && \
+  ldconfig && \
+  multiarch=$(dpkg-architecture -qDEB_HOST_MULTIARCH) && \
+  if [ -f /usr/lib/${multiarch}/libomxil-bellagio.so ] && [ ! -e /usr/lib/${multiarch}/libOmxCore.so ]; then \
+    ln -s /usr/lib/${multiarch}/libomxil-bellagio.so /usr/lib/${multiarch}/libOmxCore.so; \
+  fi && \
+  rm -rf /var/lib/apt/lists/* && \
+  dpkg -L llvm-18 && \
+  find / -name "libLLVM.so*"
+
+RUN sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && locale-gen
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+ENV LLVM_VERSION=18
+ENV LLVM_PATH=/usr/lib/llvm-${LLVM_VERSION}
+ENV LD_LIBRARY_PATH=/usr/lib/llvm-${LLVM_VERSION}/lib:/usr/local/lib:/usr/lib
+ENV PATH="/usr/lib/llvm-${LLVM_VERSION}/bin:$PATH"
+
+COPY tools/install_ubuntu_dependencies.sh /tmp/tools/
+RUN chmod +x /tmp/tools/install_ubuntu_dependencies.sh && \
+    INSTALL_EXTRA_PACKAGES=no /tmp/tools/install_ubuntu_dependencies.sh && \
+    rm -rf /var/lib/apt/lists/* /tmp/* && \
+    cd /usr/lib/gcc/arm-none-eabi/9.2.1 && \
+    rm -rf arm/ thumb/nofp thumb/v6* thumb/v8* thumb/v7+fp thumb/v7-r+fp.sp
+
+# Add OpenCL
 
 ARG INTEL_DRIVER=l_opencl_p_18.1.0.015.tgz
 ARG INTEL_DRIVER_URL=https://registrationcenter-download.intel.com/akdlm/irc_nas/vcp/15532
@@ -50,9 +74,9 @@ RUN cd /tmp/opencl-driver-intel && \
     cd / && \
     rm -rf /tmp/opencl-driver-intel
 
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES graphics,utility,compute
-ENV QTWEBENGINE_DISABLE_SANDBOX 1
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
+ENV QTWEBENGINE_DISABLE_SANDBOX=1
 
 RUN dbus-uuidgen > /etc/machine-id
 
@@ -72,6 +96,7 @@ COPY --chown=$USER pyproject.toml poetry.lock .python-version /tmp/
 COPY --chown=$USER tools/install_python_dependencies.sh /tmp/tools/
 
 RUN cd /tmp && \
+    chmod +x /tmp/tools/install_python_dependencies.sh && \
     tools/install_python_dependencies.sh && \
     rm -rf /tmp/* && \
     rm -rf /home/$USER/.cache && \

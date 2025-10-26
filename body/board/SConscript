@@ -100,7 +100,8 @@ def get_key_header(name):
   from Crypto.PublicKey import RSA
 
   public_fn = f'../certs/{name}.pub'
-  rsa = RSA.importKey(open(public_fn).read())
+  with open(public_fn, "rb") as pub_fp:
+    rsa = RSA.importKey(pub_fp.read())
   assert(rsa.size_in_bits() == 1024)
 
   rr = pow(2**1024, 2, rsa.n)

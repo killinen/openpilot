@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstdio>
+#include <vector>
 
 #include <OMX_Component.h>
 #include <OMX_IndexExt.h>
@@ -30,6 +31,28 @@ int ABGRToNV12(const uint8_t* src_abgr,
                int dst_stride_uv,
                int width,
                int height) {
+#if !defined(__ARM_NEON) && !defined(__ARM_NEON__)
+  // Fallback to libyuv's cross-platform implementation when NEON isn't available (e.g. CI x86 builds).
+  const int chroma_width = (width + 1) >> 1;
+  const int chroma_height = (height + 1) >> 1;
+
+  std::vector<uint8_t> tmp_u(chroma_width * chroma_height);
+  std::vector<uint8_t> tmp_v(chroma_width * chroma_height);
+
+  int ret = libyuv::ABGRToI420(src_abgr, src_stride_abgr,
+                               dst_y, dst_stride_y,
+                               tmp_u.data(), chroma_width,
+                               tmp_v.data(), chroma_width,
+                               width, height);
+  if (ret != 0) return ret;
+
+  return libyuv::I420ToNV12(dst_y, dst_stride_y,
+                            tmp_u.data(), chroma_width,
+                            tmp_v.data(), chroma_width,
+                            dst_y, dst_stride_y,
+                            dst_uv, dst_stride_uv,
+                            width, height);
+#else
   int y;
   int halfwidth = (width + 1) >> 1;
 
@@ -70,6 +93,7 @@ int ABGRToNV12(const uint8_t* src_abgr,
 
   free_aligned_buffer_64(row_u);
   return 0;
+#endif
 }
 
 // Check the OMX error code and assert if an error occurred.

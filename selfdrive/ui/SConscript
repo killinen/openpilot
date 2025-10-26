@@ -3,7 +3,12 @@ import json
 Import('qt_env', 'arch', 'common', 'messaging', 'visionipc', 'transformations')
 
 base_libs = [common, messaging, visionipc, transformations,
-             'm', 'OpenCL', 'ssl', 'crypto', 'pthread', 'avcodec', 'avformat', 'avutil', 'yuv', 'OmxCore'] + qt_env["LIBS"]
+             'm', 'OpenCL', 'ssl', 'crypto', 'pthread', 'avcodec', 'avformat', 'avutil', 'yuv'] + qt_env["LIBS"]
+
+omx_lib = 'OmxCore'
+if arch == 'x86_64':
+  omx_lib = 'omxil-bellagio'
+base_libs.append(omx_lib)
 
 if arch == 'larch64':
   base_libs.append('EGL')
