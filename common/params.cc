@@ -148,6 +148,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"NavdRender", PERSISTENT},
     {"NudgelessLaneChange", PERSISTENT},
     {"DirtRoadMode", PERSISTENT},
+    {"DirtRoadRightBias", PERSISTENT},
     {"LatMpcPathCost", PERSISTENT},
     {"OpenpilotEnabledToggle", PERSISTENT},
     {"PandaHeartbeatLost", CLEAR_ON_MANAGER_START | CLEAR_ON_IGNITION_OFF},

@@ -86,6 +86,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_road.png",
     },
     {
+      "DirtRoadRightBias",
+      tr("Right Edge Bias"),
+      tr("When enabled, keep the vehicle biased toward the right edge when Dirt Road Mode is active. Disable to stay centered."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "VisionTurnControl",
       tr("Vision Turn Speed Control"),
       tr("Use vision-based curvature predictions to gently lower the cruise set speed for smoother turns."),

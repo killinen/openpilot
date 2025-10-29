@@ -79,6 +79,7 @@ class LateralPlanner:
 
     self.params = Params()
     self.dirt_road_mode = False
+    self.dirt_road_right_bias = False
     self.right_hand_drive = False
     self._last_param_check = 0.0
     self.using_lane_boundaries = self.use_lanelines
@@ -122,6 +123,7 @@ class LateralPlanner:
     t_now = sec_since_boot()
     if t_now - self._last_param_check > 1.0:
       self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
+      self.dirt_road_right_bias = self.params.get_bool("DirtRoadRightBias")
       self.right_hand_drive = self.params.get_bool("IsRHD")
       self.use_lanelines = self.params.get_bool("UseLaneLines")
       path_cost_param = self.params.get("LatMpcPathCost")
@@ -175,7 +177,7 @@ class LateralPlanner:
 
     # Calculate final driving path and set MPC costs
     if edge_applied:
-      if self.dirt_road_mode:
+      if self.dirt_road_mode and self.dirt_road_right_bias:
         self._apply_dirt_road_bias(d_path_xyz)
       self.lat_mpc.set_weights(self.path_cost, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
     elif self.use_lanelines:
