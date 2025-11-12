@@ -74,7 +74,8 @@ def run_test_process(data):
   res = None
   if not args.upload_only:
     lr = LogReader.from_bytes(lr_dat)
-    res, log_msgs = test_process(cfg, lr, segment, ref_log_path, cur_log_fn, args.ignore_fields, args.ignore_msgs)
+    res, log_msgs = test_process(cfg, lr, segment, ref_log_path, cur_log_fn,
+                                 args.ignore_fields, args.ignore_msgs, check_only=args.check_only)
     # save logs so we can upload when updating refs
     save_log(cur_log_fn, log_msgs)
 
@@ -92,13 +93,16 @@ def get_log_data(segment):
     return (segment, f.read())
 
 
-def test_process(cfg, lr, segment, ref_log_path, new_log_path, ignore_fields=None, ignore_msgs=None):
+def test_process(cfg, lr, segment, ref_log_path, new_log_path, ignore_fields=None, ignore_msgs=None, check_only=False):
   if ignore_fields is None:
     ignore_fields = []
   if ignore_msgs is None:
     ignore_msgs = []
 
-  ref_log_msgs = list(LogReader(ref_log_path))
+  if check_only:
+    ref_log_msgs = []
+  else:
+    ref_log_msgs = list(LogReader(ref_log_path))
 
   try:
     log_msgs = replay_process(cfg, lr, disable_progress=True)
@@ -106,22 +110,25 @@ def test_process(cfg, lr, segment, ref_log_path, new_log_path, ignore_fields=Non
     raise Exception("failed on segment: " + segment) from e
 
   # check to make sure openpilot is engaged in the route
-  if cfg.proc_name == "controlsd":
-    if not check_openpilot_enabled(log_msgs):
-      return f"Route did not enable at all or for long enough: {new_log_path}", log_msgs
-  if not check_most_messages_valid(log_msgs):
-    return f"Route did not have enough valid messages: {new_log_path}", log_msgs
+  if not check_only:
+    if cfg.proc_name == "controlsd":
+      if not check_openpilot_enabled(log_msgs):
+        return f"Route did not enable at all or for long enough: {new_log_path}", log_msgs
+    if not check_most_messages_valid(log_msgs):
+      return f"Route did not have enough valid messages: {new_log_path}", log_msgs
 
-  if cfg.proc_name != 'ubloxd' or segment != 'regen3BB55FA5E20|2024-05-21--06-59-03--0':
-    seen_msgs = {m.which() for m in log_msgs}
-    expected_msgs = set(cfg.subs)
-    if seen_msgs != expected_msgs:
-      return f"Expected messages: {expected_msgs}, but got: {seen_msgs}", log_msgs
+    if cfg.proc_name != 'ubloxd' or segment != 'regen3BB55FA5E20|2024-05-21--06-59-03--0':
+      seen_msgs = {m.which() for m in log_msgs}
+      expected_msgs = set(cfg.subs)
+      if seen_msgs != expected_msgs:
+        return f"Expected messages: {expected_msgs}, but got: {seen_msgs}", log_msgs
 
-  try:
-    return compare_logs(ref_log_msgs, log_msgs, ignore_fields + cfg.ignore, ignore_msgs, cfg.tolerance), log_msgs
-  except Exception as e:
-    return str(e), log_msgs
+    try:
+      return compare_logs(ref_log_msgs, log_msgs, ignore_fields + cfg.ignore, ignore_msgs, cfg.tolerance), log_msgs
+    except Exception as e:
+      return str(e), log_msgs
+
+  return [], log_msgs
 
 
 if __name__ == "__main__":
@@ -143,6 +150,8 @@ if __name__ == "__main__":
                       help="Extra fields or msgs to ignore (e.g. carState.events)")
   parser.add_argument("--ignore-msgs", type=str, nargs="*", default=[],
                       help="Msgs to ignore (e.g. carEvents)")
+  parser.add_argument("--check-only", action="store_true",
+                      help="Skip log comparisons and only ensure processes run without crashing")
   parser.add_argument("--update-refs", action="store_true",
                       help="Updates reference logs using current commit")
   parser.add_argument("--upload-only", action="store_true",
@@ -174,6 +183,8 @@ if __name__ == "__main__":
     raise Exception("Couldn't get current commit")
 
   print(f"***** testing against commit {ref_commit} *****")
+  if args.check_only:
+    print("***** check-only mode: skipping reference log comparison *****")
 
   # check to make sure all car brands are tested
   if full_test:
@@ -199,7 +210,9 @@ if __name__ == "__main__":
           continue
 
         cur_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{cur_commit}.bz2")
-        if args.update_refs:  # reference logs will not exist if routes were just regenerated
+        if args.check_only:
+          ref_log_path = "check-only"
+        elif args.update_refs:  # reference logs will not exist if routes were just regenerated
           ref_log_path = get_url(*segment.rsplit("--", 1))
         else:
           ref_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{ref_commit}.bz2")

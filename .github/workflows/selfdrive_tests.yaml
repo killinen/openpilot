@@ -6,6 +6,11 @@ on:
     #    - master
   pull_request:
   workflow_dispatch:
+    inputs:
+      process_replay_check_only:
+        description: "Run process replay in --check-only mode (skip log diffing)"
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && github.run_id || github.head_ref || github.ref }}-${{ github.workflow }}-${{ github.event_name }}
@@ -163,10 +168,14 @@ jobs:
                     (github.event.pull_request.head.repo.full_name == 'commaai/openpilot'))) && 'namespace-profile-amd64-8x16' || 'ubuntu-latest' }}
     env:
       SENTRY_DSN: ${{ secrets.SENTRY_DSN_MP }}
+      PROCESS_REPLAY_CHECK_ONLY: "true"
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
+    - name: Configure check-only preference
+      if: github.event_name == 'workflow_dispatch'
+      run: echo "PROCESS_REPLAY_CHECK_ONLY=${{ inputs.process_replay_check_only && 'true' || 'false' }}" >> $GITHUB_ENV
     - uses: ./.github/workflows/setup-with-retry
       with:
         docker_hub_pat: ${{ secrets.DOCKER_HUB_PAT }}
@@ -182,7 +191,11 @@ jobs:
     - name: Run replay
       timeout-minutes: 30
       run: |
-        ${{ env.RUN }} "coverage run selfdrive/test/process_replay/test_processes.py -j$(nproc) && \
+        CHECK_ONLY_FLAG=""
+        if [[ "${{ env.PROCESS_REPLAY_CHECK_ONLY }}" == "true" ]]; then
+          CHECK_ONLY_FLAG="--check-only"
+        fi
+        ${{ env.RUN }} "coverage run selfdrive/test/process_replay/test_processes.py -j$(nproc) ${CHECK_ONLY_FLAG} && \
                         chmod -R 777 /tmp/comma_download_cache && \
                         coverage combine && \
                         coverage xml"

@@ -32,9 +32,22 @@ optional arguments:
   --blacklist-cars BLACKLIST_CARS       Blacklist given cars from the test (e.g. HONDA)
   --ignore-fields IGNORE_FIELDS         Extra fields or msgs to ignore (e.g. carState.events)
   --ignore-msgs IGNORE_MSGS             Msgs to ignore (e.g. onroadEvents)
+  --check-only                          Skip log comparisons and only ensure processes run
   --update-refs                         Updates reference logs using current commit
   --upload-only                         Skips testing processes and uploads logs from previous test run
 ```
+
+### Check-only mode
+
+Forks that have intentionally changed process outputs can still use process replay to ensure every daemon runs start-to-finish by supplying `--check-only`. This mode skips reference log downloads and comparisons, so the test passes as long as each process successfully replays the canned segments without crashing. Example:
+
+```
+./test_processes.py --check-only
+```
+
+This is handy before you're ready to regenerate or upload new reference logs.
+
+> GitHub Actions note: the `selfdrive` workflow now runs process replay with `--check-only` by default on push/PR builds. To run the stricter diffing version, trigger the workflow manually (`workflow_dispatch`) and uncheck the *process_replay_check_only* input.
 
 ## Forks
 
