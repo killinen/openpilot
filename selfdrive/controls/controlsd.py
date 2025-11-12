@@ -860,13 +860,18 @@ class Controls:
     steer_angle_without_offset = math.radians(CS.steeringAngleDeg - lp.angleOffsetDeg)
     curvature = -self.VM.calc_curvature(steer_angle_without_offset, CS.vEgo, lp.roll)
 
+    def _alert_text(val: str | None) -> str:
+      if val is None:
+        return ""
+      return val if isinstance(val, str) else str(val)
+
     # controlsState
     dat = messaging.new_message('controlsState')
     dat.valid = CS.canValid
     controlsState = dat.controlsState
     if current_alert:
-      controlsState.alertText1 = current_alert.alert_text_1
-      controlsState.alertText2 = current_alert.alert_text_2
+      controlsState.alertText1 = _alert_text(current_alert.alert_text_1)
+      controlsState.alertText2 = _alert_text(current_alert.alert_text_2)
       controlsState.alertSize = current_alert.alert_size
       controlsState.alertStatus = current_alert.alert_status
       controlsState.alertBlinkingRate = current_alert.alert_rate
@@ -936,8 +941,8 @@ class Controls:
     current_frogpilot_alert = self.frogpilot_AM.process_alerts(self.sm.frame, clear_event_types)
 
     if current_frogpilot_alert:
-      frogpilotControlsState.alertText1 = current_frogpilot_alert.alert_text_1
-      frogpilotControlsState.alertText2 = current_frogpilot_alert.alert_text_2
+      frogpilotControlsState.alertText1 = _alert_text(current_frogpilot_alert.alert_text_1)
+      frogpilotControlsState.alertText2 = _alert_text(current_frogpilot_alert.alert_text_2)
       frogpilotControlsState.alertSize = current_frogpilot_alert.alert_size
       frogpilotControlsState.alertStatus = current_frogpilot_alert.alert_status
       frogpilotControlsState.alertBlinkingRate = current_frogpilot_alert.alert_rate

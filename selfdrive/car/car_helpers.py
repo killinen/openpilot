@@ -1,4 +1,5 @@
 import os
+import types
 import time
 from collections.abc import Callable
 
@@ -189,7 +190,26 @@ def get_car_interface(CP, FPCP):
   return CarInterface(CP, FPCP, CarController, CarState)
 
 
+def _ensure_frogpilot_toggles(frogpilot_toggles):
+  if frogpilot_toggles is not None:
+    return frogpilot_toggles
+
+  try:
+    from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles
+    return get_frogpilot_toggles()
+  except Exception:
+    cloudlog.event("frogpilot_toggles_defaulted", error=True)
+    return types.SimpleNamespace(force_fingerprint=False, car_model=None, block_user=False)
+
+
 def get_car(logcan, sendcan, experimental_long_allowed, params, num_pandas=1, frogpilot_toggles=None):
+  if params is None or not all(hasattr(params, attr) for attr in ("put", "put_nonblocking", "get")):
+    if frogpilot_toggles is None and isinstance(params, types.SimpleNamespace):
+      frogpilot_toggles = params
+    params = Params()
+
+  frogpilot_toggles = _ensure_frogpilot_toggles(frogpilot_toggles)
+
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(logcan, sendcan, num_pandas)
 
   if candidate is None or frogpilot_toggles.force_fingerprint:

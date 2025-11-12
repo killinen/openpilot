@@ -14,7 +14,6 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 from openpilot.selfdrive.car import gen_empty_fingerprint
-from openpilot.selfdrive.car.car_helpers import interfaces
 from openpilot.selfdrive.car.gm.values import GMFlags
 from openpilot.selfdrive.car.interfaces import TORQUE_SUBSTITUTE_PATH, CarInterfaceBase
 from openpilot.selfdrive.car.mock.interface import CarInterface
@@ -33,6 +32,51 @@ params = Params()
 params_cache = Params("/cache/params")
 params_default = Params("/dev/shm/params_default")
 params_memory = Params("/dev/shm/params")
+
+_TOGGLE_SCHEMA_VERSION = 1
+_DEFAULT_TOGGLE_VALUES = {
+  "schema_version": _TOGGLE_SCHEMA_VERSION,
+  "block_user": False,
+  "car_make": "",
+  "car_model": None,
+  "disable_openpilot_long": False,
+  "force_fingerprint": False,
+  "force_torque_controller": False,
+  "nnff": False,
+  "nnff_lite": False,
+  "taco_tune_hacks": False,
+  "subaru_sng": False,
+  "always_on_lateral": False,
+  "always_on_lateral_set": False,
+  "always_on_lateral_lkas": False,
+  "always_on_lateral_main": False,
+  "always_on_lateral_pause_speed": 0,
+  "use_lkas_for_aol": False,
+  "frogs_go_moo": False,
+  "conditional_experimental_mode": False,
+  "experimental_mode_via_distance": False,
+  "experimental_mode_via_distance_long": False,
+  "experimental_mode_via_distance_very_long": False,
+  "experimental_mode_via_lkas": False,
+  "force_coast_via_distance": False,
+  "force_coast_via_distance_long": False,
+  "force_coast_via_distance_very_long": False,
+  "force_coast_via_lkas": False,
+  "pause_lateral_via_distance": False,
+  "pause_lateral_via_distance_long": False,
+  "pause_lateral_via_distance_very_long": False,
+  "pause_lateral_via_lkas": False,
+  "pause_longitudinal_via_distance": False,
+  "pause_longitudinal_via_distance_long": False,
+  "pause_longitudinal_via_distance_very_long": False,
+  "pause_longitudinal_via_lkas": False,
+  "traffic_mode_via_distance": False,
+  "traffic_mode_via_distance_long": False,
+  "traffic_mode_via_distance_very_long": False,
+  "traffic_mode_via_lkas": False,
+  "force_offroad": False,
+  "force_onroad": False,
+}
 
 GearShifter = car.CarState.GearShifter
 SafetyModel = car.CarParams.SafetyModel
@@ -103,6 +147,19 @@ TINYGRAD_FILES = [
   ("driving_vision_tinygrad.pkl", "vision model"),
 ]
 
+_interfaces_cache = None
+
+
+def _get_interfaces():
+  global _interfaces_cache
+
+  if _interfaces_cache is None:
+    # Lazily import to avoid circular dependency with car_helpers importing sentry.
+    from openpilot.selfdrive.car.car_helpers import interfaces as car_interfaces
+    _interfaces_cache = car_interfaces
+
+  return _interfaces_cache
+
 @cache
 def get_nnff_model_files():
   return [file.stem for file in NNFF_MODELS_PATH.iterdir() if file.is_file()]
@@ -130,8 +187,38 @@ def nnff_supported(car_fingerprint):
 
   return False
 
-def get_frogpilot_toggles():
-  return SimpleNamespace(**json.loads(params_memory.get("FrogPilotToggles") or "{}"))
+def _load_toggle_data():
+  raw = params_memory.get("FrogPilotToggles")
+  if not raw:
+    return {}
+
+  try:
+    data = json.loads(raw)
+  except (TypeError, json.JSONDecodeError):
+    return {}
+
+  return data if isinstance(data, dict) else {}
+
+
+def get_frogpilot_toggles(strict: bool=False):
+  toggle_data = _load_toggle_data()
+
+  schema_valid = toggle_data.get("schema_version") == _TOGGLE_SCHEMA_VERSION
+
+  if not schema_valid and not strict:
+    frogpilot_variables_cls = globals().get("FrogPilotVariables")
+    if frogpilot_variables_cls is not None:
+      frogpilot_variables_cls().update(holiday_theme="stock", started=False)
+      toggle_data = _load_toggle_data()
+      schema_valid = toggle_data.get("schema_version") == _TOGGLE_SCHEMA_VERSION
+
+  if not isinstance(toggle_data, dict):
+    toggle_data = {}
+
+  for key, value in _DEFAULT_TOGGLE_VALUES.items():
+    toggle_data.setdefault(key, value)
+
+  return SimpleNamespace(**toggle_data)
 
 def update_frogpilot_toggles():
   params_memory.put_bool("FrogPilotTogglesUpdated", True)
@@ -484,7 +571,7 @@ misc_tuning_levels: list[tuple[str, str | bytes, int, str]] = [
 
 class FrogPilotVariables:
   def __init__(self):
-    self.frogpilot_toggles = get_frogpilot_toggles()
+    self.frogpilot_toggles = get_frogpilot_toggles(strict=True)
     self.tuning_levels = {key: lvl for key, _, lvl, _ in frogpilot_default_params + misc_tuning_levels}
 
     short_branch = get_build_metadata().channel
@@ -560,7 +647,7 @@ class FrogPilotVariables:
       with car.CarParams.from_bytes(msg_bytes) as cp_reader:
         CP = cp_reader.as_builder()
     else:
-      CarInterface, _, _ = interfaces[MOCK.MOCK]
+      CarInterface, _, _ = _get_interfaces()[MOCK.MOCK]
       CP = CarInterface.get_params(MOCK.MOCK, gen_empty_fingerprint(), [], False, toggle, False)
       CarInterface.configure_torque_tune(MOCK.MOCK, CP.lateralTuning)
 
@@ -577,7 +664,7 @@ class FrogPilotVariables:
       with custom.FrogPilotCarParams.from_bytes(fpmsg_bytes) as fpcp_reader:
         FPCP = fpcp_reader.as_builder()
     else:
-      CarInterface, _, _ = interfaces[MOCK.MOCK]
+      CarInterface, _, _ = _get_interfaces()[MOCK.MOCK]
       FPCP = CarInterface.get_frogpilot_params(MOCK.MOCK, gen_empty_fingerprint(), [], CP, toggle)
 
     toggle.always_on_lateral_set = bool(CP.alternativeExperience & ALTERNATIVE_EXPERIENCE.ALWAYS_ON_LATERAL)
@@ -1019,6 +1106,8 @@ class FrogPilotVariables:
     toggle.unlock_doors = toyota_doors and (params.get_bool("UnlockDoors") if tuning_level >= level["UnlockDoors"] else default.get_bool("UnlockDoors"))
 
     toggle.volt_sng = toggle.car_model == "CHEVROLET_VOLT" and (params.get_bool("VoltSNG") if tuning_level >= level["VoltSNG"] else default.get_bool("VoltSNG"))
+
+    toggle.schema_version = _TOGGLE_SCHEMA_VERSION
 
     params_memory.put("FrogPilotToggles", json.dumps(toggle.__dict__))
     params_memory.remove("FrogPilotTogglesUpdated")

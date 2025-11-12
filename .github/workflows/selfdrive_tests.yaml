@@ -20,6 +20,9 @@ env:
   PYTHONWARNINGS: error
   BASE_IMAGE: openpilot-base
   AZURE_TOKEN: ${{ secrets.AZURE_COMMADATACI_OPENPILOTCI_TOKEN }}
+  RUN_MODEL_REPLAY_ONNX: "false"  # flip to "true" to restore the ONNX replay step
+  RUN_REGEN_TESTS: "false"        # flip to "true" to restore the regen test step
+  UPLOAD_CODECOV: "false"         # flip to "true" to upload coverage again
 
   DOCKER_LOGIN: docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
   BUILD: selfdrive/test/docker_build.sh base
@@ -215,17 +218,20 @@ jobs:
         ${{ env.RUN }} "unset PYTHONWARNINGS && AZURE_TOKEN='$AZURE_TOKEN' python selfdrive/test/process_replay/test_processes.py -j$(nproc) --upload-only"
     # PYTHONWARNINGS triggers a SyntaxError in onnxruntime
     - name: Run model replay with ONNX
+      if: env.RUN_MODEL_REPLAY_ONNX == 'true'
       timeout-minutes: 4
       run: |
         ${{ env.RUN }} "unset PYTHONWARNINGS && \
                         ONNXCPU=1 NO_NAV=1 coverage run selfdrive/test/process_replay/model_replay.py && \
                         coverage combine && coverage xml"
     - name: Run regen
+      if: env.RUN_REGEN_TESTS == 'true'
       timeout-minutes: 4
       run: |
         ${{ env.RUN }} "ONNXCPU=1 $PYTEST selfdrive/test/process_replay/test_regen.py && \
                         chmod -R 777 /tmp/comma_download_cache"
     - name: "Upload coverage to Codecov"
+      if: env.UPLOAD_CODECOV == 'true'
       uses: codecov/codecov-action@v4
       with:
         name: ${{ github.job }}

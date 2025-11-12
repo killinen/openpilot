@@ -357,8 +357,8 @@ def forcing_stop_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMas
 def holiday_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, frogpilot_toggles: SimpleNamespace) -> Alert:
   holiday_messages = {
     "new_years": "Happy New Year! 🎉",
-    "valentines": "Happy Valentine's Day! ❤️",
-    "st_patricks": "Happy St. Patrick's Day! 🍀",
+    "valentines_day": "Happy Valentine's Day! ❤️",
+    "st_patricks_day": "Happy St. Patrick's Day! 🍀",
     "world_frog_day": "Happy World Frog Day! 🐸",
     "april_fools": "Happy April Fool's Day! 🤡",
     "easter_week": "Happy Easter! 🐰",
@@ -370,9 +370,10 @@ def holiday_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, 
     "thanksgiving_week": "Happy Thanksgiving! 🦃",
     "christmas_week": "Merry Christmas! 🎄",
   }
+  message = holiday_messages.get(frogpilot_toggles.current_holiday_theme, "Happy Holidays! 🐸")
 
   return Alert(
-    holiday_messages.get(frogpilot_toggles.current_holiday_theme),
+    message,
     "",
     AlertStatus.normal, AlertSize.small,
     Priority.LOWEST, VisualAlert.none, FrogPilotAudibleAlert.startup, 5.)

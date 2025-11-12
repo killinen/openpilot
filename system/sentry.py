@@ -68,11 +68,16 @@ def save_exception(exc_text: str, crash_log) -> None:
   ]
 
   for file_path in files:
-    if file_path.name == "error.txt" and crash_log:
-      lines = exc_text.splitlines()[-10:]
-      file_path.write_text("\n".join(lines))
-    else:
-      file_path.write_text(exc_text)
+    try:
+      file_path.parent.mkdir(parents=True, exist_ok=True)
+
+      if file_path.name == "error.txt" and crash_log:
+        lines = exc_text.splitlines()[-10:]
+        file_path.write_text("\n".join(lines))
+      else:
+        file_path.write_text(exc_text)
+    except OSError as e:
+      cloudlog.error(f"Unable to save exception log to {file_path}: {e}")
 
 
 def init(project: SentryProject) -> bool:

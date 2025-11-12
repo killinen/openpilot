@@ -22,6 +22,7 @@ from openpilot.common.prefix import OpenpilotPrefix
 from openpilot.common.timeout import Timeout
 from openpilot.common.realtime import DT_CTRL
 from panda.python import ALTERNATIVE_EXPERIENCE
+from openpilot.selfdrive.car import gen_empty_fingerprint
 from openpilot.selfdrive.car.car_helpers import get_car, interfaces
 from openpilot.system.manager.process_config import managed_processes
 from openpilot.selfdrive.test.process_replay.vision_meta import meta_from_camera_state, available_streams
@@ -342,9 +343,12 @@ def card_fingerprint_callback(rc, pm, msgs, fingerprint):
 
 def get_car_params_callback(rc, pm, msgs, fingerprint):
   params = Params()
+  frogpilot_toggles = get_frogpilot_toggles()
+
   if fingerprint:
     CarInterface, _, _ = interfaces[fingerprint]
     CP = CarInterface.get_non_essential_params(fingerprint)
+    FPCP = CarInterface.get_frogpilot_params(fingerprint, gen_empty_fingerprint(), [], CP, frogpilot_toggles)
   else:
     can = DummySocket()
     sendcan = DummySocket()
@@ -357,12 +361,15 @@ def get_car_params_callback(rc, pm, msgs, fingerprint):
 
     for m in canmsgs[:300]:
       can.send(m.as_builder().to_bytes())
-    _, CP = get_car(can, sendcan, Params().get_bool("ExperimentalLongitudinalEnabled"), get_frogpilot_toggles())
+    _, CP, FPCP = get_car(can, sendcan, params.get_bool("ExperimentalLongitudinalEnabled"), params, frogpilot_toggles=frogpilot_toggles)
 
     if not params.get_bool("DisengageOnAccelerator"):
       CP.alternativeExperience |= ALTERNATIVE_EXPERIENCE.DISABLE_DISENGAGE_ON_GAS
 
   params.put("CarParams", CP.to_bytes())
+  fpcp_bytes = FPCP.to_bytes()
+  params.put("FrogPilotCarParams", fpcp_bytes)
+  params.put_nonblocking("FrogPilotCarParamsPersistent", fpcp_bytes)
   return CP
 
 
