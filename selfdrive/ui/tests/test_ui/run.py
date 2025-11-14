@@ -9,7 +9,6 @@ import os
 import time
 import subprocess
 import atexit
-import pywinctl
 
 from cereal import messaging, car, log
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -214,6 +213,8 @@ def start_virtual_display():
 
 
 start_virtual_display()
+
+import pywinctl
 
 
 class TestUI:
