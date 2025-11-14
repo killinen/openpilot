@@ -6,10 +6,10 @@ import jinja2
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import pywinctl
 import time
 import subprocess
 import atexit
+import pywinctl
 
 from cereal import messaging, car, log
 from msgq.visionipc import VisionIpcServer, VisionStreamType
