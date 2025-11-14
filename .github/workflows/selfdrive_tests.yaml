@@ -341,7 +341,9 @@ jobs:
         run: ${{ env.RUN }} "scons -j$(nproc)"
       - name: Create Test Report
         run: |
-            ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
+            ${{ env.RUN }} "apt-get update &&
+                            DEBIAN_FRONTEND=noninteractive apt-get install -y openbox >/tmp/openbox_install.log &&
+                            PYTHONWARNINGS=ignore &&
                             source selfdrive/test/setup_xvfb.sh &&
                             echo \"Using DISPLAY=\$DISPLAY\" &&
                             export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' &&

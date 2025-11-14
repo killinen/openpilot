@@ -28,3 +28,10 @@ mkdir -p "$XDG_RUNTIME_DIR"
 chmod 700 "$XDG_RUNTIME_DIR"
 export XDG_SESSION_TYPE="x11"
 xset -q
+
+if command -v openbox >/dev/null 2>&1; then
+  echo "Starting openbox window manager"
+  openbox >/tmp/openbox.log 2>&1 &
+else
+  echo "openbox not found; continuing without a window manager"
+fi
