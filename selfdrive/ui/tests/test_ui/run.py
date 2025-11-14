@@ -172,6 +172,7 @@ class TestUI:
     os.environ.setdefault("QT_QUICK_BACKEND", "software")
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
     os.environ.setdefault("DISPLAY", ":99")
+    os.environ.setdefault("QT_DEBUG_PLUGINS", "1")
     sys.modules["mouseinfo"] = False
 
   def setup(self):
@@ -179,12 +180,28 @@ class TestUI:
     self.sm = SubMaster(["uiDebug"])
     self.pm = PubMaster(["deviceState", "pandaStates", "controlsState", 'roadCameraState', 'wideRoadCameraState', 'liveLocationKalman'])
     print(f"[debug] DISPLAY={os.environ.get('DISPLAY')} QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}")
+    try:
+      import subprocess
+      subprocess.run(["pgrep", "-a", "Xvfb"], check=False)
+    except Exception as e:
+      print(f"[debug] pgrep Xvfb failed: {e}")
     while not self.sm.valid["uiDebug"]:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
     ui_proc = managed_processes.get("ui")
     if ui_proc and ui_proc.proc is not None:
       print(f"[debug] ui process pid={ui_proc.proc.pid} exitcode={ui_proc.proc.exitcode}")
+      try:
+        import subprocess
+        subprocess.run(["ps", "-p", str(ui_proc.proc.pid), "-o", "pid,cmd"], check=False)
+        with open(f"/proc/{ui_proc.proc.pid}/environ", "rb") as f:
+          env_bytes = f.read().split(b'\x00')
+          env_map = {kv.split(b"=", 1)[0]: kv.split(b"=", 1)[1] for kv in env_bytes if b"=" in kv}
+          for key in [b"DISPLAY", b"QT_QPA_PLATFORM"]:
+            if key in env_map:
+              print(f"[debug] ui env {key.decode()}={env_map[key].decode(errors='ignore')}")
+      except Exception as e:
+        print(f"[debug] ps failed: {e}")
     self.ui = None
     find_start = time.monotonic()
     deadline = find_start + 10.0

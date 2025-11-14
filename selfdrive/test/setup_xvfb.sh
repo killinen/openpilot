@@ -5,9 +5,12 @@
 DISP_ID=99
 export DISPLAY=:$DISP_ID
 
-if command -v Xvfb >/dev/null 2>&1; then
-  Xvfb $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
+XVFB_BIN=$(command -v Xvfb || command -v /usr/bin/Xvfb)
+if [ -n "$XVFB_BIN" ]; then
+  echo "Starting Xvfb as $(whoami) using $XVFB_BIN"
+  "$XVFB_BIN" $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
 else
+  echo "Xvfb binary not found, falling back to sudo"
   sudo Xvfb $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
 fi
 
