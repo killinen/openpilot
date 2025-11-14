@@ -127,6 +127,7 @@ class TestUI:
     os.environ.setdefault("QT_XCB_FORCE_SOFTWARE_OPENGL", "1")
     os.environ.setdefault("QSG_RHI_BACKEND", "software")
     os.environ.setdefault("QT_QUICK_BACKEND", "software")
+    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
     sys.modules["mouseinfo"] = False
 
   def setup(self):
