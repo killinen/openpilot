@@ -344,7 +344,6 @@ jobs:
             ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
                             source selfdrive/test/setup_xvfb.sh &&
                             echo \"Using DISPLAY=\$DISPLAY\" &&
-                            xwininfo -root &&
                             export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' &&
                             python selfdrive/ui/tests/test_ui/run.py"
       - name: Upload Test Report
