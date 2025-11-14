@@ -136,20 +136,45 @@ class TestUI:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
     self.ui = None
-    deadline = time.monotonic() + 10.0
+    find_start = time.monotonic()
+    deadline = find_start + 10.0
     while time.monotonic() < deadline:
       try:
         wins = pywinctl.getWindowsWithTitle("ui")
         if wins:
           self.ui = wins[0]
+          print(f"pywinctl: found 'ui' window by title in {time.monotonic() - find_start:.2f}s "
+                f"at ({self.ui.left}, {self.ui.top}) size {self.ui.width}x{self.ui.height}")
           break
       except Exception as e:
         print(f"pywinctl error while searching for ui window: {e}")
       time.sleep(0.2)
 
     if self.ui is None:
+      try:
+        wins = pywinctl.getAllWindows()
+        print(f"pywinctl fallback scan: found {len(wins)} windows")
+        candidates = [w for w in wins if w.width >= 1000 and w.height >= 500]
+        candidates.sort(key=lambda w: w.width * w.height, reverse=True)
+        if candidates:
+          self.ui = candidates[0]
+          print(f"pywinctl: selected largest window "
+                f"('{self.ui.title}') at ({self.ui.left}, {self.ui.top}) size {self.ui.width}x{self.ui.height}")
+      except Exception as e:
+        print(f"pywinctl error while scanning all windows: {e}")
+
+    if self.ui is None:
+      try:
+        titles = pywinctl.getAllTitles()
+        print(f"pywinctl could not find the ui window. Available titles: {titles}")
+      except Exception as e:
+        print(f"pywinctl error fetching titles: {e}")
+
       print("failed to find ui window, assuming that it's in the top left (for Xvfb)")
       self.ui = namedtuple("bb", ["left", "top", "width", "height"])(0, 0, 2160, 1080)
+    else:
+      print(f"Using window '{getattr(self.ui, 'title', 'unknown')}' at "
+            f"({self.ui.left}, {self.ui.top}) size {self.ui.width}x{self.ui.height}")
 
   def screenshot(self):
     import pyautogui
@@ -157,6 +182,7 @@ class TestUI:
     assert im.width == 2160
     assert im.height == 1080
     img = np.array(im)
+    print(f"screenshot stats: mean={img.mean():.2f} min={img.min()} max={img.max()} std={img.std():.2f}")
     im.close()
     return img
 

@@ -5,7 +5,7 @@
 DISP_ID=99
 export DISPLAY=:$DISP_ID
 
-sudo Xvfb $DISPLAY -screen 0 2160x1080x24 2>/dev/null &
+sudo Xvfb $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
 
 # check for x11 socket for the specified display ID
 while [ ! -S /tmp/.X11-unix/X$DISP_ID ]
@@ -14,6 +14,7 @@ do
   sleep 1
 done
 
-touch ~/.Xauthority
+: "${XAUTHORITY:=$HOME/.Xauthority}"
+touch "$XAUTHORITY"
 export XDG_SESSION_TYPE="x11"
 xset -q
