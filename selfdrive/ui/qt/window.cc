@@ -5,6 +5,7 @@
 #include "system/hardware/hw.h"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
+  setWindowTitle("ui");
   main_layout = new QStackedLayout(this);
   main_layout->setMargin(0);
 
