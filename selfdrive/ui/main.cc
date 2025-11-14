@@ -1,6 +1,7 @@
 #include <sys/resource.h>
 
 #include <QApplication>
+#include <QDebug>
 #include <QTranslator>
 
 #include "system/hardware/hw.h"
@@ -22,6 +23,8 @@ int main(int argc, char *argv[]) {
 
   QApplication a(argc, argv);
   a.installTranslator(&translator);
+  qInfo() << "[ui debug] DISPLAY=" << qgetenv("DISPLAY");
+  qInfo() << "[ui debug] QT_QPA_PLATFORM=" << qgetenv("QT_QPA_PLATFORM");
 
   MainWindow w;
   setMainWindow(&w);

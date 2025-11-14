@@ -128,14 +128,20 @@ class TestUI:
     os.environ.setdefault("QSG_RHI_BACKEND", "software")
     os.environ.setdefault("QT_QUICK_BACKEND", "software")
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+    os.environ.setdefault("DISPLAY", ":99")
     sys.modules["mouseinfo"] = False
 
   def setup(self):
+    from openpilot.system.manager.process_config import managed_processes
     self.sm = SubMaster(["uiDebug"])
     self.pm = PubMaster(["deviceState", "pandaStates", "controlsState", 'roadCameraState', 'wideRoadCameraState', 'liveLocationKalman'])
+    print(f"[debug] DISPLAY={os.environ.get('DISPLAY')} QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}")
     while not self.sm.valid["uiDebug"]:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
+    ui_proc = managed_processes.get("ui")
+    if ui_proc and ui_proc.proc is not None:
+      print(f"[debug] ui process pid={ui_proc.proc.pid} exitcode={ui_proc.proc.exitcode}")
     self.ui = None
     find_start = time.monotonic()
     deadline = find_start + 10.0
