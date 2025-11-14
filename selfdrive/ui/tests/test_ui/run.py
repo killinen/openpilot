@@ -182,6 +182,7 @@ def start_virtual_display():
 
   env_display = f":{DISPLAY_NUM}"
   auth_path = pathlib.Path(f"/tmp/.Xauthority-{DISPLAY_NUM}")
+  auth_path.touch(mode=0o600, exist_ok=True)
   cookie = secrets.token_hex(16)
   subprocess.run([xauth_bin, "-f", str(auth_path), "add", env_display, ".", cookie], check=True)
   _xvfb_proc = subprocess.Popen(
