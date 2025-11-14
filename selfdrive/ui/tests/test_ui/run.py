@@ -135,11 +135,21 @@ class TestUI:
     while not self.sm.valid["uiDebug"]:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
-    try:
-      self.ui = pywinctl.getWindowsWithTitle("ui")[0]
-    except Exception as e:
-      print(f"failed to find ui window, assuming that it's in the top left (for Xvfb) {e}")
-      self.ui = namedtuple("bb", ["left", "top", "width", "height"])(0,0,2160,1080)
+    self.ui = None
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline:
+      try:
+        wins = pywinctl.getWindowsWithTitle("ui")
+        if wins:
+          self.ui = wins[0]
+          break
+      except Exception as e:
+        print(f"pywinctl error while searching for ui window: {e}")
+      time.sleep(0.2)
+
+    if self.ui is None:
+      print("failed to find ui window, assuming that it's in the top left (for Xvfb)")
+      self.ui = namedtuple("bb", ["left", "top", "width", "height"])(0, 0, 2160, 1080)
 
   def screenshot(self):
     import pyautogui
