@@ -192,7 +192,9 @@ def start_virtual_display():
     raise RuntimeError("Xvfb failed to start")
 
   os.environ["DISPLAY"] = env_display
-  os.environ["XAUTHORITY"] = ""
+  auth_path = pathlib.Path("/tmp/.Xauthority")
+  auth_path.touch(mode=0o600, exist_ok=True)
+  os.environ["XAUTHORITY"] = str(auth_path)
   os.environ["XDG_RUNTIME_DIR"] = f"/tmp/runtime-{os.getuid()}"
   pathlib.Path(os.environ["XDG_RUNTIME_DIR"]).mkdir(mode=0o700, exist_ok=True)
 
