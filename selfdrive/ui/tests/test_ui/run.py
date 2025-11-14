@@ -105,6 +105,49 @@ def setup_onroad_sidebar(click, pm: PubMaster):
   setup_onroad_map(click, pm)
   click(500, 500)
 
+WindowInfo = namedtuple("WindowInfo", ["title", "left", "top", "width", "height"])
+
+
+def scan_x11_windows(min_width=1, min_height=1):
+  try:
+    from Xlib import display as xdisplay
+  except Exception as e:
+    print(f"x11 scan unavailable: {e}")
+    return []
+
+  try:
+    disp = xdisplay.Display()
+    root = disp.screen().root
+  except Exception as e:
+    print(f"x11 scan failed to connect to display: {e}")
+    return []
+
+  windows: list[WindowInfo] = []
+  stack = [root]
+  seen = set()
+  while stack:
+    win = stack.pop()
+    if win.id in seen:
+      continue
+    seen.add(win.id)
+    try:
+      children = win.query_tree().children
+      stack.extend(children)
+    except Exception:
+      continue
+    if win == root:
+      continue
+    try:
+      geom = win.get_geometry()
+      _, left, top = win.translate_coords(root, 0, 0)
+      name = win.get_wm_name()
+    except Exception:
+      continue
+    if geom.width >= min_width and geom.height >= min_height:
+      windows.append(WindowInfo(name or "", left, top, geom.width, geom.height))
+  return windows
+
+
 CASES = {
   "homescreen": setup_homescreen,
   "settings_device": setup_settings_device,
@@ -177,8 +220,18 @@ class TestUI:
       except Exception as e:
         print(f"pywinctl error fetching titles: {e}")
 
+      x11_windows = scan_x11_windows(min_width=100, min_height=100)
+      print(f"x11 scan: found {len(x11_windows)} candidate windows")
+      for win in x11_windows:
+        print(f"  - '{win.title}' at ({win.left}, {win.top}) size {win.width}x{win.height}")
+      if x11_windows:
+        best = max(x11_windows, key=lambda w: w.width * w.height)
+        print(f"x11 scan: using '{best.title}' at ({best.left}, {best.top}) size {best.width}x{best.height}")
+        self.ui = best
+
+    if self.ui is None:
       print("failed to find ui window, assuming that it's in the top left (for Xvfb)")
-      self.ui = namedtuple("bb", ["left", "top", "width", "height"])(0, 0, 2160, 1080)
+      self.ui = WindowInfo("fallback", 0, 0, 2160, 1080)
     else:
       print(f"Using window '{getattr(self.ui, 'title', 'unknown')}' at "
             f"({self.ui.left}, {self.ui.top}) size {self.ui.width}x{self.ui.height}")
