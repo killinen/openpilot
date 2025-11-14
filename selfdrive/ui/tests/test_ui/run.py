@@ -8,6 +8,8 @@ import numpy as np
 import os
 import pywinctl
 import time
+import subprocess
+import atexit
 
 from cereal import messaging, car, log
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -161,19 +163,68 @@ TEST_DIR = pathlib.Path(__file__).parent
 
 TEST_OUTPUT_DIR = TEST_DIR / "report"
 SCREENSHOTS_DIR = TEST_OUTPUT_DIR / "screenshots"
+DISPLAY_NUM = 99
+_xvfb_proc = None
+_openbox_proc = None
+
+
+def start_virtual_display():
+  global _xvfb_proc, _openbox_proc
+  if _xvfb_proc is not None:
+    return
+
+  xvfb_bin = shutil.which("Xvfb")
+  if xvfb_bin is None:
+    raise RuntimeError("Xvfb not found in PATH")
+
+  env_display = f":{DISPLAY_NUM}"
+  _xvfb_proc = subprocess.Popen(
+    [xvfb_bin, env_display, "-screen", "0", "2160x1080x24", "-ac", "-nolisten", "tcp"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+  )
+
+  sock_path = pathlib.Path(f"/tmp/.X11-unix/X{DISPLAY_NUM}")
+  for _ in range(100):
+    if sock_path.exists():
+      break
+    time.sleep(0.1)
+  else:
+    raise RuntimeError("Xvfb failed to start")
+
+  os.environ["DISPLAY"] = env_display
+  os.environ["XAUTHORITY"] = ""
+  os.environ["XDG_RUNTIME_DIR"] = f"/tmp/runtime-{os.getuid()}"
+  pathlib.Path(os.environ["XDG_RUNTIME_DIR"]).mkdir(mode=0o700, exist_ok=True)
+
+  openbox_bin = shutil.which("openbox")
+  if openbox_bin is not None:
+    _openbox_proc = subprocess.Popen([openbox_bin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  xvfb = _xvfb_proc
+  openbox = _openbox_proc
+
+  def _cleanup():
+    if openbox and openbox.poll() is None:
+      openbox.terminate()
+    if xvfb and xvfb.poll() is None:
+      xvfb.terminate()
+
+  atexit.register(_cleanup)
+
+
+start_virtual_display()
 
 
 class TestUI:
   def __init__(self):
     os.environ["SCALE"] = "1"
-    os.environ.setdefault("QT_OPENGL", "software")
-    os.environ.setdefault("QT_XCB_FORCE_SOFTWARE_OPENGL", "1")
-    os.environ.setdefault("QSG_RHI_BACKEND", "software")
-    os.environ.setdefault("QT_QUICK_BACKEND", "software")
-    os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
-    os.environ.setdefault("DISPLAY", ":99")
-    os.environ.setdefault("QT_DEBUG_PLUGINS", "1")
-    os.environ.setdefault("XDG_RUNTIME_DIR", f"/tmp/runtime-{os.getuid()}")
+    os.environ["QT_OPENGL"] = "software"
+    os.environ["QT_XCB_FORCE_SOFTWARE_OPENGL"] = "1"
+    os.environ["QSG_RHI_BACKEND"] = "software"
+    os.environ["QT_QUICK_BACKEND"] = "software"
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+    os.environ["QT_DEBUG_PLUGINS"] = "1"
     sys.modules["mouseinfo"] = False
 
   def setup(self):
@@ -181,11 +232,6 @@ class TestUI:
     self.sm = SubMaster(["uiDebug"])
     self.pm = PubMaster(["deviceState", "pandaStates", "controlsState", 'roadCameraState', 'wideRoadCameraState', 'liveLocationKalman'])
     print(f"[debug] DISPLAY={os.environ.get('DISPLAY')} QT_QPA_PLATFORM={os.environ.get('QT_QPA_PLATFORM')}")
-    try:
-      import subprocess
-      subprocess.run(["pgrep", "-a", "Xvfb"], check=False)
-    except Exception as e:
-      print(f"[debug] pgrep Xvfb failed: {e}")
     while not self.sm.valid["uiDebug"]:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
