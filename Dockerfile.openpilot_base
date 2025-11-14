@@ -5,6 +5,7 @@ ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo tzdata locales ssh pulseaudio xvfb x11-xserver-utils gnome-screenshot \
+    scrot \
     apt-utils \
     alien \
     unzip \

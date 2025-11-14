@@ -49,6 +49,7 @@ function install_ubuntu_common_requirements() {
     libsqlite3-dev \
     libsystemd-dev \
     locales \
+    scrot \
     opencl-headers \
     ocl-icd-libopencl1 \
     ocl-icd-opencl-dev \
