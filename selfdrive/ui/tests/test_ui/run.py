@@ -173,6 +173,7 @@ class TestUI:
     os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
     os.environ.setdefault("DISPLAY", ":99")
     os.environ.setdefault("QT_DEBUG_PLUGINS", "1")
+    os.environ.setdefault("XDG_RUNTIME_DIR", f"/tmp/runtime-{os.getuid()}")
     sys.modules["mouseinfo"] = False
 
   def setup(self):

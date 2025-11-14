@@ -5,13 +5,13 @@
 DISP_ID=99
 export DISPLAY=:$DISP_ID
 
-XVFB_BIN=$(command -v Xvfb || command -v /usr/bin/Xvfb)
+XVFB_BIN=$(command -v Xvfb)
 if [ -n "$XVFB_BIN" ]; then
   echo "Starting Xvfb as $(whoami) using $XVFB_BIN"
   "$XVFB_BIN" $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
 else
-  echo "Xvfb binary not found, falling back to sudo"
-  sudo Xvfb $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
+  echo "Xvfb binary not found on PATH, falling back to sudo"
+  sudo /usr/bin/Xvfb $DISPLAY -screen 0 2160x1080x24 -ac -nolisten tcp 2>/dev/null &
 fi
 
 # check for x11 socket for the specified display ID
@@ -23,5 +23,8 @@ done
 
 : "${XAUTHORITY:=$HOME/.Xauthority}"
 touch "$XAUTHORITY"
+export XDG_RUNTIME_DIR="/tmp/runtime-$UID"
+mkdir -p "$XDG_RUNTIME_DIR"
+chmod 700 "$XDG_RUNTIME_DIR"
 export XDG_SESSION_TYPE="x11"
 xset -q
