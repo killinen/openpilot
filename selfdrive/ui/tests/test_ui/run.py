@@ -123,6 +123,8 @@ SCREENSHOTS_DIR = TEST_OUTPUT_DIR / "screenshots"
 class TestUI:
   def __init__(self):
     os.environ["SCALE"] = "1"
+    os.environ.setdefault("QT_OPENGL", "software")
+    os.environ.setdefault("QT_XCB_FORCE_SOFTWARE_OPENGL", "1")
     sys.modules["mouseinfo"] = False
 
   def setup(self):
