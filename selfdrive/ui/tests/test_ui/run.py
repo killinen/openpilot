@@ -9,6 +9,7 @@ import os
 import time
 import subprocess
 import atexit
+import secrets
 
 from cereal import messaging, car, log
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -175,10 +176,16 @@ def start_virtual_display():
   xvfb_bin = shutil.which("Xvfb")
   if xvfb_bin is None:
     raise RuntimeError("Xvfb not found in PATH")
+  xauth_bin = shutil.which("xauth")
+  if xauth_bin is None:
+    raise RuntimeError("xauth not found in PATH")
 
   env_display = f":{DISPLAY_NUM}"
+  auth_path = pathlib.Path(f"/tmp/.Xauthority-{DISPLAY_NUM}")
+  cookie = secrets.token_hex(16)
+  subprocess.run([xauth_bin, "-f", str(auth_path), "add", env_display, ".", cookie], check=True)
   _xvfb_proc = subprocess.Popen(
-    [xvfb_bin, env_display, "-screen", "0", "2160x1080x24", "-ac", "-nolisten", "tcp"],
+    [xvfb_bin, env_display, "-screen", "0", "2160x1080x24", "-ac", "-nolisten", "tcp", "-auth", str(auth_path)],
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
   )
@@ -192,8 +199,6 @@ def start_virtual_display():
     raise RuntimeError("Xvfb failed to start")
 
   os.environ["DISPLAY"] = env_display
-  auth_path = pathlib.Path("/tmp/.Xauthority")
-  auth_path.touch(mode=0o600, exist_ok=True)
   os.environ["XAUTHORITY"] = str(auth_path)
   os.environ["XDG_RUNTIME_DIR"] = f"/tmp/runtime-{os.getuid()}"
   pathlib.Path(os.environ["XDG_RUNTIME_DIR"]).mkdir(mode=0o700, exist_ok=True)
