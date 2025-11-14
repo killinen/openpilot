@@ -8,8 +8,7 @@ import numpy as np
 import os
 import time
 import subprocess
-import atexit
-import secrets
+import pywinctl
 
 from cereal import messaging, car, log
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -163,67 +162,7 @@ TEST_DIR = pathlib.Path(__file__).parent
 
 TEST_OUTPUT_DIR = TEST_DIR / "report"
 SCREENSHOTS_DIR = TEST_OUTPUT_DIR / "screenshots"
-DISPLAY_NUM = 99
-_xvfb_proc = None
-_openbox_proc = None
-
-
-def start_virtual_display():
-  global _xvfb_proc, _openbox_proc
-  if _xvfb_proc is not None:
-    return
-
-  xvfb_bin = shutil.which("Xvfb")
-  if xvfb_bin is None:
-    raise RuntimeError("Xvfb not found in PATH")
-  xauth_bin = shutil.which("xauth")
-  if xauth_bin is None:
-    raise RuntimeError("xauth not found in PATH")
-  openbox_bin = shutil.which("openbox")
-  if openbox_bin is None:
-    raise RuntimeError("openbox not found in PATH")
-
-  env_display = f":{DISPLAY_NUM}"
-  auth_path = pathlib.Path(f"/tmp/.Xauthority-{DISPLAY_NUM}")
-  auth_path.touch(mode=0o600, exist_ok=True)
-  cookie = secrets.token_hex(16)
-  subprocess.run([xauth_bin, "-f", str(auth_path), "add", env_display, ".", cookie], check=True)
-  _xvfb_proc = subprocess.Popen(
-    [xvfb_bin, env_display, "-screen", "0", "2160x1080x24", "-ac", "-nolisten", "tcp", "-auth", str(auth_path)],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-  )
-
-  sock_path = pathlib.Path(f"/tmp/.X11-unix/X{DISPLAY_NUM}")
-  for _ in range(100):
-    if sock_path.exists():
-      break
-    time.sleep(0.1)
-  else:
-    raise RuntimeError("Xvfb failed to start")
-
-  os.environ["DISPLAY"] = env_display
-  os.environ["XAUTHORITY"] = str(auth_path)
-  os.environ["XDG_RUNTIME_DIR"] = f"/tmp/runtime-{os.getuid()}"
-  pathlib.Path(os.environ["XDG_RUNTIME_DIR"]).mkdir(mode=0o700, exist_ok=True)
-
-  _openbox_proc = subprocess.Popen([openbox_bin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-  xvfb = _xvfb_proc
-  openbox = _openbox_proc
-
-  def _cleanup():
-    if openbox and openbox.poll() is None:
-      openbox.terminate()
-    if xvfb and xvfb.poll() is None:
-      xvfb.terminate()
-
-  atexit.register(_cleanup)
-
-
-start_virtual_display()
-
-import pywinctl
+DISPLAY_NUM = None
 
 
 class TestUI:
