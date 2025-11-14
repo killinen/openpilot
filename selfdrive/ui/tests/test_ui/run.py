@@ -179,6 +179,9 @@ def start_virtual_display():
   xauth_bin = shutil.which("xauth")
   if xauth_bin is None:
     raise RuntimeError("xauth not found in PATH")
+  openbox_bin = shutil.which("openbox")
+  if openbox_bin is None:
+    raise RuntimeError("openbox not found in PATH")
 
   env_display = f":{DISPLAY_NUM}"
   auth_path = pathlib.Path(f"/tmp/.Xauthority-{DISPLAY_NUM}")
@@ -204,9 +207,7 @@ def start_virtual_display():
   os.environ["XDG_RUNTIME_DIR"] = f"/tmp/runtime-{os.getuid()}"
   pathlib.Path(os.environ["XDG_RUNTIME_DIR"]).mkdir(mode=0o700, exist_ok=True)
 
-  openbox_bin = shutil.which("openbox")
-  if openbox_bin is not None:
-    _openbox_proc = subprocess.Popen([openbox_bin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  _openbox_proc = subprocess.Popen([openbox_bin], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
   xvfb = _xvfb_proc
   openbox = _openbox_proc

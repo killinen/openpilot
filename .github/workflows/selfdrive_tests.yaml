@@ -337,6 +337,8 @@ jobs:
         with:
           submodules: true
       - uses: ./.github/workflows/setup-with-retry
+      - name: Install Openbox
+        run: sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openbox
       - name: Build openpilot
         run: ${{ env.RUN }} "scons -j$(nproc)"
       - name: Create Test Report
