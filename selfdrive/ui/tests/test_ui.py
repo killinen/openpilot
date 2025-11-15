@@ -2,14 +2,13 @@ import os
 import pathlib
 import shutil
 import subprocess
-from dataclasses import dataclass
 
 import jinja2
 
 TEST_DIR = pathlib.Path(__file__).parent
 REPORT_DIR = TEST_DIR / "test_ui" / "report"
 SCREENSHOTS_DIR = REPORT_DIR / "screenshots"
-SNAPSHOT_BIN = TEST_DIR / "tests" / "ui_snapshot"
+SNAPSHOT_BIN = TEST_DIR / "ui_snapshot"
 CASES = [
   "homescreen",
   "settings_device",
@@ -18,11 +17,6 @@ CASES = [
   "onroad_map",
   "onroad_sidebar",
 ]
-
-
-def ensure_binary():
-  if not SNAPSHOT_BIN.exists():
-    subprocess.run(["scons", "selfdrive/ui/tests/ui_snapshot"], check=True)
 
 
 def ensure_dirs():
@@ -46,7 +40,6 @@ def build_report():
 
 
 def main():
-  ensure_binary()
   ensure_dirs()
   for case in CASES:
     render_case(case)

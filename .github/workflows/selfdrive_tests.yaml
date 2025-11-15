@@ -342,6 +342,7 @@ jobs:
       - name: Create Test Report
         run: |
             ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
+                            scons selfdrive/ui/tests/ui_snapshot &&
                             export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' &&
                             python selfdrive/ui/tests/test_ui.py"
       - name: Upload Test Report
