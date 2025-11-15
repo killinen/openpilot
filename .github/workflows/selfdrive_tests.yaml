@@ -343,7 +343,7 @@ jobs:
         run: |
             ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
                             export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' &&
-                            python selfdrive/ui/tests/test_ui/run.py"
+                            python selfdrive/ui/tests/test_ui.py"
       - name: Upload Test Report
         uses: actions/upload-artifact@v4
         with:
