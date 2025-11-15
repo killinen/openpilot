@@ -22,7 +22,7 @@ CASES = [
 
 def ensure_binary():
   if not SNAPSHOT_BIN.exists():
-    subprocess.run(["scons", "selfdrive/ui/tests/ui_snapshot"], check=True)
+    subprocess.run(["scons", "--extras", "selfdrive/ui/tests/ui_snapshot"], check=True)
 
 
 def ensure_dirs():
