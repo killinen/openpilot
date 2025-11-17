@@ -32,6 +32,10 @@ int main(int argc, char *argv[]) {
                                       "determine the format. Supports PNG and JPEG formats. "
                                       "Defaults to \"snapshot.png\".",
                                       "file", "snapshot.png"));
+  parser.addOption(QCommandLineOption(QStringList() << "c"
+                                                    << "case",
+                                      "UI case to render (homescreen, settings_device, onroad, ...).",
+                                      "case", ""));
   parser.process(app);
 
   const QString output = parser.value("output");
@@ -39,6 +43,8 @@ int main(int argc, char *argv[]) {
     qCritical() << "No output file specified";
     return 1;
   }
+  const QString case_name = parser.value("case");
+  const QString effective_case = case_name.isEmpty() ? "homescreen" : case_name;
 
   auto current = QDir::current();
 
@@ -53,11 +59,37 @@ int main(int argc, char *argv[]) {
   w.show();
   app.installEventFilter(&w);
 
+  auto apply_case = [&](const QString &name) {
+    if (name == "settings_device") {
+      w.showSettingsPanelForTesting(0);
+    } else if (name == "settings_network") {
+      w.showSettingsPanelForTesting(1);
+    } else if (name == "onroad_map") {
+      w.setMapVisibleForTesting(true);
+      w.setSidebarVisibleForTesting(false);
+    } else if (name == "onroad_sidebar") {
+      w.setMapVisibleForTesting(false);
+      w.setSidebarVisibleForTesting(true);
+    } else if (name == "onroad") {
+      w.setMapVisibleForTesting(false);
+      w.setSidebarVisibleForTesting(false);
+    } else {
+      w.closeSettingsPanelForTesting();
+      w.setMapVisibleForTesting(false);
+      w.setSidebarVisibleForTesting(true);
+    }
+  };
+  apply_case(effective_case);
+
   // restore working directory
   QDir::setCurrent(current.absolutePath());
 
   // wait for the UI to update
   QObject::connect(uiState(), &UIState::uiUpdate, [&](const UIState &s) {
+    const bool needs_onroad = effective_case.startsWith("onroad");
+    if (needs_onroad && !s.scene.started) return;
+    if (!needs_onroad && s.scene.started) return;
+    if (s.sm->frame < 5) return;
     saveWidgetAsImage(&w, output);
     app.quit();
   });

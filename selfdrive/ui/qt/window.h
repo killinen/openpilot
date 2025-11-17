@@ -12,6 +12,11 @@ class MainWindow : public QWidget {
 
 public:
   explicit MainWindow(QWidget *parent = 0);
+  // Testing helpers used by ui_snapshot to stage specific screens without user input.
+  void showSettingsPanelForTesting(int index = 0, const QString &param = "");
+  void closeSettingsPanelForTesting();
+  void setSidebarVisibleForTesting(bool show);
+  void setMapVisibleForTesting(bool show);
 
 private:
   bool eventFilter(QObject *obj, QEvent *event) override;

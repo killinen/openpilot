@@ -84,6 +84,22 @@ void MainWindow::closeSettings() {
   }
 }
 
+void MainWindow::showSettingsPanelForTesting(int index, const QString &param) {
+  openSettings(index, param);
+}
+
+void MainWindow::closeSettingsPanelForTesting() {
+  closeSettings();
+}
+
+void MainWindow::setSidebarVisibleForTesting(bool show) {
+  homeWindow->showSidebar(show);
+}
+
+void MainWindow::setMapVisibleForTesting(bool show) {
+  homeWindow->showMapPanel(show);
+}
+
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   FrogPilotUIState &fs = *frogpilotUIState();
   FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
