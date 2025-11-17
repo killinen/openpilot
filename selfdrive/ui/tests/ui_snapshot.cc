@@ -93,13 +93,18 @@ int main(int argc, char *argv[]) {
     app.quit();
   };
 
-  QTimer timeout;
-  timeout.setSingleShot(true);
-  QObject::connect(&timeout, &QTimer::timeout, [&]() {
-    qWarning() << "ui_snapshot timed out waiting for case" << effective_case << ", capturing anyway";
-    capture();
+  QTimer::singleShot(5000, [&]() {
+    if (!captured) {
+      qWarning() << "ui_snapshot auto capture after 5s for case" << effective_case;
+      capture();
+    }
   });
-  timeout.start(15000);
+  QTimer::singleShot(15000, [&]() {
+    if (!captured) {
+      qWarning() << "ui_snapshot timed out waiting for case" << effective_case << ", capturing anyway";
+      capture();
+    }
+  });
 
   // wait for the UI to update
   QObject::connect(uiState(), &UIState::uiUpdate, [&](const UIState &s) {
@@ -108,7 +113,6 @@ int main(int argc, char *argv[]) {
     if (needs_onroad && !s.scene.started) return;
     if (!needs_onroad && s.scene.started) return;
     if (s.sm->frame < 5) return;
-    timeout.stop();
     capture();
   });
 
