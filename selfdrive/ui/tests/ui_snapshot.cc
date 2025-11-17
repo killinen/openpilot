@@ -89,20 +89,14 @@ int main(int argc, char *argv[]) {
   // restore working directory
   QDir::setCurrent(current.absolutePath());
 
-  const bool needs_onroad = effective_case.startsWith("onroad");
-  const int max_wait_ms = needs_onroad ? 12000 : 8000;
   QElapsedTimer timer;
   timer.start();
-  fprintf(stderr, "[ui_snapshot] waiting for case %s\n", effective_case.toStdString().c_str());
+  fprintf(stderr, "[ui_snapshot] processing events for case %s\n", effective_case.toStdString().c_str());
   fflush(stderr);
+  const int max_wait_ms = 1000;
   while (timer.elapsed() < max_wait_ms) {
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-    QThread::msleep(50);
-    const UIState &s = *uiState();
-    if (needs_onroad && !s.scene.started) continue;
-    if (!needs_onroad && s.scene.started) continue;
-    if (s.sm->frame < 5) continue;
-    break;
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+    QThread::msleep(20);
   }
   fprintf(stderr, "[ui_snapshot] capturing case %s\n", effective_case.toStdString().c_str());
   fflush(stderr);
