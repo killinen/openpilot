@@ -204,11 +204,16 @@ def run_snapshot(case: str, output: pathlib.Path):
   env.setdefault("QT_OPENGL", "software")
   env.setdefault("QT_XCB_FORCE_SOFTWARE_OPENGL", "1")
   env.setdefault("SCALE", "1")
-  subprocess.run(
-    [str(SNAPSHOT_BIN), "-o", str(output), "--case", case],
-    check=True,
-    env=env,
-  )
+  print(f"[test_ui] capturing {case} -> {output}", flush=True)
+  try:
+    subprocess.run(
+      [str(SNAPSHOT_BIN), "-o", str(output), "--case", case],
+      check=True,
+      env=env,
+      timeout=120,
+    )
+  except subprocess.TimeoutExpired as e:
+    raise RuntimeError(f"ui_snapshot timed out for case {case}") from e
 
 
 def render_case(case: str, config: CaseConfig):
@@ -220,6 +225,7 @@ def render_case(case: str, config: CaseConfig):
     "force_onroad": config.started,
     "force_offroad": not config.started,
   }
+  print(f"[test_ui] starting case '{case}' (started={config.started})", flush=True)
   with temporary_params(overrides), temporary_frogpilot_toggles(toggle_overrides):
     publishers = UIMockPublishers(config.started)
     publishers.start()
@@ -230,6 +236,7 @@ def render_case(case: str, config: CaseConfig):
         run_snapshot(case, SCREENSHOTS_DIR / f"{case}.png")
     finally:
       publishers.stop()
+  print(f"[test_ui] finished case '{case}'", flush=True)
 
 
 def build_report():
