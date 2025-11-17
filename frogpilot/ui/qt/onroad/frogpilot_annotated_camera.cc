@@ -1,4 +1,5 @@
 #include <QMovie>
+#include <QPainterPath>
 
 #include "frogpilot/ui/qt/onroad/frogpilot_annotated_camera.h"
 

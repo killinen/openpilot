@@ -2,6 +2,7 @@
 
 #include <QMovie>
 #include <QPainter>
+#include <QPainterPath>
 
 #include "selfdrive/ui/qt/util.h"
 
