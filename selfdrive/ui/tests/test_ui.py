@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 import jinja2
 import numpy as np
@@ -39,6 +39,25 @@ CASES: dict[str, CaseConfig] = {
   "onroad_map": CaseConfig(started=True, extra_services=("liveLocationKalman",)),
   "onroad_sidebar": CaseConfig(started=True),
 }
+
+@contextlib.contextmanager
+def temporary_params(overrides: Dict[str, Optional[bool]]):
+  params = Params()
+  previous: Dict[str, Optional[bytes]] = {}
+  for key, value in overrides.items():
+    previous[key] = params.get(key)
+    if value is None:
+      params.remove(key)
+    else:
+      params.put_bool(key, value)
+  try:
+    yield
+  finally:
+    for key, value in previous.items():
+      if value is None:
+        params.remove(key)
+      else:
+        params.put(key, value)
 
 
 class UIMockPublishers:
@@ -170,13 +189,20 @@ def run_snapshot(case: str, output: pathlib.Path):
 
 
 def render_case(case: str, config: CaseConfig):
-  publishers = UIMockPublishers(config.started)
-  publishers.start()
-  try:
-    with mocked_services(config.extra_services):
-      run_snapshot(case, SCREENSHOTS_DIR / f"{case}.png")
-  finally:
-    publishers.stop()
+  overrides = {
+    "ForceOnroad": config.started,
+    "ForceOffroad": not config.started,
+  }
+  with temporary_params(overrides):
+    publishers = UIMockPublishers(config.started)
+    publishers.start()
+    # give messaging + VIPC threads a moment to spin up before launching the UI
+    time.sleep(0.5)
+    try:
+      with mocked_services(config.extra_services):
+        run_snapshot(case, SCREENSHOTS_DIR / f"{case}.png")
+    finally:
+      publishers.stop()
 
 
 def build_report():

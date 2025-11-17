@@ -5,6 +5,7 @@
 #include <QDir>
 #include <QImage>
 #include <QPainter>
+#include <QTimer>
 
 #include "selfdrive/ui/qt/home.h"
 #include "selfdrive/ui/qt/util.h"
@@ -84,14 +85,31 @@ int main(int argc, char *argv[]) {
   // restore working directory
   QDir::setCurrent(current.absolutePath());
 
+  bool captured = false;
+  auto capture = [&]() {
+    if (captured) return;
+    captured = true;
+    saveWidgetAsImage(&w, output);
+    app.quit();
+  };
+
+  QTimer timeout;
+  timeout.setSingleShot(true);
+  QObject::connect(&timeout, &QTimer::timeout, [&]() {
+    qWarning() << "ui_snapshot timed out waiting for case" << effective_case << ", capturing anyway";
+    capture();
+  });
+  timeout.start(15000);
+
   // wait for the UI to update
   QObject::connect(uiState(), &UIState::uiUpdate, [&](const UIState &s) {
+    if (captured) return;
     const bool needs_onroad = effective_case.startsWith("onroad");
     if (needs_onroad && !s.scene.started) return;
     if (!needs_onroad && s.scene.started) return;
     if (s.sm->frame < 5) return;
-    saveWidgetAsImage(&w, output);
-    app.quit();
+    timeout.stop();
+    capture();
   });
 
   return app.exec();
