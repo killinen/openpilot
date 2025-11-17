@@ -1,4 +1,5 @@
 import contextlib
+import json
 import os
 import pathlib
 import shutil
@@ -58,6 +59,28 @@ def temporary_params(overrides: Dict[str, Optional[bool]]):
         params.remove(key)
       else:
         params.put(key, value)
+
+
+@contextlib.contextmanager
+def temporary_frogpilot_toggles(overrides: Dict[str, bool]):
+  params_memory = Params("/dev/shm/params")
+  raw = params_memory.get("FrogPilotToggles")
+  previous = raw if raw is None else raw[:]
+  try:
+    data = json.loads(raw.decode("utf-8")) if raw else {}
+  except (json.JSONDecodeError, UnicodeDecodeError):
+    data = {}
+  data.setdefault("schema_version", 1)
+  for key, value in overrides.items():
+    data[key] = bool(value)
+  params_memory.put("FrogPilotToggles", json.dumps(data))
+  try:
+    yield
+  finally:
+    if previous is None:
+      params_memory.remove("FrogPilotToggles")
+    else:
+      params_memory.put("FrogPilotToggles", previous)
 
 
 class UIMockPublishers:
@@ -193,7 +216,11 @@ def render_case(case: str, config: CaseConfig):
     "ForceOnroad": config.started,
     "ForceOffroad": not config.started,
   }
-  with temporary_params(overrides):
+  toggle_overrides = {
+    "force_onroad": config.started,
+    "force_offroad": not config.started,
+  }
+  with temporary_params(overrides), temporary_frogpilot_toggles(toggle_overrides):
     publishers = UIMockPublishers(config.started)
     publishers.start()
     # give messaging + VIPC threads a moment to spin up before launching the UI
