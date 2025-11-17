@@ -9,6 +9,7 @@
 #include <QImage>
 #include <QPainter>
 #include <QThread>
+#include <cstdio>
 
 #include "selfdrive/ui/qt/home.h"
 #include "selfdrive/ui/qt/util.h"
@@ -92,7 +93,8 @@ int main(int argc, char *argv[]) {
   const int max_wait_ms = needs_onroad ? 12000 : 8000;
   QElapsedTimer timer;
   timer.start();
-  qInfo() << "ui_snapshot waiting for case" << effective_case;
+  fprintf(stderr, "[ui_snapshot] waiting for case %s\n", effective_case.toStdString().c_str());
+  fflush(stderr);
   while (timer.elapsed() < max_wait_ms) {
     QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
     QThread::msleep(50);
@@ -102,7 +104,8 @@ int main(int argc, char *argv[]) {
     if (s.sm->frame < 5) continue;
     break;
   }
-  qInfo() << "ui_snapshot capturing" << effective_case;
+  fprintf(stderr, "[ui_snapshot] capturing case %s\n", effective_case.toStdString().c_str());
+  fflush(stderr);
   saveWidgetAsImage(&w, output);
   return 0;
 }
