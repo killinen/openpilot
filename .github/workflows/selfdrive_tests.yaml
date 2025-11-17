@@ -337,14 +337,16 @@ jobs:
         with:
           submodules: true
       - uses: ./.github/workflows/setup-with-retry
+      - name: Clear scons cache
+        run: rm -rf $GITHUB_WORKSPACE/.ci_cache/scons_cache/*
       - name: Build openpilot
-        run: ${{ env.RUN }} "rm -f selfdrive/ui/tests/ui_snapshot && scons -c selfdrive/ui/tests/ui_snapshot && scons -j$(nproc)"
+        run: ${{ env.RUN }} "rm -f selfdrive/ui/tests/ui_snapshot && scons -c selfdrive/ui/tests/ui_snapshot && scons --cache-disable -j$(nproc)"
       - name: Create Test Report
         run: |
             ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
+                            rm -rf /tmp/scons_cache/* &&
                             rm -f selfdrive/ui/tests/ui_snapshot &&
-                            scons -c selfdrive/ui/tests/ui_snapshot &&
-                            scons selfdrive/ui/tests/ui_snapshot &&
+                            scons --cache-disable selfdrive/ui/tests/ui_snapshot &&
                             export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' &&
                             python selfdrive/ui/tests/test_ui.py"
       - name: Upload Test Report
