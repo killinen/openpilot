@@ -338,7 +338,7 @@ jobs:
           submodules: true
       - uses: ./.github/workflows/setup-with-retry
       - name: Build openpilot
-        run: ${{ env.RUN }} "scons -c selfdrive/ui/tests/ui_snapshot && scons -j$(nproc)"
+        run: ${{ env.RUN }} "rm -f selfdrive/ui/tests/ui_snapshot && scons -c selfdrive/ui/tests/ui_snapshot && scons -j$(nproc)"
       - name: Create Test Report
         run: |
             ${{ env.RUN }} "PYTHONWARNINGS=ignore &&
