@@ -271,7 +271,7 @@ def render_case(case: str, config: CaseConfig):
 def build_report():
   template = (TEST_DIR / "test_ui" / "template.html").read_text()
   html = jinja2.Template(template).render(
-    cases=[(case, f"screenshots/{case}.png") for case in CASES]
+    cases={case: (f"screenshots/{case}.png", f"reference/{case}.png") for case in CASES}
   )
   (REPORT_DIR / "index.html").write_text(html)
 
