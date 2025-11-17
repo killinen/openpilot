@@ -2,10 +2,13 @@
 
 #include <QApplication>
 #include <QCommandLineParser>
+#include <QDebug>
 #include <QDir>
+#include <QElapsedTimer>
+#include <QEventLoop>
 #include <QImage>
 #include <QPainter>
-#include <QTimer>
+#include <QThread>
 
 #include "selfdrive/ui/qt/home.h"
 #include "selfdrive/ui/qt/util.h"
@@ -85,36 +88,21 @@ int main(int argc, char *argv[]) {
   // restore working directory
   QDir::setCurrent(current.absolutePath());
 
-  bool captured = false;
-  auto capture = [&]() {
-    if (captured) return;
-    captured = true;
-    saveWidgetAsImage(&w, output);
-    app.quit();
-  };
-
-  QTimer::singleShot(5000, [&]() {
-    if (!captured) {
-      qWarning() << "ui_snapshot auto capture after 5s for case" << effective_case;
-      capture();
-    }
-  });
-  QTimer::singleShot(15000, [&]() {
-    if (!captured) {
-      qWarning() << "ui_snapshot timed out waiting for case" << effective_case << ", capturing anyway";
-      capture();
-    }
-  });
-
-  // wait for the UI to update
-  QObject::connect(uiState(), &UIState::uiUpdate, [&](const UIState &s) {
-    if (captured) return;
-    const bool needs_onroad = effective_case.startsWith("onroad");
-    if (needs_onroad && !s.scene.started) return;
-    if (!needs_onroad && s.scene.started) return;
-    if (s.sm->frame < 5) return;
-    capture();
-  });
-
-  return app.exec();
+  const bool needs_onroad = effective_case.startsWith("onroad");
+  const int max_wait_ms = needs_onroad ? 12000 : 8000;
+  QElapsedTimer timer;
+  timer.start();
+  qInfo() << "ui_snapshot waiting for case" << effective_case;
+  while (timer.elapsed() < max_wait_ms) {
+    QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
+    QThread::msleep(50);
+    const UIState &s = *uiState();
+    if (needs_onroad && !s.scene.started) continue;
+    if (!needs_onroad && s.scene.started) continue;
+    if (s.sm->frame < 5) continue;
+    break;
+  }
+  qInfo() << "ui_snapshot capturing" << effective_case;
+  saveWidgetAsImage(&w, output);
+  return 0;
 }
