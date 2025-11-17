@@ -200,14 +200,20 @@ def ensure_dirs():
 
 def run_snapshot(case: str, output: pathlib.Path):
   env = os.environ.copy()
-  env.setdefault("QT_QPA_PLATFORM", "offscreen")
+  env.setdefault("QT_QPA_PLATFORM", "xcb" if env.get("DISPLAY") else "offscreen")
   env.setdefault("QT_OPENGL", "software")
   env.setdefault("QT_XCB_FORCE_SOFTWARE_OPENGL", "1")
   env.setdefault("SCALE", "1")
   print(f"[test_ui] capturing {case} -> {output}", flush=True)
+  cmd = [str(SNAPSHOT_BIN), "-o", str(output), "--case", case]
+  if not env.get("DISPLAY"):
+    xvfb = shutil.which("xvfb-run")
+    if xvfb:
+      cmd = [xvfb, "-a", "-s", "-screen 0 2160x1080x24"] + cmd
+      env["QT_QPA_PLATFORM"] = "xcb"
   try:
     subprocess.run(
-      [str(SNAPSHOT_BIN), "-o", str(output), "--case", case],
+      cmd,
       check=True,
       env=env,
       timeout=120,
