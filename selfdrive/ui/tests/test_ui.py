@@ -162,29 +162,6 @@ class StaticServicePublisher:
           print(f"[test_ui] failed to send {service}: {e}", flush=True)
       self.stop_event.wait(0.5)
 
-  def _device_loop(self):
-    while not self.stop_event.wait(0.1):
-      msg = messaging.new_message('deviceState')
-      dat = msg.deviceState
-      dat.started = self.started
-      dat.networkType = log.DeviceState.NetworkType.cell4G
-      dat.networkStrength = log.DeviceState.NetworkStrength.moderate
-      dat.freeSpacePercent = 80
-      dat.memoryUsagePercent = 2
-      dat.cpuTempC = [2] * 3
-      dat.gpuTempC = [2] * 3
-      dat.cpuUsagePercent = [2] * 8
-      self.pm.send("deviceState", msg)
-
-  def _panda_loop(self):
-    while not self.stop_event.wait(0.5):
-      msg = messaging.new_message('pandaStates', 1)
-      panda = msg.pandaStates[0]
-      panda.ignitionLine = self.started
-      panda.ignitionCan = self.started
-      panda.pandaType = log.PandaState.PandaType.uno
-      self.pm.send("pandaStates", msg)
-
   def _start_vision_publishers(self):
     camera = DEVICE_CAMERAS[("tici", "ar0231")]
     rng = np.random.default_rng(0)
