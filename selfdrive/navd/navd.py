@@ -182,7 +182,7 @@ class RouteEngine:
       r1 = resp.json()
       chosen_route = r['routes'][0]
 
-      # Function to remove specified keys recursively unnessary for display
+      # Function to remove specified keys recursively unnecessary for display
       def remove_keys(obj, keys_to_remove):
         if isinstance(obj, list):
           return [remove_keys(item, keys_to_remove) for item in obj]
