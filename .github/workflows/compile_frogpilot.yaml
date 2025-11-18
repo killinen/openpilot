@@ -14,22 +14,22 @@ on:
       not_vetted:
         description: "This branch is not vetted"
         required: false
-        default: "false"
+        default: false
         type: boolean
       publish_frogpilot:
         description: "Push to FrogPilot"
         required: false
-        default: "false"
+        default: false
         type: boolean
       publish_staging:
         description: "Push to FrogPilot-Staging"
         required: false
-        default: "false"
+        default: false
         type: boolean
       publish_testing:
         description: "Push to FrogPilot-Testing"
         required: false
-        default: "false"
+        default: false
         type: boolean
       publish_custom_branch:
         description: "Push to custom branch:"
@@ -39,12 +39,12 @@ on:
       update_translations:
         description: "Update missing/outdated translations"
         required: false
-        default: "false"
+        default: false
         type: boolean
       vet_existing_translations:
         description: "Vet existing translations"
         required: false
-        default: "false"
+        default: false
         type: boolean
 
 env:
