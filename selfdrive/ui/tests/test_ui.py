@@ -28,6 +28,22 @@ SNAPSHOT_BIN = TEST_DIR / "ui_snapshot"
 PLACEHOLDER_IMG = base64.b64decode(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAEklEQVR42mP8/5+hHgAHgwJ/lBZU8wAAAABJRU5ErkJggg=="
 )
+STATIC_SERVICES = [
+  "modelV2",
+  "controlsState",
+  "liveCalibration",
+  "radarState",
+  "carParams",
+  "driverMonitoringState",
+  "carState",
+  "liveLocationKalman",
+  "driverStateV2",
+  "managerState",
+  "navInstruction",
+  "navRoute",
+  "uiPlan",
+  "clocks",
+]
 
 
 def write_placeholder_image(path: pathlib.Path, case: str, reason: str):
@@ -120,6 +136,31 @@ class UIMockPublishers:
       self.vision_thread.join()
       self.vision_thread = None
     self.vision_server = None
+
+
+class StaticServicePublisher:
+  def __init__(self):
+    self.services = STATIC_SERVICES
+    self.pm = messaging.PubMaster(self.services)
+    self.stop_event = threading.Event()
+    self.thread = threading.Thread(target=self._loop, daemon=True)
+
+  def start(self):
+    self.thread.start()
+
+  def stop(self):
+    self.stop_event.set()
+    self.thread.join()
+
+  def _loop(self):
+    while not self.stop_event.is_set():
+      for service in self.services:
+        try:
+          msg = messaging.new_message(service)
+          self.pm.send(service, msg)
+        except Exception as e:
+          print(f"[test_ui] failed to send {service}: {e}", flush=True)
+      self.stop_event.wait(0.5)
 
   def _device_loop(self):
     while not self.stop_event.wait(0.1):
@@ -270,9 +311,14 @@ def build_report():
 def main():
   Params().put("DongleId", "123456789012345")
   ensure_dirs()
-  for case, config in CASES.items():
-    render_case(case, config)
-  build_report()
+  static_publishers = StaticServicePublisher()
+  static_publishers.start()
+  try:
+    for case, config in CASES.items():
+      render_case(case, config)
+    build_report()
+  finally:
+    static_publishers.stop()
 
 
 if __name__ == "__main__":
