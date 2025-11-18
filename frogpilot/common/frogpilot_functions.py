@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import datetime
 import filecmp
-import glob
 import json
-import os
 import random
 import shutil
 import string
@@ -158,7 +156,7 @@ def frogpilot_boot_functions(build_metadata, params_cache):
       delete_file(video)
 
   if use_konik_server():
-    if params.get("KonikDongleId", encoding="utf8") != None:
+    if params.get("KonikDongleId", encoding="utf8") is not None:
       params.put("DongleId", params.get("KonikDongleId", encoding="utf8"))
     else:
       params.put("KonikDongleId", register(show_spinner=True, register_konik=True))
@@ -166,7 +164,7 @@ def frogpilot_boot_functions(build_metadata, params_cache):
   elif params.get("DongleId", encoding="utf8") == params.get("KonikDongleId", encoding="utf8"):
     params.remove("DongleId")
 
-  if params.get("FrogPilotDongleId", encoding="utf8") == None:
+  if params.get("FrogPilotDongleId", encoding="utf8") is None:
     params.put("FrogPilotDongleId", ''.join(random.choices(string.ascii_lowercase + string.digits, k=16)))
 
   def backup_thread():

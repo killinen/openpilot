@@ -4,7 +4,7 @@ import requests
 import time
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from openpilot.frogpilot.common.frogpilot_utilities import is_url_pingable
 
@@ -68,7 +68,7 @@ class WeatherChecker:
     def complete_request(future):
       data = future.result()
 
-      current_time = datetime.now(timezone.utc)
+      current_time = datetime.now(UTC)
 
       self.updating_weather = False
 

@@ -7,14 +7,12 @@ import re
 import secrets
 import shutil
 import subprocess
-import time
 import uuid
 
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
 from pydub import AudioSegment
-from typing import List
 from werkzeug.utils import secure_filename
 
 from openpilot.common.conversions import Conversions as CV
@@ -130,7 +128,7 @@ def create_theme(form_data, files, temporary=False):
     colors_str = form_data.get("colors")
     if colors_str:
       color_data = json.loads(colors_str)
-      for key, values in color_data.items():
+      for values in color_data.values():
         if "alpha" in values:
           values["alpha"] = values.pop("alpha")
       colors_file = theme_path / "colors" / "colors.json"
@@ -367,10 +365,10 @@ def ffmpeg_concat_segments_to_mp4(input_files, cache_key=None):
          "-i", str(list_file), "-c:v", "libx264", "-movflags", "faststart", "-y", str(cache_path)],
         check=True
       )
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as second_err:
       if cache_path.exists():
         cache_path.unlink()
-      raise ValueError(f"Cannot process concatenated video segments: {input_files}")
+      raise ValueError(f"Cannot process concatenated video segments: {input_files}") from second_err
   finally:
     if list_file.exists():
       list_file.unlink()
@@ -397,7 +395,7 @@ def ffmpeg_mp4_wrap_process_builder(filename):
     for cache_file in VIDEO_CACHE_PATH.glob("*.mp4"):
       try:
         cache_file.unlink()
-      except:
+      except OSError:
         pass
 
   file_hash = hashlib.md5(str(input_path).encode()).hexdigest()
@@ -411,10 +409,10 @@ def ffmpeg_mp4_wrap_process_builder(filename):
   except subprocess.CalledProcessError:
     try:
       subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(input_path), "-c:v", "libx264", "-movflags", "faststart", "-y", str(cache_path)], check=True)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as second_err:
       if cache_path.exists():
         cache_path.unlink()
-      raise ValueError(f"Cannot process video file: {input_path}")
+      raise ValueError(f"Cannot process video file: {input_path}") from second_err
 
   return open(cache_path, "rb")
 

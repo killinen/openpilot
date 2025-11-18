@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import datetime
 import json
 import os
 import time
+from datetime import UTC, datetime
 
 from cereal import messaging
 from openpilot.common.realtime import DT_MDL, Priority, Ratekeeper, config_realtime_process
@@ -12,7 +12,7 @@ from openpilot.frogpilot.assets.model_manager import MODEL_DOWNLOAD_ALL_PARAM, M
 from openpilot.frogpilot.assets.theme_manager import THEME_COMPONENT_PARAMS, ThemeManager
 from openpilot.frogpilot.common.frogpilot_functions import backup_toggles
 from openpilot.frogpilot.common.frogpilot_utilities import capture_report, flash_panda, is_url_pingable, lock_doors, run_thread_with_lock, update_maps, update_openpilot
-from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles, params, params_cache, params_memory
+from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles, params_cache, params_memory
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.frogpilot.controls.lib.frogpilot_tracking import FrogPilotTracking
 from openpilot.frogpilot.system.frogpilot_stats import send_stats
@@ -71,7 +71,7 @@ def frogpilot_thread():
   model_manager = ModelManager()
   theme_manager = ThemeManager()
 
-  toggles_last_updated = datetime.datetime.now(datetime.timezone.utc)
+  toggles_last_updated = datetime.now(UTC)
 
   pm = messaging.PubMaster(["frogpilotPlan"])
   sm = messaging.SubMaster(["carControl", "carState", "controlsState", "deviceState", "driverMonitoringState",
@@ -88,7 +88,7 @@ def frogpilot_thread():
   while True:
     sm.update()
 
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = datetime.now(UTC)
 
     started = sm["deviceState"].started
 

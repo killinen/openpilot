@@ -5,7 +5,7 @@ import requests
 import time
 
 from collections import OrderedDict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from cereal import log, messaging
 
@@ -34,7 +34,7 @@ class MapSpeedLogger:
     self.dataset_additions = deque(maxlen=MAX_ENTRIES)
 
     self.overpass_requests = json.loads(params.get("OverpassRequests") or "{}")
-    self.overpass_requests.setdefault("day", datetime.now(timezone.utc).day)
+    self.overpass_requests.setdefault("day", datetime.now(UTC).day)
     self.overpass_requests.setdefault("total_bytes", 0)
     self.overpass_requests.setdefault("total_requests", 0)
 
@@ -103,7 +103,7 @@ class MapSpeedLogger:
     self.overpass_requests["total_requests"] += 1
 
   def reset_daily_api_limits(self):
-    current_day = datetime.now(timezone.utc).day
+    current_day = datetime.now(UTC).day
     if current_day != self.overpass_requests["day"]:
       self.overpass_requests.update({
         "day": current_day,
@@ -136,13 +136,27 @@ class MapSpeedLogger:
     self.cached_box = {"min_latitude": min_lat, "max_latitude": max_lat, "min_longitude": min_lon, "max_longitude": max_lon}
     self.cached_segments.clear()
 
-    query = (
-      f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];"
-      f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})"
-      "[highway~'^(motorway|motorway_link|primary|primary_link|residential|"
-      "secondary|secondary_link|tertiary|tertiary_link|trunk|trunk_link)$'];"
-      "out geom qt;"
-    )
+    highway_types = [
+      "motorway",
+      "motorway_link",
+      "primary",
+      "primary_link",
+      "residential",
+      "secondary",
+      "secondary_link",
+      "tertiary",
+      "tertiary_link",
+      "trunk",
+      "trunk_link",
+    ]
+    highway_regex = "|".join(highway_types)
+
+    query = "".join([
+      f"[out:json][timeout:90][maxsize:{MAX_OVERPASS_DATA_BYTES // 10}];",
+      f"way({min_lat:.5f},{min_lon:.5f},{max_lat:.5f},{max_lon:.5f})",
+      f"[highway~'^({highway_regex})$'];",
+      "out geom qt;",
+    ])
 
     try:
       response = self.session.post(OVERPASS_API_URL, data=query, timeout=90)
@@ -286,7 +300,7 @@ class MapSpeedLogger:
 
         filtered_dataset.append({
           "incorrect_limit": entry.get("incorrect_limit"),
-          "last_vetted": datetime.now(timezone.utc).isoformat(),
+          "last_vetted": datetime.now(UTC).isoformat(),
           "segment_id": segment_id,
           "source": entry["source"],
           "speed_limit": entry["speed_limit"],
@@ -357,7 +371,7 @@ class MapSpeedLogger:
       params_memory.put("UpdateSpeedLimitsStatus", f"Vetting: {i + 1} / {total_to_vet}")
 
       last_vetted_time = datetime.fromisoformat(entry["last_vetted"])
-      if datetime.now(timezone.utc) - last_vetted_time < timedelta(days=VETTING_INTERVAL_DAYS):
+      if datetime.now(UTC) - last_vetted_time < timedelta(days=VETTING_INTERVAL_DAYS):
         vetted_entries.append(entry)
         continue
 
@@ -366,7 +380,7 @@ class MapSpeedLogger:
 
       current_maxspeed = self.cached_segments.get(entry["segment_id"])
       if current_maxspeed is None or (entry.get("incorrect_limit") and current_maxspeed != entry.get("speed_limit")):
-        entry["last_vetted"] = datetime.now(timezone.utc).isoformat()
+        entry["last_vetted"] = datetime.now(UTC).isoformat()
         vetted_entries.append(entry)
 
     return self.cleanup_dataset(list(vetted_entries))

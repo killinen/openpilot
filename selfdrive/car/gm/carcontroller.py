@@ -59,7 +59,8 @@ class CarController(CarControllerBase):
 
   @staticmethod
   def calc_pedal_command(accel: float, long_active: bool) -> float:
-    if not long_active: return 0.
+    if not long_active:
+      return 0.
 
     zero = 0.15625  # 40/256
     if accel > 0.:

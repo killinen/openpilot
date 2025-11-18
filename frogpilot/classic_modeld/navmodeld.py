@@ -10,7 +10,6 @@ from cereal import messaging
 from cereal.messaging import PubMaster, SubMaster
 from msgq.visionipc import VisionIpcClient, VisionStreamType
 from openpilot.common.swaglog import cloudlog
-from openpilot.common.params import Params
 from openpilot.common.realtime import set_realtime_priority
 from openpilot.frogpilot.classic_modeld.constants import ModelConstants
 from openpilot.frogpilot.classic_modeld.runners import ModelRunner, Runtime

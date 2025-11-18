@@ -6,8 +6,7 @@ from datetime import datetime
 from enum import Enum
 from sentry_sdk.integrations.threading import ThreadingIntegration
 
-from openpilot.common.params import Params
-from openpilot.system.hardware import HARDWARE, PC
+from openpilot.system.hardware import PC
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.version import get_build_metadata, get_version
 
@@ -17,7 +16,7 @@ class SentryProject(Enum):
   # python project
   SELFDRIVE = os.environ.get("SENTRY_DSN", "")
   # native project
-  SELFDRIVE_NATIVE = os.environ.get("SENTRY_DSN", "")
+  SELFDRIVE_NATIVE = os.environ.get("SENTRY_DSN_NATIVE", "")
 
 
 def report_tombstone(fn: str, message: str, contents: str) -> None:
@@ -31,7 +30,7 @@ def report_tombstone(fn: str, message: str, contents: str) -> None:
 
 
 def capture_block():
-  with sentry_sdk.push_scope() as scope:
+  with sentry_sdk.push_scope():
     sentry_sdk.capture_message("Blocked user from using the development branch", level='info')
     sentry_sdk.flush()
 

@@ -11,7 +11,7 @@ from openpilot.selfdrive.car.interfaces import ACCEL_MIN, ACCEL_MAX
 from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import LongitudinalMpc
 from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import T_IDXS as T_IDXS_MPC
-from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, V_CRUISE_UNSET, CONTROL_N, get_accel_from_plan
+from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_UNSET, CONTROL_N, get_accel_from_plan
 from openpilot.common.swaglog import cloudlog
 
 from openpilot.frogpilot.common.frogpilot_variables import MINIMUM_LATERAL_ACCELERATION

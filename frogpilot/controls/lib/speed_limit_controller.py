@@ -2,7 +2,6 @@
 # PFEIFER - SLC - Modified by FrogAi for FrogPilot
 import calendar
 import json
-import math
 import numpy as np
 import requests
 
@@ -122,11 +121,7 @@ class SpeedLimitController:
 
         future_latitude, future_longitude = calculate_bearing_offset(current_latitude, current_longitude, current_bearing, v_ego)
 
-        url = (
-          f"{self.mapbox_host}/matching/v5/mapbox/driving/"
-          f"{current_longitude},{current_latitude};"
-          f"{future_longitude},{future_latitude}.json"
-        )
+        url = f"{self.mapbox_host}/matching/v5/mapbox/driving/{current_longitude},{current_latitude};{future_longitude},{future_latitude}.json"
 
         mapbox_params = {
           "access_token": self.mapbox_token,
@@ -148,12 +143,11 @@ class SpeedLimitController:
         print(f"Unexpected error in Mapbox request: {exception}")
       finally:
         self.calling_mapbox = False
-
         if not successful:
           self.mapbox_limit = 0
           self.segment_distance = v_ego
 
-          return None
+      return None
 
     def complete_request(future):
       try:

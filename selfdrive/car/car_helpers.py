@@ -15,7 +15,6 @@ from openpilot.selfdrive.car.mock.values import CAR as MOCK
 from openpilot.common.swaglog import cloudlog
 import cereal.messaging as messaging
 from openpilot.selfdrive.car import gen_empty_fingerprint
-from openpilot.system.version import get_build_metadata
 
 FRAME_FINGERPRINT = 100  # 1s
 

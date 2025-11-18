@@ -5,7 +5,7 @@ from collections import deque
 from cereal import log
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.selfdrive.car.interfaces import FRICTION_THRESHOLD
-from openpilot.selfdrive.controls.lib.drive_helpers import MIN_SPEED, get_friction
+from openpilot.selfdrive.controls.lib.drive_helpers import get_friction
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.pid import PIDController
 from openpilot.selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_GRAVITY

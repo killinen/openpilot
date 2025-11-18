@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from flask import Flask, Response, jsonify, render_template, request, send_file, send_from_directory
 from io import BytesIO
 from pathlib import Path
 from werkzeug.utils import secure_filename
 
 import base64
-import errno
 import hashlib
 import json
 import os
@@ -15,14 +14,11 @@ import re
 import requests
 import secrets
 import shutil
-import signal
 import subprocess
 import time
-import traceback
 
 from cereal import car, messaging
 from opendbc.can.parser import CANParser
-from openpilot.common.realtime import DT_HW
 from openpilot.selfdrive.car.toyota.carcontroller import LOCK_CMD, UNLOCK_CMD
 from openpilot.system.hardware import HARDWARE, PC
 from openpilot.system.hardware.hw import Paths
@@ -365,7 +361,7 @@ def setup(app):
         for segment in os.listdir(footage_path):
           route_names.add(segment.split("--")[0])
 
-    for route_name in sorted(list(route_names)):
+    for route_name in sorted(route_names):
       for footage_path in FOOTAGE_PATHS:
         if os.path.exists(footage_path):
           for segment in os.listdir(footage_path):
@@ -627,7 +623,7 @@ def setup(app):
   @app.route("/api/speed_limits", methods=["GET"])
   def speed_limits():
     data = json.loads(params.get("SpeedLimitsFiltered") or "[]")
-    current_time = (datetime.now(timezone.utc) - timedelta(days=6, hours=23)).isoformat()
+    current_time = (datetime.now(UTC) - timedelta(days=6, hours=23)).isoformat()
     data = [{**e, "last_vetted": current_time} for e in data]
 
     params.put("SpeedLimitsFiltered", json.dumps(data))
@@ -656,7 +652,7 @@ def setup(app):
       response = requests.get(f"https://api.comma.ai/v1/devices/{params.get('DongleId', encoding='utf8')}/firehose_stats", timeout=10)
       response.raise_for_status()
       firehose_stats = response.json().get("firehose", 0)
-    except (requests.RequestException, ValueError) as e:
+    except (requests.RequestException, ValueError):
       firehose_stats = 0
 
     return {
@@ -997,7 +993,7 @@ def setup(app):
 
     colors_path = ACTIVE_THEME_PATH / "colors" / "colors.json"
     if colors_path.exists():
-      with open(colors_path, "r") as f:
+      with open(colors_path) as f:
         theme_data["colors"] = json.load(f)
 
     signals_dir = ACTIVE_THEME_PATH / "signals"
@@ -1282,14 +1278,14 @@ def setup(app):
         if not DISCORD_WEBHOOK_URL_THEME:
           return
 
-        message = (
-          f"🎨 **New Theme Submission**\n"
-          f"User: `{username}`\n"
-          f"Theme: `{theme_name}`\n"
-          f"Assets: {', '.join(asset_types)}\n"
-          f"[View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)\n"
-          f"<@263565721336807424>"
-        )
+        message = "".join([
+          "🎨 **New Theme Submission**\n",
+          f"User: `{username}`\n",
+          f"Theme: `{theme_name}`\n",
+          f"Assets: {', '.join(asset_types)}\n",
+          f"[View Submissions Repo](https://gitlab.com/{RESOURCES_REPO}-Submissions)\n",
+          "<@263565721336807424>",
+        ])
         payload = {"content": message}
         try:
           resp = requests.post(DISCORD_WEBHOOK_URL_THEME, json=payload)

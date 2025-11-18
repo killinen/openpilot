@@ -2,7 +2,7 @@
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
 
-from openpilot.frogpilot.common.frogpilot_variables import CITY_SPEED_LIMIT, CRUISING_SPEED, THRESHOLD, params_memory
+from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, THRESHOLD, params_memory
 
 class ConditionalExperimentalMode:
   def __init__(self, FrogPilotPlanner):

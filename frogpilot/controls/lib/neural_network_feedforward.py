@@ -42,7 +42,7 @@ LAT_PLAN_MIN_IDX = 5
 
 class FluxModel:
   def __init__(self, params_file):
-    with open(params_file, "r") as f:
+    with open(params_file) as f:
       params = json.load(f)
 
     self.input_size = params["input_size"]
@@ -249,7 +249,7 @@ class LatControlNNFF(LatControl):
       # desired rate is the desired rate of change in the setpoint, not the absolute desired curvature
       # desired_lateral_jerk = desired_curvature_rate * CS.vEgo ** 2
       actual_lateral_accel = actual_curvature * CS.vEgo ** 2
-      lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
+      _lateral_accel_deadzone = curvature_deadzone * CS.vEgo ** 2
 
       low_speed_factor = interp(CS.vEgo, LOW_SPEED_X, LOW_SPEED_Y)**2
       setpoint = desired_lateral_accel + low_speed_factor * desired_curvature

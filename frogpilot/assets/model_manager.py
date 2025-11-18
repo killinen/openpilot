@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
-import json
-import re
 import requests
 import shutil
-import time
-import urllib.parse
 
 from pathlib import Path
 from urllib.parse import quote_plus
@@ -262,7 +258,7 @@ class ModelManager:
       known_file_sizes = [size for size in file_sizes if size > 0]
       total_model_bytes = sum(known_file_sizes) if len(known_file_sizes) == len(file_sizes) else 0
 
-      for (file_key, description), part_bytes, (primary_url, fallback_url) in zip(TINYGRAD_FILES, file_sizes, file_sources):
+      for (file_key, description), part_bytes, (primary_url, fallback_url) in zip(TINYGRAD_FILES, file_sizes, file_sources, strict=False):
         filename = f"{model_to_download}_{file_key}"
         model_path = MODELS_PATH / filename
 

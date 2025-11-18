@@ -8,8 +8,7 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.selfdrive.car import create_button_events, get_safety_config
 from openpilot.selfdrive.car.gm.radar_interface import RADAR_HEADER_MSG
 from openpilot.selfdrive.car.gm.values import CAR, CruiseButtons, CarControllerParams, EV_CAR, CAMERA_ACC_CAR, CanBus, GMFlags, CC_ONLY_CAR, SDGM_CAR
-from openpilot.selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, FRICTION_THRESHOLD, LateralAccelFromTorqueCallbackType
-from openpilot.selfdrive.controls.lib.drive_helpers import get_friction
+from openpilot.selfdrive.car.interfaces import CarInterfaceBase, TorqueFromLateralAccelCallbackType, LateralAccelFromTorqueCallbackType
 
 ButtonType = car.CarState.ButtonEvent.Type
 FrogPilotButtonType = custom.FrogPilotCarState.ButtonEvent.Type
@@ -305,7 +304,7 @@ class CarInterface(CarInterfaceBase):
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_NO_ACC
 
     # Exception for flashed cars, or cars whose camera was removed
-    if (ret.networkLocation == NetworkLocation.fwdCamera or candidate in CC_ONLY_CAR) and CAM_MSG not in fingerprint[CanBus.CAMERA] and not candidate in SDGM_CAR:
+    if (ret.networkLocation == NetworkLocation.fwdCamera or candidate in CC_ONLY_CAR) and CAM_MSG not in fingerprint[CanBus.CAMERA] and candidate not in SDGM_CAR:
       ret.flags |= GMFlags.NO_CAMERA.value
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_NO_CAMERA
 
@@ -341,7 +340,7 @@ class CarInterface(CarInterfaceBase):
     # TODO: verify 17 Volt can enable for the first time at a stop and allow for all GMs
     below_min_enable_speed = ret.vEgo < self.CP.minEnableSpeed or self.CS.moving_backward
     if below_min_enable_speed and not (ret.standstill and ret.brake >= 20 and
-                                       (self.CP.networkLocation == NetworkLocation.fwdCamera and not self.CP.carFingerprint in SDGM_CAR)):
+                                       (self.CP.networkLocation == NetworkLocation.fwdCamera and self.CP.carFingerprint not in SDGM_CAR)):
       events.add(EventName.belowEngageSpeed)
     if ret.cruiseState.standstill and not self.CP.autoResumeSng:
       events.add(EventName.resumeRequired)

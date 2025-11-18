@@ -16,7 +16,6 @@ from openpilot.common.params import Params
 from openpilot.selfdrive.car import gen_empty_fingerprint
 from openpilot.selfdrive.car.gm.values import GMFlags
 from openpilot.selfdrive.car.interfaces import TORQUE_SUBSTITUTE_PATH, CarInterfaceBase
-from openpilot.selfdrive.car.mock.interface import CarInterface
 from openpilot.selfdrive.car.mock.values import CAR as MOCK
 from openpilot.selfdrive.car.subaru.values import SubaruFlags
 from openpilot.selfdrive.car.toyota.values import ToyotaFlags, ToyotaFrogPilotFlags
@@ -166,11 +165,9 @@ def get_nnff_model_files():
 
 @cache
 def get_nnff_substitutes():
-  substitutes = {}
   with open(TORQUE_SUBSTITUTE_PATH, "rb") as f:
     substitutes_data = tomllib.load(f)
-    substitutes = {key: value for key, value in substitutes_data.items()}
-  return substitutes
+  return dict(substitutes_data)
 
 def nnff_supported(car_fingerprint):
   model_files = get_nnff_model_files()
@@ -951,8 +948,11 @@ class FrogPilotVariables:
 
     toggle.available_models = (params.get("AvailableModels", encoding="utf-8") or "") + f",{DEFAULT_MODEL}"
     toggle.available_model_names = (params.get("AvailableModelNames", encoding="utf-8") or "") + f",{DEFAULT_MODEL_NAME}"
-    downloaded_models = [model for model in toggle.available_models.split(",") if (MODELS_PATH / f"{model}.thneed").is_file() or all((MODELS_PATH / f"{model}_{filename}").is_file() for filename, _ in TINYGRAD_FILES)]
+    models = toggle.available_models.split(",")
+    model_names_list = toggle.available_model_names.split(",")
+    downloaded_models = [model for model in models if (MODELS_PATH / f"{model}.thneed").is_file() or all((MODELS_PATH / f"{model}_{filename}").is_file() for filename, _ in TINYGRAD_FILES)]
     model_versions = (params.get("ModelVersions", encoding="utf-8") or "") + f",{DEFAULT_MODEL_VERSION}"
+    model_version_list = model_versions.split(",")
     toggle.model_randomizer = params.get_bool("ModelRandomizer") if tuning_level >= level["ModelRandomizer"] else default.get_bool("ModelRandomizer")
     if toggle.model_randomizer:
       if not started:
@@ -960,13 +960,15 @@ class FrogPilotVariables:
         selectable_models = [model for model in downloaded_models if model not in blacklisted_models]
         toggle.model = random.choice(selectable_models) if selectable_models else DEFAULT_MODEL
         toggle.model_name = "Mystery Model 👻"
-        toggle.model_version = model_versions.split(",")[toggle.available_models.split(",").index(toggle.model)]
+        toggle.model_version = model_version_list[models.index(toggle.model)]
     else:
       model = ((params.get("Model", encoding="utf-8") if tuning_level >= level["Model"] else default.get("Model", encoding="utf-8")) or DEFAULT_MODEL).removesuffix("_default")
       if model in downloaded_models:
         toggle.model = model
-        toggle.model_name = dict(zip(toggle.available_models.split(","), toggle.available_model_names.split(",")))[toggle.model]
-        toggle.model_version = dict(zip(toggle.available_models.split(","), model_versions.split(",")))[toggle.model]
+        model_name_map = dict(zip(models, model_names_list, strict=False))
+        model_version_map = dict(zip(models, model_version_list, strict=False))
+        toggle.model_name = model_name_map[toggle.model]
+        toggle.model_version = model_version_map[toggle.model]
       else:
         toggle.model = DEFAULT_MODEL
         toggle.model_name = DEFAULT_MODEL_NAME
@@ -1069,7 +1071,7 @@ class FrogPilotVariables:
     toggle.slc_fallback_experimental_mode = slc_fallback_method == 1
     toggle.slc_fallback_previous_speed_limit = slc_fallback_method == 2
     toggle.slc_fallback_set_speed = slc_fallback_method == 0
-    toggle.slc_mapbox_filler = (toggle.show_speed_limits or toggle.speed_limit_controller) and params.get("MapboxSecretKey", encoding="utf-8") != None and (params.get_bool("SLCMapboxFiller") if tuning_level >= level["SLCMapboxFiller"] else default.get_bool("SLCMapboxFiller"))
+    toggle.slc_mapbox_filler = (toggle.show_speed_limits or toggle.speed_limit_controller) and params.get("MapboxSecretKey", encoding="utf-8") is not None and (params.get_bool("SLCMapboxFiller") if tuning_level >= level["SLCMapboxFiller"] else default.get_bool("SLCMapboxFiller"))
     toggle.speed_limit_confirmation = toggle.speed_limit_controller and (params.get_bool("SLCConfirmation") if tuning_level >= level["SLCConfirmation"] else default.get_bool("SLCConfirmation"))
     toggle.speed_limit_confirmation_higher = toggle.speed_limit_confirmation and (params.get_bool("SLCConfirmationHigher") if tuning_level >= level["SLCConfirmationHigher"] else default.get_bool("SLCConfirmationHigher"))
     toggle.speed_limit_confirmation_lower = toggle.speed_limit_confirmation and (params.get_bool("SLCConfirmationLower") if tuning_level >= level["SLCConfirmationLower"] else default.get_bool("SLCConfirmationLower"))

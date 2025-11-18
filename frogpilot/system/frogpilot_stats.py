@@ -4,7 +4,7 @@ import random
 import requests
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -12,7 +12,7 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_build_metadata
 
-from openpilot.frogpilot.common.frogpilot_utilities import clean_model_name, run_cmd
+from openpilot.frogpilot.common.frogpilot_utilities import clean_model_name
 from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles, params
 
 BASE_URL = "https://nominatim.openstreetmap.org"
@@ -88,11 +88,11 @@ def get_city_center(latitude, longitude):
         return latitude_value, longitude_value, city_label, state_name, country_name
 
       print(f"Falling back to (0, 0) for {latitude}, {longitude}")
-      return float(0.0), float(0.0), "N/A", "N/A", "N/A"
+      return 0.0, 0.0, "N/A", "N/A", "N/A"
 
   except Exception as exception:
-    print(f"Falling back to (0, 0) for {latitude}, {longitude}")
-    return float(0.0), float(0.0), "N/A", "N/A", "N/A"
+    print(f"Falling back to (0, 0) for {latitude}, {longitude}: {exception}")
+    return 0.0, 0.0, "N/A", "N/A", "N/A"
 
 def update_branch_commits(now):
   points = []
@@ -147,7 +147,7 @@ def send_stats():
     selected_theme = random.choice([item for item, count in most_common if count == max_count]).replace("-user_created", "").replace("_", " ")
 
     dongle_id = params.get("FrogPilotDongleId", encoding="utf-8")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     user_point = (
       Point("user_stats")

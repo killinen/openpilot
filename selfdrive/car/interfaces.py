@@ -24,7 +24,7 @@ from openpilot.selfdrive.car.mock.values import CAR as MockCAR
 from openpilot.selfdrive.car.subaru.values import CAR as SubaruCAR, SubaruFlags
 from openpilot.selfdrive.car.toyota.values import CAR as ToyotaCAR, TSS2_CAR, UNSUPPORTED_DSU_CAR, ToyotaFrogPilotFlags
 from openpilot.selfdrive.car.values import PLATFORMS
-from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, get_friction
+from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 from openpilot.selfdrive.controls.lib.events import Events
 from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from panda import Panda

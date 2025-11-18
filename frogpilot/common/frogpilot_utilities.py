@@ -4,7 +4,6 @@ import json
 import math
 import numpy as np
 import requests
-import shutil
 import subprocess
 import tarfile
 import threading
@@ -122,15 +121,15 @@ def capture_report(discord_user, report, frogpilot_toggles):
 
   toggles_bytes = io.BytesIO(json.dumps(frogpilot_toggles, indent=2).encode("utf-8"))
 
-  message = (
-    f"**🚨 New Error Report**\n\n"
-    f"**User:** `{discord_user}`\n\n"
-    f"**Report:**\n"
-    f"```{report}```\n"
-    f"**Error Log:**\n"
-    f"```{error_content}```\n"
-    f"**Toggle Settings:**\n"
-  )
+  message = "".join([
+    "**🚨 New Error Report**\n\n",
+    f"**User:** `{discord_user}`\n\n",
+    "**Report:**\n",
+    f"```{report}```\n",
+    "**Error Log:**\n",
+    f"```{error_content}```\n",
+    "**Toggle Settings:**\n",
+  ])
 
   try:
     resp = requests.post(

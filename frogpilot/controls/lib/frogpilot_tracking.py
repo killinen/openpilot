@@ -51,7 +51,8 @@ class FrogPilotTracking:
     self.sound = FrogPilotAudibleAlert.none
     self.state = State.disabled
 
-    self.model_name = clean_model_name(dict(zip(frogpilot_toggles.available_models.split(","), frogpilot_toggles.available_model_names.split(",")))[frogpilot_toggles.model])
+    model_names = dict(zip(frogpilot_toggles.available_models.split(","), frogpilot_toggles.available_model_names.split(","), strict=False))
+    self.model_name = clean_model_name(model_names[frogpilot_toggles.model])
 
   def update(self, now, time_validated, sm, frogpilot_toggles):
     v_cruise = min(sm["controlsState"].vCruiseCluster, V_CRUISE_MAX) * CV.KPH_TO_MS
@@ -117,7 +118,7 @@ class FrogPilotTracking:
 
       self.state = sm["controlsState"].state
 
-    current_events = {event for event in self.frogpilot_events.event_names}
+    current_events = set(self.frogpilot_events.event_names)
     if len(current_events) > 0:
       new_events = current_events - self.previous_events
 

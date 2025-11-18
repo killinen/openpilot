@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import glob
 import json
 import random
 import requests
@@ -246,7 +245,7 @@ class ThemeManager:
                 self.download_theme(key, theme_name, THEME_COMPONENT_PARAMS[key], frogpilot_toggles)
             break
 
-      assets["themes"] = {key: sorted(list(value)) for key, value in assets["themes"].items()}
+      assets["themes"] = {key: sorted(value) for key, value in assets["themes"].items()}
       assets["wheels"].sort()
       return assets
 

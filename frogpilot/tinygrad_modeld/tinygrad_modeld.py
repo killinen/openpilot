@@ -247,7 +247,6 @@ def main(demo=False):
   frogpilot_toggles = get_frogpilot_toggles()
 
   model_name = frogpilot_toggles.model
-  model_version = frogpilot_toggles.model_version
   use_curvature_from_plan = frogpilot_toggles.model_version != "v7"
 
   cloudlog.warning("tinygrad_modeld init")
