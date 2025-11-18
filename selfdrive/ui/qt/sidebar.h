@@ -20,9 +20,9 @@ class Sidebar : public QFrame {
   Q_PROPERTY(int netStrength MEMBER net_strength NOTIFY valueChanged);
 
   // FrogPilot properties
-  Q_PROPERTY(ItemStatus chipStatus MEMBER chip_status NOTIFY valueChanged)
-  Q_PROPERTY(ItemStatus memoryStatus MEMBER memory_status NOTIFY valueChanged)
-  Q_PROPERTY(ItemStatus storageStatus MEMBER storage_status NOTIFY valueChanged)
+  Q_PROPERTY(ItemStatus chipStatus MEMBER chip_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus memoryStatus MEMBER memory_status NOTIFY valueChanged);
+  Q_PROPERTY(ItemStatus storageStatus MEMBER storage_status NOTIFY valueChanged);
 
 public:
   explicit Sidebar(QWidget* parent = 0);
