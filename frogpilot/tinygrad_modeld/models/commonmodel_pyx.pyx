@@ -71,4 +71,3 @@ cdef class MonitoringModelFrame(ModelFrame):
     self._frame = new cppMonitoringModelFrame(context.device_id, context.context)
     self.frame = <cppModelFrame*>(self._frame)
     self.buf_size = self._frame.buf_size
-

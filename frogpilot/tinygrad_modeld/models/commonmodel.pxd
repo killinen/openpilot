@@ -15,7 +15,7 @@ cdef extern from "common/clutil.h":
 cdef extern from "frogpilot/tinygrad_modeld/models/commonmodel.h":
   cppclass ModelFrame:
     int buf_size
-    unsigned char * buffer_from_cl(cl_mem*, int);
+    unsigned char * buffer_from_cl(cl_mem*, int)
     cl_mem * prepare(cl_mem, int, int, int, int, mat3)
 
   cppclass DrivingModelFrame:
