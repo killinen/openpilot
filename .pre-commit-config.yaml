@@ -47,7 +47,7 @@ repos:
         args:
         - --local-partial-types
         - --explicit-package-bases
-        exclude: '^(third_party/)|(body/)|(msgq/)|(opendbc/)|(panda/)|(rednose/)|(rednose_repo/)|(tinygrad/)|(tinygrad_repo/)|(teleoprtc/)|(teleoprtc_repo/)'
+        exclude: '^(third_party/)|(body/)|(msgq/)|(opendbc/)|(panda/)|(rednose/)|(rednose_repo/)|(tinygrad/)|(tinygrad_repo/)|(teleoprtc/)|(teleoprtc_repo/)|(frogpilot/third_party/)|(tools/sim/lib/)'
 -   repo: local
     hooks:
     -   id: cppcheck
