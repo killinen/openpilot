@@ -1,3 +1,7 @@
+#include <map>
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/visual_settings.h"
 
 FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
@@ -495,45 +499,25 @@ void FrogPilotVisualsPanel::updateToggles() {
 
     if (key == "AccelerationPath") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "AdjacentLeadsUI") {
+    } else if (key == "AdjacentLeadsUI") {
       setVisible &= parent->hasRadar && !(params.getBool("AdvancedCustomUI") && params.getBool("HideLeadMarker"));
-    }
-
-    else if (key == "BlindSpotPath") {
+    } else if (key == "BlindSpotPath") {
       setVisible &= parent->hasBSM;
-    }
-
-    else if (key == "HideLeadMarker") {
+    } else if (key == "HideLeadMarker") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "LeadInfo") {
+    } else if (key == "LeadInfo") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "OnroadDistanceButton") {
+    } else if (key == "OnroadDistanceButton") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "PedalsOnUI") {
+    } else if (key == "PedalsOnUI") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "RadarTracksUI") {
+    } else if (key == "RadarTracksUI") {
       setVisible &= parent->hasRadar;
-    }
-
-    else if (key == "ShowSpeedLimits") {
+    } else if (key == "ShowSpeedLimits") {
       setVisible &= !params.getBool("SpeedLimitController") || !parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "ShowStoppingPoint") {
+    } else if (key == "ShowStoppingPoint") {
       setVisible &= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "SLCMapboxFiller") {
+    } else if (key == "SLCMapboxFiller") {
       setVisible &= params.getBool("ShowSpeedLimits") && !(parent->hasOpenpilotLongitudinal && params.getBool("SpeedLimitController"));
       setVisible &= !params.get("MapboxSecretKey").empty();
     }
