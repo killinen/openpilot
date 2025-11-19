@@ -5,8 +5,11 @@ import requests
 
 from collections import Counter
 from datetime import UTC, datetime
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
+try:
+  from influxdb_client import InfluxDBClient, Point
+  from influxdb_client.client.write_api import SYNCHRONOUS
+except ModuleNotFoundError:
+  InfluxDBClient = Point = SYNCHRONOUS = None
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.system.hardware import HARDWARE
@@ -109,6 +112,10 @@ def update_branch_commits(now):
 
 
 def send_stats():
+  if InfluxDBClient is None or Point is None or SYNCHRONOUS is None:
+    print("Skipping FrogPilot stats upload: influxdb_client not installed.")
+    return
+
   try:
     build_metadata = get_build_metadata()
     frogpilot_toggles = get_frogpilot_toggles()
