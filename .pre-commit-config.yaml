@@ -66,7 +66,7 @@ repos:
     rev: 1.6.1
     hooks:
     -   id: cpplint
-        exclude: '^(third_party/)|(msgq/)|(body/)|(rednose/)|(rednose_repo/)|(opendbc/)|(panda/)|(generated/)'
+        exclude: '^(third_party/)|(msgq/)|(body/)|(rednose/)|(rednose_repo/)|(opendbc/)|(panda/)|(generated/)|(frogpilot/ui/screenrecorder/openmax/include/)'
         args:
         - --quiet
         - --counting=total
