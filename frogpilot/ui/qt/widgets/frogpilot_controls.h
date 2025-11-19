@@ -1,6 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include <QFile>
 #include <QFileInfo>

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "selfdrive/ui/qt/offroad/settings.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 

@@ -1,3 +1,7 @@
+#include <string>
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/theme_settings.h"
 
 bool isUserCreatedTheme(const QString &themeName) {
@@ -830,9 +834,7 @@ void FrogPilotThemesPanel::updateToggles() {
 
     if (key == "CustomDistanceIcons") {
       setVisible &= params.getBool("QOLVisuals") && params.getBool("OnroadDistanceButton");
-    }
-
-    else if (key == "RandomThemes") {
+    } else if (key == "RandomThemes") {
       setVisible &= params.getBool("PersonalizeOpenpilot");
     }
 
