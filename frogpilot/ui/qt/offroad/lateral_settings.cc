@@ -1,3 +1,6 @@
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/lateral_settings.h"
 
 FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
@@ -355,70 +358,44 @@ void FrogPilotLateralPanel::updateToggles() {
     if (key == "AlwaysOnLateralLKAS") {
       setVisible &= parent->isHKGCanFd;
       setVisible &= !parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "AlwaysOnLateralMain") {
+    } else if (key == "AlwaysOnLateralMain") {
       setVisible &= !parent->isHKGCanFd;
       setVisible |= parent->hasOpenpilotLongitudinal;
-    }
-
-    else if (key == "ForceAutoTune") {
+    } else if (key == "ForceAutoTune") {
       setVisible &= !parent->hasAutoTune;
       setVisible &= !parent->isAngleCar;
       setVisible &= parent->isTorqueCar || forcingTorqueController;
-    }
-
-    else if (key == "ForceAutoTuneOff") {
+    } else if (key == "ForceAutoTuneOff") {
       setVisible &= parent->hasAutoTune;
-    }
-
-    else if (key == "ForceTorqueController") {
+    } else if (key == "ForceTorqueController") {
       setVisible &= !parent->isAngleCar;
       setVisible &= !parent->isTorqueCar;
-    }
-
-    else if (key == "LaneChangeTime") {
+    } else if (key == "LaneChangeTime") {
       setVisible &= params.getBool("LaneChanges") && params.getBool("NudgelessLaneChange");
-    }
-
-    else if (key == "LaneDetectionWidth") {
+    } else if (key == "LaneDetectionWidth") {
       setVisible &= params.getBool("LaneChanges") && params.getBool("NudgelessLaneChange");
-    }
-
-    else if (key == "NNFF") {
+    } else if (key == "NNFF") {
       setVisible &= parent->hasNNFFLog;
       setVisible &= !parent->isAngleCar;
-    }
-
-    else if (key == "NNFFLite") {
+    } else if (key == "NNFFLite") {
       setVisible &= !usingNNFF;
       setVisible &= !parent->isAngleCar;
-    }
-
-    else if (key == "SteerDelay") {
+    } else if (key == "SteerDelay") {
       setVisible &= parent->steerActuatorDelay != 0;
-    }
-
-    else if (key == "SteerFriction") {
+    } else if (key == "SteerFriction") {
       setVisible &= parent->friction != 0;
       setVisible &= parent->hasAutoTune ? forcingAutoTuneOff : !forcingAutoTune;
       setVisible &= parent->isTorqueCar || forcingTorqueController;
       setVisible &= !usingNNFF;
-    }
-
-    else if (key == "SteerKP") {
+    } else if (key == "SteerKP") {
       setVisible &= parent->steerKp != 0;
       setVisible &= !parent->isAngleCar;
-    }
-
-    else if (key == "SteerLatAccel") {
+    } else if (key == "SteerLatAccel") {
       setVisible &= parent->latAccelFactor != 0;
       setVisible &= parent->hasAutoTune ? forcingAutoTuneOff : !forcingAutoTune;
       setVisible &= parent->isTorqueCar || forcingTorqueController;
       setVisible &= !usingNNFF;
-    }
-
-    else if (key == "SteerRatio") {
+    } else if (key == "SteerRatio") {
       setVisible &= parent->steerRatio != 0;
       setVisible &= parent->hasAutoTune ? forcingAutoTuneOff : !forcingAutoTune;
     }

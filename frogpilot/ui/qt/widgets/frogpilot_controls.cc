@@ -91,8 +91,7 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
     colorObj.value("red").toInt(255),
     colorObj.value("green").toInt(255),
     colorObj.value("blue").toInt(255),
-    colorObj.value("alpha").toInt(255)
-  );
+    colorObj.value("alpha").toInt(255));
 }
 
 QString processModelName(const QString &modelName) {

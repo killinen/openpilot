@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/navigation_settings.h"
 
 FrogPilotNavigationPanel::FrogPilotNavigationPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {

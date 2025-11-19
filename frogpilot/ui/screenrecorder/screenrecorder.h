@@ -1,7 +1,11 @@
 #pragma once
 
-#include "omx_encoder.h"
-#include "blocking_queue.h"
+#include <memory>
+#include <thread>
+#include <vector>
+
+#include "frogpilot/ui/screenrecorder/omx_encoder.h"
+#include "frogpilot/ui/screenrecorder/blocking_queue.h"
 
 #include "selfdrive/ui/qt/onroad/buttons.h"
 

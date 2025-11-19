@@ -1,4 +1,6 @@
 #include <regex>
+#include <utility>
+#include <vector>
 
 #include <QtConcurrent>
 

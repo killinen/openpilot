@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "frogpilot/ui/qt/widgets/model_reviewer.h"
 
 static QLabel *addLabel(QWidget *parent, QVBoxLayout *layout, const QString &text, int fontSize=50) {

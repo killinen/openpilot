@@ -1,6 +1,9 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/vehicle_settings.h"
 
 QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModels) {
@@ -397,21 +400,13 @@ void FrogPilotVehiclesPanel::updateToggles() {
 
     if (key == "LockDoorsTimer") {
       setVisible &= !parent->isC3;
-    }
-
-    else if (key == "SNGHack") {
+    } else if (key == "SNGHack") {
       setVisible &= !parent->hasPedal && !parent->hasSNG;
-    }
-
-    else if (key == "SubaruSNG") {
+    } else if (key == "SubaruSNG") {
       setVisible &= parent->hasSNG;
-    }
-
-    else if (key == "TacoTuneHacks") {
+    } else if (key == "TacoTuneHacks") {
       setVisible &= parent->isHKGCanFd;
-    }
-
-    else if (key == "VoltSNG") {
+    } else if (key == "VoltSNG") {
       setVisible &= parent->isVolt && !parent->hasSNG;
     }
 

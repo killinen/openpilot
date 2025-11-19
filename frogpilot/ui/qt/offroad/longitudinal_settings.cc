@@ -1,3 +1,7 @@
+#include <map>
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/longitudinal_settings.h"
 
 FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
@@ -957,38 +961,22 @@ void FrogPilotLongitudinalPanel::updateToggles() {
 
     if (key == "CEStopLights") {
       setVisible &= !toggles["CEModelStopTime"]->isVisible();
-    }
-
-    else if (key == "CustomCruise" || key == "CustomCruiseLong" || key == "SetSpeedLimit" || key == "SetSpeedOffset") {
+    } else if (key == "CustomCruise" || key == "CustomCruiseLong" || key == "SetSpeedLimit" || key == "SetSpeedOffset") {
       setVisible &= !parent->hasPCMCruise;
-    }
-
-    else if (key == "ForceMPHDashboard") {
+    } else if (key == "ForceMPHDashboard") {
       setVisible &= parent->isToyota;
-    }
-
-    else if (key == "HumanLaneChanges") {
+    } else if (key == "HumanLaneChanges") {
       setVisible &= parent->hasRadar;
-    }
-
-    else if (key == "MapGears") {
+    } else if (key == "MapGears") {
       setVisible &= parent->isGM || parent->isHKGCanFd || parent->isToyota;
       setVisible &= !parent->isTSK;
-    }
-
-    else if (key == "ReverseCruise") {
+    } else if (key == "ReverseCruise") {
       setVisible &= parent->isToyota;
-    }
-
-    else if (key == "SLCMapboxFiller") {
+    } else if (key == "SLCMapboxFiller") {
       setVisible &= !params.get("MapboxSecretKey").empty();
-    }
-
-    else if (key == "StartAccel") {
+    } else if (key == "StartAccel") {
       setVisible &= !(params.getBool("LongitudinalTune") && params.getBool("HumanAcceleration"));
-    }
-
-    else if (key == "StoppingDecelRate" || key == "VEgoStarting" || key == "VEgoStopping") {
+    } else if (key == "StoppingDecelRate" || key == "VEgoStarting" || key == "VEgoStopping") {
       setVisible &= !parent->isGM || !params.getBool("ExperimentalGMTune");
       setVisible &= !parent->isToyota || !params.getBool("FrogsGoMoosTweak");
     }

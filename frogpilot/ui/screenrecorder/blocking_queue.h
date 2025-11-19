@@ -1,12 +1,14 @@
 #pragma once
-#include <iostream>
-#include <queue>
+
+#include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <mutex>
+#include <utility>
 
 template <class T>
-class BlockingQueue
-{
-public:
+class BlockingQueue {
+ public:
   std::deque<T> content;
   size_t capacity;
 
@@ -19,8 +21,7 @@ public:
   BlockingQueue &operator = (const BlockingQueue &) = delete;
   BlockingQueue &operator = (BlockingQueue &&) = delete;
 
- public:
-  BlockingQueue(size_t capacity): capacity(capacity) {}
+  BlockingQueue(size_t capacity) : capacity(capacity) {}
 
   void clear() {
     {
@@ -42,8 +43,9 @@ public:
   bool try_push(T &&item) {
     {
       std::unique_lock<std::mutex> lk(mutex);
-      if (content.size() == capacity)
+      if (content.size() == capacity) {
         return false;
+      }
       content.push_back(std::move(item));
     }
     not_empty.notify_one();
@@ -63,11 +65,10 @@ public:
   bool pop_wait_for(T &item, std::chrono::milliseconds duration) {
     {
       std::unique_lock<std::mutex> lk(mutex);
-      if(not_empty.wait_for(lk, duration, [this]() { return !content.empty(); })) {
+      if (not_empty.wait_for(lk, duration, [this]() { return !content.empty(); })) {
         item = std::move(content.front());
         content.pop_front();
-      }
-      else {
+      } else {
         return false;
       }
     }
@@ -78,8 +79,9 @@ public:
   bool try_pop(T &item) {
     {
       std::unique_lock<std::mutex> lk(mutex);
-      if (content.empty())
+      if (content.empty()) {
         return false;
+      }
       item = std::move(content.front());
       content.pop_front();
     }

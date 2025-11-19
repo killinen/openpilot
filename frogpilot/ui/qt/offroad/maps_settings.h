@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 #include "frogpilot/ui/qt/widgets/navigation_functions.h"
 

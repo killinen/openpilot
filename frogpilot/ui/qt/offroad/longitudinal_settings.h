@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 
 class FrogPilotLongitudinalPanel : public FrogPilotListWidget {

@@ -1,3 +1,6 @@
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/wheel_settings.h"
 
 FrogPilotWheelPanel::FrogPilotWheelPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {

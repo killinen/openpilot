@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "frogpilot/ui/qt/widgets/developer_sidebar.h"
 
 void DeveloperSidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QColor c, int y) {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "selfdrive/ui/qt/sidebar.h"
 
 class DeveloperSidebar : public QFrame {
