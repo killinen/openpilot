@@ -1,4 +1,7 @@
-#include "libyuv.h"
+#include <algorithm>
+#include <memory>
+
+#include "third_party/libyuv/include/libyuv.h"
 
 #include "selfdrive/ui/qt/util.h"
 

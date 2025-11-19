@@ -1,3 +1,6 @@
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/model_settings.h"
 
 bool hasAllTinygradFiles(const QDir &modelDir, const QString &modelKey) {
@@ -558,9 +561,7 @@ void FrogPilotModelPanel::updateToggles() {
 
     if (key == "ManageBlacklistedModels" || key == "ManageScores") {
       setVisible &= params.getBool("ModelRandomizer");
-    }
-
-    else if (key == "SelectModel") {
+    } else if (key == "SelectModel") {
       setVisible &= !params.getBool("ModelRandomizer");
     }
 

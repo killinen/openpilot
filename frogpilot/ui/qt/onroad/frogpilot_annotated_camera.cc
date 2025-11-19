@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <QMovie>
 
 #include "frogpilot/ui/qt/onroad/frogpilot_annotated_camera.h"
@@ -899,8 +901,7 @@ void FrogPilotAnnotatedCameraWidget::paintStandstillTimer(QPainter &p) {
   QColor blendedColor(
     startColor.red() + transition * (endColor.red() - startColor.red()),
     startColor.green() + transition * (endColor.green() - startColor.green()),
-    startColor.blue() + transition * (endColor.blue() - startColor.blue())
-  );
+    startColor.blue() + transition * (endColor.blue() - startColor.blue()));
 
   int minutes = standstillDuration / 60;
   int seconds = standstillDuration % 60;

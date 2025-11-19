@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <map>
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/sounds_settings.h"
 
 void playSound(const QString &alert, int volume) {
@@ -197,9 +202,7 @@ void FrogPilotSoundsPanel::updateToggles() {
 
     if (key == "LoudBlindspotAlert") {
       setVisible &= parent->hasBSM;
-    }
-
-    else if (key == "SpeedLimitChangedAlert") {
+    } else if (key == "SpeedLimitChangedAlert") {
       setVisible &= params.getBool("ShowSpeedLimits") || (parent->hasOpenpilotLongitudinal && params.getBool("SpeedLimitController"));
     }
 
