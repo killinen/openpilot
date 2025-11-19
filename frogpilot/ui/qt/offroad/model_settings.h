@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <set>
 
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"

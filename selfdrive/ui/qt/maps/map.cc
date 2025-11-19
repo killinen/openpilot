@@ -1,6 +1,7 @@
 #include "selfdrive/ui/qt/maps/map.h"
 
 #include <algorithm>
+#include <string>
 #include <eigen3/Eigen/Dense>
 
 #include <QDebug>

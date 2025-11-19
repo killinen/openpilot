@@ -1,5 +1,8 @@
 #pragma once
 
+#include <map>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 
 class FrogPilotVisualsPanel : public FrogPilotListWidget {

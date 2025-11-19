@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
 #include "frogpilot/ui/qt/widgets/drive_summary.h"

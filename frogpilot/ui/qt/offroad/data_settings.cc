@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <sys/xattr.h>
 
 #include "frogpilot/ui/qt/offroad/data_settings.h"

@@ -13,8 +13,8 @@
 #include <OMX_IndexExt.h>
 #include <OMX_QCOMExtns.h>
 #include <OMX_VideoExt.h>
-#include "libyuv.h"
-#include "msm_media_info.h"
+#include "third_party/libyuv/include/libyuv.h"
+#include "third_party/linux/include/msm_media_info.h"
 #include "common/swaglog.h"
 #include "common/util.h"
 
@@ -660,8 +660,8 @@ OmxEncoder::~OmxEncoder() {
   }
 
   OMX_BUFFERHEADERTYPE *out_buf;
-  while (free_in.try_pop(out_buf));
-  while (done_out.try_pop(out_buf));
+  while (free_in.try_pop(out_buf)) {}
+  while (done_out.try_pop(out_buf)) {}
 
   if (codec_config) {
     free(codec_config);

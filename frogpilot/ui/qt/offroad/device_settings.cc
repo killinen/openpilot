@@ -1,3 +1,7 @@
+#include <map>
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/screenrecorder/screenrecorder.h"
 #include "frogpilot/ui/qt/offroad/device_settings.h"
 
@@ -239,9 +243,7 @@ void FrogPilotDevicePanel::updateToggles() {
 
     if (key == "HigherBitrate") {
       setVisible &= params.getBool("DeviceManagement") && params.getBool("NoUploads") && !params.getBool("DisableOnroadUploads");
-    }
-
-    else if (key == "UseKonikServer" && QFile("/data/not_vetted").exists()) {
+    } else if (key == "UseKonikServer" && QFile("/data/not_vetted").exists()) {
       static_cast<ToggleControl*>(toggle)->forceOn(true);
     }
 

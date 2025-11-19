@@ -1,3 +1,6 @@
+#include <tuple>
+#include <vector>
+
 #include "frogpilot/ui/qt/offroad/data_settings.h"
 #include "frogpilot/ui/qt/offroad/device_settings.h"
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"

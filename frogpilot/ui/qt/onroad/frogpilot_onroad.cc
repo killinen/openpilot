@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "frogpilot/ui/qt/onroad/frogpilot_onroad.h"
 
 FrogPilotOnroadWindow::FrogPilotOnroadWindow(QWidget *parent) : QWidget(parent) {
