@@ -26,7 +26,7 @@ from panda import Panda
 
 from openpilot.frogpilot.common.frogpilot_variables import DISCORD_WEBHOOK_URL_REPORT, EARTH_RADIUS, ERROR_LOGS_PATH, KONIK_PATH, MAPD_PATH, MAPS_PATH, params, params_cache, params_memory
 
-running_threads = {}
+running_threads: dict[str, threading.Thread] = {}
 
 locks = {
   "backup_toggles": threading.Lock(),

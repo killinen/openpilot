@@ -5,7 +5,7 @@ import os
 import xml.etree.ElementTree as ET
 
 if "BASEDIR" in os.environ:
-  BASEDIR = os.environ.get("BASEDIR")
+  BASEDIR = os.environ["BASEDIR"]
 else:
   from openpilot.common.basedir import BASEDIR
 

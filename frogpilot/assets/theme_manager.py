@@ -5,7 +5,7 @@ import requests
 import shutil
 
 from datetime import date, timedelta
-from dateutil import easter
+from dateutil import easter  # type: ignore[import-untyped]
 from pathlib import Path
 from urllib.parse import quote_plus
 

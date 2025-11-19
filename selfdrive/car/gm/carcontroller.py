@@ -65,10 +65,10 @@ class CarController(CarControllerBase):
     zero = 0.15625  # 40/256
     if accel > 0.:
       # Scales the accel from 0-1 to 0.156-1
-      pedal_gas = clip(((1 - zero) * accel + zero), 0., 1.)
+      pedal_gas = float(clip(((1 - zero) * accel + zero), 0., 1.))
     else:
       # if accel is negative, -0.1 -> 0.015625
-      pedal_gas = clip(zero + accel, 0., zero)  # Make brake the same size as gas, but clip to regen
+      pedal_gas = float(clip(zero + accel, 0., zero))  # Make brake the same size as gas, but clip to regen
 
     return pedal_gas
 

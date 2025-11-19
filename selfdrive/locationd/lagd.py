@@ -201,7 +201,7 @@ class LateralLagEstimator:
     self.points = Points(window_len)
     self.block_avg = BlockAverage(self.block_count, self.block_size, valid_blocks, initial_lag)
 
-  def get_msg(self, valid: bool, debug: bool = False, frogpilot_toggles: SimpleNamespace = None) -> capnp._DynamicStructBuilder:
+  def get_msg(self, valid: bool, debug: bool = False, frogpilot_toggles: SimpleNamespace | None = None) -> capnp._DynamicStructBuilder:
     msg = messaging.new_message('liveDelay')
 
     msg.valid = valid
@@ -217,8 +217,8 @@ class LateralLagEstimator:
     else:
       liveDelay.status = log.LiveDelayData.Status.unestimated
 
-    if frogpilot_toggles.use_custom_steerActuatorDelay:
-      liveDelay.lateralDelay = frogpilot_toggles.steerActuatorDelay
+    if getattr(frogpilot_toggles, "use_custom_steerActuatorDelay", False):
+      liveDelay.lateralDelay = float(getattr(frogpilot_toggles, "steerActuatorDelay", self.initial_lag))
     elif liveDelay.status == log.LiveDelayData.Status.estimated:
       liveDelay.lateralDelay = valid_mean_lag
     else:

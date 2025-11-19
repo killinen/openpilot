@@ -29,7 +29,7 @@ def report_tombstone(fn: str, message: str, contents: str) -> None:
     sentry_sdk.flush()
 
 
-def capture_block():
+def capture_block() -> None:
   with sentry_sdk.push_scope():
     sentry_sdk.capture_message("Blocked user from using the development branch", level='info')
     sentry_sdk.flush()
@@ -60,7 +60,7 @@ def set_tag(key: str, value: str) -> None:
   sentry_sdk.set_tag(key, value)
 
 
-def save_exception(exc_text: str, crash_log) -> None:
+def save_exception(exc_text: str, crash_log: bool) -> None:
   files = [
     ERROR_LOGS_PATH / datetime.now().astimezone().strftime("%Y-%m-%d--%H-%M-%S.log"),
     ERROR_LOGS_PATH / "error.txt"
@@ -88,7 +88,7 @@ def init(project: SentryProject) -> bool:
   short_branch = build_metadata.channel
 
   if short_branch in ["COMMA", "HEAD"]:
-    return
+    return False
   elif short_branch == "FrogPilot-Development":
     env = "Development"
   elif build_metadata.release_channel:
