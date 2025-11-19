@@ -9,7 +9,10 @@ import subprocess
 import tarfile
 import threading
 import time
-import zstandard as zstd
+try:
+  import zstandard as zstd
+except ModuleNotFoundError:
+  zstd = None
 
 from pathlib import Path
 
@@ -33,6 +36,10 @@ def backup_directory(backup, destination, success_message, fail_message, minimum
   in_progress_destination.mkdir(parents=True, exist_ok=True)
 
   if compressed:
+    if zstd is None:
+      print("Skipping compressed backup: zstandard module is not available.")
+      delete_file(in_progress_destination, report=False)
+      return
     destination_compressed = destination.parent / (destination.name + ".tar.zst")
     if destination_compressed.exists():
       delete_file(in_progress_destination, report=False)

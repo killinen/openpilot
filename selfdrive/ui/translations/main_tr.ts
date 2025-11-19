@@ -1680,7 +1680,7 @@
     </message>
     <message>
         <source>&lt;b&gt;How much curve data has been collected.&lt;/b&gt; This is a progress meter; it is normal for the value to stay low and rarely reach 100%.</source>
-        <translation type="gpt-5-generated">&lt;b&gt;Ne kadar viraj verisi toplandığı.&lt;/b&gt; Bu bir ilerleme ölçer; değerin düşük kalması ve nadiren %100’e ulaşması normaldir.</translation>
+        <translation type="gpt-5-generated">&lt;b&gt;Ne kadar viraj verisi toplandığı.&lt;/b&gt; Bu bir ilerleme ölçer; değerin düşük kalması ve nadiren 100%’e ulaşması normaldir.</translation>
     </message>
     <message>
         <source>Reset Curve Data</source>
@@ -4422,7 +4422,7 @@ Geliştirici - Tecrübeli meraklılar için yüksek özelleştirilebilir ayarlar
     </message>
     <message>
         <source>&lt;b&gt;Set the driving-path edge width&lt;/b&gt; that represents different driving modes and statuses.&lt;br&gt;&lt;br&gt;Default is 20% of the total path width.&lt;br&gt;&lt;br&gt;Color Guide:&lt;br&gt;&lt;br&gt;- &lt;b&gt;Blue&lt;/b&gt;: Navigation&lt;br&gt;- &lt;b&gt;Light Blue&lt;/b&gt;: Always On Lateral&lt;br&gt;- &lt;b&gt;Green&lt;/b&gt;: Default&lt;br&gt;- &lt;b&gt;Orange&lt;/b&gt;: Experimental Mode&lt;br&gt;- &lt;b&gt;Red&lt;/b&gt;: Traffic Mode&lt;br&gt;- &lt;b&gt;Yellow&lt;/b&gt;: Conditional Experimental Mode overridden</source>
-        <translation type="gpt-5-generated">&lt;b&gt;Sürüş yolu kenar genişliğini&lt;/b&gt; farklı sürüş modlarını ve durumlarını temsil edecek şekilde ayarlayın.&lt;br&gt;&lt;br&gt;Varsayılan, toplam yol genişliğinin %20’sidir.&lt;br&gt;&lt;br&gt;Renk Kılavuzu:&lt;br&gt;&lt;br&gt;- &lt;b&gt;Mavi&lt;/b&gt;: Navigasyon&lt;br&gt;- &lt;b&gt;Açık Mavi&lt;/b&gt;: Her Zaman Açık Yanal&lt;br&gt;- &lt;b&gt;Yeşil&lt;/b&gt;: Varsayılan&lt;br&gt;- &lt;b&gt;Turuncu&lt;/b&gt;: Deneysel Mod&lt;br&gt;- &lt;b&gt;Kırmızı&lt;/b&gt;: Trafik Modu&lt;br&gt;- &lt;b&gt;Sarı&lt;/b&gt;: Koşullu Deneysel Mod geçersiz kılındı</translation>
+        <translation type="gpt-5-generated">&lt;b&gt;Sürüş yolu kenar genişliğini&lt;/b&gt; farklı sürüş modlarını ve durumlarını temsil edecek şekilde ayarlayın.&lt;br&gt;&lt;br&gt;Varsayılan, toplam yol genişliğinin yüzde 20’sidir.&lt;br&gt;&lt;br&gt;Renk Kılavuzu:&lt;br&gt;&lt;br&gt;- &lt;b&gt;Mavi&lt;/b&gt;: Navigasyon&lt;br&gt;- &lt;b&gt;Açık Mavi&lt;/b&gt;: Her Zaman Açık Yanal&lt;br&gt;- &lt;b&gt;Yeşil&lt;/b&gt;: Varsayılan&lt;br&gt;- &lt;b&gt;Turuncu&lt;/b&gt;: Deneysel Mod&lt;br&gt;- &lt;b&gt;Kırmızı&lt;/b&gt;: Trafik Modu&lt;br&gt;- &lt;b&gt;Sarı&lt;/b&gt;: Koşullu Deneysel Mod geçersiz kılındı</translation>
     </message>
     <message>
         <source>Path Width</source>
