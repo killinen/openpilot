@@ -133,8 +133,8 @@ class StreamSession:
       track = LiveStreamVideoStreamTrack(cam) if not debug_mode else VideoStreamTrack()
       builder.add_video_stream(cam, track)
     if config.expected_audio_track:
-      track = AudioInputStreamTrack() if not debug_mode else AudioStreamTrack()
-      builder.add_audio_stream(track)
+      audio_track = AudioInputStreamTrack() if not debug_mode else AudioStreamTrack()
+      builder.add_audio_stream(audio_track)
     if config.incoming_audio_track:
       self.audio_output_cls = AudioOutputSpeaker if not debug_mode else MediaBlackhole
       builder.offer_to_receive_audio_stream()

@@ -43,22 +43,22 @@ def only_offroad(started, params, CP: car.CarParams, classic_model, tinygrad_mod
 
 # FrogPilot functions
 def allow_logging(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
-  return not frogpilot_toggles.no_logging and logging(started, params, CP, classic_model, tinygrad_model, frogpilot_toggles)
+  return bool((not frogpilot_toggles.no_logging) and logging(started, params, CP, classic_model, tinygrad_model, frogpilot_toggles))
 
 def allow_uploads(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
-  return not frogpilot_toggles.no_uploads or frogpilot_toggles.no_onroad_uploads
+  return bool((not frogpilot_toggles.no_uploads) or frogpilot_toggles.no_onroad_uploads)
 
 def run_classic_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
-  return started and classic_model
+  return bool(started and classic_model)
 
 def run_new_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return started and not (classic_model or tinygrad_model)
 
 def run_speed_limit_filler(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
-  return frogpilot_toggles.speed_limit_filler
+  return bool(frogpilot_toggles.speed_limit_filler)
 
 def run_tinygrad_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
-  return started and tinygrad_model
+  return bool(started and tinygrad_model)
 
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),

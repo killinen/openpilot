@@ -51,7 +51,7 @@ class CarInterface(CarInterfaceBase):
     else:
       return CarInterfaceBase.get_steer_feedforward_default
 
-  def get_lataccel_torque_siglin(self) -> float:
+  def get_lataccel_torque_siglin(self) -> tuple[list[float], np.ndarray]:
 
     def torque_from_lateral_accel_siglin_func(lateral_acceleration: float) -> float:
       # The "lat_accel vs torque" relationship is assumed to be the sum of "sigmoid + linear" curves
@@ -66,7 +66,7 @@ class CarInterface(CarInterfaceBase):
       return float(steer_torque)
 
     lataccel_values = np.arange(-5.0, 5.0, 0.01)
-    torque_values = [torque_from_lateral_accel_siglin_func(x) for x in lataccel_values]
+    torque_values = [torque_from_lateral_accel_siglin_func(float(x)) for x in lataccel_values]
     assert min(torque_values) < -1 and max(torque_values) > 1, "The torque values should cover the range [-1, 1]"
     return torque_values, lataccel_values
 

@@ -66,7 +66,7 @@ def join_process(process: Process, timeout: float) -> None:
 class ManagerProcess(ABC):
   daemon = False
   sigkill = False
-  should_run: Callable[[bool, Params, car.CarParams], bool]
+  should_run: Callable[..., bool]
   proc: Process | None = None
   enabled = True
   name = ""

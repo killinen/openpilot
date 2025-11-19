@@ -56,8 +56,8 @@ GEAR_SHIFTER_MAP: dict[str, car.CarState.GearShifter] = {
   'B': GearShifter.brake, 'BRAKE': GearShifter.brake,
 }
 
-TorqueFromLateralAccelCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning, bool], float]
-LateralAccelFromTorqueCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning, bool], float]
+TorqueFromLateralAccelCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning], float]
+LateralAccelFromTorqueCallbackType = Callable[[float, car.CarParams.LateralTorqueTuning], float]
 
 
 @cache
@@ -129,10 +129,15 @@ class CarInterfaceBase(ABC):
     """
     Parameters essential to controlling the car may be incomplete or wrong without FW versions or fingerprints.
     """
-    return cls.get_params(candidate, gen_empty_fingerprint(), list(), False, False, False)
+    return cls.get_params(candidate, gen_empty_fingerprint(), list(), False, None, False)
 
   @classmethod
-  def get_params(cls, candidate: str, fingerprint: dict[int, dict[int, int]], car_fw: list[car.CarParams.CarFw], experimental_long: bool, frogpilot_toggles: SimpleNamespace, docs: bool):
+  def get_params(cls, candidate: str, fingerprint: dict[int, dict[int, int]], car_fw: list[car.CarParams.CarFw],
+                 experimental_long: bool, frogpilot_toggles: SimpleNamespace | None = None, docs: bool = False):
+    if frogpilot_toggles is None:
+      from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles
+      frogpilot_toggles = get_frogpilot_toggles()
+
     ret = CarInterfaceBase.get_std_params(candidate)
 
     platform = PLATFORMS[candidate]
@@ -308,10 +313,10 @@ class CarInterfaceBase(ABC):
     tune.torque.steeringAngleDeadzoneDeg = steering_angle_deadzone_deg
 
   @abstractmethod
-  def _update(self, c: car.CarControl) -> car.CarState:
+  def _update(self, c: car.CarControl, frogpilot_toggles: SimpleNamespace) -> tuple[car.CarState, custom.FrogPilotCarState]:
     pass
 
-  def update(self, c: car.CarControl, can_strings: list[bytes], frogpilot_toggles) -> car.CarState:
+  def update(self, c: car.CarControl, can_strings: list[bytes], frogpilot_toggles: SimpleNamespace) -> tuple[car.CarState, custom.FrogPilotCarState]:
     # parse can
     for cp in self.can_parsers:
       if cp is not None:
@@ -568,7 +573,7 @@ class CarControllerBase(ABC):
     pass
 
   @abstractmethod
-  def update(self, CC: car.CarControl.Actuators, CS: car.CarState, now_nanos: int) -> tuple[car.CarControl.Actuators, list[SendCan]]:
+  def update(self, CC: car.CarControl.Actuators, CS: car.CarState, now_nanos: int, frogpilot_toggles: SimpleNamespace) -> tuple[car.CarControl.Actuators, list[SendCan]]:
     pass
 
 

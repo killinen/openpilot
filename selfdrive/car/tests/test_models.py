@@ -24,6 +24,7 @@ from openpilot.selfdrive.test.helpers import read_segment_list
 from openpilot.system.hardware.hw import DEFAULT_DOWNLOAD_CACHE_ROOT
 from openpilot.tools.lib.logreader import LogReader, internal_source, openpilotci_source
 from openpilot.tools.lib.route import SegmentName
+from openpilot.frogpilot.common.frogpilot_variables import get_frogpilot_toggles
 
 from panda.tests.libpanda import libpanda_py
 
@@ -174,6 +175,8 @@ class TestCarModelBase(unittest.TestCase):
     assert cls.CP
     assert cls.CP.carFingerprint == cls.platform
 
+    cls.test_frogpilot_toggles = get_frogpilot_toggles()
+
     os.environ["COMMA_CACHE"] = DEFAULT_DOWNLOAD_CACHE_ROOT
 
   @classmethod
@@ -183,6 +186,7 @@ class TestCarModelBase(unittest.TestCase):
   def setUp(self):
     self.CI = self.CarInterface(self.CP.copy(), self.CarController, self.CarState)
     assert self.CI
+    self.test_frogpilot_toggles = self.__class__.test_frogpilot_toggles
 
     Params().put_bool("OpenpilotEnabledToggle", self.openpilot_enabled)
 
@@ -217,8 +221,8 @@ class TestCarModelBase(unittest.TestCase):
     CC = car.CarControl.new_message().as_reader()
 
     for i, msg in enumerate(self.can_msgs):
-      CS = self.CI.update(CC, (msg.as_builder().to_bytes(),))
-      self.CI.apply(CC, msg.logMonoTime)
+      CS, _ = self.CI.update(CC, (msg.as_builder().to_bytes(),), self.test_frogpilot_toggles)
+      self.CI.apply(CC, msg.logMonoTime, self.test_frogpilot_toggles)
 
       if CS.canValid:
         can_valid = True
@@ -293,8 +297,8 @@ class TestCarModelBase(unittest.TestCase):
       msgs_sent = 0
       CI = self.CarInterface(self.CP, self.CarController, self.CarState)
       for _ in range(round(10.0 / DT_CTRL)):  # make sure we hit the slowest messages
-        CI.update(car_control, [])
-        _, sendcan = CI.apply(car_control, now_nanos)
+        CI.update(car_control, [], self.test_frogpilot_toggles)
+        _, sendcan = CI.apply(car_control, now_nanos, self.test_frogpilot_toggles)
 
         now_nanos += DT_CTRL * 1e9
         msgs_sent += len(sendcan)
@@ -358,7 +362,7 @@ class TestCarModelBase(unittest.TestCase):
       can = messaging.new_message('can', 1)
       can.can = [log.CanData(address=address, dat=dat, src=bus)]
 
-      CS = self.CI.update(CC, (can.to_bytes(),))
+      CS, _ = self.CI.update(CC, (can.to_bytes(),), self.test_frogpilot_toggles)
 
       if self.safety.get_gas_pressed_prev() != prev_panda_gas:
         self.assertEqual(CS.gasPressed, self.safety.get_gas_pressed_prev())
@@ -397,7 +401,7 @@ class TestCarModelBase(unittest.TestCase):
 
     # warm up pass, as initial states may be different
     for can in self.can_msgs[:300]:
-      self.CI.update(CC, (can.as_builder().to_bytes(), ))
+      _, _ = self.CI.update(CC, (can.as_builder().to_bytes(), ), self.test_frogpilot_toggles)
       for msg in filter(lambda m: m.src in range(64), can.can):
         to_send = libpanda_py.make_CANPacket(msg.address, msg.src % 4, msg.dat)
         self.safety.safety_rx_hook(to_send)
@@ -407,7 +411,7 @@ class TestCarModelBase(unittest.TestCase):
     checks = defaultdict(int)
     card = Car(CI=self.CI)
     for idx, can in enumerate(self.can_msgs):
-      CS = self.CI.update(CC, (can.as_builder().to_bytes(), ))
+      CS, _ = self.CI.update(CC, (can.as_builder().to_bytes(), ), self.test_frogpilot_toggles)
       for msg in filter(lambda m: m.src in range(64), can.can):
         to_send = libpanda_py.make_CANPacket(msg.address, msg.src % 4, msg.dat)
         ret = self.safety.safety_rx_hook(to_send)

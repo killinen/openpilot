@@ -1,26 +1,38 @@
 #!/usr/bin/env python3
-import os
-from openpilot.system.hardware import TICI
-os.environ['DEV'] = 'QCOM' if TICI else 'LLVM'
-from tinygrad.tensor import Tensor
-from tinygrad.dtype import dtypes
-import math
-import time
-import pickle
 import ctypes
-import numpy as np
+import math
+import os
+import pickle
+import time
 from pathlib import Path
+
+import numpy as np
+from tinygrad.dtype import dtypes
+from tinygrad.tensor import Tensor
 
 from cereal import messaging
 from cereal.messaging import PubMaster, SubMaster
 from msgq.visionipc import VisionIpcClient, VisionStreamType, VisionBuf
-from openpilot.common.swaglog import cloudlog
 from openpilot.common.realtime import config_realtime_process
-from openpilot.common.transformations.model import dmonitoringmodel_intrinsics, DM_INPUT_SIZE
+from openpilot.common.swaglog import cloudlog
 from openpilot.common.transformations.camera import _ar_ox_fisheye, _os_fisheye
 from openpilot.frogpilot.tinygrad_modeld.models.commonmodel_pyx import CLContext, MonitoringModelFrame
 from openpilot.frogpilot.tinygrad_modeld.parse_model_outputs import sigmoid
 from openpilot.frogpilot.tinygrad_modeld.runners.tinygrad_helpers import qcom_tensor_from_opencl_address
+from openpilot.system.hardware import TICI
+
+os.environ['DEV'] = 'QCOM' if TICI else 'LLVM'
+
+try:
+  from openpilot.common.transformations.model import dmonitoringmodel_intrinsics, DM_INPUT_SIZE  # type: ignore[attr-defined]
+except ImportError:
+  DM_INPUT_SIZE = (1440, 960)
+  dm_focal_length = 567.0
+  dmonitoringmodel_intrinsics = np.array([
+    [dm_focal_length, 0.0, 0.5 * DM_INPUT_SIZE[0]],
+    [0.0, dm_focal_length, 0.5 * DM_INPUT_SIZE[1]],
+    [0.0, 0.0, 1.0],
+  ], dtype=np.float32)
 
 MODEL_WIDTH, MODEL_HEIGHT = DM_INPUT_SIZE
 CALIB_LEN = 3

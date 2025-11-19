@@ -119,7 +119,7 @@ def get_nn_model(car, eps_firmware) -> FluxModel | None:
   return None
 
 def get_nn_model_path(car, eps_firmware) -> str | None:
-  def best_model_path(query):
+  def best_model_path(query: str) -> tuple[str | None, float]:
     candidates = get_nnff_model_files()
     if not candidates:
       return None, 0.0
@@ -127,7 +127,7 @@ def get_nn_model_path(car, eps_firmware) -> str | None:
     best = max(candidates, key=lambda model: similarity(model, query))
     return os.path.join(NNFF_MODELS_PATH, f"{best}.json"), similarity(best, query)
 
-  def find_valid_model(*queries_with_candidates):
+  def find_valid_model(*queries_with_candidates: tuple[str, str]) -> str | None:
     for query, candidate in queries_with_candidates:
       path, score = best_model_path(query)
       if path and candidate in path and score >= 0.9:

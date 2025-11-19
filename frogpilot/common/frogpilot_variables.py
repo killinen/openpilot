@@ -4,6 +4,7 @@ import numpy as np
 import os
 import random
 import tomllib
+from typing import Any
 
 from functools import cache
 from pathlib import Path
@@ -146,7 +147,7 @@ TINYGRAD_FILES = [
   ("driving_vision_tinygrad.pkl", "vision model"),
 ]
 
-_interfaces_cache = None
+_interfaces_cache: dict[str, Any] | None = None
 
 
 def _get_interfaces():

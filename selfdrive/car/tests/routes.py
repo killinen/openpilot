@@ -296,7 +296,7 @@ routes = [
 
   # Segments that test specific issues
   # Controls mismatch due to interceptor threshold
-  CarTestRoute("cfb32f0fb91b173b|2022-04-06--14-54-45", HONDA.CIVIC, segment=21),
+  CarTestRoute("cfb32f0fb91b173b|2022-04-06--14-54-45", HONDA.HONDA_CIVIC, segment=21),
   # Controls mismatch due to standstill threshold
   CarTestRoute("bec2dcfde6a64235|2022-04-08--14-21-32", HONDA.HONDA_CRV_HYBRID, segment=22),
 ]

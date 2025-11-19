@@ -526,7 +526,7 @@ def main() -> None:
         if update_failed_count > 0 and updater.has_internet:
           delay = 5 * 60
         else:
-          delay = 1.5 * 60 * 60
+          delay = 90 * 60
       wait_helper.sleep(delay)
 
 
