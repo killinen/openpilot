@@ -81,8 +81,7 @@ def save_exception(exc_text: str, crash_log: bool) -> None:
 
 def init(project: SentryProject) -> bool:
   build_metadata = get_build_metadata()
-  FrogPilot = "frogai" in build_metadata.openpilot.git_origin.lower()
-  if not FrogPilot or PC:
+  if PC:
     return False
 
   short_branch = build_metadata.channel
