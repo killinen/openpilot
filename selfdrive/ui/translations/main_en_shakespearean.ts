@@ -4873,6 +4873,29 @@ Developer - Most customizable settings for well-tried enthusiasts</translation>
     </message>
 </context>
 <context>
+    <name>GoranConnectPasswordControl</name>
+    <message>
+        <source>Remote Control Password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Set a password for GoranConnect remote control access.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SET</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter remote control password</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>REMOVE</source>
+        <translation type="unfinished">REMOVE</translation>
+    </message>
+</context>
+<context>
     <name>InputDialog</name>
     <message>
         <source>Cancel</source>
