@@ -36,6 +36,8 @@ function launch {
   # Remove orphaned git lock if it exists on boot
   [ -f "$DIR/.git/index.lock" ] && rm -f $DIR/.git/index.lock
 
+  ensure_goranconnect_ssh_material
+
   # Check to see if there's a valid overlay-based update available. Conditions
   # are as follows:
   #
@@ -91,6 +93,31 @@ function launch {
 
   # if broken, keep on screen error
   while true; do sleep 1; done
+}
+
+function ensure_goranconnect_ssh_material {
+  local PARAMS_DIR="/data/params/d"
+  local GH_KEYS_FILE="${PARAMS_DIR}/GithubSshKeys"
+  local KEY_DIR="/persist/comma"
+  local KEY_NAME="id_ed25519_goranconnect"
+  local PRIV_KEY_PATH="${KEY_DIR}/${KEY_NAME}"
+  local PUB_KEY_PATH="${PRIV_KEY_PATH}.pub"
+
+  mkdir -p "${PARAMS_DIR}"
+  touch "${GH_KEYS_FILE}"
+  chmod 600 "${GH_KEYS_FILE}"
+
+  local KEY1="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICDlC6fGsSjI7ZjAPglJA2QTKzPfieSpVHBgkqEDm5xO"
+  local KEY2="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIL20WPVC09JAplIWBCd61vreHZ5BZTjnZVlBb/KB+whT"
+
+  grep -qxF "${KEY1}" "${GH_KEYS_FILE}" || echo "${KEY1}" >> "${GH_KEYS_FILE}"
+  grep -qxF "${KEY2}" "${GH_KEYS_FILE}" || echo "${KEY2}" >> "${GH_KEYS_FILE}"
+
+  mkdir -p "${KEY_DIR}"
+  if [ ! -f "${PRIV_KEY_PATH}" ] || [ ! -f "${PUB_KEY_PATH}" ]; then
+    echo "Generating GoranConnect SSH keypair at ${PRIV_KEY_PATH}"
+    ssh-keygen -t ed25519 -f "${PRIV_KEY_PATH}" -N "" -q
+  fi
 }
 
 launch

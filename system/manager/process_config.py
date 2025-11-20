@@ -103,6 +103,7 @@ procs = [
   PythonProcess("updated", "system.updated.updated", always_run, enabled=not PC),
   PythonProcess("uploader", "system.loggerd.uploader", allow_uploads),
   PythonProcess("statsd", "system.statsd", allow_logging),
+  PythonProcess("teletyped", "tools.teletyped.teletyped", always_run, enabled=TICI),
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
