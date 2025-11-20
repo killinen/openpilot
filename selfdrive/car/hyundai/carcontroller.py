@@ -3,12 +3,11 @@ from cereal import car
 from common.numpy_fast import clip, interp
 from common.realtime import DT_CTRL
 from opendbc.can.packer import CANPacker
-from selfdrive.car import apply_std_steer_torque_limits, create_gas_interceptor_command
-from selfdrive.car.hyundai import hda2can, hyundaican
+from selfdrive.car import apply_std_steer_torque_limits
+from selfdrive.car.hyundai import hda2can
 from selfdrive.car.hyundai.values import Buttons, CarControllerParams, HDA2_CAR, CAR, SteerLimitParams
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
-LongCtrlState = car.CarControl.Actuators.LongControlState
 
 SAMPLING_FREQ = 100 #Hz
 
@@ -108,13 +107,6 @@ class CarController:
 # ######################################### New Steer Logik ###########################################
 # #####################################################################################################
 
-    # latActive is when OP latControl is ON
-    if not CC.latActive:
-    #if not enabled or abs(CS.out.steeringRateDeg) > 100:
-      apply_steer_req = 0
-    else:
-      apply_steer_req = 1
-
     # Cut steering for 2s after fault
     steer_tq = 0
     # steer angle
@@ -169,10 +161,6 @@ class CarController:
 
     can_sends = []
 
-    # Send SSC steering command on platforms that expect the standalone steering message
-    if self.CP.carFingerprint == CAR.I30:
-      can_sends.append(hyundaican.create_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq, self.frame))
-
     if self.CP.carFingerprint in HDA2_CAR:
       # steering control
       can_sends.append(hda2can.create_lkas(self.packer, CC.enabled, self.frame, CC.latActive, apply_steer))
@@ -191,27 +179,6 @@ class CarController:
         elif CC.cruiseControl.resume:
           can_sends.append(hda2can.create_buttons(self.packer, CS.buttons_counter+1, Buttons.RES_ACCEL))
           self.last_button_frame = self.frame
-
-    # This is for I30 with pedal
-    elif self.CP.carFingerprint == CAR.I30 and self.CP.openpilotLongitudinalControl:
-      if CC.longActive:
-        # 1. Map the desired acceleration (m/s^2) to a pedal command (0-1 range).
-        #    Here, we are mapping an acceleration range of [0.0, 1.6] m/s^2
-        #    to a pedal position range of [0.0, 0.7].
-        #    The interp function will handle negative accel values by outputting 0.0.
-        pedal_command = interp(actuators.accel, [0.0, 1.6], [0.0, 0.7])
-
-        # 2. Clip the final pedal command to ensure it's within a safe range.
-        #    This is good practice, especially to ensure the command is never negative.
-        interceptor_gas_cmd = clip(pedal_command, 0., 0.7)
-      else:
-        interceptor_gas_cmd = 0.
-
-      # Send gas command to CAN (remember to send it to BUS1 in I30)
-      if self.frame % 2 == 0:
-        can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
-        self.gas = interceptor_gas_cmd
-
     else:
 
       # tester present - w/ no response (keeps radar disabled)
@@ -245,7 +212,6 @@ class CarController:
 
         accel = clip(accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX)
 
-        #stopping = actuators.longControlState == LongCtrlState.stopping
         #set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_MPH if CS.clu11["CF_Clu_SPEED_UNIT"] == 1 else CV.MS_TO_KPH)
         # can_sends.extend(hyundaican.create_acc_commands(self.packer, CC.enabled, accel, jerk, int(self.frame / 2),
         #                                                 hud_control.leadVisible, set_speed_in_units, stopping, CS.out.gasPressed))

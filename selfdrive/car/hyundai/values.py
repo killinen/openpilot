@@ -75,7 +75,6 @@ class CAR:
   PALISADE = "HYUNDAI PALISADE 2020"
   VELOSTER = "HYUNDAI VELOSTER 2019"
   SONATA_HYBRID = "HYUNDAI SONATA HYBRID 2021"
-  I30 = "HYUNDAI I30 GD 2014"
 
   # Kia
   KIA_FORTE = "KIA FORTE E 2018 & GT 2021"
@@ -111,7 +110,6 @@ CAR_INFO: Dict[str, Optional[Union[HyundaiCarInfo, List[HyundaiCarInfo]]]] = {
   CAR.ELANTRA_HEV_2021: HyundaiCarInfo("Hyundai Elantra Hybrid 2021-22", video_link="https://youtu.be/_EdYQtV52-c", harness=Harness.hyundai_k),
   CAR.ELANTRA_GT_I30: None,  # dashcamOnly and same platform as CAR.ELANTRA
   CAR.HYUNDAI_GENESIS: HyundaiCarInfo("Hyundai Genesis 2015-16", min_enable_speed=19 * CV.MPH_TO_MS, harness=Harness.hyundai_j),
-  CAR.I30: HyundaiCarInfo("Hyundai i30 2014", harness=Harness.hyundai_b),
   CAR.IONIQ: HyundaiCarInfo("Hyundai Ioniq Hybrid 2017-19", harness=Harness.hyundai_c),
   CAR.IONIQ_HEV_2022: HyundaiCarInfo("Hyundai Ioniq Hybrid 2020-22", "SCC + LFA", harness=Harness.hyundai_h),
   CAR.IONIQ_EV_LTD: HyundaiCarInfo("Hyundai Ioniq Electric 2019", harness=Harness.hyundai_c),
@@ -1284,5 +1282,4 @@ DBC = {
   CAR.KIA_CEED: dbc_dict('hyundai_kia_generic', None),
   CAR.KIA_EV6: dbc_dict('kia_ev6', None),
   CAR.SONATA_HYBRID: dbc_dict('hyundai_kia_generic', 'hyundai_kia_mando_front_radar'),
-  CAR.I30: dbc_dict('hyundai_i30_2014', None),
 }

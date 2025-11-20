@@ -35,11 +35,7 @@ class CarInterface(CarInterfaceBase):
 
 
   def get_steer_feedforward_function(self):
-    if self.CP.carFingerprint == CAR.I30:
-    # if self.CP.carFingerprint == CAR.ELANTRA_GT_I30:
-      return self.get_steer_feedforward_sigmoid
-    else:
-      return CarInterfaceBase.get_steer_feedforward_default
+    return CarInterfaceBase.get_steer_feedforward_default
 
   @staticmethod
   def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=[], disable_radar=False):  # pylint: disable=dangerous-default-value
@@ -71,7 +67,7 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalTuning.kiV = [0.0]
     ret.stopAccel = 0.0
 
-    ret.longitudinalActuatorDelayUpperBound = 0.2  # Default was 1 s, try something shorter for i30 pedal cruise
+    ret.longitudinalActuatorDelayUpperBound = 0.2
     if candidate in (CAR.SANTA_FE, CAR.SANTA_FE_2022, CAR.SANTA_FE_HEV_2022, CAR.SANTA_FE_PHEV_2022):
       ret.lateralTuning.pid.kf = 0.00005
       ret.mass = 3982. * CV.LB_TO_KG + STD_CARGO_KG
@@ -81,60 +77,6 @@ class CarInterface(CarInterfaceBase):
       tire_stiffness_factor = 0.82
       ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[9., 22.], [9., 22.]]
       ret.lateralTuning.pid.kpV, ret.lateralTuning.pid.kiV = [[0.2, 0.35], [0.05, 0.09]]
-                                        ###################
-                                        #### I30 2014  ####
-                                        ###################
-    elif candidate == CAR.I30:
-      ret.radarOffCan = True
-      if ret.openpilotLongitudinalControl:
-        ret.enableGasInterceptor = True # Start implementing gas interceptor to I30 to get somekinda ACC
-        ret.safetyConfigs[0].safetyParam = 17   # Detect 17 in panda safety code to use pedal stuff and op cruise w i30
-
-      ret.mass = 1193   # This is updated for i30
-      ret.wheelbase = 2.650   # This is updated for i30
-      ret.steerRatio = 15.3   # This is updated for i30
-      tire_stiffness_factor = 0.385   # Copied from Elantra GT
-
-      if ret.enableGasInterceptor:
-        # 1. Define the speed breakpoints (in m/s)
-        #    Let's use 0 m/s, 15 m/s (~55 kph), and 30 m/s (~110 kph)
-        ret.longitudinalTuning.kpBP = [0., 15., 30.]
-        ret.longitudinalTuning.kiBP = [0., 15., 30.]
-
-        # 2. Define the gain values that correspond to those speeds
-        #    Lower values at low speed, higher values at high speed
-        ret.longitudinalTuning.kpV = [0.3, 0.6, 0.9]  # Proportional gain
-        ret.longitudinalTuning.kiV = [0.1, 0.15, 0.2] # Integral gain
-
-        # Define speed breakpoints for the deadzone
-        # ret.longitudinalTuning.deadzoneBP = [0., 25.]  # Speeds: 0 m/s and 25 m/s (90 kph)
-
-        # Define the deadzone values at those speeds
-        # ret.longitudinalTuning.deadzoneV = [0.1, 0.3]   # Deadzone size in m/s
-
-      ret.lateralTuning.init('pid')
-      ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.028, 0.028]]
-      # ret.lateralTuning.pid.kf = 0.00019
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.15, 0.15]]   # Using regular steer_feedforward w 0815, and NEMA17
-      # ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0008, 0.0008], [0.12, 0.16]]     # Using get_steer_feedforward_sigmoid and NEMA17
-      ret.lateralTuning.pid.kiV, ret.lateralTuning.pid.kpV = [[0.0004, 0.0004], [0.10, 0.12]]     # Using get_steer_feedforward_sigmoid and NEMA23
-      # ret.lateralTuning.pid.kf = 0.000045                                                     # Using regular steer_feedforward w 0815, and NEMA17
-      ret.lateralTuning.pid.kf = 1.       # Using get_steer_feedforward_sigmoid
-      # ret.lateralTuning.pid.kf = 0.000045     # Using NEMA23 and default_steer_feedforward
-
-      # ret.steerControlType = car.CarParams.SteerControlType.torque
-      # CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
-      # ret.lateralTuning.torque.kp = 2.7 / SteerLimitParams.STEER_MAX
-      # ret.lateralTuning.torque.ki = 0.5 / SteerLimitParams.STEER_MAX
-      # ret.lateralTuning.torque.kf = 4.0 / SteerLimitParams.STEER_MAX
-      # ret.lateralTuning.torque.friction = 0.23
-      # # ret.lateralTuning.torque.latAccelFactor = 1.41
-      # ret.lateralTuning.torque.useSteeringAngle = True
-      # ret.lateralTuning.torque.steeringAngleDeadzoneDeg = 0.2 # backlash of stepper?
-
-      ret.maxSteeringAngleDeg = 90   # This is stupid amount, but I don't know why it should be limited either
-      ret.radarTimeStep = 0.05  # time delta between radar updates, 20Hz is very standard
     elif candidate in (CAR.SONATA, CAR.SONATA_HYBRID):
       ret.mass = 1513. + STD_CARGO_KG
       ret.wheelbase = 2.84
@@ -379,14 +321,14 @@ class CarInterface(CarInterfaceBase):
 
     ret.enableBsm = 0x58b in fingerprint[0]
 
-    if ret.openpilotLongitudinalControl and not CAR.I30:
+    if ret.openpilotLongitudinalControl:
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_HYUNDAI_LONG
 
     return ret
 
   @staticmethod
   def init(CP, logcan, sendcan):
-    if CP.openpilotLongitudinalControl and not CAR.I30:
+    if CP.openpilotLongitudinalControl:
       disable_ecu(logcan, sendcan, addr=0x7d0, com_cont_req=b'\x28\x83\x01')
 
   def _update(self, c):
@@ -398,10 +340,6 @@ class CarInterface(CarInterfaceBase):
     # Main button also can trigger an engagement on these cars
     allow_enable = any(btn in ENABLE_BUTTONS for btn in self.CS.cruise_buttons) or any(self.CS.main_buttons)
     events = self.create_common_events(ret, pcm_enable=self.CS.CP.pcmCruise, allow_enable=allow_enable)
-
-    # An exception to allow engagement with openpilot long control when the car cruise is not available (main button off)
-    if self.CP.carFingerprint == CAR.I30 and self.CP.openpilotLongitudinalControl and EventName.wrongCarMode in events.names:
-      events.events.remove(EventName.wrongCarMode)
 
     if self.CS.brake_error:
       events.add(EventName.brakeUnavailable)
