@@ -9,6 +9,7 @@ import psutil
 import requests
 
 from openpilot.tools.teletyped import route_sender, ssh_key
+from openpilot.frogpilot.common.frogpilot_variables import params_memory
 from openpilot.tools.teletyped.helper import (
   log,
   get_dongle_id,
@@ -38,6 +39,7 @@ _running = True
 _last_desired_tunnel_state: bool | None = None
 _route_sender_stop_event: threading.Event | None = None
 _route_sender_thread: threading.Thread | None = None
+_missing_auth_warned = False
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -77,14 +79,14 @@ def fetch_ssh_request(device_id):
   url = f"{API_URL}/ssh-requests/{device_id}"
   headers = build_auth_headers()
   if not headers:
-    return {}
+    return None
   try:
     response = requests.get(url, headers=headers, timeout=5)
     return response.json() if response.status_code == 200 else {}
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to fetch request: {e}", "ERROR")
-    return {}
+    return None
 
 
 def fetch_device_actions(device_id):
@@ -162,9 +164,15 @@ def execute_device_actions(device_id):
     elif action.get("action") == "check_update":
       log("🔄 Update check requested via server command", "INFO")
       try:
-        ret = os.system("pkill -1 -f selfdrive.updated")
-        if ret not in (0, 1):  # pkill returns 1 when nothing matched
-          raise RuntimeError(f"pkill returned {ret}")
+        # Match UI behaviour: mark manual update requested and signal updater
+        params_memory.put_bool("ManualUpdateInitiated", True)
+        # Align with UI behaviour: SIGUSR1 prompts updated to check for updates
+        status = os.system("pkill -SIGUSR1 -f system.updated.updated")
+        exit_code = status >> 8  # os.system returns exit status in the high byte
+        if exit_code == 1:
+          log("⚠️ Updater process not running (pkill matched nothing); update check may be skipped until updated starts.", "WARN")
+        elif exit_code != 0:
+          raise RuntimeError(f"pkill returned {exit_code}")
         acknowledge_device_action(device_id, action_id, "completed")
       except Exception as e:
         capture_exception(e)
@@ -193,6 +201,10 @@ def start_tunnel():
     "-o", "UserKnownHostsFile=/dev/null",
     "-o", "StrictHostKeyChecking=no",
     "-o", "ExitOnForwardFailure=yes",
+    "-o", "ServerAliveInterval=30",
+    "-o", "ServerAliveCountMax=3",
+    "-o", "TCPKeepAlive=yes",
+    "-o", "ConnectTimeout=10",
     "-R", f"{REMOTE_PORT}:localhost:{LOCAL_PORT}",
     "-N",
     f"{REMOTE_USER}@{REMOTE_HOST}"
@@ -244,6 +256,7 @@ def _read_tunnel_pid():
   return None
 
 def send_heartbeat(device_id, tunnel_status):
+  global _missing_auth_warned
   internet_ok = has_internet_connection()
   if not internet_ok:
     return
@@ -254,7 +267,20 @@ def send_heartbeat(device_id, tunnel_status):
   url = f"{API_URL}/heartbeat"
   headers = build_auth_headers()
   if not headers:
+    if not _missing_auth_warned:
+      log(
+        "⚠️ Skipping heartbeat: missing device JWT (registration private key not found?)",
+        "WARN",
+      )
+      _missing_auth_warned = True
     return
+  else:
+    _missing_auth_warned = False
+
+  auth_info = {
+    "device_jwt": "X-Device-JWT" in headers,
+  }
+
   payload = {
     "device_id": device_id,
     "status": "online",
@@ -309,10 +335,18 @@ def send_heartbeat(device_id, tunnel_status):
   # =====================================
 
   try:
-    requests.post(url, headers=headers, json=payload, timeout=5)
+    resp = requests.post(url, headers=headers, json=payload, timeout=5)
+    if resp.status_code != 200:
+      log(
+        f"⚠️ Heartbeat rejected (status={resp.status_code}) auth={auth_info} device_id={device_id} response={resp.text.strip()[:200]}",
+        "WARN",
+      )
     vprint("💓 Heartbeat sent")
   except requests.RequestException as e:
-    vprint(f"⚠️ Heartbeat failed: {e}")
+    log(
+      f"⚠️ Heartbeat failed: {e} auth={auth_info} device_id={device_id}",
+      "WARN",
+    )
 
 def report_status(device_id, status):
   url = f"{API_URL}/update-ssh-status"
@@ -329,7 +363,11 @@ def report_status(device_id, status):
 def reverse_ssh_step(device_id, last_reported_status):
   global _last_desired_tunnel_state
   data = fetch_ssh_request(device_id)
-  desired = data.get("request")
+  if data is None:
+    # On fetch failure, keep previous desired state to avoid tearing down a working tunnel
+    desired = _last_desired_tunnel_state
+  else:
+    desired = data.get("request", _last_desired_tunnel_state)
   current_status = get_current_tunnel_status()
 
   vprint(f"🧭 Desired: {desired} | Current status: {current_status}")

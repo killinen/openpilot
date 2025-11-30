@@ -4858,29 +4858,6 @@ Developer - Highly customizable riggin’s fer seasoned enthusiasts</translation
     </message>
 </context>
 <context>
-    <name>GoranConnectPasswordControl</name>
-    <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>REMOVE</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>InputDialog</name>
     <message>
         <source>Cancel</source>
@@ -5828,6 +5805,14 @@ This may take up to a minute, arr.</translation>
     <message>
         <source>Enable the openpilot longitudinal control (alpha) toggle to allow Experimental mode.</source>
         <translation type="gpt-5-generated">Hoist the openpilot longitudinal control (alpha) toggle to unleash Experimental mode, arr!</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

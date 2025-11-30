@@ -4,6 +4,9 @@ import time
 import subprocess
 from typing import Any, cast
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 try:
   import requests as _requests
 except ModuleNotFoundError as err:
@@ -13,7 +16,7 @@ requests = cast(Any, _requests)
 from openpilot.tools.teletyped.helper import (
   log,
   get_dongle_id,
-  get_api_token,
+  build_auth_headers,
   KEY_PATH,
   KEY_PATH_PRIV,
   API_URL,
@@ -29,6 +32,31 @@ TIMEOUT = 5
 MAX_RETRIES = 5
 RETRY_DELAY = 2
 
+
+def _write_ed25519_keypair() -> None:
+  """Fallback key generation when ssh-keygen is unavailable on device."""
+  private_key = Ed25519PrivateKey.generate()
+  priv_bytes = private_key.private_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PrivateFormat.OpenSSH,
+    encryption_algorithm=serialization.NoEncryption(),
+  )
+
+  pub_bytes = private_key.public_key().public_bytes(
+    encoding=serialization.Encoding.OpenSSH,
+    format=serialization.PublicFormat.OpenSSH,
+  )
+  pub_bytes += b" goranconnect"  # match ssh-keygen comment
+
+  os.makedirs(os.path.dirname(KEY_PATH_PRIV), exist_ok=True)
+  with open(KEY_PATH_PRIV, "wb") as f:
+    f.write(priv_bytes if priv_bytes.endswith(b"\n") else priv_bytes + b"\n")
+  os.chmod(KEY_PATH_PRIV, 0o600)
+
+  with open(KEY_PATH, "wb") as f:
+    f.write(pub_bytes if pub_bytes.endswith(b"\n") else pub_bytes + b"\n")
+
+
 def generate_ssh_key():
   log(f"SSH key not found. Generating new key at {KEY_PATH_PRIV}")
   try:
@@ -39,10 +67,23 @@ def generate_ssh_key():
       "-f", KEY_PATH_PRIV,
       "-N", "",  # No passphrase
       "-C", "goranconnect"
-    ], check=True)
+    ], check=True, capture_output=True, text=True)
     log("SSH key generated successfully.")
+  except FileNotFoundError:
+    log("ssh-keygen not available; falling back to in-process Ed25519 generation.", level="WARN")
+    try:
+      _write_ed25519_keypair()
+      log("SSH key generated successfully via fallback.")
+    except Exception as e:
+      raise RuntimeError(f"Failed to generate SSH key without ssh-keygen: {e}") from e
   except subprocess.CalledProcessError as e:
-    raise RuntimeError(f"Failed to generate SSH key: {e}") from e
+    err_msg = e.stderr.strip() if isinstance(e.stderr, str) and e.stderr else str(e)
+    log(f"ssh-keygen failed ({err_msg}); attempting in-process Ed25519 generation.", level="WARN")
+    try:
+      _write_ed25519_keypair()
+      log("SSH key generated successfully via fallback.")
+    except Exception as fallback_exc:
+      raise RuntimeError(f"Failed to generate SSH key via fallback after ssh-keygen error: {err_msg}") from fallback_exc
 
 def ensure_ssh_key():
   if not os.path.exists(KEY_PATH) or not os.path.exists(KEY_PATH_PRIV):
@@ -55,10 +96,10 @@ def read_public_key():
     return f.read().strip()
 
 def _auth_headers() -> dict[str, str] | None:
-  token = get_api_token()
-  if not token:
-    return None
-  return {"Authorization": f"Bearer {token}"}
+  headers = build_auth_headers()
+  if headers.get("X-Device-JWT"):
+    return headers
+  return None
 
 
 def _remote_has_key(device_id: str, headers: dict[str, str]) -> bool | None:
@@ -94,7 +135,7 @@ def send_ssh_key(headers: dict[str, str]) -> bool:
       return True
     except requests.RequestException as e:
       if isinstance(e, requests.HTTPError) and e.response is not None and e.response.status_code == 401:
-        log("Unauthorized when uploading SSH key (check API token)", level="ERROR")
+        log("Unauthorized when uploading SSH key (check device JWT / registration key)", level="ERROR")
         return False
 
       log(f"[!] Attempt {attempt} failed: {e}", level="ERROR")
@@ -110,19 +151,24 @@ def send_ssh_key(headers: dict[str, str]) -> bool:
 def send_ssh_key_if_needed() -> bool:
   headers = _auth_headers()
   if headers is None:
-    log("Missing API token; skipping SSH key upload.", level="WARN")
+    log("Missing device JWT; skipping SSH key upload.", level="WARN")
     return False
 
-  device_id = get_dongle_id()
-  has_key = _remote_has_key(device_id, headers)
-  if has_key is True:
-    log("Server already has SSH key; skipping upload.")
-    return True
-  if has_key is None:
-    log("Unable to determine remote SSH key status; will retry later.", level="WARN")
-    return False
+  try:
+    device_id = get_dongle_id()
+    has_key = _remote_has_key(device_id, headers)
+    if has_key is True:
+      log("Server already has SSH key; skipping upload.")
+      return True
+    if has_key is None:
+      log("Unable to determine remote SSH key status; will retry later.", level="WARN")
+      return False
 
-  return send_ssh_key(headers)
+    return send_ssh_key(headers)
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to ensure/upload SSH key: {e}", level="ERROR")
+    return False
 
 if __name__ == "__main__":
   try:

@@ -4857,29 +4857,6 @@ Développeur – Paramètres hautement personnalisables pour passionnés chevron
     </message>
 </context>
 <context>
-    <name>GoranConnectPasswordControl</name>
-    <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>REMOVE</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>InputDialog</name>
     <message>
         <source>Cancel</source>
@@ -5827,6 +5804,14 @@ Cela peut prendre jusqu'à une minute.</translation>
     <message>
         <source>The driving visualization will transition to the road-facing wide-angle camera at low speeds to better show some turns. The Experimental mode logo will also be shown in the top right corner.</source>
         <translation>La visualisation de la conduite passera sur la caméra grand angle dirigée vers la route à faible vitesse afin de mieux montrer certains virages. Le logo du mode expérimental s'affichera également dans le coin supérieur droit.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

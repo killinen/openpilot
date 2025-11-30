@@ -64,38 +64,3 @@ void SshControl::getUserKeys(const QString &username) {
 
   request->sendRequest("https://github.com/" + username + ".keys");
 }
-
-GoranConnectPasswordControl::GoranConnectPasswordControl() :
-  ButtonControl(tr("Remote Control Password"), "", tr("Set a password for GoranConnect remote control access.")) {
-
-  password_label.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  password_label.setStyleSheet("color: #aaaaaa");
-  hlayout->insertWidget(1, &password_label);
-
-  QObject::connect(this, &ButtonControl::clicked, [=]() {
-    if (text() == tr("SET")) {
-      QString password = InputDialog::getText(tr("Enter remote control password"), this, "", true);
-      if (!password.isEmpty()) {
-        params.put("GoranConnectPassword", password.toStdString());
-        refresh();
-      }
-    } else {
-      params.remove("GoranConnectPassword");
-      refresh();
-    }
-  });
-
-  refresh();
-}
-
-void GoranConnectPasswordControl::refresh() {
-  QString pw = QString::fromStdString(params.get("GoranConnectPassword"));
-  if (!pw.isEmpty()) {
-    password_label.setText("********");
-    setText(tr("REMOVE"));
-  } else {
-    password_label.setText("");
-    setText(tr("SET"));
-  }
-  setEnabled(true);
-}

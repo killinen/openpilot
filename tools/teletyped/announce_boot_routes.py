@@ -1,7 +1,6 @@
 import os
 import requests
 from datetime import datetime
-import re
 from openpilot.tools.teletyped.helper import (
   get_dongle_id,
   log,
@@ -12,14 +11,12 @@ from openpilot.tools.teletyped.helper import (
   build_auth_headers,
   capture_exception,
 )
+from openpilot.tools.teletyped.label_utils import drive_base_name, is_drive_label
 
 # === Config ===
 TIMEOUT = 5
 
 # Matches folder names like "2025-04-23--18-45-21--0"
-TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2}--\d+$")
-COUNTER_NONCE_RE = re.compile(r"^[0-9a-f]{8}--[0-9a-f]{10}(?:--\d+)?$")
-
 
 def get_existing_routes(device_id):
   headers = build_auth_headers()
@@ -45,7 +42,8 @@ def list_boot_routes():
     path = os.path.join(BOOT_DIR, fname)
     if not os.path.isfile(path):
       continue
-    if TIMESTAMP_RE.match(fname) or COUNTER_NONCE_RE.match(fname.rsplit('.', 1)[0]):
+    base_no_ext = fname.rsplit('.', 1)[0]
+    if is_drive_label(base_no_ext):
       boot_files.append(f"boot_{fname}")
   return boot_files
 
@@ -56,27 +54,23 @@ def list_unique_timestamp_routes():
     log(f"[!] Realdata directory not found: {REALDATA_DIR}", "ERROR")
     return []
 
-  timestamp_set = set()
-  counter_nonce_set = set()
+  route_keys = set()
   for folder in all_folders:
     folder_path = os.path.join(REALDATA_DIR, folder)
     if not os.path.isdir(folder_path):
       continue
-    if TIMESTAMP_RE.match(folder):
-      timestamp_key = folder.rsplit("--", 1)[0]
-      timestamp_set.add(timestamp_key)
+    if folder == "boot":
       continue
-    if COUNTER_NONCE_RE.match(folder):
-      base = folder.split("--", 1)[0]
-      counter_nonce_set.add(base)
+    if not is_drive_label(folder):
       continue
+    route_keys.add(drive_base_name(folder))
 
-  return list(timestamp_set) + list(counter_nonce_set)
+  return list(route_keys)
 
 def send_routes_to_server(device_id, routes):
   headers = build_auth_headers()
   if not headers:
-    log("Missing API token; cannot announce routes", "WARN")
+    log("Missing device JWT; cannot announce routes", "WARN")
     return
   payload = {
     "device_id": device_id,

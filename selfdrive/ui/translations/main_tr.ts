@@ -4859,24 +4859,8 @@ Geliştirici - Tecrübeli meraklılar için yüksek özelleştirilebilir ayarlar
 <context>
     <name>GoranConnectPasswordControl</name>
     <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>REMOVE</source>
-        <translation type="unfinished">KALDIR</translation>
+        <translation type="obsolete">KALDIR</translation>
     </message>
 </context>
 <context>
@@ -5823,6 +5807,14 @@ Bu işlem bir dakika kadar sürebilir.</translation>
     <message>
         <source>The driving visualization will transition to the road-facing wide-angle camera at low speeds to better show some turns. The Experimental mode logo will also be shown in the top right corner.</source>
         <translation type="gpt-5-generated">Bazı dönüşleri daha iyi göstermek için düşük hızlarda sürüş görselleştirmesi yol tarafına bakan geniş açılı kameraya geçecektir. Deneysel mod logosu ayrıca sağ üst köşede gösterilecektir.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

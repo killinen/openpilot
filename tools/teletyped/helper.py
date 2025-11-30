@@ -1,12 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import cast
 import os
+import socket
 import re
 import subprocess
 import shutil
 import platform as py_platform
+import tempfile
 import time
+import jwt
 
 import importlib
 from types import ModuleType
@@ -54,8 +57,59 @@ def _realdata_root() -> str:
 
 HEARTBEAT_INTERVAL = 30
 PERSIST_ROOT = _persist_root()
-KEY_PATH = os.path.join(PERSIST_ROOT, "comma", "id_ed25519_goranconnect.pub")
-KEY_PATH_PRIV = os.path.join(PERSIST_ROOT, "comma", "id_ed25519_goranconnect")
+REGISTRATION_KEY_PATH = os.path.join(PERSIST_ROOT, "comma", "id_rsa")
+DEVICE_JWT_TTL_SECONDS = 300
+DEVICE_JWT_REFRESH_LEEWAY = 30
+_DEVICE_JWT_CACHE: dict[str, float | str] = {"token": "", "refresh_at": 0.0}
+
+
+def _key_dir_candidates() -> list[str]:
+  return [
+    os.path.join(PERSIST_ROOT, "comma"),
+    "/data/params/d/goranconnect_ssh",
+    os.path.join(_comma_home_default(), "persist", "comma"),
+    "/tmp/comma",
+  ]
+
+
+def _is_writable_dir(path: str) -> bool:
+  try:
+    os.makedirs(path, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path, delete=True) as tmp:
+      tmp.write(b"ok")
+      tmp.flush()
+    return True
+  except OSError:
+    return False
+
+
+def _resolve_key_paths() -> tuple[str, str]:
+  key_name = "id_ed25519_goranconnect"
+  candidates = _key_dir_candidates()
+
+  # Prefer an existing keypair, even if the directory is now read-only
+  for base in candidates:
+    priv = os.path.join(base, key_name)
+    pub = f"{priv}.pub"
+    if os.path.exists(pub) and os.path.exists(priv):
+      return pub, priv
+
+  # Otherwise pick the first writable candidate
+  for base in candidates:
+    if _is_writable_dir(base):
+      priv = os.path.join(base, key_name)
+      pub = f"{priv}.pub"
+      return pub, priv
+
+  # Last resort: drop to /tmp
+  fallback_base = "/tmp/comma"
+  os.makedirs(fallback_base, exist_ok=True)
+  priv = os.path.join(fallback_base, key_name)
+  pub = f"{priv}.pub"
+  return pub, priv
+
+
+KEY_PATH, KEY_PATH_PRIV = _resolve_key_paths()
 
 SENTRY_DSN_DEFAULT = "https://82a4222b21bdd8e738c0f20677110918@o1107536.ingest.us.sentry.io/4509169784848384"
 _SENTRY_INITIALIZED = False
@@ -174,9 +228,19 @@ NetworkType = cereal_log.DeviceState.NetworkType
 def has_internet_connection() -> bool:
   """Check if the device currently has any network connectivity."""
   try:
-    return bool(HARDWARE.get_network_type() != NetworkType.none)
+    if HARDWARE.get_network_type() != NetworkType.none:
+      return True
   except Exception:
-    return True
+    pass
+
+  # Fallback to a quick TCP probe to avoid false offline when DBus/NM flakes
+  try:
+    with socket.create_connection(("8.8.8.8", 53), timeout=2):
+      return True
+  except OSError:
+    return False
+  except Exception:
+    return False
 
 def get_dongle_id() -> str:
   """
@@ -194,57 +258,68 @@ def get_dongle_id() -> str:
 
   return dongle_id if dongle_id else "UNKNOWN_DEVICE"
 
-def get_api_token() -> str:
-  """
-  Returns the API token from params, or an empty string if not set.
-  """
-  token_bytes = cast(bytes | None, Params().get("GoranConnectPassword"))
-  return token_bytes.decode("utf-8") if token_bytes else ""
+def _load_registration_private_key() -> str | None:
+  if not os.path.exists(REGISTRATION_KEY_PATH):
+    return None
+  try:
+    with open(REGISTRATION_KEY_PATH) as f:
+      return f.read()
+  except Exception:
+    return None
 
 
-TOKEN_REFRESH_MAX_AGE = 300
-TOKEN_REFRESH_EMPTY_MAX_AGE = 30
+def build_device_jwt(device_id: str | None, ttl_seconds: int = DEVICE_JWT_TTL_SECONDS) -> str | None:
+  device_id = device_id or get_dongle_id()
+  private_key = _load_registration_private_key()
+  if not device_id or not private_key:
+    return None
+
+  now = datetime.now(timezone.utc)  # noqa: UP017
+  payload = {
+    "device_id": device_id,
+    "sub": device_id,
+    "iat": int(now.timestamp()),
+    "nbf": int(now.timestamp()),
+    "exp": int((now + timedelta(seconds=ttl_seconds)).timestamp()),
+  }
+
+  try:
+    token = jwt.encode(payload, private_key, algorithm="RS256")
+    return str(token)
+  except Exception:
+    return None
 
 
-class _TokenCacheEntry(TypedDict):
-  token: str
-  updated_at: float
-
-
-_TOKEN_CACHE: _TokenCacheEntry = {
-  "token": "",
-  "updated_at": 0.0,
-}
-
-
-def get_cached_api_token(
-  max_age_seconds: int = TOKEN_REFRESH_MAX_AGE,
-  empty_max_age_seconds: int = TOKEN_REFRESH_EMPTY_MAX_AGE,
-) -> str:
-  """Return the cached API token, refreshing it if the cache is stale."""
+def _get_cached_device_jwt() -> str | None:
   now = time.monotonic()
-  token: str = _TOKEN_CACHE["token"]
-  age = now - _TOKEN_CACHE["updated_at"]
-  max_age = empty_max_age_seconds if not token else max_age_seconds
+  token_value = _DEVICE_JWT_CACHE.get("token")
+  token: str | None = token_value if isinstance(token_value, str) else None
 
-  if age >= max_age:
-    token = get_api_token()
-    _TOKEN_CACHE["token"] = token
-    _TOKEN_CACHE["updated_at"] = now
+  refresh_at_value = _DEVICE_JWT_CACHE.get("refresh_at")
+  refresh_at = float(refresh_at_value) if isinstance(refresh_at_value, (int, float)) else 0.0
 
+  if token and now < refresh_at:
+    return token
+
+  token = build_device_jwt(get_dongle_id())
+  if token:
+    _DEVICE_JWT_CACHE["token"] = token
+    _DEVICE_JWT_CACHE["refresh_at"] = now + max(1, DEVICE_JWT_TTL_SECONDS - DEVICE_JWT_REFRESH_LEEWAY)
+  else:
+    _DEVICE_JWT_CACHE["token"] = ""
+    _DEVICE_JWT_CACHE["refresh_at"] = 0.0
   return token
 
 
 def build_auth_headers(
-  max_age_seconds: int = TOKEN_REFRESH_MAX_AGE,
-  empty_max_age_seconds: int = TOKEN_REFRESH_EMPTY_MAX_AGE,
 ) -> dict[str, str]:
-  """Return Authorization headers using the cached API token."""
-  token = get_cached_api_token(
-    max_age_seconds=max_age_seconds,
-    empty_max_age_seconds=empty_max_age_seconds,
-  )
-  return {"Authorization": f"Bearer {token}"} if token else {}
+  """Return headers carrying the device JWT (JWT-only auth)."""
+  headers: dict[str, str] = {}
+  device_jwt = _get_cached_device_jwt()
+  if device_jwt:
+    headers["Authorization"] = f"Bearer {device_jwt}"
+    headers["X-Device-JWT"] = device_jwt
+  return headers
 
 
 def ensure_dns_config() -> None:
@@ -375,23 +450,28 @@ def get_hardware_info() -> dict:
   Returns a dict describing the device hardware.
   Keys:
     type:   'comma three' | 'comma three X' | 'comma two / EON' | 'PC' | 'Unknown'
-    model:  best-effort specific model (e.g., 'OnePlus3' / 'enchilada', etc.)
-    name:   low-level impl name (e.g., 'Tici', 'Eon', 'PC')
+    model:  best-effort specific model (e.g., 'tici', 'tizi', 'OnePlus3' / 'enchilada')
+    name:   low-level impl name (e.g., 'Tici', 'Tizi', 'Eon', 'PC')
   """
   # Prefer openpilot's hardware binding when available
   try:
     hw_name = type(HARDWARE).__name__
   except Exception:
     hw_name = ""
+  try:
+    hw_type = str(HARDWARE.get_device_type()).lower()
+  except Exception:
+    hw_type = ""
 
   # PC short-circuit
   if 'PC' in globals() and PC:
     return {"type": "PC", "model": py_platform.machine(), "name": hw_name or "PC"}
 
   name_l = hw_name.lower()
-  if "tici" in name_l:  # comma three / three X
-    # Try to differentiate 3 vs 3X if available (both are TICI in most builds)
-    # We keep it simple & robust:
+  hints = {name_l, hw_type}
+  if "tizi" in hints:
+    return {"type": "comma three X", "model": "tizi", "name": hw_name or "Tizi"}
+  if "tici" in hints:  # comma three
     return {"type": "comma three", "model": "tici", "name": hw_name or "Tici"}
 
   if "eon" in name_l:
@@ -402,6 +482,8 @@ def get_hardware_info() -> dict:
   # Heuristics if HARDWARE name wasn't informative:
   if os.path.exists("/TICI"):
     return {"type": "comma three", "model": "tici", "name": "Tici"}
+  if os.path.exists("/TIZI"):
+    return {"type": "comma three X", "model": "tizi", "name": "Tizi"}
   if os.path.exists("/EON") or os.path.exists("/system/build.prop"):
     mdl = _getprop("ro.product.model") or _getprop("ro.product.device") or "unknown"
     return {"type": "comma two / EON", "model": mdl, "name": "Eon"}

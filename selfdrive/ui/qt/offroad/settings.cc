@@ -14,6 +14,7 @@
 #include "selfdrive/ui/qt/widgets/prime.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/widgets/ssh_keys.h"
+#include "system/hardware/hw.h"
 
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 
@@ -58,6 +59,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       tr("Record and Upload Driver Camera"),
       tr("Upload data from the driver facing camera and help improve the driver monitoring algorithm."),
       "../assets/offroad/icon_monitoring.png",
+    },
+    {
+      "GoranConnectEnabled",
+      tr("GoranConnect access"),
+      tr("Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access."),
+      "../assets/offroad/icon_network.png",
     },
     {
       "IsMetric",
@@ -106,6 +113,10 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
     if (param == "DisengageOnAccelerator") {
       addItem(long_personality_setting);
     }
+  }
+
+  if (!Hardware::TICI()) {
+    toggles["GoranConnectEnabled"]->setVisible(false);
   }
 
   // Toggles with confirmation dialogs
@@ -268,9 +279,6 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
     }
   });
   addItem(translateBtn);
-
-  // Add remote control password control
-  addItem(new GoranConnectPasswordControl());
 
   QObject::connect(uiState(), &UIState::primeTypeChanged, [this] (PrimeType type) {
     pair_device->setVisible(type == PrimeType::UNPAIRED);

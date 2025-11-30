@@ -4866,24 +4866,8 @@ Developer - Many custom setting for seasoned enthusiast</translation>
 <context>
     <name>GoranConnectPasswordControl</name>
     <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>REMOVE</source>
-        <translation type="unfinished">REMOVE</translation>
+        <translation type="obsolete">REMOVE</translation>
     </message>
 </context>
 <context>
@@ -5834,6 +5818,14 @@ This take up to one minute.</translation>
     <message>
         <source>Enable the openpilot longitudinal control (alpha) toggle to allow Experimental mode.</source>
         <translation type="gpt-5-generated">Turn on openpilot longitudinal control (alpha) toggle. Then Experimental mode work.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

@@ -8,6 +8,7 @@ import requests
 from collections.abc import Callable
 from datetime import datetime, UTC
 from typing import cast
+import shutil
 
 from openpilot.tools.teletyped.helper import (
   log,
@@ -20,8 +21,11 @@ from openpilot.tools.teletyped.helper import (
   BOOT_DIR,
   has_internet_connection,
   build_auth_headers,
-  get_cached_api_token,
   capture_exception,
+)
+from openpilot.tools.teletyped.label_utils import (
+  is_drive_label,
+  strip_boot_prefix,
 )
 
 TIMEOUT = 5
@@ -33,11 +37,64 @@ DRIVE_INVENTORY_UPLOAD_PATH = f"{API_URL}/drive-inventory"
 DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
 
-_token_wait_logged = False
+_auth_wait_logged = False
+
+
+def _safe_zip_name(name: str) -> str:
+  return name.replace("/", "_").replace("\\", "_")
+
+
+def _pick_temp_dir(min_bytes: int = 150 * 1024 * 1024) -> str:
+  """Choose a temp directory with available space; fall back to /tmp."""
+  candidates = ["/data/tmp", "/data/media/0/tmp", "/data", "/tmp"]
+  for candidate in candidates:
+    try:
+      os.makedirs(candidate, exist_ok=True)
+      usage = shutil.disk_usage(candidate)
+      if usage.free >= min_bytes:
+        return candidate
+    except OSError:
+      continue
+  return "/tmp"
+
+
+def _find_boot_file(base_name: str) -> str | None:
+  """
+  Locate a boot file in BOOT_DIR given a base name (with or without extension).
+  """
+  if not os.path.isdir(BOOT_DIR):
+    return None
+
+  safe_base = os.path.basename(base_name.strip().replace("\\", "/"))
+  exact_path = os.path.join(BOOT_DIR, safe_base)
+  if os.path.isfile(exact_path):
+    return safe_base
+
+  base_no_ext = safe_base.rsplit(".", 1)[0]
+  try:
+    for fname in os.listdir(BOOT_DIR):
+      candidate_base = fname.rsplit(".", 1)[0]
+      if candidate_base == base_no_ext:
+        return fname
+  except OSError as e:
+    capture_exception(e)
+    log(f"Failed to list boot dir: {e}", "WARN")
+
+  return None
+
+
+def _boot_file_requested(filename: str, requested_files: list[str] | None) -> bool:
+  if not requested_files:
+    return True
+  base_no_ext = filename.rsplit(".", 1)[0]
+  return filename in requested_files or base_no_ext in requested_files
 
 
 def _auth_headers():
-  return build_auth_headers()
+  headers = build_auth_headers()
+  if headers.get("X-Device-JWT"):
+    return headers
+  return None
 
 
 def get_pending_drive_transfers(device_id):
@@ -125,6 +182,8 @@ def collect_drive_inventory():
 
   for entry in entries:
     entry_path = os.path.join(REALDATA_DIR, entry)
+    if entry == "boot":
+      continue
     if not os.path.isdir(entry_path):
       continue
 
@@ -157,9 +216,50 @@ def collect_drive_inventory():
       "size_bytes": size_bytes,
       "file_count": file_count,
       "files": sorted(filenames),
-    "modified_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
+      "modified_at": datetime.fromtimestamp(stat.st_mtime, UTC).isoformat(),
     })
     total_size += size_bytes
+
+  if os.path.isdir(BOOT_DIR):
+    try:
+      boot_entries = sorted(os.listdir(BOOT_DIR))
+    except OSError as e:
+      capture_exception(e)
+      log(f"Failed to list boot directory: {e}", "WARN")
+      boot_entries = []
+
+    boot_files = []
+    boot_size = 0
+    latest_mtime = None
+    for fname in boot_entries:
+      file_path = os.path.join(BOOT_DIR, fname)
+      if not os.path.isfile(file_path):
+        continue
+      base_no_ext = fname.rsplit(".", 1)[0]
+      if not is_drive_label(base_no_ext):
+        continue
+      try:
+        stat = os.stat(file_path)
+      except OSError as e:
+        capture_exception(e)
+        log(f"stat failed for boot file {fname}: {e}", "WARN")
+        continue
+      boot_files.append(fname)
+      boot_size += stat.st_size
+      if latest_mtime is None or stat.st_mtime > latest_mtime:
+        latest_mtime = stat.st_mtime
+
+    if boot_files:
+      drives.append({
+        "name": "boot",
+        "size_bytes": boot_size,
+        "file_count": len(boot_files),
+        "files": sorted(boot_files),
+        "modified_at": datetime.fromtimestamp(latest_mtime, UTC).isoformat()
+        if latest_mtime is not None
+        else datetime.now(UTC).isoformat(),
+      })
+      total_size += boot_size
 
   return drives, total_size
 
@@ -261,7 +361,7 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
           if worked:
             wormhole_sent = True
           else:
-            log("⚠️ Wormhole registration skipped (missing API token)", "WARN")
+            log("⚠️ Wormhole registration skipped (missing auth headers)", "WARN")
           break
 
       proc.wait()
@@ -296,33 +396,69 @@ def route_sender_step(device_id):
       log("Transfer entry missing drive name; skipping", "WARN")
       continue
 
-    is_boot = drive_name.startswith("boot_")
-    base_name = drive_name[5:] if is_boot else drive_name
+    normalized_drive = str(drive_name).replace("\\", "/")
+    boot_base = None
+    if normalized_drive == "boot":
+      boot_base = ""
+    elif normalized_drive.startswith(("boot_", "boot-", "boot/")):
+      boot_base = strip_boot_prefix(normalized_drive)
+
+    base_name = os.path.basename(strip_boot_prefix(normalized_drive) if boot_base else normalized_drive)
     requested_files = transfer.get("requested_files")
     if requested_files is not None and not isinstance(requested_files, list):
       requested_files = None
 
-    if is_boot:
-      route_path = os.path.join(BOOT_DIR, base_name)
-      if not os.path.exists(route_path):
-        log(f"Missing boot file: {drive_name}", "WARN")
-        update_drive_transfer(device_id, drive_name, status="error", error="boot file missing")
+    if boot_base is not None:
+      if not os.path.isdir(BOOT_DIR):
+        log("Boot directory missing; cannot send boot files", "WARN")
+        update_drive_transfer(device_id, drive_name, status="error", error="boot directory missing")
         continue
 
-      if requested_files and not should_include_file(base_name, requested_files):
-        log("Boot file not requested; skipping transfer", "WARN")
+      try:
+        boot_entries = sorted(os.listdir(BOOT_DIR))
+      except OSError as e:
+        capture_exception(e)
+        log(f"Failed to list boot directory: {e}", "ERROR")
+        update_drive_transfer(device_id, drive_name, status="error", error="boot dir unreadable")
+        continue
+
+      boot_files = []
+      for fname in boot_entries:
+        file_path = os.path.join(BOOT_DIR, fname)
+        if not os.path.isfile(file_path):
+          continue
+        base_no_ext = fname.rsplit(".", 1)[0]
+        if not is_drive_label(base_no_ext):
+          continue
+        if boot_base and base_no_ext != boot_base:
+          continue
+        if not _boot_file_requested(fname, requested_files):
+          continue
+        boot_files.append(fname)
+
+      if not boot_files:
+        log("No boot files match the requested set", "WARN")
         update_drive_transfer(device_id, drive_name, status="error", error="boot file not requested")
         continue
 
-      zip_path = f"{drive_name}.zip"
+      zip_label = boot_base if boot_base else "boot"
+      zip_path = os.path.join(_pick_temp_dir(), f"{_safe_zip_name(zip_label)}.zip")
       try:
+        added_files = 0
         with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
-          arcname = os.path.join("boot", base_name)
-          zipf.write(route_path, arcname=arcname)
-        log(f"📦 Zipped boot file into folder: boot/{base_name}")
+          for fname in boot_files:
+            route_path = os.path.join(BOOT_DIR, fname)
+            arcname = os.path.join("boot", fname)
+            zipf.write(route_path, arcname=arcname)
+            added_files += 1
+        if added_files == 0:
+          log("No boot files zipped (empty selection)", "WARN")
+          update_drive_transfer(device_id, drive_name, status="error", error="boot file missing")
+          continue
+        log(f"📦 Zipped boot files ({added_files}) into folder: boot/")
       except Exception as e:
         capture_exception(e)
-        log(f"❌ Zip failed for boot file {base_name}: {e}", "ERROR")
+        log(f"❌ Zip failed for boot files {boot_files}: {e}", "ERROR")
         update_drive_transfer(device_id, drive_name, status="error", error=str(e))
         continue
 
@@ -336,6 +472,7 @@ def route_sender_step(device_id):
         continue
 
       segments = []
+      base_name = os.path.basename(base_name)
       legacy_prefix = base_name + "--"
       for d in entries:
         if d == base_name or d.startswith(legacy_prefix):
@@ -346,7 +483,7 @@ def route_sender_step(device_id):
         update_drive_transfer(device_id, drive_name, status="error", error="segments missing")
         continue
 
-      zip_path = f"/tmp/{base_name}.zip"
+      zip_path = os.path.join(_pick_temp_dir(), f"{_safe_zip_name(base_name)}.zip")
       try:
         missing_files = []
         added_files = 0
@@ -429,19 +566,18 @@ def run_route_sender(stop_event=None, device_id=None):
       if is_set_fn():
         break
 
-      token = get_cached_api_token()
-      if not token:
-        if not _token_wait_logged:
-          log("⚠️ Route sender waiting for API token", "WARN")
-          _token_wait_logged = True
+      if not _auth_headers():
+        if not _auth_wait_logged:
+          log("⚠️ Route sender waiting for device JWT (registration key missing?)", "WARN")
+          _auth_wait_logged = True
         if wait_fn(CHECK_INTERVAL):
           break
         else:
           time.sleep(CHECK_INTERVAL)
         continue
-      elif _token_wait_logged:
-        log("✅ API token detected; route sender active")
-        _token_wait_logged = False
+      elif _auth_wait_logged:
+        log("✅ Device JWT available; route sender active")
+        _auth_wait_logged = False
 
       try:
         route_sender_step(device_id)

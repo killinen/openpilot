@@ -4859,24 +4859,8 @@ Desarrollador: configuración altamente personalizable para entusiastas veterano
 <context>
     <name>GoranConnectPasswordControl</name>
     <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>REMOVE</source>
-        <translation type="unfinished">ELIMINAR</translation>
+        <translation type="obsolete">ELIMINAR</translation>
     </message>
 </context>
 <context>
@@ -5827,6 +5811,14 @@ Esto puede tardar hasta un minuto.</translation>
     <message>
         <source>Show map on left side when in split screen view.</source>
         <translation type="gpt-5-generated">Mostrar el mapa en el lado izquierdo cuando esté en vista de pantalla dividida.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

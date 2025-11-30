@@ -4860,29 +4860,6 @@ Developer - Ultra-custom settings for seasoned duckthusiasts</translation>
     </message>
 </context>
 <context>
-    <name>GoranConnectPasswordControl</name>
-    <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>REMOVE</source>
-        <translation type="unfinished"></translation>
-    </message>
-</context>
-<context>
     <name>InputDialog</name>
     <message>
         <source>Cancel</source>
@@ -5830,6 +5807,14 @@ Waddle-wait, this may take up to a minute.</translation>
     <message>
         <source>Enable the openpilot longitudinal control (alpha) toggle to allow Experimental mode.</source>
         <translation type="gpt-5-generated">Quack! Flip the openpilot longitudinal control (alpha) toggle to let Experimental mode waddle in.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

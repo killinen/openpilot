@@ -13,30 +13,22 @@ AGNOS) and handles three capabilities:
 
 ## Requirements
 
-1. **API token** – store your server token in Params under
-   `GoranConnectPassword`. You can set this from the device UI under
-   *Settings → Device → Remote Control Password* or via a shell:
-   ```bash
-   python3 - <<'EOF'
-   from openpilot.common.params import Params
-   Params().put("GoranConnectPassword", "<PASTE_TOKEN_HERE>")
-   EOF
-   ```
-   Without a token the daemon still runs, but it will skip SSH-key uploads and
-   drive transfers until the token is present.
-2. **Internet access** – the helper watches `DeviceState.NetworkType` and
+1. **Allow access** – enable *Settings → Toggles → GoranConnect access* on a comma three / three X. The `teletyped` service only runs when this toggle is on.
+2. **Device registration key** – teletyped signs requests with the device RSA key at `/persist/comma/id_rsa` (created during device setup).
+3. **Internet access** – the helper watches `DeviceState.NetworkType` and
    sleeps while offline.
 
 All SSH material is written under `/persist/comma/` and re-used across boots.
 
 ## Runtime Integration
 
-The manager now launches the service as `teletyped` (see
-`system/manager/process_config.py`). It only runs on devices that report the
-`/TICI` marker—i.e. comma three / three X hardware—so it will not execute on
-PC emulators or legacy NEOS devices. The helper auto-detects persist and log
-paths using the hardware abstraction so the same binary works across both
-NEOS-style and AGNOS filesystems.
+The manager launches the service as `teletyped` (see
+`system/manager/process_config.py`) when the **GoranConnect access** toggle is
+on. It only runs on devices that report the `/TICI` marker—i.e. comma three /
+three X hardware—so it will not execute on PC emulators or legacy NEOS
+devices. The helper auto-detects persist and log paths using the hardware
+abstraction so the same binary works across both NEOS-style and AGNOS
+filesystems.
 
 ## Troubleshooting
 
@@ -49,5 +41,5 @@ route transfers. When debugging connectivity issues:
   good resolver list via `tools/teletyped/setup_resolv.sh` if one is missing.
 - Confirm that `ssh` and `wormhole-william` are executable (both are bundled
   with proper permissions in this repo).
-- After storing the API token, the daemon will automatically retry key uploads
-  every five minutes until success.
+- After enabling GoranConnect access, the daemon will automatically retry key
+  uploads every five minutes until success.

@@ -48,6 +48,9 @@ def allow_logging(started, params, CP: car.CarParams, classic_model, tinygrad_mo
 def allow_uploads(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return bool((not frogpilot_toggles.no_uploads) or frogpilot_toggles.no_onroad_uploads)
 
+def allow_goranconnect(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
+  return (not started) and params.get_bool("GoranConnectEnabled")
+
 def run_classic_modeld(started, params, CP: car.CarParams, classic_model, tinygrad_model, frogpilot_toggles) -> bool:
   return bool(started and classic_model)
 
@@ -103,7 +106,7 @@ procs = [
   PythonProcess("updated", "system.updated.updated", always_run, enabled=not PC),
   PythonProcess("uploader", "system.loggerd.uploader", allow_uploads),
   PythonProcess("statsd", "system.statsd", allow_logging),
-  PythonProcess("teletyped", "tools.teletyped.teletyped", always_run, enabled=TICI),
+  PythonProcess("teletyped", "tools.teletyped.teletyped", allow_goranconnect, enabled=TICI),
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),

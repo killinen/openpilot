@@ -4860,24 +4860,8 @@ Developer - Highly customizable settings for seasoned enthusiasts</source>
 <context>
     <name>GoranConnectPasswordControl</name>
     <message>
-        <source>Remote Control Password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Set a password for GoranConnect remote control access.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SET</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Enter remote control password</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>REMOVE</source>
-        <translation type="unfinished">إزالة</translation>
+        <translation type="obsolete">إزالة</translation>
     </message>
 </context>
 <context>
@@ -5844,6 +5828,14 @@ This may take up to a minute.</source>
     <message>
         <source>The driving visualization will transition to the road-facing wide-angle camera at low speeds to better show some turns. The Experimental mode logo will also be shown in the top right corner.</source>
         <translation type="gpt-5-generated">ستنتقل عرض القيادة إلى الكاميرا الواسعة المواجهة للطريق عند السرعات المنخفضة لإظهار بعض المنعطفات بشكل أفضل. سيُعرض شعار وضع Experimental أيضًا في الزاوية العلوية اليمنى.</translation>
+    </message>
+    <message>
+        <source>GoranConnect access</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
