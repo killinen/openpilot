@@ -9,6 +9,7 @@ import psutil
 import requests
 
 from openpilot.tools.teletyped import route_sender, ssh_key
+from openpilot.frogpilot.common.frogpilot_variables import params_memory
 from openpilot.tools.teletyped.helper import (
   log,
   get_dongle_id,
@@ -77,14 +78,14 @@ def fetch_ssh_request(device_id):
   url = f"{API_URL}/ssh-requests/{device_id}"
   headers = build_auth_headers()
   if not headers:
-    return {}
+    return None
   try:
     response = requests.get(url, headers=headers, timeout=5)
     return response.json() if response.status_code == 200 else {}
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to fetch request: {e}", "ERROR")
-    return {}
+    return None
 
 
 def fetch_device_actions(device_id):
@@ -162,9 +163,15 @@ def execute_device_actions(device_id):
     elif action.get("action") == "check_update":
       log("🔄 Update check requested via server command", "INFO")
       try:
-        ret = os.system("pkill -1 -f selfdrive.updated")
-        if ret not in (0, 1):  # pkill returns 1 when nothing matched
-          raise RuntimeError(f"pkill returned {ret}")
+        # Match UI behaviour: mark manual update requested and signal updater
+        params_memory.put_bool("ManualUpdateInitiated", True)
+        # Align with UI behaviour: SIGUSR1 prompts updated to check for updates
+        status = os.system("pkill -SIGUSR1 -f system.updated.updated")
+        exit_code = status >> 8  # os.system returns exit status in the high byte
+        if exit_code == 1:
+          log("⚠️ Updater process not running (pkill matched nothing); update check may be skipped until updated starts.", "WARN")
+        elif exit_code != 0:
+          raise RuntimeError(f"pkill returned {exit_code}")
         acknowledge_device_action(device_id, action_id, "completed")
       except Exception as e:
         capture_exception(e)
@@ -193,6 +200,10 @@ def start_tunnel():
     "-o", "UserKnownHostsFile=/dev/null",
     "-o", "StrictHostKeyChecking=no",
     "-o", "ExitOnForwardFailure=yes",
+    "-o", "ServerAliveInterval=30",
+    "-o", "ServerAliveCountMax=3",
+    "-o", "TCPKeepAlive=yes",
+    "-o", "ConnectTimeout=10",
     "-R", f"{REMOTE_PORT}:localhost:{LOCAL_PORT}",
     "-N",
     f"{REMOTE_USER}@{REMOTE_HOST}"
@@ -329,7 +340,11 @@ def report_status(device_id, status):
 def reverse_ssh_step(device_id, last_reported_status):
   global _last_desired_tunnel_state
   data = fetch_ssh_request(device_id)
-  desired = data.get("request")
+  if data is None:
+    # On fetch failure, keep previous desired state to avoid tearing down a working tunnel
+    desired = _last_desired_tunnel_state
+  else:
+    desired = data.get("request", _last_desired_tunnel_state)
   current_status = get_current_tunnel_status()
 
   vprint(f"🧭 Desired: {desired} | Current status: {current_status}")

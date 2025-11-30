@@ -7,6 +7,7 @@ import subprocess
 import shutil
 import platform as py_platform
 import time
+import tempfile
 
 import importlib
 from types import ModuleType
@@ -54,8 +55,55 @@ def _realdata_root() -> str:
 
 HEARTBEAT_INTERVAL = 30
 PERSIST_ROOT = _persist_root()
-KEY_PATH = os.path.join(PERSIST_ROOT, "comma", "id_ed25519_goranconnect.pub")
-KEY_PATH_PRIV = os.path.join(PERSIST_ROOT, "comma", "id_ed25519_goranconnect")
+
+
+def _key_dir_candidates() -> list[str]:
+  return [
+    os.path.join(PERSIST_ROOT, "comma"),
+    "/data/params/d/goranconnect_ssh",
+    os.path.join(_comma_home_default(), "persist", "comma"),
+    "/tmp/comma",
+  ]
+
+
+def _is_writable_dir(path: str) -> bool:
+  try:
+    os.makedirs(path, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path, delete=True) as tmp:
+      tmp.write(b"ok")
+      tmp.flush()
+    return True
+  except OSError:
+    return False
+
+
+def _resolve_key_paths() -> tuple[str, str]:
+  key_name = "id_ed25519_goranconnect"
+  candidates = _key_dir_candidates()
+
+  # Prefer an existing keypair, even if the directory is now read-only
+  for base in candidates:
+    priv = os.path.join(base, key_name)
+    pub = f"{priv}.pub"
+    if os.path.exists(pub) and os.path.exists(priv):
+      return pub, priv
+
+  # Otherwise pick the first writable candidate
+  for base in candidates:
+    if _is_writable_dir(base):
+      priv = os.path.join(base, key_name)
+      pub = f"{priv}.pub"
+      return pub, priv
+
+  # Last resort: drop to /tmp
+  fallback_base = "/tmp/comma"
+  os.makedirs(fallback_base, exist_ok=True)
+  priv = os.path.join(fallback_base, key_name)
+  pub = f"{priv}.pub"
+  return pub, priv
+
+
+KEY_PATH, KEY_PATH_PRIV = _resolve_key_paths()
 
 SENTRY_DSN_DEFAULT = "https://82a4222b21bdd8e738c0f20677110918@o1107536.ingest.us.sentry.io/4509169784848384"
 _SENTRY_INITIALIZED = False
