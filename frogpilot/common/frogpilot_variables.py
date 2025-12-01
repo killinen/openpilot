@@ -514,7 +514,8 @@ frogpilot_default_params: list[tuple[str, str | bytes, int, str]] = [
   ("SpeedLimitController", "1", 0, "0"),
   ("SpeedLimitFiller", "0", 0, "0"),
   ("SpeedLimitSources", "0", 3, "0"),
-  ("SshEnabled", "0", 0, "0"),
+  # Enable SSH by default on first boot; user changes persist across reboots
+  ("SshEnabled", "1", 0, "1"),
   ("StartupMessageBottom", "Human-tested, frog-approved 🐸", 0, "Always keep hands on wheel and eyes on road"),
   ("StartupMessageTop", "Hop in and buckle up!", 0, "Be ready to take over at any time"),
   ("StandardFollow", "1.45", 2, "1.45"),
