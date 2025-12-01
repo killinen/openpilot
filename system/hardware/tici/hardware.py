@@ -157,6 +157,8 @@ class Tici(HardwareBase):
           tp = c.Get(NM_CON_ACT, 'Type', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
           if tp == 'gsm':
             modem = self.get_modem()
+            if modem is None:
+              continue
             access_t = modem.Get(MM_MODEM, 'AccessTechnologies', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
             if access_t >= MM_MODEM_ACCESS_TECHNOLOGY_LTE:
               return NetworkType.cell4G
@@ -171,7 +173,10 @@ class Tici(HardwareBase):
 
   def get_modem(self):
     objects = self.mm.GetManagedObjects(dbus_interface="org.freedesktop.DBus.ObjectManager", timeout=TIMEOUT)
-    modem_path = list(objects.keys())[0]
+    modem_paths = [k for k in objects.keys() if isinstance(k, str)]
+    if not modem_paths:
+      return None
+    modem_path = modem_paths[0]
     return self.bus.get_object(MM, modem_path)
 
   def get_wlan(self):
@@ -184,6 +189,14 @@ class Tici(HardwareBase):
 
   def get_sim_info(self):
     modem = self.get_modem()
+    if modem is None:
+      return {
+        'sim_id': '',
+        'mcc_mnc': None,
+        'network_type': ["Unknown"],
+        'sim_state': ["ABSENT"],
+        'data_connected': False
+      }
     sim_path = modem.Get(MM_MODEM, 'Sim', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
 
     if sim_path == "/":
