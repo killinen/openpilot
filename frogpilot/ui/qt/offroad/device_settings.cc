@@ -72,10 +72,30 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       deviceToggle = deviceManagementToggle;
     } else if (param == "DeviceShutdown") {
       std::map<float, QString> shutdownLabels;
-      for (int i = 0; i <= 33; ++i) {
-        shutdownLabels[i] = i == 0 ? tr("5 mins") : i <= 3 ? QString::number(i * 15) + tr(" mins") : QString::number(i - 3) + (i == 4 ? tr(" hour") : tr(" hours"));
+      for (int i = 0; i <= 38; ++i) {
+        QString label;
+        if (i == 0) {
+          label = tr("5 mins");
+        } else if (i <= 3) {
+          label = QString::number(i * 15) + tr(" mins");
+        } else if (i <= 33) {
+          int hours = i - 3;
+          label = hours == 1 ? tr("1 hour") : QString::number(hours) + tr(" hours");
+        } else {
+          int days = 0;
+          switch (i) {
+            case 34: days = 2; break;
+            case 35: days = 3; break;
+            case 36: days = 7; break;
+            case 37: days = 14; break;
+            case 38: days = 30; break;
+            default: days = 30; break;
+          }
+          label = days == 1 ? tr("1 day") : QString::number(days) + tr(" days");
+        }
+        shutdownLabels[i] = label;
       }
-      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 33, QString(), shutdownLabels, 1, true);
+      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 38, QString(), shutdownLabels, 1, true);
     } else if (param == "NoUploads") {
       std::vector<QString> uploadsToggles{"DisableOnroadUploads"};
       std::vector<QString> uploadsToggleNames{tr("Disable Onroad Only")};

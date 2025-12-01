@@ -1106,6 +1106,18 @@
         <source> seconds</source>
         <translation type="gpt-5-generated"> seconds</translation>
     </message>
+    <message>
+        <source>1 hour</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1 day</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> days</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FrogPilotDriveSummary</name>

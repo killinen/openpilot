@@ -118,6 +118,23 @@ KONIK_PATH = Path("/cache/use_konik")
 MAPD_PATH = Path("/data/media/0/osm/mapd")
 MAPS_PATH = Path("/data/media/0/osm/offline")
 
+
+# Device shutdown durations mapped by index (seconds)
+DEVICE_SHUTDOWN_SECONDS = (
+  [5 * 60, 15 * 60, 30 * 60, 45 * 60] +  # 5 min, 15, 30, 45
+  [h * 3600 for h in range(1, 31)] +      # 1h .. 30h
+  [2 * 24 * 3600, 3 * 24 * 3600, 7 * 24 * 3600, 14 * 24 * 3600, 30 * 24 * 3600]  # 2d, 3d, 1w, 2w, ~1m
+)
+
+
+def device_shutdown_seconds(setting: int) -> int:
+  """Clamp and convert the DeviceShutdown param to seconds."""
+  if setting < 0:
+    setting = 0
+  elif setting >= len(DEVICE_SHUTDOWN_SECONDS):
+    setting = len(DEVICE_SHUTDOWN_SECONDS) - 1
+  return DEVICE_SHUTDOWN_SECONDS[setting]
+
 NNFF_MODELS_PATH = Path(BASEDIR) / "frogpilot/assets/nnff_models"
 
 DEFAULT_MODEL = "firehose"
@@ -303,7 +320,8 @@ frogpilot_default_params: list[tuple[str, str | bytes, int, str]] = [
   ("DeveloperWidgets", "1", 3, "0"),
   ("DeveloperUI", "0", 3, "0"),
   ("DeviceManagement", "1", 1, "0"),
-  ("DeviceShutdown", "9", 1, "33"),
+  # Default to 30-day offroad shutdown (index 38)
+  ("DeviceShutdown", "38", 1, "38"),
   ("DisableOnroadUploads", "0", 2, "0"),
   ("DisableOpenpilotLongitudinal", "0", 0, "0"),
   ("DiscordUsername", "", 0, ""),
@@ -862,7 +880,7 @@ class FrogPilotVariables:
 
     device_management = params.get_bool("DeviceManagement") if tuning_level >= level["DeviceManagement"] else default.get_bool("DeviceManagement")
     device_shutdown_setting = params.get_int("DeviceShutdown") if device_management and tuning_level >= level["DeviceShutdown"] else default.get_int("DeviceShutdown")
-    toggle.device_shutdown_time = (device_shutdown_setting - 3) * 3600 if device_shutdown_setting >= 4 else device_shutdown_setting * (60 * 15)
+    toggle.device_shutdown_time = device_shutdown_seconds(device_shutdown_setting)
     toggle.increase_thermal_limits = device_management and (params.get_bool("IncreaseThermalLimits") if tuning_level >= level["IncreaseThermalLimits"] else default.get_bool("IncreaseThermalLimits"))
     toggle.low_voltage_shutdown = np.clip(params.get_float("LowVoltageShutdown"), VBATT_PAUSE_CHARGING, 12.5) if device_management and tuning_level >= level["LowVoltageShutdown"] else default.get_float("LowVoltageShutdown")
     toggle.no_logging = device_management and (params.get_bool("NoLogging") if tuning_level >= level["NoLogging"] else default.get_bool("NoLogging")) and not self.vetting_branch or toggle.force_onroad
