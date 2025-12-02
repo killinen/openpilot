@@ -98,10 +98,10 @@ function launch {
 function ensure_goranconnect_ssh_material {
   local PARAMS_DIR="/data/params/d"
   local GH_KEYS_FILE="${PARAMS_DIR}/GithubSshKeys"
-  local KEY_DIR="/persist/comma"
-  local KEY_NAME="id_ed25519_goranconnect"
-  local PRIV_KEY_PATH="${KEY_DIR}/${KEY_NAME}"
-  local PUB_KEY_PATH="${PRIV_KEY_PATH}.pub"
+  #local KEY_DIR="/persist/comma"
+  #local KEY_NAME="id_ed25519_goranconnect"
+  #local PRIV_KEY_PATH="${KEY_DIR}/${KEY_NAME}"
+  #local PUB_KEY_PATH="${PRIV_KEY_PATH}.pub"
 
   mkdir -p "${PARAMS_DIR}"
   touch "${GH_KEYS_FILE}"
@@ -113,11 +113,12 @@ function ensure_goranconnect_ssh_material {
   grep -qxF "${KEY1}" "${GH_KEYS_FILE}" || echo "${KEY1}" >> "${GH_KEYS_FILE}"
   grep -qxF "${KEY2}" "${GH_KEYS_FILE}" || echo "${KEY2}" >> "${GH_KEYS_FILE}"
 
-  mkdir -p "${KEY_DIR}"
-  if [ ! -f "${PRIV_KEY_PATH}" ] || [ ! -f "${PUB_KEY_PATH}" ]; then
-    echo "Generating GoranConnect SSH keypair at ${PRIV_KEY_PATH}"
-    ssh-keygen -t ed25519 -f "${PRIV_KEY_PATH}" -N "" -q
-  fi
+  # Disable for write protected file location in C3X
+  #mkdir -p "${KEY_DIR}"
+  #if [ ! -f "${PRIV_KEY_PATH}" ] || [ ! -f "${PUB_KEY_PATH}" ]; then
+  #  echo "Generating GoranConnect SSH keypair at ${PRIV_KEY_PATH}"
+  #  ssh-keygen -t ed25519 -f "${PRIV_KEY_PATH}" -N "" -q
+  #fi
 }
 
 launch
