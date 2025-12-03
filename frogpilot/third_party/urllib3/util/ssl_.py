@@ -18,7 +18,8 @@ HAS_NEVER_CHECK_COMMON_NAME = False
 IS_PYOPENSSL = False
 ALPN_PROTOCOLS = ["http/1.1"]
 
-_TYPE_VERSION_INFO = tuple[int, int, int, str, int]
+# Avoid builtin generics that aren't subscriptable on Python <3.9
+_TYPE_VERSION_INFO = typing.Tuple[int, int, int, str, int]
 
 # Maps the length of a digest to a possible hash function producing this digest
 HASHFUNC_MAP = {
