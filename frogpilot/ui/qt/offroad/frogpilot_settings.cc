@@ -292,7 +292,10 @@ void FrogPilotSettingsWindow::updateVariables() {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-    cereal::CarParams::SafetyModel safetyModel = CP.getSafetyConfigs()[0].getSafetyModel();
+    auto safetyConfigs = CP.getSafetyConfigs();
+    cereal::CarParams::SafetyModel safetyModel = safetyConfigs.size() > 0
+                                                     ? safetyConfigs[0].getSafetyModel()
+                                                     : cereal::CarParams::SafetyModel::SILENT;
 
     std::string carFingerprint = CP.getCarFingerprint();
     carMake = CP.getCarName();
@@ -323,7 +326,12 @@ void FrogPilotSettingsWindow::updateVariables() {
     longitudinalActuatorDelay = CP.getLongitudinalActuatorDelay();
     startAccel = CP.getStartAccel();
     steerActuatorDelay = CP.getSteerActuatorDelay();
-    steerKp = CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::PID ? CP.getLateralTuning().getPid().getKpV()[0] : 1.0;
+    if (CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::PID) {
+      auto kpV = CP.getLateralTuning().getPid().getKpV();
+      steerKp = kpV.size() > 0 ? kpV[0] : 1.0;
+    } else {
+      steerKp = 1.0;
+    }
     steerRatio = CP.getSteerRatio();
     stopAccel = CP.getStopAccel();
     stoppingDecelRate = CP.getStoppingDecelRate();
