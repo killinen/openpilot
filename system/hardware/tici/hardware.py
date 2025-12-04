@@ -97,18 +97,66 @@ def get_device_type():
   return model.split('comma ')[-1]
 
 class Tici(HardwareBase):
-  @cached_property
+  def _reset_dbus(self):
+    # drop cached proxies so they can be recreated on the next access
+    self.__dict__.pop('_bus', None)
+    self.__dict__.pop('_nm', None)
+
+  def _maybe_reset_on_dbus_error(self, err: Exception) -> None:
+    try:
+      from dbus.exceptions import DBusException
+    except Exception:
+      DBusException = None
+
+    err_name = getattr(err, "get_dbus_name", lambda: None)()
+    err_str = str(err)
+    if (
+      DBusException is not None and isinstance(err, DBusException)
+      and err_name in {"org.freedesktop.DBus.Error.Disconnected", "org.freedesktop.DBus.Error.NoReply"}
+    ) or (
+      "Connection is closed" in err_str
+      or "disconnected before a reply was received" in err_str
+      or "Did not receive a reply" in err_str
+    ):
+      self._reset_dbus()
+
+  @property
   def bus(self):
     import dbus
-    return dbus.SystemBus()
+    bus = self.__dict__.get('_bus', None)
+    is_connected = False
+    if bus is not None:
+      try:
+        is_connected = bus._connection.get_is_connected()
+      except Exception:
+        is_connected = False
 
-  @cached_property
+    if not is_connected:
+      self._reset_dbus()
+      bus = dbus.SystemBus()
+      self.__dict__['_bus'] = bus
+
+    return bus
+
+  @property
   def nm(self):
-    return self.bus.get_object(NM, '/org/freedesktop/NetworkManager')
+    nm = self.__dict__.get('_nm', None)
+    if nm is None:
+      try:
+        nm = self.bus.get_object(NM, '/org/freedesktop/NetworkManager')
+      except Exception as e:
+        self._maybe_reset_on_dbus_error(e)
+        nm = self.bus.get_object(NM, '/org/freedesktop/NetworkManager')
+      self.__dict__['_nm'] = nm
+    return nm
 
   @property # this should not be cached, in case the modemmanager restarts
   def mm(self):
-    return self.bus.get_object(MM, '/org/freedesktop/ModemManager1')
+    try:
+      return self.bus.get_object(MM, '/org/freedesktop/ModemManager1')
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
+      return self.bus.get_object(MM, '/org/freedesktop/ModemManager1')
 
   @cached_property
   def amplifier(self):
@@ -166,26 +214,38 @@ class Tici(HardwareBase):
               return NetworkType.cell3G
             else:
               return NetworkType.cell2G
-    except Exception:
-      pass
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
 
     return NetworkType.none
 
   def get_modem(self):
-    objects = self.mm.GetManagedObjects(dbus_interface="org.freedesktop.DBus.ObjectManager", timeout=TIMEOUT)
-    modem_paths = [k for k in objects.keys() if isinstance(k, str)]
-    if not modem_paths:
+    try:
+      objects = self.mm.GetManagedObjects(dbus_interface="org.freedesktop.DBus.ObjectManager", timeout=TIMEOUT)
+      modem_paths = [k for k in objects.keys() if isinstance(k, str)]
+      if not modem_paths:
+        return None
+      modem_path = modem_paths[0]
+      return self.bus.get_object(MM, modem_path)
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return None
-    modem_path = modem_paths[0]
-    return self.bus.get_object(MM, modem_path)
 
   def get_wlan(self):
-    wlan_path = self.nm.GetDeviceByIpIface('wlan0', dbus_interface=NM, timeout=TIMEOUT)
-    return self.bus.get_object(NM, wlan_path)
+    try:
+      wlan_path = self.nm.GetDeviceByIpIface('wlan0', dbus_interface=NM, timeout=TIMEOUT)
+      return self.bus.get_object(NM, wlan_path)
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
+      return None
 
   def get_wwan(self):
-    wwan_path = self.nm.GetDeviceByIpIface('wwan0', dbus_interface=NM, timeout=TIMEOUT)
-    return self.bus.get_object(NM, wwan_path)
+    try:
+      wwan_path = self.nm.GetDeviceByIpIface('wwan0', dbus_interface=NM, timeout=TIMEOUT)
+      return self.bus.get_object(NM, wwan_path)
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
+      return None
 
   def get_sim_info(self):
     modem = self.get_modem()
@@ -197,9 +257,28 @@ class Tici(HardwareBase):
         'sim_state': ["ABSENT"],
         'data_connected': False
       }
-    sim_path = modem.Get(MM_MODEM, 'Sim', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
+    try:
+      sim_path = modem.Get(MM_MODEM, 'Sim', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
 
-    if sim_path == "/":
+      if sim_path == "/":
+        return {
+          'sim_id': '',
+          'mcc_mnc': None,
+          'network_type': ["Unknown"],
+          'sim_state': ["ABSENT"],
+          'data_connected': False
+        }
+      else:
+        sim = self.bus.get_object(MM, sim_path)
+        return {
+          'sim_id': str(sim.Get(MM_SIM, 'SimIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)),
+          'mcc_mnc': str(sim.Get(MM_SIM, 'OperatorIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)),
+          'network_type': ["Unknown"],
+          'sim_state': ["READY"],
+          'data_connected': modem.Get(MM_MODEM, 'State', dbus_interface=DBUS_PROPS, timeout=TIMEOUT) == MM_MODEM_STATE.CONNECTED,
+        }
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return {
         'sim_id': '',
         'mcc_mnc': None,
@@ -207,21 +286,20 @@ class Tici(HardwareBase):
         'sim_state': ["ABSENT"],
         'data_connected': False
       }
-    else:
-      sim = self.bus.get_object(MM, sim_path)
-      return {
-        'sim_id': str(sim.Get(MM_SIM, 'SimIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)),
-        'mcc_mnc': str(sim.Get(MM_SIM, 'OperatorIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)),
-        'network_type': ["Unknown"],
-        'sim_state': ["READY"],
-        'data_connected': modem.Get(MM_MODEM, 'State', dbus_interface=DBUS_PROPS, timeout=TIMEOUT) == MM_MODEM_STATE.CONNECTED,
-      }
 
   def get_imei(self, slot):
     if slot != 0:
       return ""
 
-    return str(self.get_modem().Get(MM_MODEM, 'EquipmentIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT))
+    modem = self.get_modem()
+    if modem is None:
+      return ""
+
+    try:
+      return str(modem.Get(MM_MODEM, 'EquipmentIdentifier', dbus_interface=DBUS_PROPS, timeout=TIMEOUT))
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
+      return ""
 
   def get_network_info(self):
     try:
@@ -229,7 +307,8 @@ class Tici(HardwareBase):
       info = modem.Command("AT+QNWINFO", math.ceil(TIMEOUT), dbus_interface=MM_MODEM, timeout=TIMEOUT)
       extra = modem.Command('AT+QENG="servingcell"', math.ceil(TIMEOUT), dbus_interface=MM_MODEM, timeout=TIMEOUT)
       state = modem.Get(MM_MODEM, 'State', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
-    except Exception:
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return None
 
     if info and info.startswith('+QNWINFO: '):
@@ -280,8 +359,8 @@ class Tici(HardwareBase):
         modem = self.get_modem()
         strength = int(modem.Get(MM_MODEM, 'SignalQuality', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)[0])
         network_strength = self.parse_strength(strength)
-    except Exception:
-      pass
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
 
     return network_strength
 
@@ -301,8 +380,8 @@ class Tici(HardwareBase):
         elif network_type in [NetworkType.cell2G, NetworkType.cell3G, NetworkType.cell4G, NetworkType.cell5G]:
           if metered_prop == NMMetered.NM_METERED_NO:
             return False
-    except Exception:
-      pass
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
 
     return super().get_network_metered(network_type)
 
@@ -310,7 +389,8 @@ class Tici(HardwareBase):
     try:
       modem = self.get_modem()
       return modem.Get(MM_MODEM, 'Revision', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
-    except Exception:
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return None
 
   def get_modem_nv(self):
@@ -323,7 +403,8 @@ class Tici(HardwareBase):
     try:
       modem = self.get_modem()
       return { fn: str(modem.Command(f'AT+QNVFR="{fn}"', math.ceil(timeout), dbus_interface=MM_MODEM, timeout=timeout)) for fn in files}
-    except Exception:
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return None
 
   def get_modem_temperatures(self):
@@ -332,7 +413,8 @@ class Tici(HardwareBase):
       modem = self.get_modem()
       temps = modem.Command("AT+QTEMP", math.ceil(timeout), dbus_interface=MM_MODEM, timeout=timeout)
       return list(map(int, temps.split(' ')[1].split(',')))
-    except Exception:
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return []
 
   def get_nvme_temperatures(self):
@@ -568,7 +650,8 @@ class Tici(HardwareBase):
       tx = wwan.Get(NM_DEV_STATS, 'TxBytes', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
       rx = wwan.Get(NM_DEV_STATS, 'RxBytes', dbus_interface=DBUS_PROPS, timeout=TIMEOUT)
       return int(tx), int(rx)
-    except Exception:
+    except Exception as e:
+      self._maybe_reset_on_dbus_error(e)
       return -1, -1
 
   def has_internal_panda(self):
