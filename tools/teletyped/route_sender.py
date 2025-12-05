@@ -535,7 +535,7 @@ def route_sender_step(device_id):
       log(f"⚠️ Failed to delete zip: {e}", "WARN")
 
 def run_route_sender(stop_event=None, device_id=None):
-  global _token_wait_logged
+  global _auth_wait_logged
   device_id = device_id or get_dongle_id()
   if not device_id or device_id == "UNKNOWN_DEVICE":
     log("❌ Route sender missing device ID; exiting", "ERROR")

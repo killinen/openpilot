@@ -5820,6 +5820,14 @@ Esto puede tardar hasta un minuto.</translation>
         <source>Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Prevent automatic shutdown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>comma three only: keep the device awake by setting DisablePowerDown. Use sparingly; may drain the vehicle battery when parked.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

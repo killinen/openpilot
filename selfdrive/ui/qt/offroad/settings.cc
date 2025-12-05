@@ -67,6 +67,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_network.png",
     },
     {
+      "DisablePowerDown",
+      tr("Prevent automatic shutdown"),
+      tr("comma three only: keep the device awake by setting DisablePowerDown. Use sparingly; may drain the vehicle battery when parked."),
+      "../assets/offroad/icon_warning.png",
+    },
+    {
       "IsMetric",
       tr("Use Metric System"),
       tr("Display speed in km/h instead of mph."),
@@ -117,6 +123,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
 
   if (!Hardware::TICI()) {
     toggles["GoranConnectEnabled"]->setVisible(false);
+    toggles["DisablePowerDown"]->setVisible(false);
   }
 
   // Toggles with confirmation dialogs

@@ -1,5 +1,6 @@
 import binascii
 import time
+from typing import List, Tuple
 
 DEBUG = False
 
@@ -10,7 +11,7 @@ def msg(x):
   ret = bytes([len(x)]) + x
   return ret.ljust(8, b"\x00")
 
-kmsgs = []
+kmsgs: List[Tuple[int, int, bytes, int]] = []
 def recv(panda, cnt, addr, nbus):
   global kmsgs
   ret = []

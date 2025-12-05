@@ -521,6 +521,8 @@ def get_op_params_info() -> dict:
     "last_update_time": _p("LastUpdateTime"),
     "update_failed_count": _p("UpdateFailedCount"),
     "update_exception": _p("LastUpdateException"),
+    # Always include DisablePowerDown state for server visibility; default to False when missing
+    "disable_power_down": bool(_pb("DisablePowerDown")),
   }
 
   failed_count_raw = info.get("update_failed_count")

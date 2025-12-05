@@ -10,6 +10,7 @@ import requests
 
 from openpilot.tools.teletyped import route_sender, ssh_key
 from openpilot.frogpilot.common.frogpilot_variables import params_memory
+from openpilot.common.params import Params
 from openpilot.tools.teletyped.helper import (
   log,
   get_dongle_id,
@@ -130,10 +131,37 @@ def acknowledge_device_action(device_id, action_id, status, message=None):
     return False
 
 
+def _is_comma_three():
+  try:
+    device = str(HARDWARE.get_device_type()).lower()
+    return device in {"tici", "tizi"}  # treat both comma three and three X as supported
+  except Exception:
+    return False
+
+
+def _ensure_disable_power_down_default():
+  """
+  On first boot, default DisablePowerDown to True so auto shutdown stays off until user changes it.
+  Only touches the param if it doesn't already exist to avoid clobbering user preference.
+  """
+  try:
+    if not _is_comma_three():
+      return
+
+    params = Params()
+    if params.get("DisablePowerDown") is None:
+      params.put_bool("DisablePowerDown", True)
+      params_memory.put_bool("DisablePowerDown", True)
+      log("Initialized DisablePowerDown to True (auto shutdown disabled by default)", "INFO")
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to initialize DisablePowerDown param: {e}", "WARN")
+
+
 def execute_device_actions(device_id):
   actions = fetch_device_actions(device_id)
   for action in actions:
-    if action.get("action") not in {"reboot", "check_update"}:
+    if action.get("action") not in {"reboot", "check_update", "disable_power_down", "enable_power_down"}:
       continue
     if action.get("status") != "pending":
       continue
@@ -177,6 +205,32 @@ def execute_device_actions(device_id):
       except Exception as e:
         capture_exception(e)
         log(f"⚠️ Failed to signal updater: {e}", "WARN")
+        acknowledge_device_action(device_id, action_id, "failed", message=e)
+    elif action.get("action") == "disable_power_down":
+      log("Disable automatic shutdown requested via server command", "INFO")
+      try:
+        if not _is_comma_three():
+          raise RuntimeError("DisablePowerDown is only supported on comma three hardware")
+        params_memory.put_bool("DisablePowerDown", True)
+        Params().put_bool("DisablePowerDown", True)  # persist for heartbeat / server visibility
+        acknowledge_device_action(device_id, action_id, "completed")
+        log("DisablePowerDown param set to True", "INFO")
+      except Exception as e:
+        capture_exception(e)
+        log(f"⚠️ Failed to disable automatic shutdown: {e}", "WARN")
+        acknowledge_device_action(device_id, action_id, "failed", message=e)
+    elif action.get("action") == "enable_power_down":
+      log("Re-enable automatic shutdown requested via server command", "INFO")
+      try:
+        if not _is_comma_three():
+          raise RuntimeError("DisablePowerDown is only supported on comma three hardware")
+        params_memory.put_bool("DisablePowerDown", False)
+        Params().put_bool("DisablePowerDown", False)  # persist for heartbeat / server visibility
+        acknowledge_device_action(device_id, action_id, "completed")
+        log("DisablePowerDown param set to False", "INFO")
+      except Exception as e:
+        capture_exception(e)
+        log(f"⚠️ Failed to re-enable automatic shutdown: {e}", "WARN")
         acknowledge_device_action(device_id, action_id, "failed", message=e)
   return False
 
@@ -324,6 +378,8 @@ def send_heartbeat(device_id, tunnel_status):
       det["update_failed_count"] = opinfo["update_failed_count"]
     if "update_exception" in opinfo:
       det["update_exception"] = opinfo["update_exception"]
+    if "disable_power_down" in opinfo:
+      det["disable_power_down"] = opinfo["disable_power_down"]
 
     # keep full objects too (if you prefer nested access)
     det["hardware"] = hw
@@ -426,6 +482,8 @@ def main():
   if not device_id:
     log("❌ No device ID found; exiting teletyped", "ERROR")
     return
+
+  _ensure_disable_power_down_default()
 
   while _running and not has_internet_connection():
     log("Waiting for internet connection...", "WARN")
