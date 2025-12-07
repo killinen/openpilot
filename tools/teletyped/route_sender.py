@@ -5,6 +5,7 @@ import json
 from zipfile import ZipFile, ZIP_DEFLATED
 import subprocess
 import requests
+import bz2
 from collections.abc import Callable
 from datetime import datetime, UTC
 from typing import cast
@@ -38,6 +39,7 @@ DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
 
 _auth_wait_logged = False
+COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
 
 
 def _safe_zip_name(name: str) -> str:
@@ -88,6 +90,30 @@ def _boot_file_requested(filename: str, requested_files: list[str] | None) -> bo
     return True
   base_no_ext = filename.rsplit(".", 1)[0]
   return filename in requested_files or base_no_ext in requested_files
+
+
+def _maybe_compress_for_zip(src_path: str, rel_path: str, temp_dir: str, cleanup: list[str]) -> tuple[str, str]:
+  """
+  For rlog/qlog, create a .bz2 copy in temp_dir and return (path_to_zip, arcname_relative_to_drive).
+  For all other files, return the original path and rel_path unchanged.
+  """
+  base = os.path.basename(rel_path)
+  if base in COMPRESSIBLE_BASENAMES:
+    dest_base = base + ".bz2"
+    dest_path = os.path.join(temp_dir, dest_base)
+    try:
+      with open(src_path, "rb") as fin, bz2.open(dest_path, "wb") as fout:
+        shutil.copyfileobj(fin, fout)
+      cleanup.append(dest_path)
+      rel_dir = os.path.dirname(rel_path)
+      arc_rel = os.path.join(rel_dir, dest_base) if rel_dir not in ("", ".") else dest_base
+      return dest_path, arc_rel
+    except Exception as e:
+      capture_exception(e)
+      log(f"❌ Failed to compress {rel_path}: {e}", "ERROR")
+      raise
+
+  return src_path, rel_path
 
 
 def _auth_headers():
@@ -483,10 +509,13 @@ def route_sender_step(device_id):
         update_drive_transfer(device_id, drive_name, status="error", error="segments missing")
         continue
 
-      zip_path = os.path.join(_pick_temp_dir(), f"{_safe_zip_name(base_name)}.zip")
+      temp_dir = _pick_temp_dir()
+      zip_path = os.path.join(temp_dir, f"{_safe_zip_name(base_name)}.zip")
+      temp_cleanup: list[str] = []
       try:
         missing_files = []
         added_files = 0
+        update_drive_transfer(device_id, drive_name, status="sending", stage="compressing")
         with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
           for segment in segments:
             for root, _, files in os.walk(segment):
@@ -498,9 +527,14 @@ def route_sender_step(device_id):
                   missing_files.append(abs_path)
                   continue
                 rel_path = os.path.relpath(abs_path, REALDATA_DIR)
-                arcname = os.path.join(base_name, rel_path)
                 try:
-                  zipf.write(abs_path, arcname=arcname)
+                  src_path, rel_for_zip = _maybe_compress_for_zip(abs_path, rel_path, temp_dir, temp_cleanup)
+                except Exception:
+                  missing_files.append(abs_path)
+                  continue
+                arcname = os.path.join(base_name, rel_for_zip)
+                try:
+                  zipf.write(src_path, arcname=arcname)
                   added_files += 1
                 except FileNotFoundError as e:
                   capture_exception(e)
@@ -512,14 +546,21 @@ def route_sender_step(device_id):
           log(f"No files matched requested list for {base_name}", "WARN")
           update_drive_transfer(device_id, drive_name, status="error", error="no files match request")
           continue
+        update_drive_transfer(device_id, drive_name, status="sending", stage="zipped")
         log(f"📦 Zipped {len(segments)} segment(s) into folder: {base_name} (files={added_files})")
       except Exception as e:
         capture_exception(e)
         log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
         update_drive_transfer(device_id, drive_name, status="error", error=str(e))
         continue
+      finally:
+        for temp_file in temp_cleanup:
+          try:
+            os.remove(temp_file)
+          except OSError:
+            pass
 
-    update_drive_transfer(device_id, drive_name, status="sending")
+    update_drive_transfer(device_id, drive_name, status="sending", stage="wormhole")
 
     if send_file_wormhole(zip_path, device_id, drive_name, requested_files):
       update_drive_transfer(device_id, drive_name, status="sent")
