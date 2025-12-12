@@ -89,6 +89,23 @@ def ensure_ssh_key():
   if not os.path.exists(KEY_PATH) or not os.path.exists(KEY_PATH_PRIV):
     generate_ssh_key()
 
+def ensure_local_keypair() -> bool:
+  """
+  Ensure the *local* keypair exists for reverse SSH tunnel auth.
+  This must not depend on device auth / key upload, since the tunnel uses KEY_PATH_PRIV.
+  """
+  try:
+    ensure_ssh_key()
+    if not os.path.exists(KEY_PATH_PRIV):
+      raise FileNotFoundError(f"SSH private key still missing at {KEY_PATH_PRIV}")
+    if not os.path.exists(KEY_PATH):
+      raise FileNotFoundError(f"SSH public key still missing at {KEY_PATH}")
+    return True
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to ensure local SSH keypair: {e}", level="ERROR")
+    return False
+
 def read_public_key():
   if not os.path.exists(KEY_PATH):
     raise FileNotFoundError(f"Missing SSH key at {KEY_PATH}")
@@ -149,12 +166,21 @@ def send_ssh_key(headers: dict[str, str]) -> bool:
 
 
 def send_ssh_key_if_needed() -> bool:
+  # Always generate/ensure the local keypair first: the reverse tunnel depends on it even
+  # when we can't upload (missing JWT) or when the server already has a key.
+  local_was_missing = (not os.path.exists(KEY_PATH_PRIV)) or (not os.path.exists(KEY_PATH))
+  ensure_local_keypair()
+
   headers = _auth_headers()
   if headers is None:
-    log("Missing device JWT; skipping SSH key upload.", level="WARN")
+    log("Missing device JWT; skipping SSH key upload (local keypair ensured).", level="WARN")
     return False
 
   try:
+    # If we had to (re)generate the local keypair, force an upload to avoid stale server keys.
+    if local_was_missing:
+      return send_ssh_key(headers)
+
     device_id = get_dongle_id()
     has_key = _remote_has_key(device_id, headers)
     if has_key is True:
