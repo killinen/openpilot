@@ -1,7 +1,7 @@
 [submodule "panda"]
 	path = panda
 	url = https://github.com/killinen/panda.git
-	branch = 0815_C2_LONG
+	branch = 0815_C2_i30
 [submodule "opendbc"]
 	path = opendbc
 	url = https://github.com/killinen/opendbc.git
@@ -13,7 +13,7 @@
 [submodule "cereal"]
 	path = cereal
 	url = https://github.com/killinen/cereal.git
-	branch = 0815_C2_LONG
+	branch = 0815_C2_i30
 [submodule "rednose_repo"]
 	path = rednose_repo
 	url = https://github.com/killinen/rednose.git
