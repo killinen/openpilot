@@ -104,17 +104,24 @@ class CarController:
     # Send SSC steering command on platforms that expect the standalone steering message
     can_sends.append(i30can.create_steer_command(self.packer, apply_steer_req, self.target_angle_delta, steer_tq, self.frame))
 
-    # Gas pedal control for i30
+    # Longitudinal + gas interceptor (bus 1)
+    self.accel = 0.0
     if self.CP.openpilotLongitudinalControl:
-      if CC.longActive:
-        pedal_command = interp(actuators.accel, [0.0, 1.6], [0.0, 0.7])
-        interceptor_gas_cmd = clip(pedal_command, 0., 0.7)
-      else:
-        interceptor_gas_cmd = 0.
+      self.accel = clip(actuators.accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX) if CC.longActive else 0.0
 
+    if self.CP.openpilotLongitudinalControl and self.CP.enableGasInterceptor:
+      if CC.longActive:
+        pedal_command = interp(self.accel, [0.0, 1.6], [0.0, 0.7])
+        interceptor_gas_cmd = clip(pedal_command, 0.0, 0.7)
+      else:
+        interceptor_gas_cmd = 0.0
+
+      # Send exactly zero when disabled; this prevents unexpected pedal range rescaling in the interceptor.
       if self.frame % 2 == 0:
         can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
-        self.gas = interceptor_gas_cmd
+      self.gas = interceptor_gas_cmd
+    else:
+      self.gas = 0.0
 
     new_actuators = actuators.copy()
     new_actuators.steer = apply_steer / self.params.STEER_MAX

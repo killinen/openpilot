@@ -34,7 +34,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
 
     ret.carName = "i30"
-    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.hyundai, 0)]
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.i30, 0)]
     ret.radarOffCan = True
 
     ret.openpilotLongitudinalControl = True
@@ -54,7 +54,7 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalActuatorDelayUpperBound = 0.2
 
     ret.enableGasInterceptor = True
-    ret.safetyConfigs[0].safetyParam = 17   # Detect 17 in panda safety code to use pedal stuff and op cruise w i30
+    ret.safetyConfigs[0].safetyParam = 4     # Detect 4 in panda safety code to use pedal stuff and op cruise w i30
 
     ret.mass = 1193
     ret.wheelbase = 2.650

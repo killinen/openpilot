@@ -25,6 +25,9 @@ class CarState(CarStateBase):
     self.i30_angle_aligned = False
     self.i30_min_error = 0.0
     self.i30_max_error = 0.0
+    self.i30_ssc_angle_initialized = False
+    self.i30_ssc_angle_last = 0.0
+    self.i30_ssc_angle_unwrapped = 0.0
 
     self.brake_error = False
     self.park_brake = False
@@ -80,25 +83,48 @@ class CarState(CarStateBase):
     ret.steeringAngleDegError = 0.0
     ret.steeringAngleDegDivergence = 0.0
 
-    steering_status_angle = cp_cam.vl["STEERING_STATUS"]["STEERING_ANGLE"] * (16.0 / 26.0)  # convert SSC gear ratio (16/26)
-    if self.i30_angle_offset_needed:
-      self.i30_angle_offset = steering_status_angle - ret.steeringAngleDeg
-      self.i30_angle_offset_needed = False
+    ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
+    if not ssc_can_valid:
+      self.i30_angle_offset_needed = True
+      self.i30_angle_aligned = False
+      self.i30_ssc_angle_initialized = False
     else:
-      ssc_aligned_angle = steering_status_angle - self.i30_angle_offset
-      angle_error = ssc_aligned_angle - ret.steeringAngleDeg
+      ssc_angle = cp_cam.vl["STEERING_STATUS"]["STEERING_ANGLE"] * (16.0 / 26.0)  # convert SSC gear ratio (16/26)
 
-      if not self.i30_angle_aligned and abs(angle_error) < 0.1:
-        self.i30_angle_aligned = True
-        self.i30_min_error = angle_error
-        self.i30_max_error = angle_error
+      # Unwrap SSC angle to avoid false divergence on wrap/reset.
+      if not self.i30_ssc_angle_initialized:
+        self.i30_ssc_angle_initialized = True
+        self.i30_ssc_angle_last = ssc_angle
+        self.i30_ssc_angle_unwrapped = ssc_angle
+      else:
+        delta = ssc_angle - self.i30_ssc_angle_last
+        if delta > 180.0:
+          delta -= 360.0
+        elif delta < -180.0:
+          delta += 360.0
+        self.i30_ssc_angle_unwrapped += delta
+        self.i30_ssc_angle_last = ssc_angle
 
-      if self.i30_angle_aligned:
-        self.i30_min_error = min(self.i30_min_error, angle_error)
-        self.i30_max_error = max(self.i30_max_error, angle_error)
-        ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
+      steering_status_angle = self.i30_ssc_angle_unwrapped
+      if self.i30_angle_offset_needed:
+        self.i30_angle_offset = steering_status_angle - ret.steeringAngleDeg
+        self.i30_angle_offset_needed = False
+        self.i30_angle_aligned = False
+      else:
+        ssc_aligned_angle = steering_status_angle - self.i30_angle_offset
+        angle_error = ssc_aligned_angle - ret.steeringAngleDeg
 
-      ret.steeringAngleDegError = angle_error
+        if not self.i30_angle_aligned and abs(angle_error) < 0.1:
+          self.i30_angle_aligned = True
+          self.i30_min_error = angle_error
+          self.i30_max_error = angle_error
+
+        if self.i30_angle_aligned:
+          self.i30_min_error = min(self.i30_min_error, angle_error)
+          self.i30_max_error = max(self.i30_max_error, angle_error)
+          ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
+
+        ret.steeringAngleDegError = angle_error
 
     # emulate driver steering torque - allows lane change assist on blinker hold
     ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane
