@@ -9,6 +9,12 @@ PREV_BUTTON_SAMPLES = 8
 
 GearShifter = car.CarState.GearShifter
 
+I30_GEAR_RATIO_TOLERANCES = (
+  (130.6, 10.0),
+  (105.7, 8.0),
+  (92.1, 6.0),
+)
+
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -54,13 +60,11 @@ class CarState(CarStateBase):
     ret.engineRpm = cp.vl["EMS1"]["N"]
 
     # Gear ratio calculation using engine RPM and vehicle speed
-    GEAR_RATIO = [130.6, 105.7, 92.1]
     ret.clutchPressed = False
     if ret.vEgo > 0.3 and ret.engineRpm > 500:
       rpm_velo_ratio = ret.engineRpm / ret.vEgo
-      in_gear = any(abs(rpm_velo_ratio - r) < 6 for r in GEAR_RATIO)
-      if not in_gear:
-        ret.clutchPressed = True
+      in_gear = any(abs(rpm_velo_ratio - ratio) < tol for ratio, tol in I30_GEAR_RATIO_TOLERANCES)
+      ret.clutchPressed = not in_gear
 
     ret.standstill = ret.vEgoRaw < 0.1
 
