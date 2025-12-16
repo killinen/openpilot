@@ -76,7 +76,7 @@ def list_unique_timestamp_routes():
 def send_routes_to_server(device_id, routes):
   headers = build_auth_headers()
   if not headers:
-    log("Missing API token; cannot announce routes", "WARN")
+    log("Missing device auth; cannot announce routes", "WARN")
     return
   payload = {
     "device_id": device_id,

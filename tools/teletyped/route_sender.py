@@ -19,7 +19,6 @@ from tools.teletyped.helper import (
   BOOT_DIR,
   has_internet_connection,
   build_auth_headers,
-  get_cached_api_token,
   capture_exception,
 )
 
@@ -32,7 +31,7 @@ DRIVE_INVENTORY_UPLOAD_PATH = f"{API_URL}/drive-inventory"
 DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
 
-_token_wait_logged = False
+_auth_wait_logged = False
 
 
 def _auth_headers():
@@ -397,7 +396,7 @@ def route_sender_step(device_id):
       log(f"⚠️ Failed to delete zip: {e}", "WARN")
 
 def run_route_sender(stop_event=None, device_id=None):
-  global _token_wait_logged
+  global _auth_wait_logged
   device_id = device_id or get_dongle_id()
   if not device_id or device_id == "UNKNOWN_DEVICE":
     log("❌ Route sender missing device ID; exiting", "ERROR")
@@ -428,19 +427,18 @@ def run_route_sender(stop_event=None, device_id=None):
       if is_set_fn():
         break
 
-      token = get_cached_api_token()
-      if not token:
-        if not _token_wait_logged:
-          log("⚠️ Route sender waiting for API token", "WARN")
-          _token_wait_logged = True
+      headers = build_auth_headers()
+      if not headers:
+        if not _auth_wait_logged:
+          log("⚠️ Route sender waiting for device auth", "WARN")
+          _auth_wait_logged = True
         if wait_fn(CHECK_INTERVAL):
           break
-        else:
-          time.sleep(CHECK_INTERVAL)
+        time.sleep(CHECK_INTERVAL)
         continue
-      elif _token_wait_logged:
-        log("✅ API token detected; route sender active")
-        _token_wait_logged = False
+      elif _auth_wait_logged:
+        log("✅ Device auth detected; route sender active")
+        _auth_wait_logged = False
 
       try:
         route_sender_step(device_id)

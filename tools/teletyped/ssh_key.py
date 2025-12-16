@@ -13,7 +13,7 @@ requests = cast(Any, _requests)
 from tools.teletyped.helper import (
   log,
   get_dongle_id,
-  get_api_token,
+  build_auth_headers,
   KEY_PATH,
   KEY_PATH_PRIV,
   API_URL,
@@ -54,11 +54,24 @@ def read_public_key():
   with open(KEY_PATH, "r") as f:
     return f.read().strip()
 
+def ensure_local_keypair() -> bool:
+  """
+  Ensure the *local* keypair exists for reverse SSH tunnel auth.
+  This must not depend on server auth / key upload.
+  """
+  try:
+    ensure_ssh_key()
+    if not os.path.exists(KEY_PATH_PRIV) or not os.path.exists(KEY_PATH):
+      raise FileNotFoundError("SSH keypair still missing after generation")
+    return True
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to ensure local SSH keypair: {e}", level="ERROR")
+    return False
+
 def _auth_headers() -> Optional[dict]:
-  token = get_api_token()
-  if not token:
-    return None
-  return {"Authorization": f"Bearer {token}"}
+  headers = build_auth_headers()
+  return headers if headers else None
 
 
 def _remote_has_key(device_id: str, headers: dict) -> Optional[bool]:
@@ -78,7 +91,7 @@ def _remote_has_key(device_id: str, headers: dict) -> Optional[bool]:
 
 def send_ssh_key(headers: dict) -> bool:
   device_id = get_dongle_id()
-  ensure_ssh_key()
+  ensure_local_keypair()
   public_key = read_public_key()
   payload = {
     "device_id": device_id,
@@ -94,7 +107,7 @@ def send_ssh_key(headers: dict) -> bool:
       return True
     except requests.RequestException as e:
       if isinstance(e, requests.HTTPError) and e.response is not None and e.response.status_code == 401:
-        log("Unauthorized when uploading SSH key (check API token)", level="ERROR")
+        log("Unauthorized when uploading SSH key (check device auth)", level="ERROR")
         return False
 
       log(f"[!] Attempt {attempt} failed: {e}", level="ERROR")
@@ -108,12 +121,19 @@ def send_ssh_key(headers: dict) -> bool:
 
 
 def send_ssh_key_if_needed() -> bool:
+  local_was_missing = (not os.path.exists(KEY_PATH_PRIV)) or (not os.path.exists(KEY_PATH))
+  ensure_local_keypair()
+
   headers = _auth_headers()
   if headers is None:
-    log("Missing API token; skipping SSH key upload.", level="WARN")
+    log("Missing device auth; skipping SSH key upload (local keypair ensured).", level="WARN")
     return False
 
   device_id = get_dongle_id()
+  # If the local keypair was just generated, force an upload to avoid stale server keys.
+  if local_was_missing:
+    return send_ssh_key(headers)
+
   has_key = _remote_has_key(device_id, headers)
   if has_key is True:
     log("Server already has SSH key; skipping upload.")

@@ -1,6 +1,8 @@
+import json
 import os
 import psutil
 import requests
+import socket
 import subprocess
 import time
 import signal
@@ -40,8 +42,30 @@ _running = True
 _last_desired_tunnel_state = None
 _route_sender_stop_event = None
 _route_sender_thread = None
+_missing_auth_warned = False
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
+SSH_LOG_PATH = "/tmp/reverse_ssh_tunnel.log"
+TUNNEL_STARTING_TIMEOUT_SEC = 30
+TUNNEL_CONNECT_WAIT_SEC = 12
+TUNNEL_AUTH_SETTLE_SEC = 2.0
+
+_SSH_ERROR_NEEDLES = (
+  "permission denied",
+  "authentication failed",
+  "too many authentication failures",
+  "no supported authentication methods available",
+  "host key verification failed",
+  "remote port forwarding failed",
+  "cannot listen to port",
+  "key_load_private",
+  "identity file",
+  "not accessible",
+  "could not resolve hostname",
+  "connection timed out",
+  "connection refused",
+  "kex_exchange_identification",
+)
 
 def vprint(*args):
   if VERBOSE:
@@ -79,14 +103,14 @@ def fetch_ssh_request(device_id):
   url = f"{API_URL}/ssh-requests/{device_id}"
   headers = build_auth_headers()
   if not headers:
-    return {}
+    return None
   try:
     response = requests.get(url, headers=headers, timeout=5)
     return response.json() if response.status_code == 200 else {}
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to fetch request: {e}", "ERROR")
-    return {}
+    return None
 
 
 def fetch_device_actions(device_id):
@@ -175,47 +199,223 @@ def execute_device_actions(device_id):
   return False
 
 
+def _read_pidfile():
+  if not os.path.isfile(PIDFILE):
+    return None, None
+  try:
+    raw = open(PIDFILE).read().strip()
+    if not raw:
+      return None, None
+    if raw.startswith("{"):
+      data = json.loads(raw)
+      pid = int(data.get("pid"))
+      started_at = data.get("started_at")
+      started_at = float(started_at) if started_at is not None else None
+      return pid, started_at
+    return int(raw), None
+  except Exception:
+    return None, None
+
+
+def _write_pidfile(pid: int) -> None:
+  payload = {"pid": pid, "started_at": time.time()}
+  with open(PIDFILE, "w") as f:
+    json.dump(payload, f)
+
+
+def _read_ssh_log_tail(max_chars: int = 800):
+  try:
+    contents = open(SSH_LOG_PATH, encoding="utf-8", errors="replace").read().strip()
+    if not contents:
+      return None
+    return contents[-max_chars:]
+  except Exception:
+    return None
+
+
+def _ssh_log_error_detail():
+  tail = _read_ssh_log_tail()
+  if not tail:
+    return None
+  lower = tail.lower()
+  if any(needle in lower for needle in _SSH_ERROR_NEEDLES):
+    return tail
+  return None
+
+
+def _is_expected_ssh_process(proc: psutil.Process) -> bool:
+  try:
+    cmdline = proc.cmdline()
+  except Exception:
+    return False
+  if not cmdline:
+    return False
+  expected_remote = f"{REMOTE_USER}@{REMOTE_HOST}"
+  expected_forward = f"{REMOTE_PORT}:localhost:{LOCAL_PORT}"
+  if expected_remote not in cmdline:
+    return False
+  if "-R" not in cmdline or expected_forward not in cmdline:
+    return False
+  return True
+
+
+def _get_tunnel_process():
+  pid, _started_at = _read_pidfile()
+  if pid is None:
+    return None
+  try:
+    proc = psutil.Process(pid)
+  except Exception:
+    return None
+  if not _is_expected_ssh_process(proc):
+    return None
+  return proc
+
+
+def _resolve_remote_ips(host: str):
+  ips = set()
+  try:
+    for _family, _socktype, _proto, _canonname, sockaddr in socket.getaddrinfo(host, 22):
+      if sockaddr and len(sockaddr) >= 2:
+        ips.add(sockaddr[0])
+  except Exception:
+    pass
+  return ips
+
+
+def _has_established_ssh_connection(proc: psutil.Process) -> bool:
+  try:
+    remote_ips = _resolve_remote_ips(REMOTE_HOST)
+    connections = proc.connections(kind="inet")
+    for conn in connections:
+      raddr = conn.raddr
+      if not raddr:
+        continue
+      try:
+        rip = raddr.ip
+        rport = raddr.port
+      except Exception:
+        rip = raddr[0]
+        rport = raddr[1]
+      if rport != 22:
+        continue
+      if remote_ips and rip not in remote_ips:
+        continue
+      if conn.status == psutil.CONN_ESTABLISHED:
+        return True
+  except Exception:
+    return False
+  return False
+
+
 def start_tunnel():
   log("🚀 Starting tunnel...")
 
+  existing_proc = _get_tunnel_process()
+  if existing_proc is not None:
+    log(f"Tunnel already running with PID {existing_proc.pid}")
+    return True, None
   if os.path.isfile(PIDFILE):
     try:
-      pid = int(open(PIDFILE).read().strip())
-      if psutil.pid_exists(pid):
-        log(f"Tunnel already running with PID {pid}")
-        return
+      os.remove(PIDFILE)
     except Exception:
       pass
+
+  # Ensure the local key exists; tunnel auth depends on KEY_PATH_PRIV even if key upload was skipped.
+  try:
+    ssh_key.ensure_local_keypair()
+  except Exception:
+    pass
+  if not os.path.exists(KEY_PATH_PRIV):
+    detail = f"Missing SSH private key at {KEY_PATH_PRIV}"
+    log(f"❌ {detail}", "ERROR")
+    return False, detail
 
   log(f"🔁 Mapping remote port {REMOTE_PORT} to localhost:{LOCAL_PORT}")
 
   cmd = [
     "ssh",
     "-i", KEY_PATH_PRIV,
+    "-o", "IdentitiesOnly=yes",
     "-o", "UserKnownHostsFile=/dev/null",
     "-o", "StrictHostKeyChecking=no",
+    "-o", "BatchMode=yes",
+    "-o", "PasswordAuthentication=no",
+    "-o", "KbdInteractiveAuthentication=no",
+    "-o", "NumberOfPasswordPrompts=0",
     "-o", "ExitOnForwardFailure=yes",
+    "-o", "ServerAliveInterval=30",
+    "-o", "ServerAliveCountMax=3",
+    "-o", "TCPKeepAlive=yes",
+    "-o", "ConnectTimeout=10",
+    "-o", "LogLevel=ERROR",
     "-R", f"{REMOTE_PORT}:localhost:{LOCAL_PORT}",
     "-N",
     f"{REMOTE_USER}@{REMOTE_HOST}"
   ]
 
   try:
-    proc = subprocess.Popen(cmd)
-    with open(PIDFILE, "w") as f:
-      f.write(str(proc.pid))
-    log(f"Tunnel started with PID {proc.pid}")
+    with open(SSH_LOG_PATH, "w") as log_fp:
+      proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=log_fp,
+        stderr=log_fp,
+      )
+
+    _write_pidfile(proc.pid)
+
+    started_mono = time.monotonic()
+    deadline = time.monotonic() + TUNNEL_CONNECT_WAIT_SEC
+    while time.monotonic() < deadline:
+      rc = proc.poll()
+      if rc is not None:
+        detail = _read_ssh_log_tail()
+        log(f"❌ Tunnel failed to start (exit={rc})", "ERROR")
+        try:
+          os.remove(PIDFILE)
+        except Exception:
+          pass
+        return False, detail or f"ssh exited with status {rc}"
+
+      log_detail = _ssh_log_error_detail()
+      if log_detail:
+        log("❌ Tunnel failed to start (ssh error in log)", "ERROR")
+        try:
+          proc.terminate()
+        except Exception:
+          pass
+        try:
+          os.remove(PIDFILE)
+        except Exception:
+          pass
+        return False, log_detail
+
+      try:
+        ps_proc = psutil.Process(proc.pid)
+        if _has_established_ssh_connection(ps_proc):
+          if (time.monotonic() - started_mono) >= TUNNEL_AUTH_SETTLE_SEC:
+            log(f"Tunnel started with PID {proc.pid}")
+            return True, None
+      except Exception:
+        pass
+
+      time.sleep(0.2)
+
+    log(f"Tunnel process started with PID {proc.pid} (still connecting)", "INFO")
+    return True, None
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to start tunnel: {e}", "ERROR")
+    return False, str(e)
 
 def stop_tunnel():
   log("🛑 Stopping tunnel...")
   if os.path.isfile(PIDFILE):
     try:
-      pid = int(open(PIDFILE).read().strip())
-      if psutil.pid_exists(pid):
-        psutil.Process(pid).terminate()
+      proc = _get_tunnel_process()
+      if proc is not None:
+        proc.terminate()
         log("Tunnel stopped")
       else:
         log("PID file found but process not running", "WARN")
@@ -228,24 +428,30 @@ def stop_tunnel():
     log("No tunnel PID file found. Is it running?", "WARN")
 
 def get_current_tunnel_status():
+  proc = _get_tunnel_process()
+  if proc is not None:
+    log_detail = _ssh_log_error_detail()
+    if log_detail:
+      return "error"
+
+    connected = _has_established_ssh_connection(proc)
+    _pid, started_at = _read_pidfile()
+    if connected and started_at and (time.time() - started_at) < TUNNEL_AUTH_SETTLE_SEC:
+      return "starting"
+    return "connected" if connected else "starting"
   if os.path.isfile(PIDFILE):
     try:
-      pid = int(open(PIDFILE).read().strip())
-      if psutil.pid_exists(pid):
-        return "running"
+      os.remove(PIDFILE)
     except Exception:
       pass
   return "stopped"
 
 def _read_tunnel_pid():
-  if os.path.isfile(PIDFILE):
-    try:
-      return int(open(PIDFILE).read().strip())
-    except Exception:
-      return None
-  return None
+  proc = _get_tunnel_process()
+  return proc.pid if proc is not None else None
 
 def send_heartbeat(device_id, tunnel_status):
+  global _missing_auth_warned
   internet_ok = has_internet_connection()
   if not internet_ok:
     return
@@ -256,7 +462,11 @@ def send_heartbeat(device_id, tunnel_status):
   url = f"{API_URL}/heartbeat"
   headers = build_auth_headers()
   if not headers:
+    if not _missing_auth_warned:
+      log("⚠️ Skipping heartbeat: missing device auth", "WARN")
+      _missing_auth_warned = True
     return
+  _missing_auth_warned = False
   payload = {
     "device_id": device_id,
     "status": "online",
@@ -311,17 +521,21 @@ def send_heartbeat(device_id, tunnel_status):
   # =====================================
 
   try:
-    requests.post(url, headers=headers, json=payload, timeout=5)
+    resp = requests.post(url, headers=headers, json=payload, timeout=5)
+    if resp.status_code != 200:
+      log(f"⚠️ Heartbeat rejected (status={resp.status_code}) response={resp.text.strip()[:200]}", "WARN")
     vprint("💓 Heartbeat sent")
   except requests.RequestException as e:
     vprint(f"⚠️ Heartbeat failed: {e}")
 
-def report_status(device_id, status):
+def report_status(device_id, status, detail=None):
   url = f"{API_URL}/update-ssh-status"
   headers = build_auth_headers()
   if not headers:
     return
   payload = {"device_id": device_id, "status": status}
+  if detail:
+    payload["detail"] = str(detail)[:2000]
   try:
     requests.post(url, headers=headers, json=payload, timeout=5)
   except Exception as e:
@@ -331,7 +545,11 @@ def report_status(device_id, status):
 def reverse_ssh_step(device_id, last_reported_status):
   global _last_desired_tunnel_state
   data = fetch_ssh_request(device_id)
-  desired = data.get("request")
+  if data is None:
+    desired = _last_desired_tunnel_state
+  else:
+    desired = data.get("request", _last_desired_tunnel_state)
+  remote_status = data.get("status") if isinstance(data, dict) else None
   current_status = get_current_tunnel_status()
 
   vprint(f"🧭 Desired: {desired} | Current status: {current_status}")
@@ -341,15 +559,41 @@ def reverse_ssh_step(device_id, last_reported_status):
   )
   _last_desired_tunnel_state = should_be_running
 
-  if should_be_running and current_status != "running":
-    start_tunnel()
-    current_status = get_current_tunnel_status()
-  elif not should_be_running and current_status == "running":
+  error_detail = None
+  if should_be_running and current_status == "stopped":
+    ok, error_detail = start_tunnel()
+    current_status = get_current_tunnel_status() if ok else "error"
+  elif not should_be_running and current_status != "stopped":
     stop_tunnel()
     current_status = get_current_tunnel_status()
 
-  if current_status != last_reported_status:
-    report_status(device_id, current_status)
+  if should_be_running and current_status == "error" and error_detail is None:
+    error_detail = _ssh_log_error_detail() or "SSH tunnel error (see client log)"
+    try:
+      stop_tunnel()
+    except Exception:
+      pass
+
+  if should_be_running and current_status == "starting":
+    _pid, started_at = _read_pidfile()
+    if started_at and (time.time() - started_at) > TUNNEL_STARTING_TIMEOUT_SEC:
+      error_detail = _read_ssh_log_tail() or f"SSH tunnel stuck in 'starting' for >{TUNNEL_STARTING_TIMEOUT_SEC}s"
+      try:
+        stop_tunnel()
+      except Exception:
+        pass
+      current_status = "error"
+
+  if should_be_running and remote_status == "pending" and current_status in {"connected", "error", "stopped"}:
+    if current_status == "error":
+      report_status(device_id, "error", detail=error_detail or _ssh_log_error_detail())
+    else:
+      report_status(device_id, current_status)
+  elif current_status != last_reported_status:
+    if current_status == "error":
+      report_status(device_id, "error", detail=error_detail or _ssh_log_error_detail())
+    else:
+      report_status(device_id, current_status)
 
   return current_status
 
