@@ -2,9 +2,17 @@ name: tools
 
 on:
   push:
-    branches:
-      - master
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_simulator_driving:
+        description: "Run simulator driving test job"
+        type: boolean
+        default: false
+      run_devcontainer:
+        description: "Run devcontainer test job"
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && github.run_id || github.head_ref || github.ref }}-${{ github.workflow }}-${{ github.event_name }}
@@ -20,8 +28,25 @@ env:
 
 
 jobs:
+  teletyped:
+    name: teletyped
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - uses: ./.github/workflows/setup-with-retry
+    - name: Build minimal deps
+      run: |
+        ${{ env.RUN }} "scons -j$(nproc) common/params_pyx.so"
+    - name: Run teletyped tests
+      run: |
+        ${{ env.RUN }} "CI=1 pytest --confcutdir=tools/teletyped/tests tools/teletyped/tests"
+
   simulator_driving:
     name: simulator driving
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_simulator_driving == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -41,6 +66,7 @@ jobs:
 
   devcontainer:
     name: devcontainer
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_devcontainer == 'true' }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4

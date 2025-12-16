@@ -20,6 +20,8 @@ from openpilot.tools.teletyped.helper import (
   KEY_PATH,
   KEY_PATH_PRIV,
   API_URL,
+  http_get,
+  http_post,
   capture_exception,
 )
 
@@ -121,7 +123,7 @@ def _auth_headers() -> dict[str, str] | None:
 
 def _remote_has_key(device_id: str, headers: dict[str, str]) -> bool | None:
   try:
-    response = requests.get(f"{API_URL_GET_KEY}/{device_id}", headers=headers, timeout=TIMEOUT)
+    response = http_get(f"{API_URL_GET_KEY}/{device_id}", headers=headers, timeout=TIMEOUT)
     if response.status_code == 200:
       return True
     if response.status_code == 404:
@@ -146,7 +148,7 @@ def send_ssh_key(headers: dict[str, str]) -> bool:
   for attempt in range(1, MAX_RETRIES + 1):
     try:
       log(f"[{attempt}/{MAX_RETRIES}] Sending SSH key to server...")
-      response = requests.post(API_URL_KEY, json=payload, headers=headers, timeout=TIMEOUT)
+      response = http_post(API_URL_KEY, json=payload, headers=headers, timeout=TIMEOUT)
       response.raise_for_status()
       log(f"[✓] SSH key uploaded successfully for device {device_id}")
       return True

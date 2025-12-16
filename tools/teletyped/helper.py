@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
+from contextlib import contextmanager
+import json
 import os
 import socket
 import re
@@ -8,7 +10,9 @@ import subprocess
 import shutil
 import platform as py_platform
 import tempfile
+import threading
 import time
+from urllib.parse import urlparse
 import jwt
 
 import importlib
@@ -111,6 +115,38 @@ def _resolve_key_paths() -> tuple[str, str]:
 
 KEY_PATH, KEY_PATH_PRIV = _resolve_key_paths()
 
+def _resolve_dns_cache_path() -> str:
+  file_name = "teletyped_dns_cache.json"
+  candidates = _key_dir_candidates()
+
+  # Prefer an existing cache file, even if the directory is now read-only.
+  for base in candidates:
+    path = os.path.join(base, file_name)
+    if os.path.exists(path):
+      return path
+
+  # Otherwise pick the first writable candidate.
+  for base in candidates:
+    if _is_writable_dir(base):
+      return os.path.join(base, file_name)
+
+  # Last resort: drop to /tmp.
+  fallback_base = "/tmp/comma"
+  os.makedirs(fallback_base, exist_ok=True)
+  return os.path.join(fallback_base, file_name)
+
+DNS_CACHE_PATH = _resolve_dns_cache_path()
+DNS_CACHE_REFRESH_SEC = int(os.environ.get("TELETYPED_DNS_CACHE_REFRESH_SEC", str(6 * 60 * 60)))
+DNS_CACHE_SAVE_MIN_SEC = int(os.environ.get("TELETYPED_DNS_CACHE_SAVE_MIN_SEC", "600"))
+DNS_FALLBACK_ENABLED = os.environ.get("TELETYPED_DNS_FALLBACK", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+_DNS_CACHE_LOCK = threading.Lock()
+_DNS_PATCH_LOCK = threading.Lock()
+_DNS_CACHE_LOADED = False
+_DNS_CACHE_DIRTY = False
+_DNS_CACHE_LAST_SAVE = 0.0
+_DNS_CACHE: dict[str, dict] = {}
+
 SENTRY_DSN_DEFAULT = "https://82a4222b21bdd8e738c0f20677110918@o1107536.ingest.us.sentry.io/4509169784848384"
 _SENTRY_INITIALIZED = False
 
@@ -132,6 +168,68 @@ else:
 
 def _should_filter_exception(exc: BaseException) -> bool:
   return bool(NETWORK_EXCEPTION_TYPES) and isinstance(exc, NETWORK_EXCEPTION_TYPES)
+
+SENTRY_NETWORK_SAMPLE_EVERY = int(os.environ.get("GCS_SENTRY_NETWORK_SAMPLE_EVERY", "500"))
+SENTRY_NETWORK_SAMPLE_MIN_INTERVAL_SEC = int(os.environ.get("GCS_SENTRY_NETWORK_SAMPLE_MIN_INTERVAL_SEC", "60"))
+SENTRY_NETWORK_SAMPLE_MAX_KEYS = int(os.environ.get("GCS_SENTRY_NETWORK_SAMPLE_MAX_KEYS", "50"))
+
+_NETWORK_EXCEPTION_SAMPLE_LOCK = threading.Lock()
+_NETWORK_EXCEPTION_SAMPLE_STATE: dict[str, dict[str, float]] = {}
+
+def _network_exception_key(exc: BaseException) -> str:
+  # Keep grouping stable and bounded; avoid storing full URLs/tokens.
+  msg = str(exc)
+  msg = re.sub(r"(Bearer|JWT)\\s+[A-Za-z0-9._-]+", r"\\1 <redacted>", msg)
+  msg = re.sub(r"([?&](token|jwt|auth|authorization)=[^&\\s]+)", r"\\1<redacted>", msg, flags=re.IGNORECASE)
+  msg = (msg[:220] + "…") if len(msg) > 220 else msg
+  return f"{exc.__class__.__name__}:{msg}"
+
+def _maybe_capture_sampled_network_error(exc: BaseException) -> None:
+  if not _SENTRY_INITIALIZED or SENTRY_NETWORK_SAMPLE_EVERY <= 0:
+    return
+
+  key = _network_exception_key(exc)
+  now = time.time()
+
+  with _NETWORK_EXCEPTION_SAMPLE_LOCK:
+    if key not in _NETWORK_EXCEPTION_SAMPLE_STATE:
+      if len(_NETWORK_EXCEPTION_SAMPLE_STATE) >= SENTRY_NETWORK_SAMPLE_MAX_KEYS:
+        key = "__other__"
+      if key not in _NETWORK_EXCEPTION_SAMPLE_STATE:
+        _NETWORK_EXCEPTION_SAMPLE_STATE[key] = {
+          "count": 0.0,
+          "next": float(SENTRY_NETWORK_SAMPLE_EVERY),
+          "last_sent": 0.0,
+        }
+
+    st = _NETWORK_EXCEPTION_SAMPLE_STATE[key]
+    st["count"] = float(st.get("count", 0.0) + 1.0)
+    count = int(st["count"])
+    next_at = int(st.get("next", float(SENTRY_NETWORK_SAMPLE_EVERY)))
+    last_sent = float(st.get("last_sent", 0.0))
+
+    if count < next_at:
+      return
+    if SENTRY_NETWORK_SAMPLE_MIN_INTERVAL_SEC > 0 and (now - last_sent) < SENTRY_NETWORK_SAMPLE_MIN_INTERVAL_SEC:
+      return
+
+    st["next"] = float(count + SENTRY_NETWORK_SAMPLE_EVERY)
+    st["last_sent"] = now
+
+  try:
+    with sentry_sdk.push_scope() as scope:
+      scope.set_tag("sampled_network_error", True)
+      scope.set_tag("sample_every", SENTRY_NETWORK_SAMPLE_EVERY)
+      scope.set_extra("suppressed_count", count)
+      scope.set_extra("exception_type", exc.__class__.__name__)
+      scope.set_extra("exception_str", str(exc)[:2000])
+      scope.fingerprint = ["teletyped", "sampled-network-error", key]
+      sentry_sdk.capture_message(
+        f"Sampled network error ({count} occurrences, 1/{SENTRY_NETWORK_SAMPLE_EVERY}): {exc.__class__.__name__}",
+        level="error",
+      )
+  except Exception:
+    pass
 
 def _init_sentry() -> None:
   global _SENTRY_INITIALIZED
@@ -179,6 +277,7 @@ def _init_sentry() -> None:
 
 def capture_exception(exc: BaseException) -> None:
   if _should_filter_exception(exc):
+    _maybe_capture_sampled_network_error(exc)
     return
   try:
     hub = sentry_sdk.Hub.current
@@ -348,6 +447,250 @@ def ensure_dns_config() -> None:
 
 def log(msg, level="INFO"):
   print(f"[{datetime.now().isoformat()}] [{level}] {msg}")
+
+def _dns_cache_load_unlocked() -> None:
+  global _DNS_CACHE_LOADED, _DNS_CACHE
+  if _DNS_CACHE_LOADED:
+    return
+  _DNS_CACHE_LOADED = True
+  try:
+    with open(DNS_CACHE_PATH, encoding="utf-8") as f:
+      data = json.load(f)
+    hosts = data.get("hosts") if isinstance(data, dict) else None
+    if isinstance(hosts, dict):
+      _DNS_CACHE = hosts
+  except OSError:
+    pass
+  except Exception:
+    _DNS_CACHE = {}
+
+
+def _dns_cache_save_unlocked(force: bool = False) -> None:
+  global _DNS_CACHE_DIRTY, _DNS_CACHE_LAST_SAVE
+  if not _DNS_CACHE_DIRTY and not force:
+    return
+  now = time.time()
+  if not force and (now - _DNS_CACHE_LAST_SAVE) < DNS_CACHE_SAVE_MIN_SEC:
+    return
+
+  payload = {"version": 1, "hosts": _DNS_CACHE}
+  tmp_path = f"{DNS_CACHE_PATH}.tmp"
+  try:
+    os.makedirs(os.path.dirname(DNS_CACHE_PATH), exist_ok=True)
+    with open(tmp_path, "w", encoding="utf-8") as f:
+      json.dump(payload, f)
+      f.flush()
+      os.fsync(f.fileno())
+    os.replace(tmp_path, DNS_CACHE_PATH)
+    _DNS_CACHE_LAST_SAVE = now
+    _DNS_CACHE_DIRTY = False
+  except Exception:
+    try:
+      if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+    except Exception:
+      pass
+
+
+def get_cached_ip(host: str) -> str | None:
+  with _DNS_CACHE_LOCK:
+    _dns_cache_load_unlocked()
+    entry = _DNS_CACHE.get(host)
+    if isinstance(entry, dict):
+      ip = entry.get("ip")
+      if isinstance(ip, str) and ip:
+        return ip
+  return None
+
+
+def _set_cached_ip(host: str, ip: str, *, resolved_at: float | None = None) -> None:
+  global _DNS_CACHE_DIRTY
+  resolved_at = time.time() if resolved_at is None else float(resolved_at)
+  with _DNS_CACHE_LOCK:
+    _dns_cache_load_unlocked()
+    entry = _DNS_CACHE.get(host)
+    if not isinstance(entry, dict):
+      entry = {}
+      _DNS_CACHE[host] = entry
+    if entry.get("ip") != ip:
+      entry["ip"] = ip
+      entry["updated_at"] = resolved_at
+      _DNS_CACHE_DIRTY = True
+    else:
+      # Keep updated_at fresh if we re-resolved the same IP.
+      entry["updated_at"] = resolved_at
+      _DNS_CACHE_DIRTY = True
+    _dns_cache_save_unlocked()
+
+
+def _mark_cached_ip_used(host: str) -> None:
+  global _DNS_CACHE_DIRTY
+  with _DNS_CACHE_LOCK:
+    _dns_cache_load_unlocked()
+    entry = _DNS_CACHE.get(host)
+    if not isinstance(entry, dict):
+      return
+    entry["last_used_at"] = time.time()
+    _DNS_CACHE_DIRTY = True
+    _dns_cache_save_unlocked()
+
+
+def _pick_ip_from_getaddrinfo(addrs: list[tuple]) -> str | None:
+  ipv4 = None
+  ipv6 = None
+  for _family, _socktype, _proto, _canonname, sockaddr in addrs:
+    if not sockaddr or len(sockaddr) < 2:
+      continue
+    ip = sockaddr[0]
+    if not isinstance(ip, str):
+      continue
+    if ":" in ip:
+      ipv6 = ipv6 or ip
+    else:
+      ipv4 = ipv4 or ip
+  return ipv4 or ipv6
+
+
+def maybe_refresh_cached_ip(host: str, port: int) -> str | None:
+  now = time.time()
+  with _DNS_CACHE_LOCK:
+    _dns_cache_load_unlocked()
+    entry = _DNS_CACHE.get(host)
+    updated_at = None
+    if isinstance(entry, dict):
+      updated_at = entry.get("updated_at")
+    try:
+      updated_at_f = float(updated_at) if updated_at is not None else 0.0
+    except Exception:
+      updated_at_f = 0.0
+    should_refresh = (now - updated_at_f) >= DNS_CACHE_REFRESH_SEC
+
+  if not should_refresh:
+    return get_cached_ip(host)
+
+  try:
+    addrs = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    ip = _pick_ip_from_getaddrinfo(addrs)
+    if ip:
+      _set_cached_ip(host, ip, resolved_at=now)
+    return ip
+  except Exception:
+    return get_cached_ip(host)
+
+
+def resolve_host_for_connection(host: str, port: int) -> str:
+  """
+  Return a connectable host string. Prefers live DNS; falls back to cached IP.
+  Intended for non-TLS uses (e.g., ssh) where connecting to an IP is fine.
+  """
+  ip = None
+  try:
+    addrs = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    ip = _pick_ip_from_getaddrinfo(addrs)
+    if ip:
+      _set_cached_ip(host, ip)
+      return ip
+  except Exception:
+    ip = get_cached_ip(host)
+  return ip or host
+
+
+def _iter_exception_chain(exc: BaseException):
+  seen: set[int] = set()
+  cur: BaseException | None = exc
+  while cur is not None and id(cur) not in seen:
+    seen.add(id(cur))
+    yield cur
+    cur = cur.__cause__ or cur.__context__
+
+
+def _is_dns_resolution_error(exc: BaseException) -> bool:
+  needles = (
+    "no address associated with hostname",
+    "temporary failure in name resolution",
+    "name or service not known",
+    "failed to resolve",
+    "name resolution",
+  )
+  for e in _iter_exception_chain(exc):
+    if isinstance(e, socket.gaierror):
+      return True
+    if e.__class__.__name__ in {"NameResolutionError"}:
+      return True
+    msg = str(e).lower()
+    if any(n in msg for n in needles):
+      return True
+  return False
+
+
+@contextmanager
+def _force_getaddrinfo(host: str, ip: str):
+  orig_getaddrinfo = socket.getaddrinfo
+
+  def patched(name, port, family=0, type=0, proto=0, flags=0):  # noqa: A002
+    if name == host:
+      return orig_getaddrinfo(ip, port, family, type, proto, flags)
+    return orig_getaddrinfo(name, port, family, type, proto, flags)
+
+  with _DNS_PATCH_LOCK:
+    socket.getaddrinfo = patched
+    try:
+      yield
+    finally:
+      socket.getaddrinfo = orig_getaddrinfo
+
+
+_requests: ModuleType | None
+try:
+  _requests = importlib.import_module("requests")
+except ModuleNotFoundError:
+  _requests = None
+
+
+def http_request(method: str, url: str, **kwargs):
+  """
+  requests.request() with a DNS fallback:
+  - Normal attempt (uses OS resolver).
+  - On DNS resolution failure, retry by temporarily forcing getaddrinfo(host)->cached_ip,
+    which preserves HTTPS SNI/certificate verification because the URL still uses the hostname.
+  """
+  if _requests is None:
+    raise RuntimeError("The 'requests' package is required for teletyped HTTP calls.")
+
+  parsed = urlparse(url)
+  host = parsed.hostname
+  scheme = (parsed.scheme or "").lower()
+  port = parsed.port or (443 if scheme == "https" else 80)
+
+  try:
+    resp = _requests.request(method, url, **kwargs)
+    if host:
+      maybe_refresh_cached_ip(host, port)
+      _mark_cached_ip_used(host)
+    return resp
+  except Exception as e:
+    if not DNS_FALLBACK_ENABLED or not host or not _is_dns_resolution_error(e):
+      raise
+
+    cached_ip = get_cached_ip(host)
+    if not cached_ip:
+      raise
+
+    # Try to repair resolver state, then retry using cached IP for name resolution.
+    ensure_dns_config()
+    log(f"DNS failed for {host}; retrying via cached IP {cached_ip}", "WARN")
+    with _force_getaddrinfo(host, cached_ip):
+      resp = _requests.request(method, url, **kwargs)
+      _mark_cached_ip_used(host)
+      return resp
+
+
+def http_get(url: str, **kwargs):
+  return http_request("GET", url, **kwargs)
+
+
+def http_post(url: str, **kwargs):
+  return http_request("POST", url, **kwargs)
 
 def _read_first_line(path: str) -> str | None:
   try:

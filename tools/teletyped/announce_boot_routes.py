@@ -1,5 +1,4 @@
 import os
-import requests
 from datetime import datetime
 from openpilot.tools.teletyped.helper import (
   get_dongle_id,
@@ -9,6 +8,8 @@ from openpilot.tools.teletyped.helper import (
   BOOT_DIR,
   has_internet_connection,
   build_auth_headers,
+  http_get,
+  http_post,
   capture_exception,
 )
 from openpilot.tools.teletyped.label_utils import drive_base_name, is_drive_label
@@ -23,7 +24,7 @@ def get_existing_routes(device_id):
   if not headers:
     return set()
   try:
-    res = requests.get(f"{API_URL}/routes/{device_id}", headers=headers, timeout=TIMEOUT)
+    res = http_get(f"{API_URL}/routes/{device_id}", headers=headers, timeout=TIMEOUT)
     res.raise_for_status()
     existing = res.json()
     return {route.get("name") for route in existing if "name" in route}
@@ -85,7 +86,7 @@ def send_routes_to_server(device_id, routes):
 
   try:
     log(f"📤 Sending {len(routes)} new routes to server...")
-    res = requests.post(f'{API_URL}/announce-routes', json=payload, headers=headers, timeout=TIMEOUT)
+    res = http_post(f'{API_URL}/announce-routes', json=payload, headers=headers, timeout=TIMEOUT)
     res.raise_for_status()
     log("✅ Server acknowledged route list.")
   except Exception as e:

@@ -30,7 +30,11 @@ from openpilot.tools.teletyped.helper import (
   get_hardware_info,
   get_op_params_info,
   ensure_dns_config,
+  get_cached_ip,
+  maybe_refresh_cached_ip,
   build_auth_headers,
+  http_get,
+  http_post,
   capture_exception,
 )
 
@@ -85,7 +89,7 @@ def check_server(api_url, timeout=5, max_backoff=60):
 
   while True:
     try:
-      r = requests.get(f"{api_url}/health", timeout=timeout)
+      r = http_get(f"{api_url}/health", timeout=timeout)
       if r.status_code == 200:
         log("✅ Server is reachable.")
         return
@@ -105,7 +109,7 @@ def fetch_ssh_request(device_id):
   if not headers:
     return None
   try:
-    response = requests.get(url, headers=headers, timeout=5)
+    response = http_get(url, headers=headers, timeout=5)
     return response.json() if response.status_code == 200 else {}
   except Exception as e:
     capture_exception(e)
@@ -119,7 +123,7 @@ def fetch_device_actions(device_id):
   if not headers:
     return []
   try:
-    response = requests.get(url, headers=headers, timeout=5)
+    response = http_get(url, headers=headers, timeout=5)
     if response.status_code != 200:
       return []
     data = response.json()
@@ -145,7 +149,7 @@ def acknowledge_device_action(device_id, action_id, status, message=None):
   if message:
     payload["message"] = str(message)
   try:
-    response = requests.post(url, headers=headers, json=payload, timeout=5)
+    response = http_post(url, headers=headers, json=payload, timeout=5)
     response.raise_for_status()
     return True
   except Exception as e:
@@ -339,6 +343,9 @@ def _resolve_remote_ips(host: str):
         ips.add(sockaddr[0])
   except Exception:
     pass
+  cached = get_cached_ip(host)
+  if cached:
+    ips.add(cached)
   return ips
 
 
@@ -392,6 +399,14 @@ def start_tunnel():
 
   log(f"🔁 Mapping remote port {REMOTE_PORT} to localhost:{LOCAL_PORT}")
 
+  connect_ip = None
+  try:
+    connect_ip = get_cached_ip(REMOTE_HOST)
+    # Opportunistically refresh cache; if DNS is broken this will fall back to existing cached IP.
+    connect_ip = maybe_refresh_cached_ip(REMOTE_HOST, 22) or connect_ip
+  except Exception:
+    pass
+
   cmd = [
     "ssh",
     "-i", KEY_PATH_PRIV,
@@ -408,6 +423,7 @@ def start_tunnel():
     "-o", "TCPKeepAlive=yes",
     "-o", "ConnectTimeout=10",
     "-o", "LogLevel=ERROR",
+    *([] if not connect_ip else ["-o", f"HostName={connect_ip}"]),
     "-R", f"{REMOTE_PORT}:localhost:{LOCAL_PORT}",
     "-N",
     f"{REMOTE_USER}@{REMOTE_HOST}"
@@ -594,7 +610,7 @@ def send_heartbeat(device_id, tunnel_status):
   # =====================================
 
   try:
-    resp = requests.post(url, headers=headers, json=payload, timeout=5)
+    resp = http_post(url, headers=headers, json=payload, timeout=5)
     if resp.status_code != 200:
       log(
         f"⚠️ Heartbeat rejected (status={resp.status_code}) auth={auth_info} device_id={device_id} response={resp.text.strip()[:200]}",
@@ -616,7 +632,7 @@ def report_status(device_id, status, detail=None):
   if detail:
     payload["detail"] = str(detail)[:2000]
   try:
-    requests.post(url, headers=headers, json=payload, timeout=5)
+    http_post(url, headers=headers, json=payload, timeout=5)
   except Exception as e:
     capture_exception(e)
     log(f"⚠️ Failed to report status: {e}", "WARN")

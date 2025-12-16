@@ -4,7 +4,6 @@ import time
 import json
 from zipfile import ZipFile, ZIP_DEFLATED
 import subprocess
-import requests
 import bz2
 from collections.abc import Callable
 from datetime import datetime, UTC
@@ -22,6 +21,8 @@ from openpilot.tools.teletyped.helper import (
   BOOT_DIR,
   has_internet_connection,
   build_auth_headers,
+  http_get,
+  http_post,
   capture_exception,
 )
 from openpilot.tools.teletyped.label_utils import (
@@ -128,7 +129,7 @@ def get_pending_drive_transfers(device_id):
   if not headers:
     return []
   try:
-    res = requests.get(f"{DRIVE_TRANSFER_LIST_PATH}/{device_id}", headers=headers, timeout=TIMEOUT)
+    res = http_get(f"{DRIVE_TRANSFER_LIST_PATH}/{device_id}", headers=headers, timeout=TIMEOUT)
     res.raise_for_status()
     transfers = res.json()
     return [t for t in transfers if t.get("status") in ("queued", "retry")]
@@ -150,7 +151,7 @@ def update_drive_transfer(device_id, drive_name, status=None, **extra):
     payload["status"] = status
   payload.update({k: v for k, v in extra.items() if v is not None})
   try:
-    res = requests.post(DRIVE_TRANSFER_UPDATE_PATH, json=payload, headers=headers, timeout=TIMEOUT)
+    res = http_post(DRIVE_TRANSFER_UPDATE_PATH, json=payload, headers=headers, timeout=TIMEOUT)
     res.raise_for_status()
     log(f"Updated drive transfer: {drive_name} -> {status or 'unchanged'}")
   except Exception as e:
@@ -187,7 +188,7 @@ def send_wormhole_code(code, zip_path, filename, timestamp, device_id, drive_nam
     payload["drive_name"] = drive_name
   if requested_files:
     payload["requested_files"] = requested_files
-  res = requests.post(f"{API_URL}/birdie", json=payload, headers=headers, timeout=TIMEOUT)
+  res = http_post(f"{API_URL}/birdie", json=payload, headers=headers, timeout=TIMEOUT)
   res.raise_for_status()
   log("Wormhole code registered.")
   return True
@@ -295,7 +296,7 @@ def drive_inventory_step(device_id):
     return
 
   try:
-    response = requests.get(f"{DRIVE_SCAN_REQUEST_PATH}/{device_id}", headers=headers, timeout=TIMEOUT)
+    response = http_get(f"{DRIVE_SCAN_REQUEST_PATH}/{device_id}", headers=headers, timeout=TIMEOUT)
     if response.status_code == 404:
       return
     response.raise_for_status()
@@ -317,7 +318,7 @@ def drive_inventory_step(device_id):
   }
 
   try:
-    response = requests.post(
+    response = http_post(
       DRIVE_INVENTORY_UPLOAD_PATH,
       json=payload,
       headers=headers,
