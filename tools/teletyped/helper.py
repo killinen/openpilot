@@ -331,9 +331,10 @@ def _is_jwt_temporarily_disabled() -> bool:
     return False
 
 def auth_kind_from_headers(headers: Dict[str, str]) -> str:
-  if headers.get("X-Device-JWT"):
+  auth = headers.get("Authorization", "")
+  if headers.get("X-Device-JWT") or (isinstance(auth, str) and auth.startswith("JWT ")):
     return "jwt"
-  if headers.get("Authorization"):
+  if isinstance(auth, str) and auth.startswith("Bearer "):
     return "token"
   return "none"
 
@@ -430,9 +431,13 @@ def _build_jwt_auth_headers() -> Dict[str, str]:
   if not device_jwt:
     return {}
   return {
-    "Authorization": f"Bearer {device_jwt}",
+    "Authorization": f"JWT {device_jwt}",
     "X-Device-JWT": device_jwt,
   }
+
+def build_jwt_auth_headers() -> Dict[str, str]:
+  """Build JWT auth headers (does not consult the auto-mode fallback latch)."""
+  return _build_jwt_auth_headers()
 
 def get_cached_api_token(
   max_age_seconds: int = TOKEN_REFRESH_MAX_AGE,

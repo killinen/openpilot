@@ -14,6 +14,7 @@ from tools.teletyped.helper import (
   log,
   get_dongle_id,
   build_auth_headers,
+  build_jwt_auth_headers,
   record_auth_failure,
   KEY_PATH,
   KEY_PATH_PRIV,
@@ -71,7 +72,9 @@ def ensure_local_keypair() -> bool:
     return False
 
 def _auth_headers() -> Optional[dict]:
-  headers = build_auth_headers()
+  # /get-key and /upload-key are JWT-or-admin-token endpoints on the server.
+  # The device "API token" (Params: GoranConnectPassword) is not an admin token, so only use JWT here.
+  headers = build_jwt_auth_headers()
   return headers if headers else None
 
 
