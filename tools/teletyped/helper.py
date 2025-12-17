@@ -54,6 +54,9 @@ def _persist_root() -> str:
   # Prefer /persist when available (comma device default).
   if os.path.isdir("/persist"):
     return "/persist"
+  # EON/NEOS typically stores persist at /data/persist.
+  if os.path.isdir("/data/persist"):
+    return "/data/persist"
   # Older NEOS layouts may not mount /persist in minimal environments.
   if os.path.isdir("/data"):
     return "/data"
