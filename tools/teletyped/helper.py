@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypedDict, Type, cast
+import json
 import os
 import re
 import subprocess
@@ -190,6 +191,7 @@ def capture_exception(exc: BaseException) -> None:
 
 
 _init_sentry()
+_load_auth_state()
 
 LOCAL_PORT_ENV = "TELETYPED_LOCAL_SSH_PORT"
 
@@ -268,6 +270,10 @@ DEVICE_JWT_TTL_SECONDS = 300
 DEVICE_JWT_REFRESH_LEEWAY = 30
 _DEVICE_JWT_CACHE: Dict[str, object] = {"token": "", "refresh_at": 0.0}
 
+AUTH_STATE_PATH = "/tmp/teletyped_auth_state.json"
+JWT_FALLBACK_SECONDS_DEFAULT = 600
+_JWT_DISABLED_UNTIL_EPOCH = 0.0
+
 
 TOKEN_REFRESH_MAX_AGE = 300
 TOKEN_REFRESH_EMPTY_MAX_AGE = 30
@@ -282,6 +288,71 @@ _TOKEN_CACHE: _TokenCacheEntry = {
   "token": "",
   "updated_at": 0.0,
 }
+
+def _load_auth_state() -> None:
+  global _JWT_DISABLED_UNTIL_EPOCH
+  try:
+    with open(AUTH_STATE_PATH, "r", encoding="utf-8") as f:
+      data = json.load(f)
+    disabled_until = data.get("jwt_disabled_until_epoch")
+    if isinstance(disabled_until, (int, float)):
+      _JWT_DISABLED_UNTIL_EPOCH = float(disabled_until)
+  except Exception:
+    pass
+
+def _save_auth_state() -> None:
+  try:
+    payload = {"jwt_disabled_until_epoch": _JWT_DISABLED_UNTIL_EPOCH}
+    with open(AUTH_STATE_PATH, "w", encoding="utf-8") as f:
+      json.dump(payload, f)
+  except Exception:
+    pass
+
+def _jwt_fallback_seconds() -> int:
+  val = os.environ.get("TELETYPED_JWT_FALLBACK_SECONDS")
+  if val:
+    try:
+      return max(0, int(val))
+    except ValueError:
+      pass
+  return JWT_FALLBACK_SECONDS_DEFAULT
+
+def _is_jwt_temporarily_disabled() -> bool:
+  try:
+    return time.time() < _JWT_DISABLED_UNTIL_EPOCH
+  except Exception:
+    return False
+
+def auth_kind_from_headers(headers: Dict[str, str]) -> str:
+  if headers.get("X-Device-JWT"):
+    return "jwt"
+  if headers.get("Authorization"):
+    return "token"
+  return "none"
+
+def record_auth_failure(headers: Dict[str, str], status_code: int) -> None:
+  """
+  Record an auth failure so `build_auth_headers()` can fall back from JWT -> token in auto mode.
+  Only applies when the failing request used JWT.
+  """
+  global _JWT_DISABLED_UNTIL_EPOCH
+  if status_code not in (401, 403):
+    return
+  if auth_kind_from_headers(headers) != "jwt":
+    return
+
+  cooldown = _jwt_fallback_seconds()
+  if cooldown <= 0:
+    return
+  new_until = time.time() + cooldown
+  _JWT_DISABLED_UNTIL_EPOCH = max(_JWT_DISABLED_UNTIL_EPOCH, new_until)
+  _save_auth_state()
+  try:
+    # Avoid spam: only log when we actually extend the disable window.
+    if abs(_JWT_DISABLED_UNTIL_EPOCH - new_until) < 1.0:
+      log(f"JWT auth rejected; falling back to token for ~{cooldown}s", "WARN")
+  except Exception:
+    pass
 
 def _load_registration_private_key() -> Optional[str]:
   if not os.path.exists(REGISTRATION_KEY_PATH):
@@ -346,6 +417,15 @@ def _build_token_auth_headers(
   )
   return {"Authorization": f"Bearer {token}"} if token else {}
 
+def _build_jwt_auth_headers() -> Dict[str, str]:
+  device_jwt = _get_cached_device_jwt()
+  if not device_jwt:
+    return {}
+  return {
+    "Authorization": f"Bearer {device_jwt}",
+    "X-Device-JWT": device_jwt,
+  }
+
 def get_cached_api_token(
   max_age_seconds: int = TOKEN_REFRESH_MAX_AGE,
   empty_max_age_seconds: int = TOKEN_REFRESH_EMPTY_MAX_AGE,
@@ -374,7 +454,7 @@ def build_auth_headers(
   Auth mode:
     - TELETYPED_AUTH_MODE=jwt   -> device JWT only
     - TELETYPED_AUTH_MODE=token -> API token only (Params: GoranConnectPassword)
-    - unset/auto                -> API token only (no JWT fallback)
+    - unset/auto                -> prefer JWT, fallback to token on 401/403
   """
   mode = (os.environ.get("TELETYPED_AUTH_MODE") or "auto").strip().lower()
   if mode == "token":
@@ -384,17 +464,39 @@ def build_auth_headers(
     )
 
   if mode == "jwt":
-    device_jwt = _get_cached_device_jwt()
-    return {"Authorization": f"Bearer {device_jwt}"} if device_jwt else {}
+    return _build_jwt_auth_headers()
 
-  # Default/auto: keep behavior compatible with older clients:
-  # only use the API token (and skip calls entirely when missing) to avoid
-  # hammering the server with unauthorized JWT attempts on devices that don't support it.
-  token_headers = _build_token_auth_headers(
+  # Default/auto: prefer JWT, but if the server rejected it recently, fall back to token.
+  if not _is_jwt_temporarily_disabled():
+    jwt_headers = _build_jwt_auth_headers()
+    if jwt_headers:
+      return jwt_headers
+
+  return _build_token_auth_headers(
     max_age_seconds=max_age_seconds,
     empty_max_age_seconds=empty_max_age_seconds,
   )
-  return token_headers
+
+
+def get_auth_status() -> Dict[str, object]:
+  """
+  Return a best-effort snapshot of the current auth selection and fallback state.
+  """
+  mode = (os.environ.get("TELETYPED_AUTH_MODE") or "auto").strip().lower()
+  now = time.time()
+  disabled_until = float(_JWT_DISABLED_UNTIL_EPOCH) if isinstance(_JWT_DISABLED_UNTIL_EPOCH, (int, float)) else 0.0
+  disabled = now < disabled_until
+  remaining = max(0.0, disabled_until - now) if disabled else 0.0
+
+  headers = build_auth_headers()
+  kind = auth_kind_from_headers(headers)
+
+  return {
+    "mode": mode,
+    "selected": kind,
+    "jwt_disabled": disabled,
+    "jwt_disabled_remaining_sec": int(remaining),
+  }
 
 
 def ensure_dns_config() -> None:

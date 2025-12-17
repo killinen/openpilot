@@ -28,6 +28,8 @@ from tools.teletyped.helper import (
   get_op_params_info,
   ensure_dns_config,
   build_auth_headers,
+  record_auth_failure,
+  get_auth_status,
   capture_exception,
 )
 
@@ -104,8 +106,13 @@ def fetch_ssh_request(device_id):
   headers = build_auth_headers()
   if not headers:
     return None
+  auth_kind = "jwt" if "X-Device-JWT" in headers else "token"
   try:
     response = requests.get(url, headers=headers, timeout=5)
+    if response.status_code in (401, 403):
+      record_auth_failure(headers, response.status_code)
+      log(f"⚠️ Unauthorized fetching ssh request (status={response.status_code}) auth={auth_kind}", "WARN")
+      return None
     return response.json() if response.status_code == 200 else {}
   except Exception as e:
     capture_exception(e)
@@ -118,8 +125,13 @@ def fetch_device_actions(device_id):
   headers = build_auth_headers()
   if not headers:
     return []
+  auth_kind = "jwt" if "X-Device-JWT" in headers else "token"
   try:
     response = requests.get(url, headers=headers, timeout=5)
+    if response.status_code in (401, 403):
+      record_auth_failure(headers, response.status_code)
+      log(f"⚠️ Unauthorized fetching device actions (status={response.status_code}) auth={auth_kind}", "WARN")
+      return []
     if response.status_code != 200:
       return []
     data = response.json()
@@ -467,6 +479,7 @@ def send_heartbeat(device_id, tunnel_status):
       _missing_auth_warned = True
     return
   _missing_auth_warned = False
+  auth_kind = "jwt" if "X-Device-JWT" in headers else "token"
   payload = {
     "device_id": device_id,
     "status": "online",
@@ -522,8 +535,13 @@ def send_heartbeat(device_id, tunnel_status):
 
   try:
     resp = requests.post(url, headers=headers, json=payload, timeout=5)
+    if resp.status_code in (401, 403):
+      record_auth_failure(headers, resp.status_code)
     if resp.status_code != 200:
-      log(f"⚠️ Heartbeat rejected (status={resp.status_code}) response={resp.text.strip()[:200]}", "WARN")
+      log(
+        f"⚠️ Heartbeat rejected (status={resp.status_code}) auth={auth_kind} response={resp.text.strip()[:200]}",
+        "WARN",
+      )
     vprint("💓 Heartbeat sent")
   except requests.RequestException as e:
     vprint(f"⚠️ Heartbeat failed: {e}")
@@ -634,6 +652,15 @@ def main():
   if not device_id:
     log("❌ No device ID found; exiting teletyped", "ERROR")
     return
+
+  try:
+    st = get_auth_status()
+    log(
+      f"Teletyped auth: mode={st.get('mode')} selected={st.get('selected')} jwt_disabled={st.get('jwt_disabled')} remaining={st.get('jwt_disabled_remaining_sec')}s",
+      "INFO",
+    )
+  except Exception:
+    pass
 
   while _running and not has_internet_connection():
     log("Waiting for internet connection...", "WARN")

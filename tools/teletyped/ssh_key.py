@@ -14,6 +14,7 @@ from tools.teletyped.helper import (
   log,
   get_dongle_id,
   build_auth_headers,
+  record_auth_failure,
   KEY_PATH,
   KEY_PATH_PRIV,
   API_URL,
@@ -77,6 +78,10 @@ def _auth_headers() -> Optional[dict]:
 def _remote_has_key(device_id: str, headers: dict) -> Optional[bool]:
   try:
     response = requests.get(f"{API_URL_GET_KEY}/{device_id}", headers=headers, timeout=TIMEOUT)
+    if response.status_code in (401, 403):
+      record_auth_failure(headers, response.status_code)
+      log(f"Unauthorized when checking remote SSH key (status={response.status_code})", level="WARN")
+      return None
     if response.status_code == 200:
       return True
     if response.status_code == 404:
@@ -102,6 +107,8 @@ def send_ssh_key(headers: dict) -> bool:
     try:
       log(f"[{attempt}/{MAX_RETRIES}] Sending SSH key to server...")
       response = requests.post(API_URL_KEY, json=payload, headers=headers, timeout=TIMEOUT)
+      if response.status_code in (401, 403):
+        record_auth_failure(headers, response.status_code)
       response.raise_for_status()
       log(f"[✓] SSH key uploaded successfully for device {device_id}")
       return True
