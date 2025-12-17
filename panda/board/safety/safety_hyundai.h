@@ -175,9 +175,8 @@ static void hyundai_rx_hook(const CANPacket_t *to_push) {
       update_sample(&torque_driver, torque_driver_new);
     }
 
-    bool lkas_button = false;
     if (addr == 0x391) {
-      lkas_button = GET_BIT(to_push, 4U);
+      const bool lkas_button = GET_BIT(to_push, 4U);
       hyundai_lkas_button_check(lkas_button);
     }
 

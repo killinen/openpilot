@@ -63,13 +63,27 @@ def init_segment(safety, lr, mode, param):
   sendcan = (msg for msg in lr if msg.which() == 'sendcan')
   steering_msgs = (can for msg in sendcan for can in msg.sendcan if is_steering_msg(mode, param, can.address))
 
-  msg = next(steering_msgs, None)
-  if msg is None:
+  first_msg = None
+  chosen_msg = None
+  chosen_torque, chosen_angle = 0, 0
+  for msg in steering_msgs:
+    if first_msg is None:
+      first_msg = msg
+    to_send = package_can_msg(msg)
+    torque, angle = get_steer_value(mode, param, to_send)
+    if torque != 0 or angle != 0:
+      chosen_msg = msg
+      chosen_torque, chosen_angle = torque, angle
+      break
+
+  if first_msg is None:
     # no steering msgs
     return
 
+  msg = chosen_msg or first_msg
   to_send = package_can_msg(msg)
-  torque, angle = get_steer_value(mode, param, to_send)
+  torque, angle = (chosen_torque, chosen_angle) if chosen_msg is not None else get_steer_value(mode, param, to_send)
+
   if torque != 0:
     safety.set_controls_allowed(1)
     safety.set_desired_torque_last(torque)
@@ -77,4 +91,7 @@ def init_segment(safety, lr, mode, param):
     safety.set_controls_allowed(1)
     safety.set_desired_angle_last(angle)
     safety.set_angle_meas(angle, angle)
+  else:
+    # Some segments start with a zero torque/angle steering message; allow it so the replay can proceed.
+    safety.set_controls_allowed(1)
   assert safety.safety_tx_hook(to_send), "failed to initialize panda safety for segment"

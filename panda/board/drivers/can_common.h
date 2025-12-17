@@ -230,6 +230,7 @@ void ignition_can_hook(CANPacket_t *to_push) {
     //   ignition_can = (GET_BYTE(to_push, 0) & 0x2U) != 0U;
     //   ignition_can_cnt = 0U;
     // }
+  } else {
   }
 }
 

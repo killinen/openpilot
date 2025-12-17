@@ -4,7 +4,7 @@ import unittest
 import importlib
 import numpy as np
 from collections.abc import Callable
-
+from typing import cast
 from opendbc.can.packer import CANPacker  # pylint: disable=import-error
 from panda import ALTERNATIVE_EXPERIENCE
 from panda.tests.libpanda import libpanda_py
@@ -19,10 +19,10 @@ def sign_of(a):
   return 1 if a > 0 else -1
 
 
-def make_msg(bus, addr, length=8, dat=None):
+def make_msg(bus: int, addr: int, length: int = 8, dat: bytes | None = None) -> libpanda_py.CANPacket:
   if dat is None:
     dat = b'\x00' * length
-  return libpanda_py.make_CANPacket(addr, bus, dat)
+  return cast(libpanda_py.CANPacket, libpanda_py.make_CANPacket(addr, bus, dat))
 
 
 class CANPackerPanda(CANPacker):
@@ -31,7 +31,7 @@ class CANPackerPanda(CANPacker):
     if fix_checksum is not None:
       msg = fix_checksum(msg)
     addr, _, dat, bus = msg
-    return libpanda_py.make_CANPacket(addr, bus, dat)
+    return cast(libpanda_py.CANPacket, libpanda_py.make_CANPacket(addr, bus, dat))
 
 
 def add_regen_tests(cls):
@@ -342,7 +342,7 @@ class TorqueSteeringSafetyTestBase(PandaSafetyTestBase, abc.ABC):
   # FrogPilot tests
   def _toggle_aol(self, toggle_on):
     """Toggles "Always On Lateral" On/Off"""
-    pass
+    return None
 
   def test_always_on_lateral(self):
     if self._toggle_aol(True) is None:
@@ -808,7 +808,7 @@ class AngleSteeringSafetyTest(PandaSafetyTestBase):
   # FrogPilot tests
   def _toggle_aol(self, toggle_on):
     """Toggles "Always On Lateral" on/off"""
-    pass
+    return None
 
   def test_always_on_lateral(self):
     if self._toggle_aol(True) is None:
@@ -922,7 +922,13 @@ class PandaSafetyTest(PandaSafetyTestBase):
               continue
             if {attr, current_test}.issubset({'TestVolkswagenPqSafety', 'TestVolkswagenPqStockSafety', 'TestVolkswagenPqLongSafety'}):
               continue
-            if {attr, current_test}.issubset({'TestGmCameraSafety', 'TestGmCameraLongitudinalSafety', 'TestGmSdgmSafety', 'TestGmInterceptorSafety', 'TestGmCcLongitudinalSafety'}):
+            if {attr, current_test}.issubset({
+              'TestGmCameraSafety',
+              'TestGmCameraLongitudinalSafety',
+              'TestGmSdgmSafety',
+              'TestGmInterceptorSafety',
+              'TestGmCcLongitudinalSafety',
+            }):
               continue
             if attr.startswith('TestFord') and current_test.startswith('TestFord'):
               continue

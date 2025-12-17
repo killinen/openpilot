@@ -1,5 +1,12 @@
 import os
-import requests
+from typing import Any
+
+try:
+  _requests: Any
+  import requests as _requests
+except ModuleNotFoundError:
+  _requests = None
+requests: Any = _requests
 
 
 # Forks with additional car support can fork the commaCarSegments repo on huggingface or host the LFS files themselves
@@ -8,6 +15,8 @@ COMMA_CAR_SEGMENTS_BRANCH = os.environ.get("COMMA_CAR_SEGMENTS_BRANCH", "main")
 COMMA_CAR_SEGMENTS_LFS_INSTANCE = os.environ.get("COMMA_CAR_SEGMENTS_LFS_INSTANCE", COMMA_CAR_SEGMENTS_REPO)
 
 def get_comma_car_segments_database():
+  if requests is None:
+    raise ModuleNotFoundError("Missing optional dependency 'requests' (required for commaCarSegments access)")
   from openpilot.selfdrive.car.fingerprints import MIGRATION
 
   database = requests.get(get_repo_raw_url("database.json")).json()
@@ -37,6 +46,8 @@ def parse_lfs_pointer(text):
   return oid, size
 
 def get_lfs_file_url(oid, size):
+  if requests is None:
+    raise ModuleNotFoundError("Missing optional dependency 'requests' (required for commaCarSegments access)")
   data = {
     "operation": "download",
     "transfers": [ "basic" ],
@@ -71,6 +82,8 @@ def get_repo_raw_url(path):
 def get_repo_url(path):
   # Automatically switch to LFS if we are requesting a file that is stored in LFS
 
+  if requests is None:
+    raise ModuleNotFoundError("Missing optional dependency 'requests' (required for commaCarSegments access)")
   response = requests.head(get_repo_raw_url(path))
 
   if "text/plain" in response.headers.get("content-type"):

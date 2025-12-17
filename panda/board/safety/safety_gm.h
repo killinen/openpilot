@@ -50,14 +50,14 @@ const CanMsg GM_CC_LONG_TX_MSGS[] = {{0x180, 0, 4}, {0x1E1, 0, 7},  // pt bus
 
 // TODO: do checksum and counter checks. Add correct timestep, 0.1s for now.
 RxCheck gm_rx_checks[] = {
-  {.msg = {{0x184, 0, 8, .frequency = 10U}, { 0 }, { 0 }}},
-  {.msg = {{0x34A, 0, 5, .frequency = 10U}, { 0 }, { 0 }}},
+  {.msg = {{0x184, 0, 8, .frequency = 10U}, { 0 }, { 0 }}, .status = {0}},
+  {.msg = {{0x34A, 0, 5, .frequency = 10U}, { 0 }, { 0 }}, .status = {0}},
   {.msg = {{0x1E1, 0, 7, .frequency = 10U},   // Non-SDGM Car
-           {0x1E1, 2, 7, .frequency = 100000U}}}, // SDGM Car
+           {0x1E1, 2, 7, .frequency = 100000U}, { 0 }}, .status = {0}}, // SDGM Car
   {.msg = {{0xF1, 0, 6, .frequency = 10U},   // Non-SDGM Car
-           {0xF1, 2, 6, .frequency = 100000U}}}, // SDGM Car
-  {.msg = {{0x1C4, 0, 8, .frequency = 10U}, { 0 }, { 0 }}},
-  {.msg = {{0xC9, 0, 8, .frequency = 10U}, { 0 }, { 0 }}},
+           {0xF1, 2, 6, .frequency = 100000U}, { 0 }}, .status = {0}}, // SDGM Car
+  {.msg = {{0x1C4, 0, 8, .frequency = 10U}, { 0 }, { 0 }}, .status = {0}},
+  {.msg = {{0xC9, 0, 8, .frequency = 10U}, { 0 }, { 0 }}, .status = {0}},
 };
 
 const uint16_t GM_PARAM_HW_CAM = 1;
@@ -110,7 +110,7 @@ static void handle_gm_wheel_buttons(const CANPacket_t *to_push) {
 }
 
 static void gm_rx_hook(const CANPacket_t *to_push) {
-  if ((GET_BUS(to_push) == 2U) && (GET_ADDR(to_push) == 0x1E1) && (gm_hw == GM_SDGM)) {
+  if ((GET_BUS(to_push) == 2U) && (GET_ADDR(to_push) == 0x1E1U) && (gm_hw == GM_SDGM)) {
     // SDGM buttons are on bus 2
     handle_gm_wheel_buttons(to_push);
   }
@@ -248,7 +248,7 @@ static bool gm_tx_hook(const CANPacket_t *to_send) {
     bool allowed_btn = (button == GM_BTN_CANCEL) && cruise_engaged_prev;
     // For standard CC, allow spamming of SET / RESUME
     if (gm_cc_long) {
-      allowed_btn |= cruise_engaged_prev && (button == GM_BTN_SET || button == GM_BTN_RESUME || button == GM_BTN_UNPRESS);
+      allowed_btn |= (cruise_engaged_prev && ((button == GM_BTN_SET) || (button == GM_BTN_RESUME) || (button == GM_BTN_UNPRESS)));
     }
 
     if (!allowed_btn) {
@@ -286,9 +286,12 @@ static int gm_fwd_hook(int bus_num, int addr) {
 }
 
 static safety_config gm_init(uint16_t param) {
-  if GET_FLAG(param, GM_PARAM_HW_CAM) {
+  const bool gm_hw_cam = GET_FLAG(param, GM_PARAM_HW_CAM);
+  const bool gm_hw_sdgm = GET_FLAG(param, GM_PARAM_HW_SDGM);
+
+  if (gm_hw_cam) {
     gm_hw = GM_CAM;
-  } else if GET_FLAG(param, GM_PARAM_HW_SDGM) {
+  } else if (gm_hw_sdgm) {
     gm_hw = GM_SDGM;
   } else {
     gm_hw = GM_ASCM;
@@ -296,7 +299,7 @@ static safety_config gm_init(uint16_t param) {
 
   gm_force_ascm = GET_FLAG(param, GM_PARAM_HW_ASCM_LONG);
 
-  if (gm_hw == GM_ASCM || gm_force_ascm) {
+  if ((gm_hw == GM_ASCM) || gm_force_ascm) {
     gm_long_limits = &GM_ASCM_LONG_LIMITS;
   } else if ((gm_hw == GM_CAM) || (gm_hw == GM_SDGM)) {
     gm_long_limits = &GM_CAM_LONG_LIMITS;
@@ -322,6 +325,7 @@ static safety_config gm_init(uint16_t param) {
     }
   } else if (gm_hw == GM_SDGM) {
     ret = BUILD_SAFETY_CFG(gm_rx_checks, GM_SDGM_TX_MSGS);
+  } else {
   }
   return ret;
 }

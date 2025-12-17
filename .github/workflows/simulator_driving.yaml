@@ -1,12 +1,10 @@
-name: tools
+name: simulator driving
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && github.run_id || github.head_ref || github.ref }}-${{ github.workflow }}-${{ github.event_name }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -17,20 +15,23 @@ env:
 
   RUN: docker run --shm-size 1G -v $GITHUB_WORKSPACE:/tmp/openpilot -w /tmp/openpilot -e FILEREADER_CACHE=1 -e PYTHONPATH=/tmp/openpilot -e NUM_JOBS -e JOB_ID -e GITHUB_ACTION -e GITHUB_REF -e GITHUB_HEAD_REF -e GITHUB_SHA -e GITHUB_REPOSITORY -e GITHUB_RUN_ID -v $GITHUB_WORKSPACE/.ci_cache/scons_cache:/tmp/scons_cache -v $GITHUB_WORKSPACE/.ci_cache/comma_download_cache:/tmp/comma_download_cache -v $GITHUB_WORKSPACE/.ci_cache/openpilot_cache:/tmp/openpilot_cache $BASE_IMAGE /bin/bash -c
 
-
 jobs:
-  teletyped:
-    name: teletyped
+  simulator_driving:
+    name: simulator driving
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
     - uses: ./.github/workflows/setup-with-retry
-    - name: Build minimal deps
+    - name: Build openpilot
       run: |
-        ${{ env.RUN }} "scons -j$(nproc) common/params_pyx.so"
-    - name: Run teletyped tests
+        ${{ env.RUN }} "scons -j$(nproc)"
+    - name: Run bridge test
       run: |
-        ${{ env.RUN }} "CI=1 pytest --confcutdir=tools/teletyped/tests tools/teletyped/tests"
+        ${{ env.RUN }} "export MAPBOX_TOKEN='pk.eyJ1Ijoiam5ld2IiLCJhIjoiY2xxNW8zZXprMGw1ZzJwbzZneHd2NHljbSJ9.gV7VPRfbXFetD-1OVF0XZg' && \
+                        source selfdrive/test/setup_xvfb.sh && \
+                        source selfdrive/test/setup_vsound.sh && \
+                        CI=1 pytest tools/sim/tests/test_metadrive_bridge.py"
+

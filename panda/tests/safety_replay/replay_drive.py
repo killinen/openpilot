@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import sys
 from collections import Counter
 
 from panda.tests.libpanda import libpanda_py
@@ -24,6 +25,8 @@ def replay_drive(lr, safety_mode, param, alternative_experience, segment=False):
   invalid_addrs = set()
 
   can_msgs = [m for m in lr if m.which() in ('can', 'sendcan')]
+  # Keep timestamps monotonic to avoid false lagging in safety_tick on out-of-order logs.
+  can_msgs.sort(key=lambda m: m.logMonoTime)
   start_t = can_msgs[0].logMonoTime
   end_t = can_msgs[-1].logMonoTime
   for msg in can_msgs:
@@ -82,22 +85,53 @@ if __name__ == "__main__":
   parser.add_argument("--alternative-experience", type=int, help="Override the alternative experience from the log")
   args = parser.parse_args()
 
-  lr = LogReader(args.route_or_segment_name[0])
+  override_mode = args.mode
+  override_param = args.param
+  override_alternative_experience = args.alternative_experience
 
-  if None in (args.mode, args.param, args.alternative_experience):
-    for msg in lr:
-      if msg.which() == 'carParams':
-        if args.mode is None:
-          args.mode = msg.carParams.safetyConfigs[-1].safetyModel.raw
-        if args.param is None:
-          args.param = msg.carParams.safetyConfigs[-1].safetyParam
-        if args.alternative_experience is None:
-          args.alternative_experience = msg.carParams.alternativeExperience
-        break
-    else:
-      raise Exception("carParams not found in log. Set safety mode and param manually.")
+  all_ok = True
+  for identifier in args.route_or_segment_name:
+    lr = LogReader(identifier)
+    safety_mode = override_mode
+    safety_param = override_param
+    alternative_experience = override_alternative_experience
 
-    lr.reset()
+    if None in (safety_mode, safety_param, alternative_experience):
+      for msg in lr:
+        if msg.which() == 'carParams':
+          safety_cfg = None
+          try:
+            safety_cfgs = msg.carParams.safetyConfigs
+            n = len(safety_cfgs)
+            if n > 0:
+              safety_cfg = safety_cfgs[n - 1]
+          except Exception:
+            safety_cfg = None
 
-  print(f"replaying {args.route_or_segment_name[0]} with safety mode {args.mode}, param {args.param}, alternative experience {args.alternative_experience}")
-  replay_drive(lr, args.mode, args.param, args.alternative_experience, segment=len(lr.logreader_identifiers) == 1)
+          if safety_cfg is not None:
+            if safety_mode is None:
+              safety_mode = safety_cfg.safetyModel.raw
+            if safety_param is None:
+              safety_param = safety_cfg.safetyParam
+          else:
+            if safety_mode is None:
+              safety_mode = msg.carParams.safetyModel.raw
+            if safety_param is None:
+              safety_param = msg.carParams.safetyParam
+          if alternative_experience is None:
+            alternative_experience = msg.carParams.alternativeExperience
+          break
+      else:
+        raise Exception(f"carParams not found in log {identifier}. Set safety mode and param manually.")
+
+      lr.reset()
+
+    assert safety_mode is not None
+    assert safety_param is not None
+    assert alternative_experience is not None
+
+    print(f"replaying {identifier} with safety mode {safety_mode}, param {safety_param}, alternative experience {alternative_experience}")
+    ok = replay_drive(lr, safety_mode, safety_param, alternative_experience, segment=len(lr.logreader_identifiers) == 1)
+    all_ok &= ok
+
+  sys.exit(0 if all_ok else 1)

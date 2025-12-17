@@ -1,13 +1,29 @@
 import os
-import requests
+from typing import Any
 
-from openpilot.frogpilot.common.frogpilot_utilities import use_konik_server
+try:
+  _requests: Any
+  import requests as _requests
+except ModuleNotFoundError:
+  _requests = None
+requests: Any = _requests
+
+use_konik_server: Any
+try:
+  from openpilot.frogpilot.common.frogpilot_utilities import use_konik_server as _use_konik_server
+  use_konik_server = _use_konik_server
+except Exception:
+  def _use_konik_server_fallback() -> bool:
+    return False
+  use_konik_server = _use_konik_server_fallback
 
 API_HOST = os.getenv('API_HOST', 'https://api.commadotai.com')
 KONIK_API_HOST = os.getenv('API_HOST', 'https://api.konik.ai')
 
 class CommaApi:
   def __init__(self, token=None):
+    if requests is None:
+      raise ModuleNotFoundError("Missing optional dependency 'requests' (required for Comma API access)")
     self.session = requests.Session()
     self.session.headers['User-agent'] = 'OpenpilotTools'
     if token:

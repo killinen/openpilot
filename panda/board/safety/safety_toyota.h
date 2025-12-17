@@ -82,10 +82,6 @@ const CanMsg TOYOTA_LONG_TX_MSGS[] = {
   TOYOTA_COMMON_LONG_TX_MSGS
 };
 
-static const CanMsg TOYOTA_SECOC_LONG_TX_MSGS[] = {
-  TOYOTA_COMMON_SECOC_LONG_TX_MSGS
-};
-
 const CanMsg TOYOTA_INTERCEPTOR_TX_MSGS[] = {
   TOYOTA_COMMON_LONG_TX_MSGS
   {0x200, 0, 6},  // gas interceptor
@@ -456,6 +452,11 @@ static safety_config toyota_init(uint16_t param) {
     enable_gas_interceptor = false;
   }
 
+  // Only used when SecOC is enabled and openpilot is controlling longitudinal
+  static const CanMsg toyota_secoc_long_tx_msgs[] = {
+    TOYOTA_COMMON_SECOC_LONG_TX_MSGS
+  };
+
   safety_config ret;
   if (toyota_stock_longitudinal) {
     if (toyota_secoc) {
@@ -465,7 +466,7 @@ static safety_config toyota_init(uint16_t param) {
     }
   } else {
     if (toyota_secoc) {
-      SET_TX_MSGS(TOYOTA_SECOC_LONG_TX_MSGS, ret);
+      SET_TX_MSGS(toyota_secoc_long_tx_msgs, ret);
     } else {
       enable_gas_interceptor ? SET_TX_MSGS(TOYOTA_INTERCEPTOR_TX_MSGS, ret) : \
                                SET_TX_MSGS(TOYOTA_LONG_TX_MSGS, ret);

@@ -15,7 +15,14 @@ from collections.abc import Callable, Iterable, Iterator
 from urllib.parse import parse_qs, urlparse
 
 from cereal import log as capnp_log
-from openpilot.common.swaglog import cloudlog
+from typing import Any
+cloudlog: Any
+try:
+  from openpilot.common.swaglog import cloudlog as _cloudlog
+  cloudlog = _cloudlog
+except Exception:
+  import logging
+  cloudlog = logging.getLogger("logreader")
 from openpilot.tools.lib.comma_car_segments import get_url as get_comma_segments_url
 from openpilot.tools.lib.openpilotci import get_url
 from openpilot.tools.lib.filereader import FileReader, file_exists, internal_source_available

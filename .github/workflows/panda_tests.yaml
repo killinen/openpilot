@@ -1,0 +1,212 @@
+name: panda
+
+on:
+  push:
+    paths:
+      - panda/**
+      - .github/workflows/panda_tests.yaml
+  pull_request:
+    paths:
+      - panda/**
+      - .github/workflows/panda_tests.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref != 'refs/heads/master' && github.ref || github.run_id }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  # Mount only `panda/` so we keep the image's prebuilt `/tmp/openpilot/{opendbc,cereal}` (and their compiled pyx modules).
+  # Also mount this repo's `opendbc/` read-only so safety tests can use any locally-added DBCs.
+  RUN: docker run -e PYTHONPATH=/tmp/openpilot -v ${{ github.workspace }}/panda:/tmp/openpilot/panda -v ${{ github.workspace }}/opendbc:/tmp/host_opendbc:ro -w /tmp/openpilot/panda --rm panda /bin/bash -c
+  RUN_SAFETY_REPLAY: docker run -e PYTHONPATH=/tmp/openpilot:/tmp/ext -e SAFETY_REPLAY_BASE_URL -e SAFETY_REPLAY_AUTHORIZATION -e SAFETY_REPLAY_AUTH_HEADER_NAME -e SAFETY_REPLAY_AUTHORIZATION_PREFIX -e SAFETY_REPLAY_CUSTOM_URL -e SAFETY_REPLAY_CUSTOM_SAFETY_MODE -e SAFETY_REPLAY_CUSTOM_SAFETY_PARAM -e SAFETY_REPLAY_CUSTOM_ALT_EXP -e SAFETY_REPLAY_CUSTOM_ALTERNATIVE_EXPERIENCE -e SAFETY_REPLAY_CACHE_DIR -e SAFETY_REPLAY_DOWNLOAD_ATTEMPTS -e SAFETY_REPLAY_DOWNLOAD_RETRIES -e SAFETY_REPLAY_DOWNLOAD_CONNECT_TIMEOUT_SEC -e SAFETY_REPLAY_DOWNLOAD_READ_TIMEOUT_SEC -e SAFETY_REPLAY_DOWNLOAD_BACKOFF_SEC -e SAFETY_REPLAY_DOWNLOAD_BACKOFF_MAX_SEC -v ${{ github.workspace }}/panda:/tmp/openpilot/panda -v ${{ github.workspace }}/cereal:/tmp/ext/cereal:ro -w /tmp/openpilot/panda --rm panda /bin/bash -c
+  BUILD: |
+    set -euxo pipefail
+    if docker pull ghcr.io/commaai/panda:latest; then
+      docker tag ghcr.io/commaai/panda:latest panda
+    else
+      export DOCKER_BUILDKIT=1
+      for i in 1 2 3; do
+        docker build --pull -t panda -f panda/Dockerfile panda && break
+        if [ "$i" -eq 3 ]; then exit 1; fi
+        sleep $((i * 10))
+      done
+    fi
+
+  PYTHONWARNINGS: "error"
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Test python package installer
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && python3 -m pip install --no-deps --break-system-packages . && python3 -c \"from panda import Panda\""
+      - name: Build panda images and bootstub
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && scons -j4"
+      - name: Build panda with SPI support
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && ENABLE_SPI=1 scons -j4"
+      - name: Build with UBSan
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && scons -j4 --ubsan"
+      - name: Build jungle firmware with FINAL_PROVISIONING support
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && FINAL_PROVISIONING=1 scons -j4 board/jungle"
+
+  unit_tests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Build panda
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && scons -j4"
+      - name: Test communication protocols
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && cd tests/usbprotocol && ./test.sh"
+
+  safety:
+    name: safety
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        flags: ['', '--ubsan']
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Run safety tests
+        timeout-minutes: 25
+        run: |
+          ${{ env.RUN }} "set -euxo pipefail; \
+                          git config --global --add safe.directory /tmp/openpilot/panda && \
+                          python3 -m pip install --break-system-packages parameterized && \
+                          if ! command -v capnpc >/dev/null 2>&1; then \
+                            if command -v capnp >/dev/null 2>&1 && command -v capnpc-c++ >/dev/null 2>&1; then \
+                              printf '%s\n' '#!/usr/bin/env bash' 'exec capnp compile \"$@\"' > /usr/local/bin/capnpc; \
+                              chmod +x /usr/local/bin/capnpc; \
+                            else \
+                              apt-get update -o Acquire::Retries=3 && \
+                              apt-get install -y --no-install-recommends capnproto && \
+                              rm -rf /var/lib/apt/lists/* && \
+                              if command -v capnp >/dev/null 2>&1 && command -v capnpc-c++ >/dev/null 2>&1 && ! command -v capnpc >/dev/null 2>&1; then \
+                                printf '%s\n' '#!/usr/bin/env bash' 'exec capnp compile \"$@\"' > /usr/local/bin/capnpc; \
+                                chmod +x /usr/local/bin/capnpc; \
+                              fi; \
+                            fi; \
+                          fi && \
+                          if ! command -v clang >/dev/null 2>&1; then \
+                            if command -v apt-get >/dev/null 2>&1; then \
+                              apt-get update -o Acquire::Retries=3 && \
+                              apt-get install -y --no-install-recommends clang python3-dev libcapnp-dev libzmq3-dev && \
+                              rm -rf /var/lib/apt/lists/*; \
+                            fi; \
+                          fi && \
+                          if [ -d /tmp/host_opendbc ] && [ -d /tmp/openpilot/opendbc ]; then \
+                            cp -f /tmp/host_opendbc/*.dbc /tmp/openpilot/opendbc/ || true; \
+                          fi && \
+                          if [ -f /tmp/openpilot/SConstruct ]; then \
+                            cd /tmp/openpilot; \
+                            scons -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; \
+                          elif [ -f /tmp/openpilot/opendbc/SConstruct ]; then \
+                            cd /tmp/openpilot; \
+                            if [ -d /tmp/openpilot/site_scons ]; then \
+                              scons -f /tmp/openpilot/opendbc/SConstruct --site-dir=/tmp/openpilot/site_scons -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; \
+                            elif [ -d /tmp/openpilot/opendbc/site_scons ]; then \
+                              scons -f /tmp/openpilot/opendbc/SConstruct --site-dir=/tmp/openpilot/opendbc/site_scons -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; \
+                            else \
+                              scons -f /tmp/openpilot/opendbc/SConstruct -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; \
+                            fi; \
+                          else \
+                            mkdir -p /tmp/openpilot; \
+                            cd /tmp/openpilot; \
+                            rm -rf cereal opendbc site_scons SConstruct; \
+                            git clone --depth 1 https://github.com/commaai/cereal; \
+                            git clone --depth 1 https://github.com/commaai/opendbc; \
+                            cd cereal && git fetch origin 861144c136c91f70dcbc652c2ffe99f57440ad47 && git checkout FETCH_HEAD && rm -rf .git/ && cd ..; \
+                            cd opendbc && git fetch origin e0d4be4a6215d44809718dc84efe1b9f0299ad63 && git checkout FETCH_HEAD && rm -rf .git/ && cd ..; \
+                            if [ -d opendbc/site_scons ]; then cp -pR opendbc/SConstruct opendbc/site_scons/ .; fi; \
+                            if [ -f opendbc/requirements.txt ]; then python3 -m pip install --break-system-packages --no-cache-dir -r opendbc/requirements.txt; fi; \
+                            if [ -d /tmp/host_opendbc ]; then cp -f /tmp/host_opendbc/*.dbc opendbc/ || true; fi; \
+                            if [ -f SConstruct ]; then scons -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; \
+                            else scons -f opendbc/SConstruct -j$(nproc) --minimal opendbc/can/packer_pyx.so opendbc/can/parser_pyx.so; fi; \
+                          fi && \
+                          cd /tmp/openpilot/panda && \
+                          scons -c -j$(nproc) && \
+                          scons -j$(nproc) ${{ matrix.flags }} && \
+                          { \
+                            set +e; \
+                            tests/safety/test.sh; \
+                            status=$?; \
+                            set -e; \
+                            cd /tmp/openpilot/panda/tests/safety; \
+                            gcov -n ../libpanda/panda.c > gcov.txt || true; \
+                            if command -v geninfo >/dev/null 2>&1 && command -v genhtml >/dev/null 2>&1; then \
+                              geninfo ../libpanda/ -o coverage.info || true; \
+                              genhtml coverage.info -o coverage-out || true; \
+                            fi; \
+                            exit $status; \
+                          }"
+      - name: Run safety replay (CI routes)
+        if: matrix.flags == ''
+        timeout-minutes: 10
+        env:
+          SAFETY_REPLAY_BASE_URL: ${{ vars.SAFETY_REPLAY_BASE_URL }}
+          # Allow configuring the custom log via repo variables; secrets override when set.
+          SAFETY_REPLAY_CUSTOM_URL: ${{ secrets.SAFETY_REPLAY_CUSTOM_URL || vars.SAFETY_REPLAY_CUSTOM_URL }}
+          SAFETY_REPLAY_CUSTOM_SAFETY_MODE: ${{ secrets.SAFETY_REPLAY_CUSTOM_SAFETY_MODE || vars.SAFETY_REPLAY_CUSTOM_SAFETY_MODE }}
+          SAFETY_REPLAY_CUSTOM_SAFETY_PARAM: ${{ secrets.SAFETY_REPLAY_CUSTOM_SAFETY_PARAM || vars.SAFETY_REPLAY_CUSTOM_SAFETY_PARAM }}
+          SAFETY_REPLAY_CUSTOM_ALT_EXP: ${{ secrets.SAFETY_REPLAY_CUSTOM_ALT_EXP || vars.SAFETY_REPLAY_CUSTOM_ALT_EXP }}
+          SAFETY_REPLAY_CUSTOM_ALTERNATIVE_EXPERIENCE: ${{ secrets.SAFETY_REPLAY_CUSTOM_ALTERNATIVE_EXPERIENCE || vars.SAFETY_REPLAY_CUSTOM_ALTERNATIVE_EXPERIENCE }}
+          # Optional auth-header customization for private log servers (defaults: Authorization, no prefix).
+          SAFETY_REPLAY_AUTH_HEADER_NAME: ${{ vars.SAFETY_REPLAY_AUTH_HEADER_NAME }}
+          SAFETY_REPLAY_AUTHORIZATION_PREFIX: ${{ vars.SAFETY_REPLAY_AUTHORIZATION_PREFIX }}
+          SAFETY_REPLAY_AUTHORIZATION: ${{ secrets.SAFETY_REPLAY_AUTHORIZATION }}
+        run: |
+          ${{ env.RUN_SAFETY_REPLAY }} "set -euxo pipefail; \
+                          git config --global --add safe.directory /tmp/openpilot/panda && \
+                          python3 -c 'import capnp' || python3 -m pip install --break-system-packages pycapnp && \
+                          python3 tests/safety_replay/test_safety_replay.py"
+      - name: Upload safety coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: panda-safety-coverage-${{ matrix.flags == '' && 'default' || 'ubsan' }}
+          path: |
+            panda/tests/safety/gcov.txt
+            panda/tests/safety/coverage.info
+            panda/tests/safety/coverage-out
+          if-no-files-found: warn
+
+  misra:
+    name: MISRA C:2012
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Build FW
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && scons -j$(nproc)"
+      - name: Run MISRA C:2012 analysis
+        timeout-minutes: 1
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && git init -q && git add -A && cd tests/misra && SKIP_BUILD=1 ./test_misra.sh"
+      - name: MISRA mutation tests
+        timeout-minutes: 5
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && cd tests/misra && pytest -n8 test_mutation.py"
+
+  python_linter:
+    name: python linter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Run static analysis
+        timeout-minutes: 3
+        run: ${{ env.RUN }} "git config --global --add safe.directory /tmp/openpilot/panda && cd /tmp/openpilot/panda && git init -q && git add -A && pre-commit run --all-files"
