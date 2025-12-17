@@ -191,7 +191,6 @@ def capture_exception(exc: BaseException) -> None:
 
 
 _init_sentry()
-_load_auth_state()
 
 LOCAL_PORT_ENV = "TELETYPED_LOCAL_SSH_PORT"
 
@@ -273,6 +272,7 @@ _DEVICE_JWT_CACHE: Dict[str, object] = {"token": "", "refresh_at": 0.0}
 AUTH_STATE_PATH = "/tmp/teletyped_auth_state.json"
 JWT_FALLBACK_SECONDS_DEFAULT = 600
 _JWT_DISABLED_UNTIL_EPOCH = 0.0
+_AUTH_STATE_LOADED = False
 
 
 TOKEN_REFRESH_MAX_AGE = 300
@@ -299,6 +299,13 @@ def _load_auth_state() -> None:
       _JWT_DISABLED_UNTIL_EPOCH = float(disabled_until)
   except Exception:
     pass
+
+def _ensure_auth_state_loaded() -> None:
+  global _AUTH_STATE_LOADED
+  if _AUTH_STATE_LOADED:
+    return
+  _AUTH_STATE_LOADED = True
+  _load_auth_state()
 
 def _save_auth_state() -> None:
   try:
@@ -336,6 +343,7 @@ def record_auth_failure(headers: Dict[str, str], status_code: int) -> None:
   Only applies when the failing request used JWT.
   """
   global _JWT_DISABLED_UNTIL_EPOCH
+  _ensure_auth_state_loaded()
   if status_code not in (401, 403):
     return
   if auth_kind_from_headers(headers) != "jwt":
@@ -467,6 +475,7 @@ def build_auth_headers(
     return _build_jwt_auth_headers()
 
   # Default/auto: prefer JWT, but if the server rejected it recently, fall back to token.
+  _ensure_auth_state_loaded()
   if not _is_jwt_temporarily_disabled():
     jwt_headers = _build_jwt_auth_headers()
     if jwt_headers:
@@ -482,6 +491,7 @@ def get_auth_status() -> Dict[str, object]:
   """
   Return a best-effort snapshot of the current auth selection and fallback state.
   """
+  _ensure_auth_state_loaded()
   mode = (os.environ.get("TELETYPED_AUTH_MODE") or "auto").strip().lower()
   now = time.time()
   disabled_until = float(_JWT_DISABLED_UNTIL_EPOCH) if isinstance(_JWT_DISABLED_UNTIL_EPOCH, (int, float)) else 0.0
