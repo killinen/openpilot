@@ -63,8 +63,8 @@ class CarInterface(CarInterfaceBase):
     if ret.enableGasInterceptor:
       ret.longitudinalTuning.kpBP = [0., 15., 30.]
       ret.longitudinalTuning.kiBP = [0., 15., 30.]
-      ret.longitudinalTuning.kpV = [0.3, 0.6, 0.9]
-      ret.longitudinalTuning.kiV = [0.1, 0.15, 0.2]
+      ret.longitudinalTuning.kpV = [0.2, 0.4, 0.6]
+      ret.longitudinalTuning.kiV = [0.05, 0.1, 0.15]
 
     ret.lateralTuning.init('pid')
     ret.lateralTuning.pid.kiBP, ret.lateralTuning.pid.kpBP = [[5.5, 30.], [5.5, 30.]]

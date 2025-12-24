@@ -111,8 +111,8 @@ class CarController:
 
     if self.CP.openpilotLongitudinalControl and self.CP.enableGasInterceptor:
       if CC.longActive:
-        pedal_command = interp(self.accel, [0.0, 1.6], [0.0, 0.7])
-        interceptor_gas_cmd = clip(pedal_command, 0.0, 0.7)
+        pedal_command = interp(self.accel, [0.0, 1.6], [0.0, 1.0])
+        interceptor_gas_cmd = clip(pedal_command, 0.0, 1.0)
       else:
         interceptor_gas_cmd = 0.0
 
