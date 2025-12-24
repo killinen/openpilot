@@ -159,6 +159,38 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
 
   ButtonControl *laneChangeDelayControl = nullptr;
   ButtonControl *pathCostControl = nullptr;
+  ValueControl *dirtRoadPathBiasControl = nullptr;
+
+  const float dirt_road_bias_min = -1.0f;
+  const float dirt_road_bias_max = 1.0f;
+  const float dirt_road_bias_default = 0.0f;
+  const float dirt_road_bias_step = 0.1f;
+
+  auto createDirtRoadPathBiasControl = [&]() {
+    float path_bias = readFloatParam("DirtRoadPathBias", dirt_road_bias_default, dirt_road_bias_min, dirt_road_bias_max);
+    auto control = new ValueControl(
+        tr("Drive Path Bias"),
+        tr("%1 m").arg(path_bias, 0, 'f', 1),
+        tr("Shift the driving path left or right when Dirt Road Mode is active. Negative is left, positive is right."));
+
+    auto update_bias = [=](float value) mutable {
+      value = std::round(value / dirt_road_bias_step) * dirt_road_bias_step;
+      value = std::clamp(value, dirt_road_bias_min, dirt_road_bias_max);
+      Params().put("DirtRoadPathBias", QString::number(value, 'f', 2).toStdString());
+      control->setValue(tr("%1 m").arg(value, 0, 'f', 1));
+    };
+
+    QObject::connect(control, &ValueControl::decreaseClicked, [=]() mutable {
+      float latest_value = readFloatParam("DirtRoadPathBias", dirt_road_bias_default, dirt_road_bias_min, dirt_road_bias_max);
+      update_bias(latest_value - dirt_road_bias_step);
+    });
+    QObject::connect(control, &ValueControl::increaseClicked, [=]() mutable {
+      float latest_value = readFloatParam("DirtRoadPathBias", dirt_road_bias_default, dirt_road_bias_min, dirt_road_bias_max);
+      update_bias(latest_value + dirt_road_bias_step);
+    });
+
+    return control;
+  };
 
   if (params.getBool("DisableRadar_Allow")) {
     toggles.push_back({
@@ -208,6 +240,13 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
         });
       }
       addItem(pathCostControl);
+    }
+
+    if (param == "DirtRoadRightBias") {
+      if (dirtRoadPathBiasControl == nullptr) {
+        dirtRoadPathBiasControl = createDirtRoadPathBiasControl();
+      }
+      addItem(dirtRoadPathBiasControl);
     }
   }
 

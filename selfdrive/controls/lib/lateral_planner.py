@@ -14,6 +14,8 @@ DIRT_ROAD_EDGE_MARGIN = 0.8          # minimum distance to keep from road edges 
 DIRT_ROAD_LANE_BIAS_RATIO = 0.2      # portion of detected road width used for lateral biasing
 DIRT_ROAD_LANE_BIAS_MAX = 0.75       # cap the maximum lateral bias in meters
 DIRT_ROAD_MARGIN_BUFFER = 0.1        # preserve a small buffer when computing dynamic edge margins
+DIRT_ROAD_PATH_BIAS_MIN = -1.0       # clamp range for manual dirt road path bias
+DIRT_ROAD_PATH_BIAS_MAX = 1.0
 
 
 def _calculate_lane_width(lane, current_lane, road_edge=None):
@@ -80,6 +82,7 @@ class LateralPlanner:
     self.params = Params()
     self.dirt_road_mode = False
     self.dirt_road_right_bias = False
+    self.dirt_road_path_bias = 0.0
     self.right_hand_drive = False
     self._last_param_check = 0.0
     self.using_lane_boundaries = self.use_lanelines
@@ -102,11 +105,14 @@ class LateralPlanner:
     width = right_edge - left_edge
     width = np.maximum(width, 0.5)
 
-    base_bias = np.clip(width * DIRT_ROAD_LANE_BIAS_RATIO, 0.0, DIRT_ROAD_LANE_BIAS_MAX)
     margin = np.minimum(DIRT_ROAD_EDGE_MARGIN, np.maximum(width / 2.0 - DIRT_ROAD_MARGIN_BUFFER, 0.0))
+    base_bias = np.zeros_like(width)
+    if self.dirt_road_right_bias:
+      base_bias = np.clip(width * DIRT_ROAD_LANE_BIAS_RATIO, 0.0, DIRT_ROAD_LANE_BIAS_MAX)
+      direction = -1.0 if self.right_hand_drive else 1.0
+      base_bias *= direction
 
-    direction = -1.0 if self.right_hand_drive else 1.0
-    target = path_xyz[:, 1] + (base_bias * direction)
+    target = path_xyz[:, 1] + base_bias + self.dirt_road_path_bias
 
     left_limit = left_edge + margin
     right_limit = right_edge - margin
@@ -124,6 +130,16 @@ class LateralPlanner:
     if t_now - self._last_param_check > 1.0:
       self.dirt_road_mode = self.params.get_bool("DirtRoadMode")
       self.dirt_road_right_bias = self.params.get_bool("DirtRoadRightBias")
+      path_bias_param = self.params.get("DirtRoadPathBias")
+      if path_bias_param is not None:
+        try:
+          path_bias_val = float(path_bias_param)
+          path_bias_val = max(DIRT_ROAD_PATH_BIAS_MIN, min(DIRT_ROAD_PATH_BIAS_MAX, path_bias_val))
+          self.dirt_road_path_bias = path_bias_val
+        except (ValueError, TypeError):
+          self.dirt_road_path_bias = 0.0
+      else:
+        self.dirt_road_path_bias = 0.0
       self.right_hand_drive = self.params.get_bool("IsRHD")
       self.use_lanelines = self.params.get_bool("UseLaneLines")
       path_cost_param = self.params.get("LatMpcPathCost")
@@ -177,7 +193,7 @@ class LateralPlanner:
 
     # Calculate final driving path and set MPC costs
     if edge_applied:
-      if self.dirt_road_mode and self.dirt_road_right_bias:
+      if self.dirt_road_mode and (self.dirt_road_right_bias or abs(self.dirt_road_path_bias) > 1e-3):
         self._apply_dirt_road_bias(d_path_xyz)
       self.lat_mpc.set_weights(self.path_cost, MPC_COST_LAT.HEADING, MPC_COST_LAT.STEER_RATE)
     elif self.use_lanelines:

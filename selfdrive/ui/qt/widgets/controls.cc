@@ -96,6 +96,57 @@ ButtonControl::ButtonControl(const QString &title, const QString &text, const QS
   hlayout->addWidget(&btn);
 }
 
+ValueControl::ValueControl(const QString &title, const QString &text, const QString &desc, QWidget *parent) : AbstractControl(title, desc, "", parent) {
+  constexpr int kButtonSize = 100;
+  constexpr int kValueWidth = 160;
+
+  const QString btn_style = R"(
+    QPushButton {
+      padding: 0;
+      border-radius: 50px;
+      font-size: 45px;
+      font-weight: 600;
+      color: #E4E4E4;
+      background-color: #393939;
+    }
+    QPushButton:pressed {
+      background-color: #4a4a4a;
+    }
+    QPushButton:disabled {
+      color: #33E4E4E4;
+    }
+  )";
+
+  minus_btn.setText("-");
+  minus_btn.setStyleSheet(btn_style);
+  minus_btn.setFixedSize(kButtonSize, kButtonSize);
+  QObject::connect(&minus_btn, &QPushButton::clicked, this, &ValueControl::decreaseClicked);
+
+  value_label.setText(text);
+  value_label.setAlignment(Qt::AlignCenter);
+  value_label.setFixedHeight(kButtonSize);
+  value_label.setMinimumWidth(kValueWidth);
+  value_label.setStyleSheet(R"(
+    QLabel {
+      font-size: 40px;
+      font-weight: 500;
+      color: #E4E4E4;
+      background-color: #2F2F2F;
+      border-radius: 30px;
+      padding: 0 16px;
+    }
+  )");
+
+  plus_btn.setText("+");
+  plus_btn.setStyleSheet(btn_style);
+  plus_btn.setFixedSize(kButtonSize, kButtonSize);
+  QObject::connect(&plus_btn, &QPushButton::clicked, this, &ValueControl::increaseClicked);
+
+  hlayout->addWidget(&minus_btn);
+  hlayout->addWidget(&value_label);
+  hlayout->addWidget(&plus_btn);
+}
+
 // ElidedLabel
 
 ElidedLabel::ElidedLabel(QWidget *parent) : ElidedLabel({}, parent) {}

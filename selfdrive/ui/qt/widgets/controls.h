@@ -92,6 +92,26 @@ private:
   QPushButton btn;
 };
 
+class ValueControl : public AbstractControl {
+  Q_OBJECT
+
+public:
+  ValueControl(const QString &title, const QString &text, const QString &desc = "", QWidget *parent = nullptr);
+  inline void setValue(const QString &text) { value_label.setText(text); }
+
+signals:
+  void decreaseClicked();
+  void increaseClicked();
+
+public slots:
+  void setEnabled(bool enabled) { minus_btn.setEnabled(enabled); plus_btn.setEnabled(enabled); }
+
+private:
+  QPushButton minus_btn;
+  QLabel value_label;
+  QPushButton plus_btn;
+};
+
 class ToggleControl : public AbstractControl {
   Q_OBJECT
 
