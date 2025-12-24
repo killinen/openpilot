@@ -13,7 +13,6 @@ requests = cast(Any, _requests)
 from tools.teletyped.helper import (
   log,
   get_dongle_id,
-  build_auth_headers,
   build_jwt_auth_headers,
   record_auth_failure,
   KEY_PATH,
