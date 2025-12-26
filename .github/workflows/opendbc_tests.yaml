@@ -1,0 +1,51 @@
+name: opendbc
+
+on:
+  push:
+    paths:
+      - opendbc/**
+      - .github/workflows/opendbc_tests.yaml
+  pull_request:
+    paths:
+      - opendbc/**
+      - .github/workflows/opendbc_tests.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref != 'refs/heads/master' && github.ref || github.run_id }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  RUN: docker run -v ${{ github.workspace }}/opendbc:/project/opendbc -w /project/opendbc -e PYTHONWARNINGS="error,default::DeprecationWarning" --shm-size 1G --rm opendbc /bin/bash -c
+  BUILD: docker buildx build --pull --load --cache-to type=inline --cache-from type=registry,ref=ghcr.io/commaai/opendbc:latest -t opendbc -f opendbc/Dockerfile opendbc
+
+  PYTHONWARNINGS: "error"
+
+jobs:
+  unit_tests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Build opendbc
+        run: ${{ env.RUN }} "cd ../ && scons -j$(nproc) --minimal"
+      - name: Unit tests
+        run: ${{ env.RUN }} "pytest"
+
+  static_analysis:
+    name: static analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: eval "$BUILD"
+      - name: Build opendbc
+        run: ${{ env.RUN }} "cd ../ && scons -j$(nproc) --minimal"
+      - name: pre-commit
+        run: ${{ env.RUN }} "unset PYTHONWARNINGS && git init -q && git add -A && pre-commit run --all"
+      - name: Generator test
+        run: ${{ env.RUN }} "generator/test_generator.py"
