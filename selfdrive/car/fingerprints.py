@@ -5,6 +5,7 @@ from openpilot.selfdrive.car.ford.values import CAR as FORD
 from openpilot.selfdrive.car.gm.values import CAR as GM
 from openpilot.selfdrive.car.honda.values import CAR as HONDA
 from openpilot.selfdrive.car.hyundai.values import CAR as HYUNDAI
+from openpilot.selfdrive.car.i30.values import CAR as I30
 from openpilot.selfdrive.car.mazda.values import CAR as MAZDA
 from openpilot.selfdrive.car.mock.values import CAR as MOCK
 from openpilot.selfdrive.car.nissan.values import CAR as NISSAN
@@ -89,6 +90,7 @@ MIGRATION = {
   "HONDA PASSPORT 2021": HONDA.HONDA_PILOT,
   "HONDA RIDGELINE 2017 BLACK EDITION": HONDA.HONDA_RIDGELINE,
   "HYUNDAI ELANTRA LIMITED ULTIMATE 2017": HYUNDAI.HYUNDAI_ELANTRA,
+  "HYUNDAI I30 GD 2014": I30.HYUNDAI_I30_GD_2014,
   "HYUNDAI SANTA FE LIMITED 2019": HYUNDAI.HYUNDAI_SANTA_FE,
   "HYUNDAI TUCSON DIESEL 2019": HYUNDAI.HYUNDAI_TUCSON,
   "KIA OPTIMA 2016": HYUNDAI.KIA_OPTIMA_G4,

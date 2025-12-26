@@ -40,37 +40,44 @@ QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModel
 
   QStringList carNameList;
 
-  QFile valuesFile(QString("../car/%1/values.py").arg(makeMap.value(carMake, carMake)));
-  if (!valuesFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    return carNameList;
+  QStringList valueFiles = {makeMap.value(carMake, carMake)};
+  if (carMake.compare("hyundai", Qt::CaseInsensitive) == 0) {
+    valueFiles.append("i30");
   }
-
-  QString fileContent = QTextStream(&valuesFile).readAll();
-  valuesFile.close();
-
-  fileContent.remove(QRegularExpression("#[^\n]*"));
-  fileContent.remove(QRegularExpression("footnotes=\\[[^\\]]*\\],\\s*"));
 
   static QRegularExpression carNameRegex("CarDocs\\(\\s*\"([^\"]+)\"[^)]*\\)");
   static QRegularExpression platformRegex("((\\w+)\\s*=\\s*\\w+\\s*\\(\\s*\\[([\\s\\S]*?)\\]\\s*,)");
   static QRegularExpression validNameRegex("^[A-Za-z0-9 \u0160.()-]+$");
 
-  QRegularExpressionMatchIterator platformMatches = platformRegex.globalMatch(fileContent);
-  while (platformMatches.hasNext()) {
-    QRegularExpressionMatch platformMatch = platformMatches.next();
-    QString platformName = platformMatch.captured(2);
-    QString platformSection = platformMatch.captured(3);
+  for (const QString &valueFile : valueFiles) {
+    QFile valuesFile(QString("../car/%1/values.py").arg(valueFile));
+    if (!valuesFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      continue;
+    }
 
-    QRegularExpressionMatchIterator carNameMatches = carNameRegex.globalMatch(platformSection);
-    while (carNameMatches.hasNext()) {
-      QString carName = carNameMatches.next().captured(1);
+    QString fileContent = QTextStream(&valuesFile).readAll();
+    valuesFile.close();
 
-      if (carName.contains(validNameRegex) && carName.count(" ") >= 1) {
-        QString firstWord = carName.section(" ", 0, 0);
+    fileContent.remove(QRegularExpression("#[^\n]*"));
+    fileContent.remove(QRegularExpression("footnotes=\\[[^\\]]*\\],\\s*"));
 
-        if (firstWord.compare(carMake, Qt::CaseInsensitive) == 0) {
-          carModels[carName] = platformName;
-          carNameList.append(carName);
+    QRegularExpressionMatchIterator platformMatches = platformRegex.globalMatch(fileContent);
+    while (platformMatches.hasNext()) {
+      QRegularExpressionMatch platformMatch = platformMatches.next();
+      QString platformName = platformMatch.captured(2);
+      QString platformSection = platformMatch.captured(3);
+
+      QRegularExpressionMatchIterator carNameMatches = carNameRegex.globalMatch(platformSection);
+      while (carNameMatches.hasNext()) {
+        QString carName = carNameMatches.next().captured(1);
+
+        if (carName.contains(validNameRegex) && carName.count(" ") >= 1) {
+          QString firstWord = carName.section(" ", 0, 0);
+
+          if (firstWord.compare(carMake, Qt::CaseInsensitive) == 0) {
+            carModels[carName] = platformName;
+            carNameList.append(carName);
+          }
         }
       }
     }

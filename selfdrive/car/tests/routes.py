@@ -6,6 +6,7 @@ from openpilot.selfdrive.car.gm.values import CAR as GM
 from openpilot.selfdrive.car.ford.values import CAR as FORD
 from openpilot.selfdrive.car.honda.values import CAR as HONDA
 from openpilot.selfdrive.car.hyundai.values import CAR as HYUNDAI
+from openpilot.selfdrive.car.i30.values import CAR as I30
 from openpilot.selfdrive.car.nissan.values import CAR as NISSAN
 from openpilot.selfdrive.car.mazda.values import CAR as MAZDA
 from openpilot.selfdrive.car.subaru.values import CAR as SUBARU
@@ -22,6 +23,7 @@ non_tested_cars = [
   GM.HOLDEN_ASTRA,
   GM.CHEVROLET_MALIBU,
   HYUNDAI.GENESIS_G90,
+  I30.HYUNDAI_I30_GD_2014,
   HONDA.HONDA_ODYSSEY_CHN,
   VOLKSWAGEN.VOLKSWAGEN_CRAFTER_MK2,  # need a route from an ACC-equipped Crafter
   SUBARU.SUBARU_FORESTER_HYBRID,
