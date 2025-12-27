@@ -2,7 +2,7 @@ import math
 
 from openpilot.common.numpy_fast import clip, interp
 from opendbc.can.packer import CANPacker
-from openpilot.selfdrive.car import apply_driver_steer_torque_limits, create_gas_interceptor_command
+from openpilot.selfdrive.car import apply_driver_steer_torque_limits
 from openpilot.selfdrive.car.i30 import i30can
 from openpilot.selfdrive.car.i30.values import CarControllerParams, SteerLimitParams
 from openpilot.selfdrive.car.interfaces import CarControllerBase
@@ -126,7 +126,7 @@ class CarController(CarControllerBase):
 
       # Send exactly zero when disabled; this prevents unexpected pedal range rescaling in the interceptor.
       if self.frame % 2 == 0:
-        can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
+        can_sends.append(i30can.create_gas_interceptor_command(self.packer, interceptor_gas_cmd, self.frame // 2))
       self.gas = interceptor_gas_cmd
     else:
       self.gas = 0.0

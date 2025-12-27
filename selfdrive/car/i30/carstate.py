@@ -131,7 +131,8 @@ class CarState(CarStateBase):
     # emulate driver steering torque - allows lane change assist on blinker hold
     ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane
 
-    ret.cruiseState.available = cp.vl["EMS6"]['CRUISE_LAMP_M'] != 0
+    # Allow openpilot set speed even when stock cruise main is off.
+    ret.cruiseState.available = self.CP.openpilotLongitudinalControl or (cp.vl["EMS6"]['CRUISE_LAMP_M'] != 0)
     ret.cruiseState.enabled = bool(cp.vl["EMS6"]['CRUISE_LAMP_S'])
     ret.cruiseState.standstill = False
     ret.cruiseState.speed = 0
@@ -148,6 +149,7 @@ class CarState(CarStateBase):
 
     self.prev_cruise_buttons = self.cruise_buttons[-1]  # Get the last button pressed
     self.cruise_buttons.extend(cp.vl_all["CLU1"]["CF_Clu_CruiseSwState"])
+    self.main_buttons.extend(cp.vl_all["CLU1"]["CF_Clu_CruiseSwMain"])
 
     return ret, fp_ret
 
