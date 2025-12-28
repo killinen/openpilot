@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import os
 import signal
@@ -19,6 +20,7 @@ from openpilot.tools.teletyped.helper import (
   API_URL,
   POLL_INTERVAL,
   HEARTBEAT_INTERVAL,
+  PERSIST_ROOT,
   KEY_PATH_PRIV,
   REMOTE_USER,
   REMOTE_HOST,
@@ -53,6 +55,11 @@ SSH_LOG_PATH = "/tmp/reverse_ssh_tunnel.log"
 TUNNEL_STARTING_TIMEOUT_SEC = 30
 TUNNEL_CONNECT_WAIT_SEC = 12
 TUNNEL_AUTH_SETTLE_SEC = 2.0
+ERROR_LOG_DIR = os.environ.get("TELETYPED_ERROR_LOG_DIR", "/data/error_logs")
+ERROR_LOG_STATE_FILE = "teletyped_error_logs.json"
+ERROR_LOG_MAX_BYTES = int(os.environ.get("TELETYPED_ERROR_LOG_MAX_BYTES", str(5 * 1024 * 1024)))
+_ERROR_LOG_EXTS = {".log", ".txt", ".json", ".jsonl"}
+_ERROR_LOG_STATE_PATH: str | None = None
 
 _SSH_ERROR_NEEDLES = (
   "permission denied",
@@ -304,6 +311,171 @@ def _ssh_log_error_detail() -> str | None:
   if any(needle in lower for needle in _SSH_ERROR_NEEDLES):
     return tail
   return None
+
+
+def _is_writable_dir(path: str) -> bool:
+  try:
+    os.makedirs(path, exist_ok=True)
+    test_path = os.path.join(path, ".teletyped_write_test")
+    with open(test_path, "w") as f:
+      f.write("ok")
+    os.remove(test_path)
+    return True
+  except OSError:
+    return False
+
+
+def _resolve_error_log_state_path() -> str:
+  global _ERROR_LOG_STATE_PATH
+  if _ERROR_LOG_STATE_PATH:
+    return _ERROR_LOG_STATE_PATH
+
+  candidates = [
+    os.path.join(PERSIST_ROOT, "comma"),
+    os.path.join(PERSIST_ROOT, "teletyped"),
+    "/data/params/d/goranconnect_ssh",
+    "/tmp/comma",
+  ]
+
+  for base in candidates:
+    path = os.path.join(base, ERROR_LOG_STATE_FILE)
+    if os.path.exists(path):
+      _ERROR_LOG_STATE_PATH = path
+      return path
+
+  for base in candidates:
+    if _is_writable_dir(base):
+      _ERROR_LOG_STATE_PATH = os.path.join(base, ERROR_LOG_STATE_FILE)
+      return _ERROR_LOG_STATE_PATH
+
+  _ERROR_LOG_STATE_PATH = os.path.join("/tmp", ERROR_LOG_STATE_FILE)
+  return _ERROR_LOG_STATE_PATH
+
+
+def _load_error_log_state() -> dict:
+  path = _resolve_error_log_state_path()
+  if not os.path.isfile(path):
+    return {"files": {}}
+  try:
+    with open(path, encoding="utf-8") as f:
+      data = json.load(f)
+    files = data.get("files") if isinstance(data, dict) else None
+    return {"files": files if isinstance(files, dict) else {}}
+  except Exception:
+    return {"files": {}}
+
+
+def _save_error_log_state(state: dict) -> None:
+  path = _resolve_error_log_state_path()
+  directory = os.path.dirname(path) or "."
+  try:
+    os.makedirs(directory, exist_ok=True)
+    temp_path = f"{path}.tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+      json.dump(state, f)
+    os.replace(temp_path, path)
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to save error log state: {e}", "WARN")
+
+
+def _list_error_logs() -> list[tuple[str, str]]:
+  if not os.path.isdir(ERROR_LOG_DIR):
+    return []
+  entries = []
+  try:
+    for name in os.listdir(ERROR_LOG_DIR):
+      path = os.path.join(ERROR_LOG_DIR, name)
+      if not os.path.isfile(path):
+        continue
+      ext = os.path.splitext(name)[1].lower()
+      if ext not in _ERROR_LOG_EXTS:
+        continue
+      entries.append((name, path))
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to list error logs: {e}", "WARN")
+    return []
+  entries.sort(key=lambda item: item[0])
+  return entries
+
+
+def _read_error_log_bytes(path: str) -> tuple[bytes, str, int] | None:
+  try:
+    with open(path, "rb") as f:
+      data = f.read()
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to read error log {path}: {e}", "WARN")
+    return None
+
+  size = len(data)
+  if ERROR_LOG_MAX_BYTES and size > ERROR_LOG_MAX_BYTES:
+    log(f"⚠️ Skipping large error log ({size} bytes): {path}", "WARN")
+    return None
+
+  digest = hashlib.sha256(data).hexdigest()
+  return data, digest, size
+
+
+def _upload_error_log(headers: dict[str, str], device_id: str, name: str, data: bytes, digest: str) -> bool:
+  url = f"{API_URL}/error-logs/upload"
+  payload = {
+    "device_id": device_id,
+    "original_filename": name,
+    "file_sha256": digest,
+  }
+  files = {"file": (name, data)}
+
+  try:
+    resp = http_post(url, headers=headers, data=payload, files=files, timeout=10)
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Error log upload failed ({name}): {e}", "WARN")
+    return False
+
+  if resp.status_code != 200:
+    log(
+      f"⚠️ Error log upload rejected ({name}) status={resp.status_code} body={resp.text.strip()[:200]}",
+      "WARN",
+    )
+    return False
+
+  log(f"📨 Uploaded error log {name}", "INFO")
+  return True
+
+
+def send_error_logs_on_startup(device_id: str) -> None:
+  entries = _list_error_logs()
+  if not entries:
+    return
+
+  headers = build_auth_headers()
+  if not headers:
+    log("⚠️ Skipping error log upload: missing device JWT", "WARN")
+    return
+
+  state = _load_error_log_state()
+  seen = state.get("files") if isinstance(state, dict) else None
+  if not isinstance(seen, dict):
+    seen = {}
+
+  updated = False
+  for name, path in entries:
+    result = _read_error_log_bytes(path)
+    if result is None:
+      continue
+    data, digest, size = result
+    prev = seen.get(name, {})
+    if isinstance(prev, dict) and prev.get("sha256") == digest and prev.get("size") == size:
+      continue
+
+    if _upload_error_log(headers, device_id, name, data, digest):
+      seen[name] = {"sha256": digest, "size": size}
+      updated = True
+
+  if updated:
+    _save_error_log_state({"files": seen})
 
 
 def _is_expected_ssh_process(proc: psutil.Process) -> bool:
@@ -748,6 +920,12 @@ def main():
 
   ensure_dns_config()
   check_server(API_URL)
+
+  try:
+    send_error_logs_on_startup(device_id)
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to send error logs on startup: {e}", "WARN")
 
   key_uploaded = ssh_key.send_ssh_key_if_needed()
   if not key_uploaded:
