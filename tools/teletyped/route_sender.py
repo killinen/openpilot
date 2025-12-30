@@ -38,6 +38,12 @@ DRIVE_SCAN_REQUEST_PATH = f"{API_URL}/drive-scan-requests"
 DRIVE_INVENTORY_UPLOAD_PATH = f"{API_URL}/drive-inventory"
 DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
+AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").strip().lower() not in {
+  "0",
+  "false",
+  "no",
+  "off",
+}
 
 _auth_wait_logged = False
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
@@ -298,15 +304,18 @@ def drive_inventory_step(device_id):
   try:
     response = http_get(f"{DRIVE_SCAN_REQUEST_PATH}/{device_id}", headers=headers, timeout=TIMEOUT)
     if response.status_code == 404:
-      return
-    response.raise_for_status()
-    request_info = response.json()
+      request_info = {}
+    else:
+      response.raise_for_status()
+      request_info = response.json()
   except Exception as e:
     capture_exception(e)
     log(f"Failed to check drive scan requests: {e}", "WARN")
-    return
+    if not AUTO_DRIVE_INVENTORY:
+      return
+    request_info = {}
 
-  if not request_info.get("pending"):
+  if not request_info.get("pending") and not AUTO_DRIVE_INVENTORY:
     return
 
   drives, total_size = collect_drive_inventory()
