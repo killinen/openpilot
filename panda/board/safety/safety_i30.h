@@ -47,7 +47,7 @@ RxCheck i30_rx_checks[] = {
   {.msg = {{0x1F1, 0, 8, .check_checksum = false, .max_counter = 0U, .frequency = 50U}, { 0 }, { 0 }}},   // TCS5 (497)
   {.msg = {{0x260, 0, 8, .check_checksum = true, .max_counter = 3U, .frequency = 83U}, { 0 }, { 0 }}},    // EMS6 (608)
   {.msg = {{0x2B0, 0, 5, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // SAS1 (688)
-  {.msg = {{0x22F, 1, 8, .check_checksum = false, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},  // SSC (559)
+  {.msg = {{0x22F, 1, 8, .check_checksum = true, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},  // SSC (559, bus 1)
 };
 
 RxCheck i30_long_rx_checks[] = {
