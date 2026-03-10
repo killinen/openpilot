@@ -9,11 +9,17 @@ PREV_BUTTON_SAMPLES = 8
 
 GearShifter = car.CarState.GearShifter
 
-I30_GEAR_RATIO_TOLERANCES = (
+I30_GEAR_RATIO_WINDOWS = (
   (130.6, 10.0),
   (105.7, 8.0),
   (92.1, 6.0),
 )
+I30_MIN_CLUTCH_SPEED = 2.0
+I30_MIN_CLUTCH_RPM = 700.0
+I30_CLUTCH_PRESS_TOL_MULTIPLIER = 2.0
+I30_CLUTCH_RELEASE_TOL_MULTIPLIER = 0.8
+I30_CLUTCH_PRESS_FRAMES = 2
+I30_CLUTCH_RELEASE_FRAMES = 4
 
 
 class CarState(CarStateBase):
@@ -37,9 +43,45 @@ class CarState(CarStateBase):
 
     self.brake_error = False
     self.park_brake = False
+    self.i30_clutch_pressed = False
+    self.i30_clutch_press_samples = 0
+    self.i30_clutch_release_samples = 0
 
   def update(self, cp, cp_cam, frogpilot_toggles):
     return self.update_i30(cp, cp_cam)
+
+  def update_clutch_state(self, v_ego, engine_rpm):
+    if v_ego < I30_MIN_CLUTCH_SPEED or engine_rpm < I30_MIN_CLUTCH_RPM:
+      self.i30_clutch_press_samples = 0
+      self.i30_clutch_release_samples = 0
+      return self.i30_clutch_pressed
+
+    rpm_velo_ratio = engine_rpm / v_ego
+    closest_ratio, base_tol = min(I30_GEAR_RATIO_WINDOWS, key=lambda ratio_tol: abs(rpm_velo_ratio - ratio_tol[0]))
+    ratio_error = abs(rpm_velo_ratio - closest_ratio)
+    press_tol = base_tol * I30_CLUTCH_PRESS_TOL_MULTIPLIER
+    release_tol = base_tol * I30_CLUTCH_RELEASE_TOL_MULTIPLIER
+
+    if self.i30_clutch_pressed:
+      self.i30_clutch_press_samples = 0
+      if ratio_error < release_tol:
+        self.i30_clutch_release_samples += 1
+        if self.i30_clutch_release_samples >= I30_CLUTCH_RELEASE_FRAMES:
+          self.i30_clutch_pressed = False
+          self.i30_clutch_release_samples = 0
+      else:
+        self.i30_clutch_release_samples = 0
+    else:
+      self.i30_clutch_release_samples = 0
+      if ratio_error > press_tol:
+        self.i30_clutch_press_samples += 1
+        if self.i30_clutch_press_samples >= I30_CLUTCH_PRESS_FRAMES:
+          self.i30_clutch_pressed = True
+          self.i30_clutch_press_samples = 0
+      else:
+        self.i30_clutch_press_samples = 0
+
+    return self.i30_clutch_pressed
 
   def update_i30(self, cp, cp_cam):
     ret = car.CarState.new_message()
@@ -60,12 +102,8 @@ class CarState(CarStateBase):
 
     ret.engineRpm = cp.vl["EMS1"]["N"]
 
-    # Gear ratio calculation using engine RPM and vehicle speed
-    ret.clutchPressed = False
-    if ret.vEgo > 0.3 and ret.engineRpm > 500:
-      rpm_velo_ratio = ret.engineRpm / ret.vEgo
-      in_gear = any(abs(rpm_velo_ratio - ratio) < tol for ratio, tol in I30_GEAR_RATIO_TOLERANCES)
-      ret.clutchPressed = not in_gear
+    # Estimate clutch state from the nearest learned RPM/speed ratio window.
+    ret.clutchPressed = self.update_clutch_state(ret.vEgo, ret.engineRpm)
 
     ret.standstill = ret.vEgoRaw < 0.1
 

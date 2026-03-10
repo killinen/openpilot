@@ -78,6 +78,9 @@ class CarInterface(CarInterfaceBase):
     if self.CP.openpilotLongitudinalControl and EventName.wrongCarMode in events.names:
       events.events.remove(EventName.wrongCarMode)
 
+    if ret.clutchPressed:
+      events.add(EventName.pedalPressed)
+
     if self.CS.brake_error:
       events.add(EventName.brakeUnavailable)
 
