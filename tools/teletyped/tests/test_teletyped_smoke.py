@@ -164,3 +164,31 @@ def test_ssh_key_upload_unauthorized(monkeypatch: pytest.MonkeyPatch, tmp_path, 
 
   monkeypatch.setattr(ssh_key, "get_dongle_id", lambda: "DONGLE123")
   assert ssh_key.send_ssh_key({"X-Device-JWT": "test"}) is False
+
+
+def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import teletyped
+
+  captured: dict[str, Any] = {}
+
+  class FakeResponse:
+    status_code = 200
+
+  monkeypatch.setattr(teletyped, "build_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(teletyped, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(teletyped, "get_hardware_info", lambda: {"type": "tici", "model": "comma 3X", "name": "test"})
+  monkeypatch.setattr(teletyped, "get_os_info", lambda: {"platform": "linux", "version": "1.0", "display": "Test OS"})
+  monkeypatch.setattr(teletyped, "get_op_params_info", dict)
+  monkeypatch.setattr(teletyped, "_read_tunnel_pid", lambda: 1234)
+  monkeypatch.setattr(teletyped.psutil, "boot_time", lambda: 100.0)
+  monkeypatch.setattr(teletyped.time, "time", lambda: 160.9)
+  monkeypatch.setattr(
+    teletyped,
+    "http_post",
+    lambda url, headers, json, timeout: captured.update({"url": url, "headers": headers, "json": json}) or FakeResponse(),
+  )
+
+  teletyped.send_heartbeat("DONGLE123", "running")
+
+  assert captured["json"]["device_id"] == "DONGLE123"
+  assert captured["json"]["details"]["uptime_seconds"] == 60

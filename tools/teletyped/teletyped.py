@@ -12,7 +12,6 @@ import psutil
 import requests
 
 from openpilot.tools.teletyped import route_sender, ssh_key
-from openpilot.frogpilot.common.frogpilot_variables import params_memory
 from openpilot.common.params import Params
 from openpilot.tools.teletyped.helper import (
   log,
@@ -78,6 +77,12 @@ _SSH_ERROR_NEEDLES = (
   "kex_exchange_identification",
 )
 
+
+def _get_params_memory():
+  from openpilot.frogpilot.common.frogpilot_variables import params_memory
+
+  return params_memory
+
 def vprint(*args):
   if VERBOSE:
     message = " ".join(str(arg) for arg in args)
@@ -109,6 +114,13 @@ def check_server(api_url, timeout=5, max_backoff=60):
     log(f"⏳ Retrying in {backoff} seconds...")
     time.sleep(backoff)
     attempt += 1
+
+def get_uptime_seconds():
+  try:
+    return max(0, int(time.time() - psutil.boot_time()))
+  except Exception as e:
+    vprint(f"⚠️ Failed to collect uptime info: {e}")
+    return None
 
 def fetch_ssh_request(device_id):
   url = f"{API_URL}/ssh-requests/{device_id}"
@@ -185,7 +197,7 @@ def _ensure_disable_power_down_default():
     params = Params()
     if params.get("DisablePowerDown") is None:
       params.put_bool("DisablePowerDown", True)
-      params_memory.put_bool("DisablePowerDown", True)
+      _get_params_memory().put_bool("DisablePowerDown", True)
       log("Initialized DisablePowerDown to True (auto shutdown disabled by default)", "INFO")
   except Exception as e:
     capture_exception(e)
@@ -227,7 +239,7 @@ def execute_device_actions(device_id):
       log("🔄 Update check requested via server command", "INFO")
       try:
         # Match UI behaviour: mark manual update requested and signal updater
-        params_memory.put_bool("ManualUpdateInitiated", True)
+        _get_params_memory().put_bool("ManualUpdateInitiated", True)
         # Align with UI behaviour: SIGUSR1 prompts updated to check for updates
         status = os.system("pkill -SIGUSR1 -f system.updated.updated")
         exit_code = status >> 8  # os.system returns exit status in the high byte
@@ -245,7 +257,7 @@ def execute_device_actions(device_id):
       try:
         if not _is_comma_three():
           raise RuntimeError("DisablePowerDown is only supported on comma three hardware")
-        params_memory.put_bool("DisablePowerDown", True)
+        _get_params_memory().put_bool("DisablePowerDown", True)
         Params().put_bool("DisablePowerDown", True)  # persist for heartbeat / server visibility
         acknowledge_device_action(device_id, action_id, "completed")
         log("DisablePowerDown param set to True", "INFO")
@@ -258,7 +270,7 @@ def execute_device_actions(device_id):
       try:
         if not _is_comma_three():
           raise RuntimeError("DisablePowerDown is only supported on comma three hardware")
-        params_memory.put_bool("DisablePowerDown", False)
+        _get_params_memory().put_bool("DisablePowerDown", False)
         Params().put_bool("DisablePowerDown", False)  # persist for heartbeat / server visibility
         acknowledge_device_action(device_id, action_id, "completed")
         log("DisablePowerDown param set to False", "INFO")
@@ -744,6 +756,10 @@ def send_heartbeat(device_id, tunnel_status):
     osinfo = get_os_info()
 
     det = payload.setdefault("details", {})
+    uptime_seconds = get_uptime_seconds()
+    if uptime_seconds is not None:
+      det["uptime_seconds"] = uptime_seconds
+
     # flattened for easy querying on the server
     det["hardware_type"]   = hw.get("type")
     det["hardware_model"]  = hw.get("model")
