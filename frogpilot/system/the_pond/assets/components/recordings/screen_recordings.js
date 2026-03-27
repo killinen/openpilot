@@ -175,7 +175,7 @@ function openOverlay(rec) {
         <i class="bi bi-pencil-fill action-rename-icon"></i>
       </div>
       <video controls autoplay muted>
-        <source src="/api/screen_recordings/download/${rec.filename}" type="video/mp4">
+        <source src="${`/api/screen_recordings/download/${rec.filename}`}" type="video/mp4">
       </video>
       <div class="button-row">
         <button class="close-button action-close">Close</button>
@@ -288,8 +288,8 @@ export function ScreenRecordings() {
                 @click="${() => { state.selectedRecording = rec }}"
               >
                 <div class="recording-preview-container">
-                  <img src="${rec.png}" class="recording-preview recording-preview-png" style="display:block;">
-                  <img data-src="${rec.gif}" class="recording-preview recording-preview-gif" style="display:none;">
+                  <img src="${rec.png}" class="recording-preview recording-preview-png" style="display:block;" loading="lazy" decoding="async" fetchpriority="low">
+                  <img data-src="${rec.gif}" class="recording-preview recording-preview-gif" style="display:none;" loading="lazy" decoding="async" fetchpriority="low">
                 </div>
                 <p class="recording-filename">${displayName}</p>
               </div>

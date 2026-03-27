@@ -178,7 +178,7 @@ function Logviewer(filename, closeFn) {
       <button @click="${copyLog}">
         <i class="bi bi-clipboard"></i>
       </button>
-      <a href="/api/error_logs/${filename}" download>
+      <a href="${`/api/error_logs/${filename}`}" download>
         <button>
           <i class="bi bi-download"></i>
         </button>

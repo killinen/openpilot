@@ -316,32 +316,9 @@ def setup(app):
             result = future.result()
             yield f"data: {json.dumps({'routes': [result]})}\n\n"
 
-            path, name = futures[future]
-            segments = utilities.get_segments_in_route(name, path)
-            if segments:
-              for camera, cam_file in {
-                "forward": "fcamera.hevc",
-                "wide": "ecamera.hevc",
-                "driver": "dcamera.hevc"
-              }.items():
-                input_files = [
-                  os.path.join(path, seg, cam_file)
-                  for seg in segments
-                  if os.path.exists(os.path.join(path, seg, cam_file))
-                ]
-                if input_files:
-                  executor.submit(
-                    utilities.ffmpeg_concat_segments_to_mp4,
-                    input_files,
-                    f"{name}-{camera}"
-                  )
-
           except Exception as exception:
             print(f"Error processing route: {exception}")
           yield f"data: {json.dumps({'progress': processed, 'total': total})}\n\n"
-
-        for path, name in routes:
-          utilities.process_route_gif(path, name)
 
     return Response(generate(), mimetype="text/event-stream")
 
@@ -1559,7 +1536,26 @@ def setup(app):
   @app.route("/thumbnails/<path:file_path>", methods=["GET"])
   def get_thumbnail(file_path):
     for footage_path in FOOTAGE_PATHS:
-      if os.path.exists(os.path.join(footage_path, file_path)):
+      thumbnail_path = os.path.join(footage_path, file_path)
+      if os.path.exists(thumbnail_path):
+        return send_from_directory(footage_path, file_path, as_attachment=True)
+
+      segment_path, filename = os.path.split(thumbnail_path)
+      qcamera_path = os.path.join(segment_path, "qcamera.ts")
+      if not os.path.exists(qcamera_path):
+        continue
+
+      try:
+        if filename == "preview.png":
+          utilities.video_to_png(qcamera_path, thumbnail_path)
+        elif filename == "preview.gif":
+          utilities.video_to_gif(qcamera_path, thumbnail_path)
+        else:
+          continue
+      except Exception:
+        continue
+
+      if os.path.exists(thumbnail_path):
         return send_from_directory(footage_path, file_path, as_attachment=True)
     return {"error": "Thumbnail not found"}, 404
 

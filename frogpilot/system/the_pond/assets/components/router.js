@@ -1,5 +1,5 @@
 import { html, reactive } from "https://esm.sh/@arrow-js/core"
-import { createBrowserHistory, createRouter } from "https://esm.sh/@remix-run/router@1.3.1"
+import { createBrowserHistory, createHashHistory, createRouter } from "https://esm.sh/@remix-run/router@1.3.1"
 import { hideSidebar } from "/assets/js/utils.js"
 import { DoorControl } from "/assets/components/tools/doors.js"
 import { ErrorLogs } from "/assets/components/tools/error_logs.js"
@@ -18,6 +18,29 @@ import { ToggleControl } from "/assets/components/tools/toggles.js"
 import { TSKManager } from "/assets/components/tools/tsk_manager.js"
 
 let router, routerState
+
+function detectBasename(pathname = window.location.pathname) {
+  const match = pathname.match(/^\/(?:api\/)?pond\/[^/]+/)
+  return match ? match[0] : ""
+}
+
+export const APP_BASENAME = detectBasename()
+
+export function stripBasename(pathname = window.location.pathname) {
+  if (!APP_BASENAME || !pathname.startsWith(APP_BASENAME)) {
+    return pathname
+  }
+  const stripped = pathname.slice(APP_BASENAME.length)
+  return stripped || "/"
+}
+
+export function withBasename(path) {
+  const normalized = path.startsWith("/") ? path : `/${path}`
+  if (!APP_BASENAME) {
+    return normalized
+  }
+  return `${APP_BASENAME}/#${normalized}`
+}
 
 function createRoute(id, path, component) {
   return {
@@ -48,7 +71,7 @@ function Root() {
 
   router = createRouter({
     routes,
-    history: createBrowserHistory(),
+    history: APP_BASENAME ? createHashHistory() : createBrowserHistory(),
   }).initialize()
 
   routerState = reactive({
@@ -94,10 +117,10 @@ function Root() {
 export function Link(href, children, onClick, classes = "") {
   return html`<a
     class="${classes}"
-    href="${() => href}"
+    href="${() => withBasename(href)}"
     @click="${(e) => {
       e.preventDefault()
-      router.navigate(e.currentTarget.href)
+      router.navigate(href)
       hideSidebar()
       onClick?.()
     }}"

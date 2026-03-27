@@ -27,12 +27,12 @@ export function Modal({
         }
       }}"
     >
-      <div class="modal ${customClass}">
+      <div class="${`modal ${customClass}`.trim()}">
         <div class="modal-header">${title}</div>
         <div class="modal-body">${message}</div>
         <div class="modal-actions">
           ${onCancel ? html`<button class="btn" @click="${onCancel}">${cancelText}</button>` : ''}
-          ${onConfirm ? html`<button class="btn ${confirmClass}" @click="${onConfirm}">${confirmText}</button>` : ''}
+          ${onConfirm ? html`<button class="${`btn ${confirmClass}`.trim()}" @click="${onConfirm}">${confirmText}</button>` : ''}
         </div>
       </div>
     </div>

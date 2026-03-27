@@ -219,16 +219,21 @@ export function NavKeys() {
         ${kinds.map(kind => {
           const keyMeta = meta[kind]
           const label = kind[0].toUpperCase() + kind.slice(1).replace(/[0-9]/, d => " " + d)
+          const inputId = `${kind}-key`
+          const placeholder = `${keyMeta.prefix || ""}xxxxxx...`
+          const buttonClass = () => `navkeys-btn${state[keyMeta.saved] ? " delete" : ""}`
+          const inputValue = () => state[keyMeta.saved] ? util.mask(state[keyMeta.prop]) : state[keyMeta.prop]
+          const isDisabled = () => !state[keyMeta.saved] && !canSave(kind)
 
           return html`
-            <label class="navkeys-label" for="${kind}-key">${label} Key</label>
+            <label class="navkeys-label" for="${inputId}">${label} Key</label>
             <div class="navkeys-row">
               <input
                 autocomplete="off"
                 class="navkeys-input"
-                id="${kind}-key"
-                placeholder="${keyMeta.prefix || ""}xxxxxx..."
-                value="${() => state[keyMeta.saved] ? util.mask(state[keyMeta.prop]) : state[keyMeta.prop]}"
+                id="${inputId}"
+                placeholder="${placeholder}"
+                value="${inputValue}"
                 @keydown="${(e) => {
                   if (state[keyMeta.saved] && !state[keyMeta.edit]) {
                     state[keyMeta.edit] = true
@@ -240,9 +245,9 @@ export function NavKeys() {
                 @input="${(e) => state[keyMeta.prop] = e.target.value}"
               />
               <button
-                class="${() => `navkeys-btn ${state[keyMeta.saved] ? "delete" : ""}`}"
+                class="${buttonClass}"
                 @click="${() => state[keyMeta.saved] ? api.confirmDelete(kind) : api.save(kind)()}"
-                disabled="${() => !state[keyMeta.saved] && !canSave(kind)}">
+                disabled="${isDisabled}">
                 ${() => state[keyMeta.saved] ? "🗑️" : "💾"}
               </button>
             </div>
@@ -277,16 +282,21 @@ export function NavKeys() {
   }
 
   function renderStatus(group) {
+    const messageStyle = () =>
+      `opacity: ${state.lastGroup === group && state.message && state.visible ? 1 : 0}`
+    const errorStyle = () =>
+      `opacity: ${state.lastGroup === group && state.error && state.visible ? 1 : 0}`
+
     return html`
       <div class="navkeys-status">
         <div
           class="navkeys-message"
-          style="${() => state.lastGroup === group && state.message ? `opacity: ${state.visible ? 1 : 0}` : "opacity: 0"}">
+          style="${messageStyle}">
           ${() => state.message}
         </div>
         <div
           class="navkeys-error"
-          style="${() => state.lastGroup === group && state.error ? `opacity: ${state.visible ? 1 : 0}` : "opacity: 0"}">
+          style="${errorStyle}">
           ${() => state.error}
         </div>
       </div>

@@ -25,6 +25,8 @@ from openpilot.tools.teletyped.helper import (
   REMOTE_HOST,
   REMOTE_PORT,
   LOCAL_PORT,
+  POND_REMOTE_PORT,
+  POND_LOCAL_PORT,
   PIDFILE,
   has_internet_connection,
   get_os_info,
@@ -76,6 +78,31 @@ _SSH_ERROR_NEEDLES = (
   "connection refused",
   "kex_exchange_identification",
 )
+
+
+def _normalize_tunnel_request(request):
+  if request is True:
+    return {"reverse_tunnel_req": True, "pond_tunnel_req": False}
+  if not isinstance(request, dict):
+    return {"reverse_tunnel_req": False, "pond_tunnel_req": False}
+  return {
+    "reverse_tunnel_req": bool(request.get("reverse_tunnel_req")),
+    "pond_tunnel_req": bool(request.get("pond_tunnel_req")),
+  }
+
+
+def _requested_forwards(request):
+  requested = _normalize_tunnel_request(request)
+  forwards = []
+  if requested["reverse_tunnel_req"]:
+    forwards.append((REMOTE_PORT, LOCAL_PORT))
+  if requested["pond_tunnel_req"]:
+    forwards.append((POND_REMOTE_PORT, POND_LOCAL_PORT))
+  return forwards
+
+
+def _forward_signature(forwards):
+  return ",".join(f"{remote}:{local}" for remote, local in forwards)
 
 
 def _get_params_memory():
@@ -283,24 +310,45 @@ def execute_device_actions(device_id):
 
 def _read_pidfile():
   if not os.path.isfile(PIDFILE):
-    return None, None
+    return None, None, None
   try:
     raw = open(PIDFILE).read().strip()
     if not raw:
-      return None, None
+      return None, None, None
     if raw.startswith("{"):
       data = json.loads(raw)
       pid = int(data.get("pid"))
       started_at = data.get("started_at")
       started_at = float(started_at) if started_at is not None else None
-      return pid, started_at
-    return int(raw), None
+      forwards = data.get("forwards")
+      if isinstance(forwards, list):
+        forward_signature = _forward_signature(
+          [
+            (int(item.get("remote")), int(item.get("local")))
+            for item in forwards
+            if isinstance(item, dict)
+            and item.get("remote") is not None
+            and item.get("local") is not None
+          ]
+        )
+      else:
+        forward_signature = data.get("forward_signature")
+      return pid, started_at, forward_signature
+    return int(raw), None, None
   except Exception:
-    return None, None
+    return None, None, None
 
 
-def _write_pidfile(pid: int) -> None:
-  payload = {"pid": pid, "started_at": time.time()}
+def _write_pidfile(pid: int, forwards) -> None:
+  payload = {
+    "pid": pid,
+    "started_at": time.time(),
+    "forward_signature": _forward_signature(forwards),
+    "forwards": [
+      {"remote": remote_port, "local": local_port}
+      for remote_port, local_port in forwards
+    ],
+  }
   with open(PIDFILE, "w") as f:
     json.dump(payload, f)
 
@@ -498,16 +546,11 @@ def _is_expected_ssh_process(proc: psutil.Process) -> bool:
   if not cmdline:
     return False
   expected_remote = f"{REMOTE_USER}@{REMOTE_HOST}"
-  expected_forward = f"{REMOTE_PORT}:localhost:{LOCAL_PORT}"
-  if expected_remote not in cmdline:
-    return False
-  if "-R" not in cmdline or expected_forward not in cmdline:
-    return False
-  return True
+  return expected_remote in cmdline and "-R" in cmdline
 
 
 def _get_tunnel_process():
-  pid, _started_at = _read_pidfile()
+  pid, _started_at, _pidfile_forward_signature = _read_pidfile()
   if pid is None:
     return None
   try:
@@ -558,13 +601,22 @@ def _has_established_ssh_connection(proc: psutil.Process) -> bool:
   return False
 
 
-def start_tunnel():
+def start_tunnel(forwards):
   log("🚀 Starting tunnel...")
+
+  if not forwards:
+    return False, "No tunnel forwards requested"
+
+  desired_signature = _forward_signature(forwards)
 
   existing_proc = _get_tunnel_process()
   if existing_proc is not None:
-    log(f"Tunnel already running with PID {existing_proc.pid}")
-    return True, None
+    _existing_pid, _started_at, existing_signature = _read_pidfile()
+    if existing_signature == desired_signature:
+      log(f"Tunnel already running with PID {existing_proc.pid}")
+      return True, None
+    log("Tunnel forwarding changed; restarting tunnel", "INFO")
+    stop_tunnel()
   if os.path.isfile(PIDFILE):
     try:
       os.remove(PIDFILE)
@@ -581,7 +633,10 @@ def start_tunnel():
     log(f"❌ {detail}", "ERROR")
     return False, detail
 
-  log(f"🔁 Mapping remote port {REMOTE_PORT} to localhost:{LOCAL_PORT}")
+  mapping = ", ".join(
+    f"{remote_port}->localhost:{local_port}" for remote_port, local_port in forwards
+  )
+  log(f"🔁 Mapping remote ports {mapping}")
 
   connect_ip = None
   try:
@@ -608,10 +663,10 @@ def start_tunnel():
     "-o", "ConnectTimeout=10",
     "-o", "LogLevel=ERROR",
     *([] if not connect_ip else ["-o", f"HostName={connect_ip}"]),
-    "-R", f"{REMOTE_PORT}:localhost:{LOCAL_PORT}",
-    "-N",
-    f"{REMOTE_USER}@{REMOTE_HOST}"
   ]
+  for remote_port, local_port in forwards:
+    cmd.extend(["-R", f"{remote_port}:localhost:{local_port}"])
+  cmd.extend(["-N", f"{REMOTE_USER}@{REMOTE_HOST}"])
 
   try:
     with open(SSH_LOG_PATH, "w") as log_fp:
@@ -622,7 +677,7 @@ def start_tunnel():
         stderr=log_fp,
       )
 
-    _write_pidfile(proc.pid)
+    _write_pidfile(proc.pid, forwards)
 
     # Wait briefly for an established TCP connection or a fast failure.
     started_mono = time.monotonic()
@@ -697,7 +752,7 @@ def get_current_tunnel_status():
       return "error"
 
     connected = _has_established_ssh_connection(proc)
-    _pid, started_at = _read_pidfile()
+    _pid, started_at, _pidfile_forward_signature = _read_pidfile()
     if connected and started_at and (time.time() - started_at) < TUNNEL_AUTH_SETTLE_SEC:
       return "starting"
     return "connected" if connected else "starting"
@@ -793,6 +848,7 @@ def send_heartbeat(device_id, tunnel_status):
     det["os"] = osinfo
     det["openpilot"] = opinfo
     det["local_ssh_port"] = LOCAL_PORT
+    det["pond_local_port"] = POND_LOCAL_PORT
   except Exception as e:
     vprint(f"⚠️ Failed to collect HW/OS info: {e}")
   # =====================================
@@ -835,17 +891,22 @@ def reverse_ssh_step(device_id, last_reported_status):
     desired = data.get("request", _last_desired_tunnel_state)
   remote_status = data.get("status") if isinstance(data, dict) else None
   current_status = get_current_tunnel_status()
+  requested_forwards = _requested_forwards(desired)
+  desired_signature = _forward_signature(requested_forwards)
+  _pid, _started_at, current_signature = _read_pidfile()
 
   vprint(f"🧭 Desired: {desired} | Current status: {current_status}")
 
-  should_be_running = desired is True or (
-    isinstance(desired, dict) and desired.get("reverse_tunnel_req") is True
-  )
+  should_be_running = bool(requested_forwards)
   _last_desired_tunnel_state = should_be_running
 
   error_detail = None
   if should_be_running and current_status == "stopped":
-    ok, error_detail = start_tunnel()
+    ok, error_detail = start_tunnel(requested_forwards)
+    current_status = get_current_tunnel_status() if ok else "error"
+  elif should_be_running and current_signature != desired_signature:
+    stop_tunnel()
+    ok, error_detail = start_tunnel(requested_forwards)
     current_status = get_current_tunnel_status() if ok else "error"
   elif not should_be_running and current_status != "stopped":
     stop_tunnel()
@@ -859,7 +920,7 @@ def reverse_ssh_step(device_id, last_reported_status):
       pass
 
   if should_be_running and current_status == "starting":
-    _pid, started_at = _read_pidfile()
+    _pid, started_at, _pidfile_forward_signature = _read_pidfile()
     if started_at and (time.time() - started_at) > TUNNEL_STARTING_TIMEOUT_SEC:
       error_detail = _read_ssh_log_tail() or (
         f"SSH tunnel stuck in 'starting' for >{TUNNEL_STARTING_TIMEOUT_SEC}s"

@@ -290,6 +290,8 @@ def capture_exception(exc: BaseException) -> None:
 _init_sentry()
 
 LOCAL_PORT_ENV = "TELETYPED_LOCAL_SSH_PORT"
+POND_LOCAL_PORT_ENV = "TELETYPED_POND_LOCAL_PORT"
+POND_REMOTE_PORT_ENV = "TELETYPED_POND_REMOTE_PORT"
 
 
 def _detect_local_port() -> int:
@@ -309,12 +311,26 @@ def _detect_local_port() -> int:
   return 22
 
 
+def _detect_pond_local_port() -> int:
+  env_val = os.environ.get(POND_LOCAL_PORT_ENV)
+  if env_val:
+    try:
+      port = int(env_val)
+      if 0 < port < 65536:
+        return port
+    except ValueError:
+      pass
+  return 8082
+
+
 REALDATA_DIR = _realdata_root()
 BOOT_DIR = os.path.join(REALDATA_DIR, "boot")
 REMOTE_USER = "ubuntu"
 REMOTE_HOST = "goranconnect.duckdns.org"
 REMOTE_PORT = 2222
 LOCAL_PORT = _detect_local_port()
+POND_REMOTE_PORT = int(os.environ.get(POND_REMOTE_PORT_ENV, "28082"))
+POND_LOCAL_PORT = _detect_pond_local_port()
 PIDFILE = "/tmp/reverse_ssh_tunnel.pid"
 TELETYPED_DIR = os.path.dirname(__file__)
 WORMHOLE_BINARY = os.path.join(TELETYPED_DIR, "wormhole-william")

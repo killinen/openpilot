@@ -1,5 +1,5 @@
 import { html, reactive } from "https://esm.sh/@arrow-js/core";
-import { Link } from "/assets/components/router.js";
+import { Link, stripBasename, withBasename } from "/assets/components/router.js";
 import { upperFirst, hideSidebar } from "/assets/js/utils.js";
 
 const MenuItems = {
@@ -38,7 +38,7 @@ const state = reactive({
 });
 
 export function Sidebar() {
-  const currentPath = window.location.pathname;
+  const currentPath = stripBasename(window.location.pathname);
   const activeItem = Object.values(MenuItems).flat().find(item => item.link === currentPath);
   state.activeRoute = activeItem?.name ?? "";
 
@@ -77,7 +77,7 @@ export function Sidebar() {
       el.classList.remove('active');
     });
 
-    const linkElement = document.querySelector(`.sidebar li a[href="${link.link}"]`);
+    const linkElement = document.querySelector(`.sidebar li a[href="${withBasename(link.link)}"]`);
     if (linkElement) {
       linkElement.parentElement.classList.add('active');
     }
@@ -115,7 +115,7 @@ export function Sidebar() {
 
                     const content = html`
                       <div class="menu-item-link">
-                        <i class="bi ${link.icon}"></i>
+                        <i class="${`bi ${link.icon}`}"></i>
                         <span>${upperFirst(link.name)}</span>
                       </div>
                     `;
@@ -139,6 +139,11 @@ function setupMenuButton() {
   const button = document.getElementById("menu_button");
   const sidebar = document.getElementById("sidebar");
   const underlay = document.getElementById("sidebarUnderlay");
+  if (!button || !sidebar || !underlay || button.dataset.sidebarBound === "1") {
+    return;
+  }
+
+  button.dataset.sidebarBound = "1";
 
   button.addEventListener("click", () => {
     sidebar.classList.toggle("visible");
@@ -149,3 +154,4 @@ function setupMenuButton() {
 }
 
 document.addEventListener("DOMContentLoaded", setupMenuButton, false);
+requestAnimationFrame(setupMenuButton);

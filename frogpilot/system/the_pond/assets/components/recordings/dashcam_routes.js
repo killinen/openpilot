@@ -2,12 +2,17 @@ import { html, reactive } from "https://esm.sh/@arrow-js/core"
 import { getOrdinalSuffix } from "/assets/components/navigation/navigation_utilities.js"
 import { Modal } from "/assets/components/modal.js";
 
+const ROUTES_PAGE_SIZE = 24;
+
 const state = reactive({
   loading: true,
   error: null,
   routes: [],
+  visibleRoutes: [],
   selectedRoute: null,
   showPreservedOnly: false,
+  currentPage: 1,
+  filteredRouteCount: 0,
   progress: 0,
   total: 0,
   showDeleteAllModal: false,
@@ -29,6 +34,134 @@ function formatRouteDate(dateString) {
   hour = hour || 12
   const minuteStr = minute < 10 ? "0" + minute : minute
   return `${month} ${day}${getOrdinalSuffix(day)}, ${year} - ${hour}:${minuteStr}${ampm}`
+}
+
+function getFilteredRoutes() {
+  return state.routes.filter(route => !state.showPreservedOnly || route.is_preserved);
+}
+
+function getTotalPages(filteredCount) {
+  return Math.max(1, Math.ceil(filteredCount / ROUTES_PAGE_SIZE));
+}
+
+function syncVisibleRoutes() {
+  const filteredRoutes = getFilteredRoutes();
+  state.filteredRouteCount = filteredRoutes.length;
+  state.currentPage = Math.min(state.currentPage, getTotalPages(filteredRoutes.length));
+
+  const pageStart = (state.currentPage - 1) * ROUTES_PAGE_SIZE;
+  state.visibleRoutes = filteredRoutes
+    .slice(pageStart, pageStart + ROUTES_PAGE_SIZE)
+    .map(route => ({ ...route }));
+  queueMicrotask(() => mountRouteCards(state.visibleRoutes));
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
+function buildRouteCardsMarkup(routes) {
+  return routes.map(route => `
+    <div class="recording-card" data-route-name="${escapeHtml(route.name)}">
+      <div class="preserved-icon">
+        <i class="bi ${route.is_preserved ? "bi-heart-fill" : "bi-heart"}"></i>
+      </div>
+      <div class="recording-preview-container">
+        <img
+          src="${escapeHtml(route.png)}"
+          class="recording-preview recording-preview-png"
+          style="display:block;"
+          loading="lazy"
+          decoding="async"
+          fetchpriority="low"
+        >
+        <img
+          data-src="${escapeHtml(route.gif)}"
+          class="recording-preview recording-preview-gif"
+          style="display:none;"
+          loading="lazy"
+          decoding="async"
+          fetchpriority="low"
+        >
+      </div>
+      <p class="recording-filename">${escapeHtml(route.timestamp)}</p>
+    </div>
+  `).join("");
+}
+
+function mountRouteCards(routes) {
+  const host = document.querySelector(".route-grid-host");
+  if (!host) return;
+
+  host.innerHTML = buildRouteCardsMarkup(routes);
+  const routesByName = new Map(routes.map(route => [route.name, route]));
+
+  host.querySelectorAll(".recording-card").forEach(card => {
+    const route = routesByName.get(card.dataset.routeName);
+    if (!route) return;
+
+    card.addEventListener("mouseenter", () => {
+      if (state.selectedRoute) return;
+
+      const gif = card.querySelector(".recording-preview-gif");
+      const png = card.querySelector(".recording-preview-png");
+
+      if (card.dataset.gifLoaded) {
+        png.style.display = "none";
+        gif.style.display = "block";
+        return;
+      }
+
+      card.dataset.loadingGif = "true";
+      const preloader = new Image();
+      preloader.onload = () => {
+        if (card.dataset.loadingGif === "true") {
+          gif.src = preloader.src;
+          png.style.display = "none";
+          gif.style.display = "block";
+          card.dataset.gifLoaded = "true";
+        }
+        delete card.dataset.loadingGif;
+      };
+      preloader.onerror = () => {
+        console.error("Failed to load preview GIF:", preloader.src);
+        delete card.dataset.loadingGif;
+      };
+      preloader.src = gif.dataset.src;
+    });
+
+    card.addEventListener("mouseleave", () => {
+      const png = card.querySelector(".recording-preview-png");
+      const gif = card.querySelector(".recording-preview-gif");
+      png.style.display = "block";
+      gif.style.display = "none";
+      if (card.dataset.loadingGif === "true") {
+        delete card.dataset.loadingGif;
+      }
+    });
+
+    card.addEventListener("click", () => {
+      const activeRoute = state.routes.find(item => item.name === route.name) || route;
+      state.selectedRoute = activeRoute;
+    });
+
+    const preservedIcon = card.querySelector(".preserved-icon");
+    preservedIcon.addEventListener("click", event => {
+      const activeRoute = state.routes.find(item => item.name === route.name) || route;
+      togglePreserved(activeRoute, event);
+    });
+  });
+}
+
+function renderRouteGrid() {
+  queueMicrotask(() => mountRouteCards(state.visibleRoutes));
+  return html`<div class="screen-recordings-grid route-grid-host"></div>`;
 }
 
 async function fetchRoutes() {
@@ -63,6 +196,7 @@ async function fetchRoutes() {
                 timestamp: formatRouteDate(route.timestamp),
               }));
               state.routes.push(...routes);
+              syncVisibleRoutes();
             }
           } catch (e) {
             console.error("Failed to parse JSON:", e);
@@ -82,7 +216,27 @@ fetchRoutes()
 function refresh() {
   state.loading = true
   state.routes = []
+  state.visibleRoutes = []
+  state.currentPage = 1
+  state.filteredRouteCount = 0
   fetchRoutes()
+}
+
+function togglePreservedFilter() {
+  state.showPreservedOnly = !state.showPreservedOnly;
+  state.currentPage = 1;
+  syncVisibleRoutes();
+}
+
+function goToPage(pageNumber) {
+  const filteredCount = getFilteredRoutes().length;
+  const totalPages = getTotalPages(filteredCount);
+  state.currentPage = Math.max(1, Math.min(pageNumber, totalPages));
+  syncVisibleRoutes();
+  const container = document.querySelector(".screen-recordings-widget");
+  if (container) {
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 let overlay = null
@@ -198,7 +352,7 @@ async function openOverlay(route) {
         <i class="bi bi-pencil-fill action-rename-icon"></i>
       </div>
       <video controls autoplay muted>
-        <source src="/thumbnails/${route.name}--0/preview.png" type="video/mp4">
+        <source src="${`/thumbnails/${route.name}--0/preview.png`}" type="video/mp4">
       </video>
       <div class="button-row">
         <button class="close-button action-close">Close</button>
@@ -292,6 +446,7 @@ async function togglePreserved(route, e) {
     const response = await fetch(`/api/routes/${route.name}/preserve`, { method })
     if (response.ok) {
       route.is_preserved = newPreservedState
+      syncVisibleRoutes()
     } else {
       const errorData = await response.json()
       showSnackbar(errorData.error || "Failed to update preserved state...", "error")
@@ -325,16 +480,16 @@ export function RouteRecordings() {
         <div class="screen-recordings-title">Dashcam Routes</div>
         <button
           class="show-preserved-button"
-          @click="${() => (state.showPreservedOnly = !state.showPreservedOnly)}"
-          ?disabled="${state.loading && state.routes.length === 0}"
+          @click="${togglePreservedFilter}"
+          disabled="${state.loading && state.routes.length === 0}"
         >
           ${() => (state.showPreservedOnly ? "Show All" : "Show Only Preserved Routes")}
         </button>
 
         ${() => {
-          const routesToShow = state.routes.filter(r => !state.showPreservedOnly || r.is_preserved);
-
-          if (routesToShow.length === 0) {
+          const visibleRoutes = state.visibleRoutes;
+          const totalPages = getTotalPages(state.filteredRouteCount);
+          if (visibleRoutes.length === 0) {
             if (state.loading && state.total > 0) {
               return html`<p class="screen-recordings-message">Processing Routes: ${state.progress} of ${state.total}</p>`;
             }
@@ -350,78 +505,37 @@ export function RouteRecordings() {
             if (state.error) {
               return html`<p class="screen-recordings-message">${state.error}</p>`;
             }
-            return html`<p class="screen-recordings-message">No routes found...</p>`;
+              return html`<p class="screen-recordings-message">No routes found...</p>`;
           }
 
           return html`
-            <div class="screen-recordings-grid">
-              ${routesToShow.map(
-                route => html`
-                  <div
-                    class="recording-card"
-                    @mouseenter="${e => {
-                      if (state.selectedRoute) return;
-
-                      const card = e.currentTarget;
-                      const gif = card.querySelector(".recording-preview-gif");
-                      const png = card.querySelector(".recording-preview-png");
-
-                      if (card.dataset.gifLoaded) {
-                        png.style.display = "none";
-                        gif.style.display = "block";
-                        return;
-                      }
-
-                      card.dataset.loadingGif = "true";
-                      const preloader = new Image();
-                      preloader.onload = () => {
-                        if (card.dataset.loadingGif === "true") {
-                          gif.src = preloader.src;
-                          png.style.display = "none";
-                          gif.style.display = "block";
-                          card.dataset.gifLoaded = true;
-                        }
-                        delete card.dataset.loadingGif;
-                      };
-                      preloader.onerror = () => {
-                        console.error("Failed to load preview GIF:", preloader.src);
-                        delete card.dataset.loadingGif;
-                      };
-
-                      preloader.src = gif.dataset.src;
-                    }}"
-                    @mouseleave="${e => {
-                      const card = e.currentTarget;
-                      card.querySelector(".recording-preview-png").style.display = "block";
-                      card.querySelector(".recording-preview-gif").style.display = "none";
-                      if (card.dataset.loadingGif === "true") {
-                        delete card.dataset.loadingGif;
-                      }
-                    }}"
-                    @click="${() => {
-                      state.selectedRoute = route;
-                    }}"
-                  >
-                    <div class="preserved-icon" @click="${e => togglePreserved(route, e)}">
-                      ${() => html`<i class="bi ${route.is_preserved ? "bi-heart-fill" : "bi-heart"}"></i>`}
-                    </div>
-                    <div class="recording-preview-container">
-                      <img
-                        src="${route.png}"
-                        class="recording-preview recording-preview-png"
-                        style="display:block;"
-                      >
-                      <img
-                        data-src="${route.gif}"
-                        class="recording-preview recording-preview-gif"
-                        style="display:none;"
-                      >
-                    </div>
-                    <p class="recording-filename">${route.timestamp}</p>
+            <div class="screen-recordings-message">
+              Showing ${() => ((state.currentPage - 1) * ROUTES_PAGE_SIZE) + 1}-${() => Math.min(((state.currentPage - 1) * ROUTES_PAGE_SIZE) + state.visibleRoutes.length, state.filteredRouteCount)} of ${() => state.filteredRouteCount}
+            </div>
+            ${renderRouteGrid()}
+            ${totalPages > 1
+              ? html`
+                  <div class="button-row">
+                    <button
+                      class="close-button"
+                      @click="${() => goToPage(state.currentPage - 1)}"
+                      disabled="${() => state.currentPage <= 1}"
+                    >
+                      Previous
+                    </button>
+                    <button class="close-button pager-status" disabled="true">
+                      Page ${() => state.currentPage} / ${() => getTotalPages(state.filteredRouteCount)}
+                    </button>
+                    <button
+                      class="close-button"
+                      @click="${() => goToPage(state.currentPage + 1)}"
+                      disabled="${() => state.currentPage >= getTotalPages(state.filteredRouteCount)}"
+                    >
+                      Next
+                    </button>
                   </div>
                 `
-              )}
-            </div>
+              : ""}
           `;
         }}
         ${() => {
@@ -430,7 +544,7 @@ export function RouteRecordings() {
               <button
                 class="delete-all-button"
                 @click="${() => (state.showDeleteAllModal = true)}"
-                ?disabled="${state.isDeletingAll}"
+                disabled="${state.isDeletingAll}"
               >
                 ${() => (state.isDeletingAll ? "Deleting..." : "Delete All Routes")}
               </button>
