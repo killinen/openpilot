@@ -50,6 +50,84 @@ KEYS = {
 }
 
 TMUX_LOGS_PATH = Path("/data/tmux_logs")
+BOOLEAN_TOGGLE_VALUES = {"0", "1"}
+OPENPILOT_UI_TOGGLE_DEFINITIONS = [
+  ("OpenpilotEnabledToggle", "Enable openpilot"),
+  ("ExperimentalLongitudinalEnabled", "openpilot Longitudinal Control"),
+  ("ExperimentalMode", "Experimental Mode"),
+  ("DisengageOnAccelerator", "Disengage on Accelerator Pedal"),
+  ("IsLdwEnabled", "Enable Lane Departure Warnings"),
+  ("RecordFront", "Record and Upload Driver Camera"),
+  ("GoranConnectEnabled", "Enable GoranConnect"),
+  ("DisablePowerDown", "Disable Power Down"),
+  ("IsMetric", "Use Metric System"),
+  ("NavSettingTime24h", "Show ETA in 24h Format"),
+  ("NavSettingLeftSide", "Show Map on Left Side"),
+]
+
+
+def _humanize_toggle_key(key):
+  return re.sub(r"(?<!^)(?=[A-Z])", " ", key).strip()
+
+
+def _read_toggle_value(key):
+  raw_value = params.get(key)
+  if isinstance(raw_value, bytes):
+    return raw_value.decode("utf-8", errors="replace")
+  return raw_value or ""
+
+
+def _serialize_toggle_state(key, default_value, stock_value):
+  value = _read_toggle_value(key)
+  default_value = str(default_value)
+  stock_value = str(stock_value)
+  is_boolean = (
+    value in BOOLEAN_TOGGLE_VALUES
+    and default_value in BOOLEAN_TOGGLE_VALUES
+    and stock_value in BOOLEAN_TOGGLE_VALUES
+  )
+
+  if is_boolean:
+    display_value = "Enabled" if value == "1" else "Disabled"
+    status = "enabled" if value == "1" else "disabled"
+  elif value:
+    display_value = value
+    status = "custom" if value != default_value else "default"
+  else:
+    display_value = "Empty"
+    status = "empty"
+
+  return {
+    "key": key,
+    "label": _humanize_toggle_key(key),
+    "value": value,
+    "display_value": display_value,
+    "status": status,
+    "is_boolean": is_boolean,
+    "default_value": default_value,
+    "stock_value": stock_value,
+    "matches_default": value == default_value,
+    "matches_stock": value == stock_value,
+  }
+
+
+def _serialize_boolean_toggle_state(key, label):
+  value = _read_toggle_value(key)
+  if value not in BOOLEAN_TOGGLE_VALUES:
+    value = "0"
+
+  return {
+    "key": key,
+    "label": label,
+    "value": value,
+    "display_value": "Enabled" if value == "1" else "Disabled",
+    "status": "enabled" if value == "1" else "disabled",
+    "is_boolean": True,
+    "default_value": "0",
+    "stock_value": "0",
+    "matches_default": value == "0",
+    "matches_stock": value == "0",
+  }
 
 def setup(app):
   @app.errorhandler(404)
@@ -1498,6 +1576,28 @@ def setup(app):
     buffer.seek(0)
 
     return send_file(buffer, as_attachment=True, download_name="toggle_backup.json", mimetype="application/json")
+
+  @app.route("/api/toggles/state", methods=["GET"])
+  def get_toggle_states():
+    frogpilot_toggle_states = []
+    for key, default_value, _, stock_value in frogpilot_default_params:
+      if key in EXCLUDED_KEYS:
+        continue
+      frogpilot_toggle_states.append(_serialize_toggle_state(key, default_value, stock_value))
+
+    openpilot_ui_toggle_states = [
+      _serialize_boolean_toggle_state(key, label)
+      for key, label in OPENPILOT_UI_TOGGLE_DEFINITIONS
+    ]
+
+    frogpilot_toggle_states.sort(key=lambda toggle: toggle["label"].lower())
+    openpilot_ui_toggle_states.sort(key=lambda toggle: toggle["label"].lower())
+    return jsonify({
+      "toggles": frogpilot_toggle_states + openpilot_ui_toggle_states,
+      "frogpilot_toggles": frogpilot_toggle_states,
+      "openpilot_ui_toggles": openpilot_ui_toggle_states,
+      "updated_at": datetime.now(UTC).isoformat(),
+    })
 
   @app.route("/api/toggles/restore", methods=["POST"])
   def restore_toggle_values():
