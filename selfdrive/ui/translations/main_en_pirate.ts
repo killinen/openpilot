@@ -5822,6 +5822,26 @@ This may take up to a minute, arr.</translation>
         <source>comma three only: keep the device awake by setting DisablePowerDown. Use sparingly; may drain the vehicle battery when parked.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>AUTO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IGN ON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IGN OFF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ignition Override</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Override panda ignition reporting.&lt;/b&gt; AUTO uses the real panda ignition signals. IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. This is intended for debugging or non-standard wiring setups and resets on manager restart.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

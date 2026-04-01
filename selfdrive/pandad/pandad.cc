@@ -49,6 +49,12 @@ std::atomic<bool> ignition(false);
 
 ExitHandler do_exit;
 
+enum class IgnitionOverride : int {
+  AUTO = 0,
+  ON = 1,
+  OFF = 2,
+};
+
 bool check_all_connected(const std::vector<Panda *> &pandas) {
   for (const auto& panda : pandas) {
     if (!panda->connected()) {
@@ -244,7 +250,7 @@ void can_recv_thread(std::vector<Panda *> pandas) {
   }
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -281,15 +287,25 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
     pandaCanStates.push_back(can_health);
 
-    if (spoofing_started) {
-      health.ignition_line_pkt = 1;
-    }
-
     // on comma three setups with a red panda, the dos can
     // get false positive ignitions due to the harness box
     // without a harness connector, so ignore it
     if (red_panda_comma_three && (panda->hw_type == cereal::PandaState::PandaType::DOS)) {
       health.ignition_line_pkt = 0;
+    }
+
+    switch (ignition_override) {
+      case IgnitionOverride::ON:
+        health.ignition_line_pkt = 1;
+        health.ignition_can_pkt = 0;
+        break;
+      case IgnitionOverride::OFF:
+        health.ignition_line_pkt = 0;
+        health.ignition_can_pkt = 0;
+        break;
+      case IgnitionOverride::AUTO:
+      default:
+        break;
     }
 
     ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
@@ -447,7 +463,13 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       send_peripheral_state(&pm, peripheral_panda);
     }
 
-    auto ignition_opt = send_panda_states(&pm, pandas, spoofing_started);
+    const int ignition_override_value = spoofing_started ? static_cast<int>(IgnitionOverride::ON) : params.getInt("IgnitionOverride");
+    const IgnitionOverride ignition_override =
+      (ignition_override_value == static_cast<int>(IgnitionOverride::ON)) ? IgnitionOverride::ON :
+      (ignition_override_value == static_cast<int>(IgnitionOverride::OFF)) ? IgnitionOverride::OFF :
+      IgnitionOverride::AUTO;
+
+    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override);
 
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");

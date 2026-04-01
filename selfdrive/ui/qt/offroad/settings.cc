@@ -102,6 +102,13 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
                                              "your steering wheel distance button."),
                                           "../assets/offroad/icon_speed_limit.png",
                                           longi_button_texts);
+  std::vector<QString> ignition_override_texts{tr("AUTO"), tr("IGN ON"), tr("IGN OFF")};
+  auto ignition_override_setting = new ButtonParamControl("IgnitionOverride", tr("Ignition Override"),
+                                          tr("<b>Override panda ignition reporting.</b> AUTO uses the real panda ignition signals. "
+                                             "IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. "
+                                             "This is intended for debugging or non-standard wiring setups and resets on manager restart."),
+                                          "../assets/offroad/icon_warning.png",
+                                          ignition_override_texts, 180);
 
   // set up uiState update for personality setting
   QObject::connect(uiState(), &UIState::uiUpdate, this, &TogglesPanel::updateState);
@@ -114,6 +121,10 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
 
     addItem(toggle);
     toggles[param.toStdString()] = toggle;
+
+    if (param == "OpenpilotEnabledToggle") {
+      addItem(ignition_override_setting);
+    }
 
     // insert longitudinal personality after NDOG toggle
     if (param == "DisengageOnAccelerator") {

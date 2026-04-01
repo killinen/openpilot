@@ -52,17 +52,28 @@ KEYS = {
 TMUX_LOGS_PATH = Path("/data/tmux_logs")
 BOOLEAN_TOGGLE_VALUES = {"0", "1"}
 OPENPILOT_UI_TOGGLE_DEFINITIONS = [
-  ("OpenpilotEnabledToggle", "Enable openpilot"),
-  ("ExperimentalLongitudinalEnabled", "openpilot Longitudinal Control"),
-  ("ExperimentalMode", "Experimental Mode"),
-  ("DisengageOnAccelerator", "Disengage on Accelerator Pedal"),
-  ("IsLdwEnabled", "Enable Lane Departure Warnings"),
-  ("RecordFront", "Record and Upload Driver Camera"),
-  ("GoranConnectEnabled", "Enable GoranConnect"),
-  ("DisablePowerDown", "Disable Power Down"),
-  ("IsMetric", "Use Metric System"),
-  ("NavSettingTime24h", "Show ETA in 24h Format"),
-  ("NavSettingLeftSide", "Show Map on Left Side"),
+  {"key": "OpenpilotEnabledToggle", "label": "Enable openpilot"},
+  {
+    "key": "IgnitionOverride",
+    "label": "Ignition Override",
+    "default_value": "0",
+    "value_map": {
+      "": ("AUTO", "default"),
+      "0": ("AUTO", "default"),
+      "1": ("IGN ON", "enabled"),
+      "2": ("IGN OFF", "disabled"),
+    },
+  },
+  {"key": "ExperimentalLongitudinalEnabled", "label": "openpilot Longitudinal Control"},
+  {"key": "ExperimentalMode", "label": "Experimental Mode"},
+  {"key": "DisengageOnAccelerator", "label": "Disengage on Accelerator Pedal"},
+  {"key": "IsLdwEnabled", "label": "Enable Lane Departure Warnings"},
+  {"key": "RecordFront", "label": "Record and Upload Driver Camera"},
+  {"key": "GoranConnectEnabled", "label": "Enable GoranConnect"},
+  {"key": "DisablePowerDown", "label": "Disable Power Down"},
+  {"key": "IsMetric", "label": "Use Metric System"},
+  {"key": "NavSettingTime24h", "label": "Show ETA in 24h Format"},
+  {"key": "NavSettingLeftSide", "label": "Show Map on Left Side"},
 ]
 
 
@@ -111,10 +122,30 @@ def _serialize_toggle_state(key, default_value, stock_value):
   }
 
 
-def _serialize_boolean_toggle_state(key, label):
+def _serialize_openpilot_ui_setting_state(setting):
+  key = setting["key"]
+  label = setting["label"]
   value = _read_toggle_value(key)
+  value_map = setting.get("value_map")
+  default_value = str(setting.get("default_value", "0"))
+
+  if value_map:
+    display_value, status = value_map.get(value, (value or "Unknown", "custom"))
+    return {
+      "key": key,
+      "label": label,
+      "value": value,
+      "display_value": display_value,
+      "status": status,
+      "is_boolean": False,
+      "default_value": default_value,
+      "stock_value": default_value,
+      "matches_default": value == default_value,
+      "matches_stock": value == default_value,
+    }
+
   if value not in BOOLEAN_TOGGLE_VALUES:
-    value = "0"
+    value = default_value
 
   return {
     "key": key,
@@ -1586,8 +1617,8 @@ def setup(app):
       frogpilot_toggle_states.append(_serialize_toggle_state(key, default_value, stock_value))
 
     openpilot_ui_toggle_states = [
-      _serialize_boolean_toggle_state(key, label)
-      for key, label in OPENPILOT_UI_TOGGLE_DEFINITIONS
+      _serialize_openpilot_ui_setting_state(setting)
+      for setting in OPENPILOT_UI_TOGGLE_DEFINITIONS
     ]
 
     frogpilot_toggle_states.sort(key=lambda toggle: toggle["label"].lower())

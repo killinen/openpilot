@@ -144,7 +144,8 @@
   cursor: pointer;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-demi-bold);
-  padding: 0.4rem 0.8rem;
+  min-width: 4.5rem;
+  padding: 0.3rem 0.7rem;
   transition: background-color var(--transition-fast), transform var(--transition-fast);
 }
 
