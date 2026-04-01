@@ -64,6 +64,24 @@ OPENPILOT_UI_TOGGLE_DEFINITIONS = [
       "2": ("IGN OFF", "disabled"),
     },
   },
+  {
+    "key": "CanBus0Speed",
+    "label": "CAN0 Bitrate",
+    "default_value": "500",
+    "is_boolean": False,
+  },
+  {
+    "key": "CanBus1Speed",
+    "label": "CAN1 Bitrate",
+    "default_value": "500",
+    "is_boolean": False,
+  },
+  {
+    "key": "CanBus2Speed",
+    "label": "CAN2 Bitrate",
+    "default_value": "500",
+    "is_boolean": False,
+  },
   {"key": "ExperimentalLongitudinalEnabled", "label": "openpilot Longitudinal Control"},
   {"key": "ExperimentalMode", "label": "Experimental Mode"},
   {"key": "DisengageOnAccelerator", "label": "Disengage on Accelerator Pedal"},
@@ -128,6 +146,7 @@ def _serialize_openpilot_ui_setting_state(setting):
   value = _read_toggle_value(key)
   value_map = setting.get("value_map")
   default_value = str(setting.get("default_value", "0"))
+  is_boolean = setting.get("is_boolean", True)
 
   if value_map:
     display_value, status = value_map.get(value, (value or "Unknown", "custom"))
@@ -142,6 +161,22 @@ def _serialize_openpilot_ui_setting_state(setting):
       "stock_value": default_value,
       "matches_default": value == default_value,
       "matches_stock": value == default_value,
+    }
+
+  if not is_boolean:
+    effective_value = value or default_value
+    status = "default" if effective_value == default_value else "custom"
+    return {
+      "key": key,
+      "label": label,
+      "value": effective_value,
+      "display_value": effective_value,
+      "status": status,
+      "is_boolean": False,
+      "default_value": default_value,
+      "stock_value": default_value,
+      "matches_default": effective_value == default_value,
+      "matches_stock": effective_value == default_value,
     }
 
   if value not in BOOLEAN_TOGGLE_VALUES:

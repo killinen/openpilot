@@ -196,7 +196,12 @@ class ButtonParamControl : public AbstractControl {
   Q_OBJECT
 public:
   ButtonParamControl(const QString &param, const QString &title, const QString &desc, const QString &icon,
-                     const std::vector<QString> &button_texts, const int minimum_button_width = 225) : AbstractControl(title, desc, icon) {
+                     const std::vector<QString> &button_texts, const int minimum_button_width = 225) :
+                     ButtonParamControl(param, title, desc, icon, button_texts, {}, minimum_button_width) {}
+
+  ButtonParamControl(const QString &param, const QString &title, const QString &desc, const QString &icon,
+                     const std::vector<QString> &button_texts, const std::vector<int> &button_values,
+                     const int minimum_button_width = 225) : AbstractControl(title, desc, icon) {
     const QString style = R"(
       QPushButton {
         border-radius: 50px;
@@ -218,6 +223,12 @@ public:
       }
     )";
     key = param.toStdString();
+    values = button_values;
+    if (values.empty()) {
+      for (int i = 0; i < button_texts.size(); ++i) {
+        values.push_back(i);
+      }
+    }
     int value = atoi(params.get(key).c_str());
 
     button_group = new QButtonGroup(this);
@@ -225,7 +236,7 @@ public:
     for (int i = 0; i < button_texts.size(); i++) {
       QPushButton *button = new QPushButton(button_texts[i], this);
       button->setCheckable(true);
-      button->setChecked(i == value);
+      button->setChecked(values[i] == value);
       button->setStyleSheet(style);
       button->setMinimumWidth(minimum_button_width);
       hlayout->addWidget(button);
@@ -233,7 +244,7 @@ public:
     }
 
     QObject::connect(button_group, QOverload<int>::of(&QButtonGroup::buttonClicked), [=](int id) {
-      params.put(key, std::to_string(id));
+      params.put(key, std::to_string(values[id]));
     });
   }
 
@@ -249,7 +260,15 @@ public:
 
   void refresh() {
     int value = atoi(params.get(key).c_str());
-    button_group->button(value)->setChecked(true);
+    for (int i = 0; i < values.size(); ++i) {
+      if (values[i] == value) {
+        button_group->button(i)->setChecked(true);
+        return;
+      }
+    }
+    if (!button_group->buttons().empty()) {
+      button_group->button(0)->setChecked(true);
+    }
   }
 
   void showEvent(QShowEvent *event) override {
@@ -260,6 +279,7 @@ private:
   std::string key;
   Params params;
   QButtonGroup *button_group;
+  std::vector<int> values;
 };
 
 class ListWidget : public QWidget {

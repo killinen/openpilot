@@ -5838,6 +5838,62 @@ This may take up to a minute.</source>
         <source>&lt;b&gt;Override panda ignition reporting.&lt;/b&gt; AUTO uses the real panda ignition signals. IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. This is intended for debugging or non-standard wiring setups and resets on manager restart.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>10</source>
+        <translation type="obsolete">5G {10?}</translation>
+    </message>
+    <message>
+        <source>20</source>
+        <translation type="obsolete">5G {20?}</translation>
+    </message>
+    <message>
+        <source>50</source>
+        <translation type="obsolete">5G {50?}</translation>
+    </message>
+    <message>
+        <source>100</source>
+        <translation type="unfinished">5G {100?}</translation>
+    </message>
+    <message>
+        <source>125</source>
+        <translation type="unfinished">5G {125?}</translation>
+    </message>
+    <message>
+        <source>250</source>
+        <translation type="unfinished">5G {250?}</translation>
+    </message>
+    <message>
+        <source>500</source>
+        <translation type="unfinished">5G {500?}</translation>
+    </message>
+    <message>
+        <source>1000</source>
+        <translation type="unfinished">5G {1000?}</translation>
+    </message>
+    <message>
+        <source>CAN0 Bitrate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Set the panda CAN0 nominal bitrate.&lt;/b&gt; Use this for raw CAN access on non-default buses, such as J1939 at 250 kbps.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CAN1 Bitrate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Set the panda CAN1 nominal bitrate.&lt;/b&gt; This applies directly to the panda bus configuration.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CAN2 Bitrate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Set the panda CAN2 nominal bitrate.&lt;/b&gt; This applies directly to the panda bus configuration.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

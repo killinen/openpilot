@@ -109,6 +109,26 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
                                              "This is intended for debugging or non-standard wiring setups and resets on manager restart."),
                                           "../assets/offroad/icon_warning.png",
                                           ignition_override_texts, 180);
+  const std::vector<QString> can_speed_texts{tr("100"), tr("125"), tr("250"), tr("500"), tr("1000")};
+  const std::vector<int> can_speed_values{100, 125, 250, 500, 1000};
+  for (int bus = 0; bus < 3; ++bus) {
+    const std::string key = "CanBus" + std::to_string(bus) + "Speed";
+    if (params.get(key).empty()) {
+      params.putInt(key, 500);
+    }
+  }
+  auto can0_speed_setting = new ButtonParamControl("CanBus0Speed", tr("CAN0 Bitrate"),
+                                          tr("<b>Set the panda CAN0 nominal bitrate.</b> Use this for raw CAN access on non-default buses, such as J1939 at 250 kbps."),
+                                          "../assets/offroad/icon_network.png",
+                                          can_speed_texts, can_speed_values, 110);
+  auto can1_speed_setting = new ButtonParamControl("CanBus1Speed", tr("CAN1 Bitrate"),
+                                          tr("<b>Set the panda CAN1 nominal bitrate.</b> This applies directly to the panda bus configuration."),
+                                          "../assets/offroad/icon_network.png",
+                                          can_speed_texts, can_speed_values, 110);
+  auto can2_speed_setting = new ButtonParamControl("CanBus2Speed", tr("CAN2 Bitrate"),
+                                          tr("<b>Set the panda CAN2 nominal bitrate.</b> This applies directly to the panda bus configuration."),
+                                          "../assets/offroad/icon_network.png",
+                                          can_speed_texts, can_speed_values, 110);
 
   // set up uiState update for personality setting
   QObject::connect(uiState(), &UIState::uiUpdate, this, &TogglesPanel::updateState);
@@ -124,6 +144,9 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
 
     if (param == "OpenpilotEnabledToggle") {
       addItem(ignition_override_setting);
+      addItem(can0_speed_setting);
+      addItem(can1_speed_setting);
+      addItem(can2_speed_setting);
     }
 
     // insert longitudinal personality after NDOG toggle

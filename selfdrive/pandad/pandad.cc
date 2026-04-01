@@ -55,6 +55,29 @@ enum class IgnitionOverride : int {
   OFF = 2,
 };
 
+constexpr std::array<int, PANDA_CAN_CNT> kDefaultCanSpeeds = {500, 500, 500};
+constexpr std::array<int, 8> kSupportedCanSpeeds = {10, 20, 50, 100, 125, 250, 500, 1000};
+
+bool is_valid_can_speed(int speed) {
+  return std::find(kSupportedCanSpeeds.begin(), kSupportedCanSpeeds.end(), speed) != kSupportedCanSpeeds.end();
+}
+
+int get_configured_can_speed(Params &params, int bus) {
+  const std::string key = "CanBus" + std::to_string(bus) + "Speed";
+  const int speed = params.getInt(key);
+  return is_valid_can_speed(speed) ? speed : kDefaultCanSpeeds[bus];
+}
+
+void apply_configured_can_speeds(Panda *panda, Params &params, std::array<int, PANDA_CAN_CNT> &applied_speeds) {
+  for (int bus = 0; bus < PANDA_CAN_CNT; ++bus) {
+    const int speed = get_configured_can_speed(params, bus);
+    if (applied_speeds[bus] != speed) {
+      panda->set_can_speed_kbps(bus, speed);
+      applied_speeds[bus] = speed;
+    }
+  }
+}
+
 bool check_all_connected(const std::vector<Panda *> &pandas) {
   for (const auto& panda : pandas) {
     if (!panda->connected()) {
@@ -443,6 +466,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
   PubMaster pm({"pandaStates", "peripheralState"});
 
   Panda *peripheral_panda = pandas[0];
+  std::array<int, PANDA_CAN_CNT> applied_can_speeds = {-1, -1, -1};
   bool is_onroad = false;
   bool is_onroad_last = false;
   std::future<bool> safety_future;
@@ -458,6 +482,8 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
   RateKeeper rk("panda_state_thread", 10);
 
   while (!do_exit && check_all_connected(pandas)) {
+    apply_configured_can_speeds(peripheral_panda, params, applied_can_speeds);
+
     // send out peripheralState at 2Hz
     if (sm.frame % 5 == 0) {
       send_peripheral_state(&pm, peripheral_panda);
