@@ -2,10 +2,12 @@
 import os
 import time
 import json
+import re
 from zipfile import ZipFile, ZIP_DEFLATED
 import subprocess
 import bz2
 from collections.abc import Callable
+from pathlib import Path
 from datetime import datetime, UTC
 from typing import cast
 import shutil
@@ -13,6 +15,7 @@ import shutil
 from openpilot.tools.teletyped.helper import (
   log,
   get_dongle_id,
+  get_op_params_info,
   API_URL,
   WORMHOLE_BINARY,
   SENDER_LOG,
@@ -30,6 +33,12 @@ from openpilot.tools.teletyped.label_utils import (
   strip_boot_prefix,
 )
 
+OPENPILOT_BASEDIR: str | None
+try:
+  from openpilot.common.basedir import BASEDIR as OPENPILOT_BASEDIR
+except Exception:  # pragma: no cover - runtime fallback for unusual packaging
+  OPENPILOT_BASEDIR = None
+
 TIMEOUT = 5
 ZIP_EPOCH = datetime(1980, 1, 1).timestamp()
 RETRY_LIMIT = 2
@@ -38,6 +47,8 @@ DRIVE_SCAN_REQUEST_PATH = f"{API_URL}/drive-scan-requests"
 DRIVE_INVENTORY_UPLOAD_PATH = f"{API_URL}/drive-inventory"
 DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
+RLOG_UPLOAD_PATH = f"{API_URL}/rlogs/upload"
+SCHEMA_BUNDLE_UPLOAD_PATH = f"{API_URL}/rlogs/schema-bundles/upload"
 AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").strip().lower() not in {
   "0",
   "false",
@@ -47,6 +58,11 @@ AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").str
 
 _auth_wait_logged = False
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
+CAPNP_IMPORT_RE = re.compile(
+  r'^\s*using(?:\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*)?\s+import\s+"([^"]+)"'
+)
+SCHEMA_FETCH_REQUEST_FILE = "__schema_bundle__"
+SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
 
 
 def _safe_zip_name(name: str) -> str:
@@ -121,6 +137,211 @@ def _maybe_compress_for_zip(src_path: str, rel_path: str, temp_dir: str, cleanup
       raise
 
   return src_path, rel_path
+
+
+def _sanitize_segment_component(value: str) -> str:
+  sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", value or "")
+  sanitized = re.sub(r"-+", "-", sanitized).strip("-._")
+  return sanitized[:180]
+
+
+def _build_segment_rlog_filename(device_id: str, drive_name: str) -> str:
+  if not device_id:
+    raise ValueError("device_id is required")
+  drive_part = _sanitize_segment_component(drive_name)
+  if not drive_part:
+    raise ValueError("drive_name is required")
+  return f"{device_id}__{drive_part}__rlog.bz2"
+
+
+def _is_direct_segment_rlog_request(requested_files: list[str] | None) -> bool:
+  return requested_files in (["rlog"], ["rlog.bz2"])
+
+
+def _find_direct_segment_rlog_path(segments: list[str]) -> str | None:
+  matches = []
+  for segment in segments:
+    for basename in ("rlog", "rlog.bz2"):
+      candidate = os.path.join(segment, basename)
+      if os.path.isfile(candidate):
+        matches.append(candidate)
+
+  if len(matches) > 1:
+    raise RuntimeError("multiple segment rlog files matched request")
+  if len(matches) == 1:
+    return matches[0]
+  return None
+
+
+def _prepare_segment_rlog_upload(src_path: str, temp_dir: str) -> tuple[str, list[str]]:
+  if src_path.endswith(".bz2"):
+    return src_path, []
+
+  upload_path = os.path.join(temp_dir, f"{_safe_zip_name(os.path.basename(src_path))}.bz2")
+  with open(src_path, "rb") as fin, bz2.open(upload_path, "wb") as fout:
+    shutil.copyfileobj(fin, fout)
+  return upload_path, [upload_path]
+
+
+def _build_schema_profile_id(branch_name: str | None, device_id: str) -> str:
+  branch_part = _sanitize_segment_component(branch_name or "")
+  if branch_part:
+    return f"schema-{branch_part.lower()}"
+  return f"schema-{_sanitize_segment_component(device_id).lower()}"
+
+
+def _is_schema_bundle_request(drive_name: str, requested_files: list[str] | None) -> bool:
+  return bool(drive_name and drive_name.startswith(SCHEMA_FETCH_DRIVE_PREFIX)) or requested_files == [SCHEMA_FETCH_REQUEST_FILE]
+
+
+def _teletyped_repo_root() -> str:
+  candidates: list[str] = []
+
+  env_basedir = os.environ.get("BASEDIR")
+  if env_basedir:
+    candidates.append(os.path.abspath(env_basedir))
+
+  if OPENPILOT_BASEDIR:
+    candidates.append(os.path.abspath(OPENPILOT_BASEDIR))
+
+  script_path = Path(os.path.realpath(__file__))
+  candidates.extend(str(parent) for parent in script_path.parents[:6])
+  candidates.append(os.path.abspath(os.getcwd()))
+
+  seen: set[str] = set()
+  checked: list[str] = []
+  for candidate in candidates:
+    if not candidate or candidate in seen:
+      continue
+    seen.add(candidate)
+    checked.append(candidate)
+    if os.path.isfile(os.path.join(candidate, "cereal", "log.capnp")):
+      return candidate
+
+  raise RuntimeError(
+    "could not locate source root containing cereal/log.capnp; checked: "
+    + ", ".join(checked)
+  )
+
+
+def _current_git_branch() -> str | None:
+  try:
+    op_info = get_op_params_info()
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to read git branch from Params: {e}", "WARN")
+    return None
+  branch = op_info.get("git_branch")
+  if isinstance(branch, str) and branch.strip():
+    return branch.strip()
+  return None
+
+
+def _iter_capnp_imports(abs_path: str) -> list[str]:
+  imports: list[str] = []
+  try:
+    with open(abs_path, encoding="utf-8") as src:
+      for line in src:
+        match = CAPNP_IMPORT_RE.match(line)
+        if not match:
+          continue
+        import_path = match.group(1).strip()
+        if import_path.startswith("/capnp/"):
+          continue
+        imports.append(import_path)
+  except OSError as e:
+    raise RuntimeError(f"failed to read {abs_path}: {e}") from e
+  return imports
+
+
+def _collect_schema_bundle_paths(root_dir: str) -> list[str]:
+  seed_paths = ["cereal/log.capnp"]
+  for extra in ("cereal/car.capnp", "cereal/custom.capnp"):
+    if os.path.isfile(os.path.join(root_dir, extra)):
+      seed_paths.append(extra)
+
+  queue = list(seed_paths)
+  seen: set[str] = set()
+  ordered: list[str] = []
+
+  while queue:
+    rel_path = os.path.normpath(queue.pop(0)).replace('\\', '/')
+    if rel_path in seen:
+      continue
+
+    abs_path = os.path.join(root_dir, rel_path)
+    if not os.path.isfile(abs_path):
+      raise RuntimeError(f"missing schema dependency: {rel_path}")
+
+    seen.add(rel_path)
+    ordered.append(rel_path)
+
+    for import_path in _iter_capnp_imports(abs_path):
+      dep_rel = os.path.normpath(os.path.join(os.path.dirname(rel_path), import_path)).replace('\\', '/')
+      if dep_rel.startswith('../'):
+        raise RuntimeError(f"schema import escapes repo root: {import_path}")
+      dep_abs = os.path.join(root_dir, dep_rel)
+      if not os.path.isfile(dep_abs):
+        raise RuntimeError(f"missing imported schema file: {dep_rel}")
+      queue.append(dep_rel)
+
+  return ordered
+
+
+def _build_schema_bundle_zip(temp_dir: str, branch_name: str | None, device_id: str) -> tuple[str, list[str], str]:
+  root_dir = _teletyped_repo_root()
+  profile_id = _build_schema_profile_id(branch_name, device_id)
+  rel_paths = _collect_schema_bundle_paths(root_dir)
+  zip_label = _safe_zip_name(branch_name or profile_id)
+  zip_path = os.path.join(temp_dir, f"{zip_label}-schema.zip")
+  with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
+    for rel_path in rel_paths:
+      abs_path = os.path.join(root_dir, rel_path)
+      zipf.write(abs_path, arcname=rel_path)
+  return zip_path, rel_paths, profile_id
+
+
+def upload_schema_bundle(zip_path: str, device_id: str, branch_name: str | None, profile_id: str) -> dict | None:
+  headers = _auth_headers()
+  if not headers:
+    log("⚠️ Schema bundle upload skipped (missing auth headers)", "WARN")
+    return None
+
+  label = f"{branch_name} schema" if branch_name else f"{profile_id} schema"
+  try:
+    with open(zip_path, "rb") as file_obj:
+      response = http_post(
+        SCHEMA_BUNDLE_UPLOAD_PATH,
+        headers=headers,
+        data={
+          "device_id": device_id,
+          "branch_name": branch_name or "",
+          "profile_id": profile_id,
+          "label": label,
+          "overwrite": "true",
+        },
+        files={"file": (os.path.basename(zip_path), file_obj, "application/zip")},
+        timeout=max(TIMEOUT, 120),
+      )
+  except Exception as e:
+    capture_exception(e)
+    log(f"❌ Schema bundle upload failed: {e}", "ERROR")
+    return None
+
+  if response.status_code == 200:
+    try:
+      payload = response.json()
+    except ValueError:
+      payload = {}
+    profile = payload.get("profile") if isinstance(payload, dict) else None
+    if isinstance(profile, dict):
+      log(f"📨 Uploaded schema bundle -> {profile.get('id') or profile_id}")
+      return profile
+    return {"id": profile_id, "label": label}
+
+  body = response.text.strip()[:200]
+  log(f"❌ Schema bundle upload rejected: status={response.status_code} body={body}", "ERROR")
+  return None
 
 
 def _auth_headers():
@@ -418,6 +639,60 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
 
   return False
 
+
+def upload_segment_rlog(file_path: str, device_id: str, drive_name: str) -> str | None:
+  headers = _auth_headers()
+  if not headers:
+    log("⚠️ Segment rlog upload skipped (missing auth headers)", "WARN")
+    return None
+
+  canonical_name = _build_segment_rlog_filename(device_id, drive_name)
+  temp_cleanup: list[str] = []
+  try:
+    upload_path, temp_cleanup = _prepare_segment_rlog_upload(file_path, _pick_temp_dir())
+    with open(upload_path, "rb") as file_obj:
+      response = http_post(
+        RLOG_UPLOAD_PATH,
+        headers=headers,
+        data={
+          "device_id": device_id,
+          "drive_name": drive_name,
+          "overwrite": "false",
+        },
+        files={"file": (os.path.basename(upload_path), file_obj, "application/x-bzip2")},
+        timeout=max(TIMEOUT, 120),
+      )
+  except Exception as e:
+    capture_exception(e)
+    log(f"❌ Segment rlog upload failed for {drive_name}: {e}", "ERROR")
+    return None
+  finally:
+    for temp_file in temp_cleanup:
+      try:
+        os.remove(temp_file)
+      except OSError:
+        pass
+
+  if response.status_code == 200:
+    try:
+      payload = response.json()
+    except ValueError:
+      payload = {}
+    uploaded_name = payload.get("filename") or canonical_name
+    log(f"📨 Uploaded segment rlog {drive_name} -> {uploaded_name}")
+    return uploaded_name
+
+  if response.status_code == 409:
+    log(f"ℹ️ Hosted segment rlog already exists: {canonical_name}")
+    return canonical_name
+
+  body = response.text.strip()[:200]
+  log(
+    f"❌ Segment rlog upload rejected for {drive_name}: status={response.status_code} body={body}",
+    "ERROR",
+  )
+  return None
+
 def route_sender_step(device_id):
   if not has_internet_connection():
     log("No internet connection. Skipping route sender step.", "WARN")
@@ -443,6 +718,37 @@ def route_sender_step(device_id):
     requested_files = transfer.get("requested_files")
     if requested_files is not None and not isinstance(requested_files, list):
       requested_files = None
+
+    if _is_schema_bundle_request(drive_name, requested_files):
+      branch_name = transfer.get("schema_branch") if isinstance(transfer.get("schema_branch"), str) else _current_git_branch()
+      temp_dir = _pick_temp_dir(25 * 1024 * 1024)
+      zip_path = None
+      try:
+        update_drive_transfer(device_id, drive_name, status="sending", stage="collecting")
+        zip_path, included_files, profile_id = _build_schema_bundle_zip(temp_dir, branch_name, device_id)
+        update_drive_transfer(device_id, drive_name, status="sending", stage="uploading")
+        uploaded_profile = upload_schema_bundle(zip_path, device_id, branch_name, profile_id)
+        if uploaded_profile:
+          update_drive_transfer(
+            device_id,
+            drive_name,
+            status="sent",
+            stage="uploaded",
+            included_files=included_files,
+          )
+        else:
+          update_drive_transfer(device_id, drive_name, status="error", error="schema upload failed")
+      except Exception as e:
+        capture_exception(e)
+        log(f"❌ Schema bundle build failed for {drive_name}: {e}", "ERROR")
+        update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+      finally:
+        if zip_path and os.path.exists(zip_path):
+          try:
+            os.remove(zip_path)
+          except OSError:
+            pass
+      continue
 
     if boot_base is not None:
       if not os.path.isdir(BOOT_DIR):
@@ -517,6 +823,35 @@ def route_sender_step(device_id):
       if not segments:
         log(f"Missing file(s) for prefix: {base_name}", "WARN")
         update_drive_transfer(device_id, drive_name, status="error", error="segments missing")
+        continue
+
+      if _is_direct_segment_rlog_request(requested_files):
+        try:
+          rlog_path = _find_direct_segment_rlog_path(segments)
+        except Exception as e:
+          capture_exception(e)
+          log(f"Could not resolve direct segment rlog for {drive_name}: {e}", "ERROR")
+          update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+          continue
+
+        if not rlog_path:
+          log(f"Missing rlog for segment {drive_name}", "WARN")
+          update_drive_transfer(device_id, drive_name, status="error", error="rlog missing")
+          continue
+
+        update_drive_transfer(device_id, drive_name, status="sending", stage="uploading")
+        uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
+        if uploaded_name:
+          update_drive_transfer(
+            device_id,
+            drive_name,
+            status="sent",
+            stage="uploaded",
+            filename=uploaded_name,
+            included_files=["rlog"],
+          )
+        else:
+          update_drive_transfer(device_id, drive_name, status="error", error="rlog upload failed")
         continue
 
       temp_dir = _pick_temp_dir()
