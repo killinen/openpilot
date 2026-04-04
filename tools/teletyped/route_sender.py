@@ -42,8 +42,11 @@ except Exception:  # pragma: no cover - runtime fallback for unusual packaging
 TIMEOUT = 5
 ZIP_EPOCH = datetime(1980, 1, 1).timestamp()
 RETRY_LIMIT = 2
+ZIP_PROGRESS_CHUNK_SIZE = 1024 * 1024
+ZIP_PROGRESS_REPORT_INTERVAL_SECONDS = 1.0
 
 DRIVE_SCAN_REQUEST_PATH = f"{API_URL}/drive-scan-requests"
+DRIVE_SCAN_STATUS_PATH = f"{API_URL}/drive-scan-requests"
 DRIVE_INVENTORY_UPLOAD_PATH = f"{API_URL}/drive-inventory"
 DRIVE_TRANSFER_LIST_PATH = f"{API_URL}/drive-transfers"
 DRIVE_TRANSFER_UPDATE_PATH = f"{API_URL}/update-drive-transfer"
@@ -67,6 +70,104 @@ SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
 
 def _safe_zip_name(name: str) -> str:
   return name.replace("/", "_").replace("\\", "_")
+
+
+def _human_readable_bytes(num_bytes: int | float) -> str:
+  try:
+    size = float(num_bytes)
+  except (TypeError, ValueError):
+    return "?"
+  if size < 0:
+    return "?"
+  if size == 0:
+    return "0 B"
+  units = ["B", "KB", "MB", "GB", "TB", "PB"]
+  unit_index = 0
+  while size >= 1024 and unit_index < len(units) - 1:
+    size /= 1024
+    unit_index += 1
+  return f"{size:.1f} {units[unit_index]}"
+
+
+class ZipProgressReporter:
+  def __init__(
+    self,
+    device_id: str,
+    drive_name: str,
+    *,
+    stage: str,
+    label: str,
+    total_files: int,
+    total_bytes: int,
+    start_percent: int = 0,
+    end_percent: int = 100,
+  ) -> None:
+    self.device_id = device_id
+    self.drive_name = drive_name
+    self.stage = stage
+    self.label = label
+    self.total_files = max(0, total_files)
+    self.total_bytes = max(0, total_bytes)
+    self.start_percent = start_percent
+    self.end_percent = max(start_percent, end_percent)
+    self.processed_files = 0
+    self.processed_bytes = 0
+    self._last_percent = None
+    self._last_report_at = 0.0
+
+  def advance_bytes(self, num_bytes: int) -> None:
+    if num_bytes > 0:
+      self.processed_bytes += num_bytes
+    self.report()
+
+  def file_completed(self) -> None:
+    self.processed_files += 1
+    self.report(force=True)
+
+  def report(self, force: bool = False) -> None:
+    if self.total_bytes > 0:
+      ratio = min(1.0, self.processed_bytes / self.total_bytes)
+    elif self.total_files > 0:
+      ratio = min(1.0, self.processed_files / self.total_files)
+    else:
+      ratio = 1.0
+    progress_percent = int(round(self.start_percent + (self.end_percent - self.start_percent) * ratio))
+    now = time.monotonic()
+    if not force and self._last_percent == progress_percent and (now - self._last_report_at) < ZIP_PROGRESS_REPORT_INTERVAL_SECONDS:
+      return
+    if self.total_bytes > 0:
+      detail = (
+        f"{self.label}: {min(self.processed_files, self.total_files)}/{self.total_files} files, "
+        f"{_human_readable_bytes(min(self.processed_bytes, self.total_bytes))} / {_human_readable_bytes(self.total_bytes)}"
+      )
+    else:
+      detail = f"{self.label}: {min(self.processed_files, self.total_files)}/{self.total_files} files"
+    report_transfer_progress(
+      self.device_id,
+      self.drive_name,
+      stage=self.stage,
+      progress_percent=progress_percent,
+      detail=detail,
+    )
+    self._last_percent = progress_percent
+    self._last_report_at = now
+
+
+def _copy_path_into_zip(
+  zipf: ZipFile,
+  src_path: str,
+  arcname: str,
+  *,
+  progress_cb: Callable[[int], None] | None = None,
+) -> None:
+  with open(src_path, "rb") as src, zipf.open(arcname, "w") as dest:
+    while True:
+      chunk = src.read(ZIP_PROGRESS_CHUNK_SIZE)
+      if not chunk:
+        break
+      dest.write(chunk)
+      if progress_cb is not None:
+        progress_cb(len(chunk))
 
 
 def _pick_temp_dir(min_bytes: int = 150 * 1024 * 1024) -> str:
@@ -115,7 +216,14 @@ def _boot_file_requested(filename: str, requested_files: list[str] | None) -> bo
   return filename in requested_files or base_no_ext in requested_files
 
 
-def _maybe_compress_for_zip(src_path: str, rel_path: str, temp_dir: str, cleanup: list[str]) -> tuple[str, str]:
+def _maybe_compress_for_zip(
+  src_path: str,
+  rel_path: str,
+  temp_dir: str,
+  cleanup: list[str],
+  *,
+  progress_cb: Callable[[int], None] | None = None,
+) -> tuple[str, str]:
   """
   For rlog/qlog, create a .bz2 copy in temp_dir and return (path_to_zip, arcname_relative_to_drive).
   For all other files, return the original path and rel_path unchanged.
@@ -126,7 +234,13 @@ def _maybe_compress_for_zip(src_path: str, rel_path: str, temp_dir: str, cleanup
     dest_path = os.path.join(temp_dir, dest_base)
     try:
       with open(src_path, "rb") as fin, bz2.open(dest_path, "wb") as fout:
-        shutil.copyfileobj(fin, fout)
+        while True:
+          chunk = fin.read(ZIP_PROGRESS_CHUNK_SIZE)
+          if not chunk:
+            break
+          fout.write(chunk)
+          if progress_cb is not None:
+            progress_cb(len(chunk))
       cleanup.append(dest_path)
       rel_dir = os.path.dirname(rel_path)
       arc_rel = os.path.join(rel_dir, dest_base) if rel_dir not in ("", ".") else dest_base
@@ -366,7 +480,7 @@ def get_pending_drive_transfers(device_id):
     return []
 
 
-def update_drive_transfer(device_id, drive_name, status=None, **extra):
+def update_drive_transfer(device_id, drive_name, status=None, *, clear_progress=False, **extra):
   headers = _auth_headers()
   if not headers:
     return
@@ -377,6 +491,8 @@ def update_drive_transfer(device_id, drive_name, status=None, **extra):
   if status:
     payload["status"] = status
   payload.update({k: v for k, v in extra.items() if v is not None})
+  if clear_progress:
+    payload["progress_percent"] = None
   try:
     res = http_post(DRIVE_TRANSFER_UPDATE_PATH, json=payload, headers=headers, timeout=TIMEOUT)
     res.raise_for_status()
@@ -384,6 +500,42 @@ def update_drive_transfer(device_id, drive_name, status=None, **extra):
   except Exception as e:
     capture_exception(e)
     log(f"Failed to update drive transfer for {drive_name}: {e}", "ERROR")
+
+
+def update_drive_scan_status(device_id, **extra):
+  headers = _auth_headers()
+  if not headers:
+    return
+  payload = {k: v for k, v in extra.items() if v is not None}
+  try:
+    res = http_post(f"{DRIVE_SCAN_STATUS_PATH}/{device_id}/status", json=payload, headers=headers, timeout=TIMEOUT)
+    res.raise_for_status()
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to update drive scan status for {device_id}: {e}", "WARN")
+
+
+def report_transfer_progress(device_id, drive_name, *, status="sending", stage=None, progress_percent=None, detail=None, clear_progress=False, **extra):
+  payload = {k: v for k, v in extra.items() if v is not None}
+  if stage is not None:
+    payload["stage"] = stage
+  if progress_percent is not None:
+    payload["progress_percent"] = progress_percent
+  if detail is not None:
+    payload["detail"] = detail
+  update_drive_transfer(device_id, drive_name, status=status, clear_progress=clear_progress, **payload)
+
+
+def report_transfer_error(device_id, drive_name, error, *, detail=None, stage="failed"):
+  update_drive_transfer(
+    device_id,
+    drive_name,
+    status="error",
+    stage=stage,
+    detail=detail or error,
+    error=error,
+    clear_progress=True,
+  )
 
 
 def should_include_file(file_name: str, requested: list[str] | None) -> bool:
@@ -536,16 +688,51 @@ def drive_inventory_step(device_id):
       return
     request_info = {}
 
-  if not request_info.get("pending") and not AUTO_DRIVE_INVENTORY:
+  requested_scan = bool(request_info.get("pending"))
+  if not requested_scan and not AUTO_DRIVE_INVENTORY:
     return
 
-  drives, total_size = collect_drive_inventory()
+  scanned_at = datetime.now(UTC).isoformat()
+  if requested_scan:
+    update_drive_scan_status(
+      device_id,
+      status="in_progress",
+      stage="collecting",
+      detail="Collecting drive inventory on the device.",
+      scanned_at=scanned_at,
+    )
+
+  try:
+    drives, total_size = collect_drive_inventory()
+  except Exception as e:
+    capture_exception(e)
+    if requested_scan:
+      update_drive_scan_status(
+        device_id,
+        status="error",
+        stage="failed",
+        detail="Failed to collect drive inventory on the device.",
+        error=str(e),
+        )
+    log(f"Failed to collect drive inventory: {e}", "ERROR")
+    return
+
   payload = {
     "device_id": device_id,
     "drives": drives,
     "total_size_bytes": total_size,
-    "scanned_at": datetime.now(UTC).isoformat(),
+    "scanned_at": scanned_at,
   }
+
+  if requested_scan:
+    update_drive_scan_status(
+      device_id,
+      status="in_progress",
+      stage="uploading",
+      detail=f"Uploading inventory with {len(drives)} drives to the server.",
+      drive_count=len(drives),
+      scanned_at=scanned_at,
+    )
 
   try:
     response = http_post(
@@ -558,6 +745,16 @@ def drive_inventory_step(device_id):
     log(f"📊 Reported {len(drives)} drive(s) to server.")
   except Exception as e:
     capture_exception(e)
+    if requested_scan:
+      update_drive_scan_status(
+        device_id,
+        status="error",
+        stage="failed",
+        detail="Failed to upload drive inventory to the server.",
+        error=str(e),
+        drive_count=len(drives),
+        scanned_at=scanned_at,
+      )
     log(f"Failed to upload drive inventory: {e}", "ERROR")
 
 def log_local_send(device_id, filename, code, timestamp, drive_name=None):
@@ -594,6 +791,7 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
       wormhole_sent = False
       code = None
       zip_path_abs = os.path.abspath(zip_path)
+      filename = os.path.basename(zip_path_abs)
 
       proc = subprocess.Popen(
         [WORMHOLE_BINARY, "send", zip_path_abs],
@@ -606,10 +804,20 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
         if "Wormhole code is:" in line:
           code = line.split("Wormhole code is:")[1].strip()
           log(f"Wormhole code: {code}")
+          report_transfer_progress(
+            device_id,
+            drive_name,
+            status="sending",
+            stage="wormhole_ready",
+            detail=f"Wormhole code ready for {filename}. Waiting for the dock to receive it.",
+            clear_progress=True,
+            wormhole_code=code,
+            filename=filename,
+          )
           worked = send_wormhole_code(
             code,
             zip_path_abs,
-            os.path.basename(zip_path_abs),
+            filename,
             timestamp,
             device_id,
             drive_name=drive_name,
@@ -627,17 +835,16 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
 
       if wormhole_sent:
         log(f"✅ File sent via wormhole: {zip_path}")
-        log_local_send(device_id, os.path.basename(zip_path_abs), code, timestamp, drive_name=drive_name)
-        return True
-      else:
-        log("⚠️ Wormhole code not found in output", "WARN")
+        log_local_send(device_id, filename, code, timestamp, drive_name=drive_name)
+        return True, code, filename
 
+      log("⚠️ Wormhole code not found in output", "WARN")
     except Exception as e:
       capture_exception(e)
       log(f"Attempt {attempt} failed: {e}", "ERROR")
       time.sleep(2)
 
-  return False
+  return False, None, os.path.basename(os.path.abspath(zip_path))
 
 
 def upload_segment_rlog(file_path: str, device_id: str, drive_name: str) -> str | None:
@@ -724,9 +931,9 @@ def route_sender_step(device_id):
       temp_dir = _pick_temp_dir(25 * 1024 * 1024)
       zip_path = None
       try:
-        update_drive_transfer(device_id, drive_name, status="sending", stage="collecting")
+        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting schema files on the device.", clear_progress=True)
         zip_path, included_files, profile_id = _build_schema_bundle_zip(temp_dir, branch_name, device_id)
-        update_drive_transfer(device_id, drive_name, status="sending", stage="uploading")
+        report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading schema bundle to the server.", clear_progress=True)
         uploaded_profile = upload_schema_bundle(zip_path, device_id, branch_name, profile_id)
         if uploaded_profile:
           update_drive_transfer(
@@ -734,14 +941,16 @@ def route_sender_step(device_id):
             drive_name,
             status="sent",
             stage="uploaded",
+            detail="Schema bundle uploaded and ready for the dock.",
             included_files=included_files,
+            clear_progress=True,
           )
         else:
-          update_drive_transfer(device_id, drive_name, status="error", error="schema upload failed")
+          report_transfer_error(device_id, drive_name, "schema upload failed", detail="Schema bundle upload failed.")
       except Exception as e:
         capture_exception(e)
         log(f"❌ Schema bundle build failed for {drive_name}: {e}", "ERROR")
-        update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+        report_transfer_error(device_id, drive_name, str(e))
       finally:
         if zip_path and os.path.exists(zip_path):
           try:
@@ -753,7 +962,7 @@ def route_sender_step(device_id):
     if boot_base is not None:
       if not os.path.isdir(BOOT_DIR):
         log("Boot directory missing; cannot send boot files", "WARN")
-        update_drive_transfer(device_id, drive_name, status="error", error="boot directory missing")
+        report_transfer_error(device_id, drive_name, "boot directory missing", detail="Boot directory is missing on the device.")
         continue
 
       try:
@@ -761,10 +970,10 @@ def route_sender_step(device_id):
       except OSError as e:
         capture_exception(e)
         log(f"Failed to list boot directory: {e}", "ERROR")
-        update_drive_transfer(device_id, drive_name, status="error", error="boot dir unreadable")
+        report_transfer_error(device_id, drive_name, "boot dir unreadable", detail="Boot directory could not be read on the device.")
         continue
 
-      boot_files = []
+      boot_files: list[tuple[str, str, int]] = []
       for fname in boot_entries:
         file_path = os.path.join(BOOT_DIR, fname)
         if not os.path.isfile(file_path):
@@ -776,32 +985,49 @@ def route_sender_step(device_id):
           continue
         if not _boot_file_requested(fname, requested_files):
           continue
-        boot_files.append(fname)
+        try:
+          file_size = os.path.getsize(file_path)
+        except OSError:
+          file_size = 0
+        boot_files.append((fname, file_path, file_size))
 
       if not boot_files:
         log("No boot files match the requested set", "WARN")
-        update_drive_transfer(device_id, drive_name, status="error", error="boot file not requested")
+        report_transfer_error(device_id, drive_name, "boot file not requested", detail="No boot files matched the requested file filter.")
         continue
 
       zip_label = boot_base if boot_base else "boot"
       zip_path = os.path.join(_pick_temp_dir(), f"{_safe_zip_name(zip_label)}.zip")
       try:
         added_files = 0
+        total_boot_bytes = sum(file_size for _fname, _path, file_size in boot_files)
+        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting boot files on the device.", clear_progress=True)
+        progress_reporter = ZipProgressReporter(
+          device_id,
+          drive_name,
+          stage="compressing",
+          label="Compressing and zipping boot files on the device",
+          total_files=len(boot_files),
+          total_bytes=total_boot_bytes,
+          start_percent=0,
+          end_percent=100,
+        )
+        progress_reporter.report(force=True)
         with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
-          for fname in boot_files:
-            route_path = os.path.join(BOOT_DIR, fname)
+          for fname, route_path, _file_size in boot_files:
             arcname = os.path.join("boot", fname)
-            zipf.write(route_path, arcname=arcname)
+            _copy_path_into_zip(zipf, route_path, arcname, progress_cb=progress_reporter.advance_bytes)
             added_files += 1
+            progress_reporter.file_completed()
         if added_files == 0:
           log("No boot files zipped (empty selection)", "WARN")
-          update_drive_transfer(device_id, drive_name, status="error", error="boot file missing")
+          report_transfer_error(device_id, drive_name, "boot file missing", detail="No boot files were added to the archive.")
           continue
         log(f"📦 Zipped boot files ({added_files}) into folder: boot/")
       except Exception as e:
         capture_exception(e)
         log(f"❌ Zip failed for boot files {boot_files}: {e}", "ERROR")
-        update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+        report_transfer_error(device_id, drive_name, str(e))
         continue
 
     else:
@@ -810,7 +1036,7 @@ def route_sender_step(device_id):
       except OSError as e:
         capture_exception(e)
         log(f"Failed to list realdata: {e}", "ERROR")
-        update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+        report_transfer_error(device_id, drive_name, str(e))
         continue
 
       segments = []
@@ -822,7 +1048,7 @@ def route_sender_step(device_id):
 
       if not segments:
         log(f"Missing file(s) for prefix: {base_name}", "WARN")
-        update_drive_transfer(device_id, drive_name, status="error", error="segments missing")
+        report_transfer_error(device_id, drive_name, "segments missing", detail="No matching route segments were found on the device.")
         continue
 
       if _is_direct_segment_rlog_request(requested_files):
@@ -831,15 +1057,15 @@ def route_sender_step(device_id):
         except Exception as e:
           capture_exception(e)
           log(f"Could not resolve direct segment rlog for {drive_name}: {e}", "ERROR")
-          update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+          report_transfer_error(device_id, drive_name, str(e))
           continue
 
         if not rlog_path:
           log(f"Missing rlog for segment {drive_name}", "WARN")
-          update_drive_transfer(device_id, drive_name, status="error", error="rlog missing")
+          report_transfer_error(device_id, drive_name, "rlog missing", detail="The requested rlog file was not found.")
           continue
 
-        update_drive_transfer(device_id, drive_name, status="sending", stage="uploading")
+        report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading direct segment rlog to the server.", clear_progress=True)
         uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
         if uploaded_name:
           update_drive_transfer(
@@ -847,11 +1073,13 @@ def route_sender_step(device_id):
             drive_name,
             status="sent",
             stage="uploaded",
+            detail="Direct segment rlog uploaded and ready for the dock.",
             filename=uploaded_name,
+            clear_progress=True,
             included_files=["rlog"],
           )
         else:
-          update_drive_transfer(device_id, drive_name, status="error", error="rlog upload failed")
+          report_transfer_error(device_id, drive_name, "rlog upload failed", detail="Segment rlog upload failed.")
         continue
 
       temp_dir = _pick_temp_dir()
@@ -859,44 +1087,74 @@ def route_sender_step(device_id):
       temp_cleanup: list[str] = []
       try:
         missing_files = []
+        selected_files: list[tuple[str, str, int]] = []
+        for segment in segments:
+          for root, _, files in os.walk(segment):
+            for file in files:
+              if not should_include_file(file, requested_files):
+                continue
+              abs_path = os.path.join(root, file)
+              if not os.path.isfile(abs_path):
+                missing_files.append(abs_path)
+                continue
+              try:
+                file_size = os.path.getsize(abs_path)
+              except OSError:
+                file_size = 0
+              rel_path = os.path.relpath(abs_path, REALDATA_DIR)
+              selected_files.append((abs_path, rel_path, file_size))
+
         added_files = 0
-        update_drive_transfer(device_id, drive_name, status="sending", stage="compressing")
+        total_selected_bytes = sum(file_size for _abs_path, _rel_path, file_size in selected_files)
+        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting route segments on the device.", clear_progress=True)
+        progress_reporter = ZipProgressReporter(
+          device_id,
+          drive_name,
+          stage="compressing",
+          label="Compressing and zipping the requested files on the device",
+          total_files=len(selected_files),
+          total_bytes=total_selected_bytes,
+          start_percent=0,
+          end_percent=100,
+        )
+        progress_reporter.report(force=True)
         with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
-          for segment in segments:
-            for root, _, files in os.walk(segment):
-              for file in files:
-                if not should_include_file(file, requested_files):
-                  continue
-                abs_path = os.path.join(root, file)
-                if not os.path.isfile(abs_path):
-                  missing_files.append(abs_path)
-                  continue
-                rel_path = os.path.relpath(abs_path, REALDATA_DIR)
-                try:
-                  src_path, rel_for_zip = _maybe_compress_for_zip(abs_path, rel_path, temp_dir, temp_cleanup)
-                except Exception:
-                  missing_files.append(abs_path)
-                  continue
-                arcname = os.path.join(base_name, rel_for_zip)
-                try:
-                  zipf.write(src_path, arcname=arcname)
-                  added_files += 1
-                except FileNotFoundError as e:
-                  capture_exception(e)
-                  missing_files.append(abs_path)
-                  continue
+          for abs_path, rel_path, _file_size in selected_files:
+            try:
+              src_path, rel_for_zip = _maybe_compress_for_zip(
+                abs_path,
+                rel_path,
+                temp_dir,
+                temp_cleanup,
+                progress_cb=progress_reporter.advance_bytes if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES else None,
+              )
+            except Exception:
+              missing_files.append(abs_path)
+              continue
+            arcname = os.path.join(base_name, rel_for_zip)
+            try:
+              if src_path == abs_path:
+                _copy_path_into_zip(zipf, src_path, arcname, progress_cb=progress_reporter.advance_bytes)
+              else:
+                _copy_path_into_zip(zipf, src_path, arcname)
+              added_files += 1
+              progress_reporter.file_completed()
+            except FileNotFoundError as e:
+              capture_exception(e)
+              missing_files.append(abs_path)
+              continue
         if missing_files:
           log(f"⚠️ Skipped {len(missing_files)} missing file(s) while zipping {base_name}", "WARN")
         if added_files == 0:
           log(f"No files matched requested list for {base_name}", "WARN")
-          update_drive_transfer(device_id, drive_name, status="error", error="no files match request")
+          report_transfer_error(device_id, drive_name, "no files match request", detail="No files matched the requested file filter.")
           continue
-        update_drive_transfer(device_id, drive_name, status="sending", stage="zipped")
+        report_transfer_progress(device_id, drive_name, stage="zipped", detail=f"Archive ready with {added_files} file(s).", clear_progress=True)
         log(f"📦 Zipped {len(segments)} segment(s) into folder: {base_name} (files={added_files})")
       except Exception as e:
         capture_exception(e)
         log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
-        update_drive_transfer(device_id, drive_name, status="error", error=str(e))
+        report_transfer_error(device_id, drive_name, str(e))
         continue
       finally:
         for temp_file in temp_cleanup:
@@ -905,12 +1163,28 @@ def route_sender_step(device_id):
           except OSError:
             pass
 
-    update_drive_transfer(device_id, drive_name, status="sending", stage="wormhole")
+    report_transfer_progress(
+      device_id,
+      drive_name,
+      stage="wormhole",
+      detail="Starting wormhole send and waiting for a wormhole code.",
+      clear_progress=True,
+    )
 
-    if send_file_wormhole(zip_path, device_id, drive_name, requested_files):
-      update_drive_transfer(device_id, drive_name, status="sent")
+    sent, wormhole_code, archive_name = send_file_wormhole(zip_path, device_id, drive_name, requested_files)
+    if sent:
+      update_drive_transfer(
+        device_id,
+        drive_name,
+        status="sent",
+        stage="ready",
+        detail="Wormhole code registered. Transfer is ready for the dock.",
+        wormhole_code=wormhole_code,
+        clear_progress=True,
+        filename=archive_name,
+      )
     else:
-      update_drive_transfer(device_id, drive_name, status="error", error="wormhole send failed")
+      report_transfer_error(device_id, drive_name, "wormhole send failed", detail="Wormhole send failed before a download offer was created.")
 
     try:
       if os.path.exists(zip_path):
@@ -966,16 +1240,16 @@ def run_route_sender(stop_event=None, device_id=None):
         _auth_wait_logged = False
 
       try:
-        route_sender_step(device_id)
-      except Exception as e:
-        capture_exception(e)
-        log(f"❌ route_sender_step() failed: {e}", "ERROR")
-
-      try:
         drive_inventory_step(device_id)
       except Exception as e:
         capture_exception(e)
         log(f"❌ drive_inventory_step() failed: {e}", "ERROR")
+
+      try:
+        route_sender_step(device_id)
+      except Exception as e:
+        capture_exception(e)
+        log(f"❌ route_sender_step() failed: {e}", "ERROR")
 
       if wait_fn(CHECK_INTERVAL):
         break
