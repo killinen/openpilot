@@ -34,7 +34,10 @@ def set_realtime_priority(level: int) -> None:
 
 def set_core_affinity(cores: list[int]) -> None:
   if not PC:
-    os.sched_setaffinity(0, cores)
+    available_cores = os.sched_getaffinity(0)
+    valid_cores = [core for core in cores if core in available_cores]
+    if valid_cores:
+      os.sched_setaffinity(0, valid_cores)
 
 
 def config_realtime_process(cores: int | list[int], priority: int) -> None:

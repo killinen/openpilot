@@ -112,7 +112,7 @@ class ZipProgressReporter:
     self.end_percent = max(start_percent, end_percent)
     self.processed_files = 0
     self.processed_bytes = 0
-    self._last_percent = None
+    self._last_percent: int | None = None
     self._last_report_at = 0.0
 
   def advance_bytes(self, num_bytes: int) -> None:
@@ -138,7 +138,7 @@ class ZipProgressReporter:
     if self.total_bytes > 0:
       detail = (
         f"{self.label}: {min(self.processed_files, self.total_files)}/{self.total_files} files, "
-        f"{_human_readable_bytes(min(self.processed_bytes, self.total_bytes))} / {_human_readable_bytes(self.total_bytes)}"
+        + f"{_human_readable_bytes(min(self.processed_bytes, self.total_bytes))} / {_human_readable_bytes(self.total_bytes)}"
       )
     else:
       detail = f"{self.label}: {min(self.processed_files, self.total_files)}/{self.total_files} files"
