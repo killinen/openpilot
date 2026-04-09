@@ -4094,6 +4094,18 @@ Developer - Highly customizable settings for seasoned enthusiasts</source>
         <source>Stop and go for supported Subaru vehicles.</source>
         <translation type="gpt-5-generated">ฟังก์ชันหยุดและออกตัวสำหรับรถ Subaru ที่รองรับ.</translation>
     </message>
+    <message>
+        <source>Choose your car make before selecting a car model.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No car models were found for %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to map "%1" to a valid fingerprint.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FrogPilotVisualsPanel</name>

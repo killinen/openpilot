@@ -4094,6 +4094,18 @@ Developer - Highly customizable settings for seasoned swamp pros</translation>
         <source>Stop and go for supported Subaru vehicles.</source>
         <translation type="gpt-5-generated">Ribbit! Stop-n-go for supported Subaru rides, croak!</translation>
     </message>
+    <message>
+        <source>Choose your car make before selecting a car model.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No car models were found for %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to map "%1" to a valid fingerprint.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FrogPilotVisualsPanel</name>

@@ -1,5 +1,7 @@
 #include <QRegularExpression>
 #include <QTextStream>
+#include <QCoreApplication>
+#include <QDir>
 
 #include <tuple>
 #include <vector>
@@ -39,6 +41,7 @@ QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModel
   };
 
   QStringList carNameList;
+  carModels.clear();
 
   QStringList valueFiles = {makeMap.value(carMake, carMake)};
   if (carMake.compare("hyundai", Qt::CaseInsensitive) == 0) {
@@ -48,9 +51,10 @@ QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModel
   static QRegularExpression carNameRegex("CarDocs\\(\\s*\"([^\"]+)\"[^)]*\\)");
   static QRegularExpression platformRegex("((\\w+)\\s*=\\s*\\w+\\s*\\(\\s*\\[([\\s\\S]*?)\\]\\s*,)");
   static QRegularExpression validNameRegex("^[A-Za-z0-9 \u0160.()-]+$");
+  const QDir appDir(QCoreApplication::applicationDirPath());
 
   for (const QString &valueFile : valueFiles) {
-    QFile valuesFile(QString("../car/%1/values.py").arg(valueFile));
+    QFile valuesFile(appDir.filePath(QString("../car/%1/values.py").arg(valueFile)));
     if (!valuesFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
       continue;
     }
@@ -115,20 +119,48 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
   };
 
   ButtonControl *selectMakeButton = new ButtonControl(tr("Car Make"), tr("SELECT"));
-  QObject::connect(selectMakeButton, &ButtonControl::clicked, [makes, selectMakeButton, this]() {
+  ButtonControl *selectModelButton = new ButtonControl(tr("Car Model"), tr("SELECT"));
+
+  QObject::connect(selectMakeButton, &ButtonControl::clicked, [makes, selectMakeButton, selectModelButton, this]() {
     QString makeSelection = MultiOptionDialog::getSelection(tr("Choose your car make"), makes, "", this);
     if (!makeSelection.isEmpty()) {
+      const QString previousMake = QString::fromStdString(params.get("CarMake"));
       params.put("CarMake", makeSelection.toStdString());
       selectMakeButton->setValue(makeSelection);
+
+      if (previousMake.compare(makeSelection, Qt::CaseInsensitive) != 0) {
+        params.remove("CarModel");
+        params.remove("CarModelName");
+        params.putBool("ForceFingerprint", false);
+        selectModelButton->setValue(tr("SELECT"));
+        forceFingerprint->refresh();
+      }
     }
   });
   settingsList->addItem(selectMakeButton);
 
-  ButtonControl *selectModelButton = new ButtonControl(tr("Car Model"), tr("SELECT"));
   QObject::connect(selectModelButton, &ButtonControl::clicked, [selectModelButton, this]() {
-    QString modelSelection = MultiOptionDialog::getSelection(tr("Choose your car model"), getCarNames(QString::fromStdString(params.get("CarMake")).toLower(), carModels), "", this);
+    const QString selectedMake = QString::fromStdString(params.get("CarMake")).trimmed();
+    if (selectedMake.isEmpty()) {
+      ConfirmationDialog::alert(tr("Choose your car make before selecting a car model."), this);
+      return;
+    }
+
+    const QStringList carNames = getCarNames(selectedMake.toLower(), carModels);
+    if (carNames.isEmpty()) {
+      ConfirmationDialog::alert(tr("No car models were found for %1.").arg(selectedMake), this);
+      return;
+    }
+
+    QString modelSelection = MultiOptionDialog::getSelection(tr("Choose your car model"), carNames, "", this);
     if (!modelSelection.isEmpty()) {
-      params.put("CarModel", carModels.value(modelSelection).toStdString());
+      const QString carModel = carModels.value(modelSelection).trimmed();
+      if (carModel.isEmpty()) {
+        ConfirmationDialog::alert(tr("Unable to map \"%1\" to a valid fingerprint.").arg(modelSelection), this);
+        return;
+      }
+
+      params.put("CarModel", carModel.toStdString());
       params.put("CarModelName", modelSelection.toStdString());
       selectModelButton->setValue(modelSelection);
     }
