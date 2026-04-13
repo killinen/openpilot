@@ -2,6 +2,7 @@
 import os
 import time
 import json
+import hashlib
 import re
 from zipfile import ZipFile, ZIP_DEFLATED
 import subprocess
@@ -22,6 +23,7 @@ from openpilot.tools.teletyped.helper import (
   CHECK_INTERVAL,
   REALDATA_DIR,
   BOOT_DIR,
+  PERSIST_ROOT,
   has_internet_connection,
   build_auth_headers,
   http_get,
@@ -58,6 +60,8 @@ AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").str
   "no",
   "off",
 }
+DRIVE_INVENTORY_STATE_FILE = "teletyped_drive_inventory_state.json"
+_DRIVE_INVENTORY_STATE_PATH: str | None = None
 
 _auth_wait_logged = False
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
@@ -66,6 +70,26 @@ CAPNP_IMPORT_RE = re.compile(
 )
 SCHEMA_FETCH_REQUEST_FILE = "__schema_bundle__"
 SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
+
+
+def _env_nonnegative_int(name: str, default: int) -> int:
+  raw = os.environ.get(name)
+  if raw is None:
+    return default
+  try:
+    return max(0, int(raw.strip()))
+  except (TypeError, ValueError):
+    return default
+
+
+AUTO_DRIVE_INVENTORY_MIN_INTERVAL = _env_nonnegative_int(
+  "TELETYPED_AUTO_DRIVE_INVENTORY_MIN_INTERVAL",
+  900,
+)
+AUTO_DRIVE_INVENTORY_FORCE_REFRESH = _env_nonnegative_int(
+  "TELETYPED_AUTO_DRIVE_INVENTORY_FORCE_REFRESH",
+  86400,
+)
 
 
 def _safe_zip_name(name: str) -> str:
@@ -87,6 +111,110 @@ def _human_readable_bytes(num_bytes: int | float) -> str:
     size /= 1024
     unit_index += 1
   return f"{size:.1f} {units[unit_index]}"
+
+
+def _inventory_state_default() -> dict[str, float | str]:
+  return {
+    "last_auto_scan_started_at": 0.0,
+    "last_successful_upload_at": 0.0,
+    "last_inventory_fingerprint": "",
+  }
+
+
+def _is_writable_dir(path: str) -> bool:
+  test_path = os.path.join(path, ".teletyped_write_test")
+  try:
+    os.makedirs(path, exist_ok=True)
+    with open(test_path, "w", encoding="utf-8") as f:
+      f.write("ok")
+    os.remove(test_path)
+    return True
+  except OSError:
+    try:
+      if os.path.exists(test_path):
+        os.remove(test_path)
+    except OSError:
+      pass
+    return False
+
+
+def _resolve_drive_inventory_state_path() -> str:
+  global _DRIVE_INVENTORY_STATE_PATH
+  if _DRIVE_INVENTORY_STATE_PATH:
+    return _DRIVE_INVENTORY_STATE_PATH
+
+  candidates = [
+    os.path.join(PERSIST_ROOT, "comma"),
+    os.path.join(PERSIST_ROOT, "teletyped"),
+    "/data/params/d/goranconnect_ssh",
+    os.path.dirname(SENDER_LOG),
+    "/tmp/comma",
+  ]
+
+  for base in candidates:
+    path = os.path.join(base, DRIVE_INVENTORY_STATE_FILE)
+    if os.path.exists(path):
+      _DRIVE_INVENTORY_STATE_PATH = path
+      return path
+
+  for base in candidates:
+    if _is_writable_dir(base):
+      _DRIVE_INVENTORY_STATE_PATH = os.path.join(base, DRIVE_INVENTORY_STATE_FILE)
+      return _DRIVE_INVENTORY_STATE_PATH
+
+  _DRIVE_INVENTORY_STATE_PATH = os.path.join("/tmp", DRIVE_INVENTORY_STATE_FILE)
+  return _DRIVE_INVENTORY_STATE_PATH
+
+
+def _load_drive_inventory_state() -> dict[str, float | str]:
+  path = _resolve_drive_inventory_state_path()
+  state = _inventory_state_default()
+  if not os.path.isfile(path):
+    return state
+
+  try:
+    with open(path, encoding="utf-8") as f:
+      data = json.load(f)
+    if not isinstance(data, dict):
+      return state
+    for key in ("last_auto_scan_started_at", "last_successful_upload_at"):
+      value = data.get(key)
+      if isinstance(value, (int, float)):
+        state[key] = float(value)
+    fingerprint = data.get("last_inventory_fingerprint")
+    if isinstance(fingerprint, str):
+      state["last_inventory_fingerprint"] = fingerprint
+  except Exception:
+    return state
+  return state
+
+
+def _save_drive_inventory_state(state: dict[str, float | str]) -> None:
+  path = _resolve_drive_inventory_state_path()
+  directory = os.path.dirname(path) or "."
+  try:
+    os.makedirs(directory, exist_ok=True)
+    temp_path = f"{path}.tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+      json.dump(state, f)
+    os.replace(temp_path, path)
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to save drive inventory state: {e}", "WARN")
+
+
+def _inventory_fingerprint(drives: list[dict], total_size: int) -> str:
+  payload = {
+    "drives": drives,
+    "total_size_bytes": total_size,
+  }
+  encoded = json.dumps(
+    payload,
+    sort_keys=True,
+    separators=(",", ":"),
+    ensure_ascii=True,
+  ).encode("utf-8")
+  return hashlib.sha256(encoded).hexdigest()
 
 
 class ZipProgressReporter:
@@ -691,6 +819,16 @@ def drive_inventory_step(device_id):
   requested_scan = bool(request_info.get("pending"))
   if not requested_scan and not AUTO_DRIVE_INVENTORY:
     return
+  state = _load_drive_inventory_state()
+  now = time.time()
+  if not requested_scan:
+    last_auto_scan_started_at = float(state.get("last_auto_scan_started_at") or 0.0)
+    if AUTO_DRIVE_INVENTORY_MIN_INTERVAL > 0 and (
+      now - last_auto_scan_started_at
+    ) < AUTO_DRIVE_INVENTORY_MIN_INTERVAL:
+      return
+    state["last_auto_scan_started_at"] = now
+    _save_drive_inventory_state(state)
 
   scanned_at = datetime.now(UTC).isoformat()
   if requested_scan:
@@ -723,6 +861,20 @@ def drive_inventory_step(device_id):
     "total_size_bytes": total_size,
     "scanned_at": scanned_at,
   }
+  fingerprint = _inventory_fingerprint(drives, total_size)
+
+  if not requested_scan:
+    last_successful_upload_at = float(state.get("last_successful_upload_at") or 0.0)
+    last_inventory_fingerprint = str(state.get("last_inventory_fingerprint") or "")
+    needs_upload = last_successful_upload_at <= 0 or not last_inventory_fingerprint
+    should_force_refresh = (
+      AUTO_DRIVE_INVENTORY_FORCE_REFRESH > 0
+      and last_successful_upload_at > 0
+      and (now - last_successful_upload_at) >= AUTO_DRIVE_INVENTORY_FORCE_REFRESH
+    )
+    if fingerprint == last_inventory_fingerprint and not needs_upload and not should_force_refresh:
+      log("📊 Drive inventory unchanged; skipping automatic upload.")
+      return
 
   if requested_scan:
     update_drive_scan_status(
@@ -742,6 +894,10 @@ def drive_inventory_step(device_id):
       timeout=max(TIMEOUT, 30),
     )
     response.raise_for_status()
+    state["last_auto_scan_started_at"] = now
+    state["last_successful_upload_at"] = now
+    state["last_inventory_fingerprint"] = fingerprint
+    _save_drive_inventory_state(state)
     log(f"📊 Reported {len(drives)} drive(s) to server.")
   except Exception as e:
     capture_exception(e)
@@ -1213,13 +1369,21 @@ def run_route_sender(stop_event=None, device_id=None):
 
   wait_fn = _wait_default
   is_set_fn = _is_set_default
+  use_wait_fn = False
   if stop_event is not None:
     wait_candidate = getattr(stop_event, "wait", None)
     if callable(wait_candidate):
       wait_fn = cast(Callable[[float], bool], wait_candidate)
+      use_wait_fn = True
     is_set_candidate = getattr(stop_event, "is_set", None)
     if callable(is_set_candidate):
       is_set_fn = cast(Callable[[], bool], is_set_candidate)
+
+  def _wait_interval(delay: float) -> bool:
+    if use_wait_fn:
+      return wait_fn(delay)
+    time.sleep(delay)
+    return False
 
   try:
     while True:
@@ -1230,10 +1394,8 @@ def run_route_sender(stop_event=None, device_id=None):
         if not _auth_wait_logged:
           log("⚠️ Route sender waiting for device JWT (registration key missing?)", "WARN")
           _auth_wait_logged = True
-        if wait_fn(CHECK_INTERVAL):
+        if _wait_interval(CHECK_INTERVAL):
           break
-        else:
-          time.sleep(CHECK_INTERVAL)
         continue
       elif _auth_wait_logged:
         log("✅ Device JWT available; route sender active")
@@ -1251,10 +1413,8 @@ def run_route_sender(stop_event=None, device_id=None):
         capture_exception(e)
         log(f"❌ route_sender_step() failed: {e}", "ERROR")
 
-      if wait_fn(CHECK_INTERVAL):
+      if _wait_interval(CHECK_INTERVAL):
         break
-      else:
-        time.sleep(CHECK_INTERVAL)
   finally:
     log("🚚 Route sender loop stopped", "INFO")
 

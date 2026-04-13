@@ -126,12 +126,12 @@ def check_server(api_url, timeout=5, max_backoff=60):
   attempt = 0
   log(f"🌐 Waiting for {api_url} to become available...")
 
-  while True:
+  while _running:
     try:
       r = http_get(f"{api_url}/health", timeout=timeout)
       if r.status_code == 200:
         log("✅ Server is reachable.")
-        return
+        return True
       else:
         log(f"⚠️ Unexpected status: {r.status_code}", "WARN")
     except requests.exceptions.RequestException as e:
@@ -139,8 +139,16 @@ def check_server(api_url, timeout=5, max_backoff=60):
 
     backoff = min(2 ** attempt, max_backoff)
     log(f"⏳ Retrying in {backoff} seconds...")
-    time.sleep(backoff)
+    sleep_until = time.monotonic() + backoff
+    while _running:
+      remaining = sleep_until - time.monotonic()
+      if remaining <= 0:
+        break
+      time.sleep(min(1.0, remaining))
     attempt += 1
+
+  log("🛑 Server availability wait interrupted by shutdown request.", "INFO")
+  return False
 
 def get_uptime_seconds():
   try:
@@ -998,7 +1006,8 @@ def main():
     time.sleep(60)
 
   ensure_dns_config()
-  check_server(API_URL)
+  if not check_server(API_URL):
+    return
 
   try:
     send_error_logs_on_startup(device_id)

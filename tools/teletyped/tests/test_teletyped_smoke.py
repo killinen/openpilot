@@ -238,3 +238,153 @@ def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
   assert captured["json"]["details"]["os_base"] == "Ubuntu 20.04.6 LTS"
   assert captured["json"]["details"]["os_build"] == "deadbeef 2026-04-13T12:00:00Z"
   assert captured["json"]["details"]["os"] == os_info
+
+
+class _StaticResponse:
+  def __init__(self, status_code: int, payload: Any | None = None):
+    self.status_code = status_code
+    self._payload = payload if payload is not None else {}
+
+  def raise_for_status(self) -> None:
+    if self.status_code >= 400:
+      raise RuntimeError(f"HTTP {self.status_code}")
+
+  def json(self) -> Any:
+    return self._payload
+
+
+def test_drive_inventory_step_respects_auto_scan_min_interval(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  collect_called = False
+
+  def _collect():
+    nonlocal collect_called
+    collect_called = True
+    return [], 0
+
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY", True)
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY_MIN_INTERVAL", 900)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(
+    route_sender,
+    "http_get",
+    lambda url, headers, timeout: _StaticResponse(404),
+  )
+  monkeypatch.setattr(route_sender.time, "time", lambda: 1000.0)
+  monkeypatch.setattr(
+    route_sender,
+    "_load_drive_inventory_state",
+    lambda: {
+      "last_auto_scan_started_at": 200.0,
+      "last_successful_upload_at": 100.0,
+      "last_inventory_fingerprint": "abc",
+    },
+  )
+  monkeypatch.setattr(route_sender, "collect_drive_inventory", _collect)
+
+  route_sender.drive_inventory_step("DONGLE123")
+
+  assert collect_called is False
+
+
+def test_drive_inventory_step_skips_unchanged_auto_upload(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  saved_states: list[dict[str, Any]] = []
+  upload_called = False
+  drives = [{
+    "name": "2026-04-13--12-00-00--0",
+    "size_bytes": 42,
+    "file_count": 1,
+    "files": ["rlog"],
+    "modified_at": "2026-04-13T12:00:00+00:00",
+  }]
+  fingerprint = route_sender._inventory_fingerprint(drives, 42)
+
+  def _save(state: dict[str, Any]) -> None:
+    saved_states.append(dict(state))
+
+  def _post(url, json, headers, timeout):
+    nonlocal upload_called
+    upload_called = True
+    return _StaticResponse(200, {})
+
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY", True)
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY_MIN_INTERVAL", 900)
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY_FORCE_REFRESH", 86400)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(
+    route_sender,
+    "http_get",
+    lambda url, headers, timeout: _StaticResponse(404),
+  )
+  monkeypatch.setattr(route_sender.time, "time", lambda: 2000.0)
+  monkeypatch.setattr(
+    route_sender,
+    "_load_drive_inventory_state",
+    lambda: {
+      "last_auto_scan_started_at": 0.0,
+      "last_successful_upload_at": 1900.0,
+      "last_inventory_fingerprint": fingerprint,
+    },
+  )
+  monkeypatch.setattr(route_sender, "_save_drive_inventory_state", _save)
+  monkeypatch.setattr(route_sender, "collect_drive_inventory", lambda: (drives, 42))
+  monkeypatch.setattr(route_sender, "http_post", _post)
+
+  route_sender.drive_inventory_step("DONGLE123")
+
+  assert upload_called is False
+  assert saved_states[-1]["last_auto_scan_started_at"] == 2000.0
+
+
+def test_drive_inventory_step_requested_scan_bypasses_auto_throttle(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  saved_states: list[dict[str, Any]] = []
+  uploads: list[dict[str, Any]] = []
+  drives = [{
+    "name": "2026-04-13--12-00-00--0",
+    "size_bytes": 42,
+    "file_count": 1,
+    "files": ["rlog"],
+    "modified_at": "2026-04-13T12:00:00+00:00",
+  }]
+
+  def _save(state: dict[str, Any]) -> None:
+    saved_states.append(dict(state))
+
+  def _post(url, json, headers, timeout):
+    uploads.append(json)
+    return _StaticResponse(200, {})
+
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY", True)
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY_MIN_INTERVAL", 900)
+  monkeypatch.setattr(route_sender, "AUTO_DRIVE_INVENTORY_FORCE_REFRESH", 86400)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(
+    route_sender,
+    "http_get",
+    lambda url, headers, timeout: _StaticResponse(200, {"pending": True}),
+  )
+  monkeypatch.setattr(route_sender.time, "time", lambda: 2000.0)
+  monkeypatch.setattr(
+    route_sender,
+    "_load_drive_inventory_state",
+    lambda: {
+      "last_auto_scan_started_at": 1999.0,
+      "last_successful_upload_at": 1900.0,
+      "last_inventory_fingerprint": "",
+    },
+  )
+  monkeypatch.setattr(route_sender, "_save_drive_inventory_state", _save)
+  monkeypatch.setattr(route_sender, "collect_drive_inventory", lambda: (drives, 42))
+  monkeypatch.setattr(route_sender, "update_drive_scan_status", lambda *args, **kwargs: None)
+  monkeypatch.setattr(route_sender, "http_post", _post)
+
+  route_sender.drive_inventory_step("DONGLE123")
+
+  assert len(uploads) == 1
+  assert uploads[0]["device_id"] == "DONGLE123"
+  assert saved_states[-1]["last_successful_upload_at"] == 2000.0
