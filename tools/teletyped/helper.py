@@ -750,6 +750,28 @@ def get_os_info() -> dict:
     display:  human-friendly string shown in UIs (e.g., 'NEOS 20', 'AGNOS 15', 'Ubuntu 22.04.4 LTS', 'Android 6.0.1')
     extras:   optional dict with raw fields (PRETTY_NAME, ro.build fields, etc.)
   """
+  hw = get_hardware_info()
+  hw_model = str(hw.get("model") or "").lower()
+  hw_name = str(hw.get("name") or "").lower()
+  is_agnos_device = hw_model in {"tici", "tizi"} or hw_name in {"tici", "tizi"}
+
+  # AGNOS devices expose the release via /VERSION even when /etc/os-release
+  # reports the Ubuntu base image instead of AGNOS directly.
+  if is_agnos_device:
+    osr = _read_os_release()
+    pretty = osr.get("PRETTY_NAME") or ""
+    agnos_ver = _read_first_line("/VERSION")
+    return {
+      "platform": "AGNOS",
+      "version": agnos_ver or None,
+      "display": f"AGNOS {agnos_ver}" if agnos_ver else "AGNOS",
+      "extras": {
+        "base_os": pretty or None,
+        "os_release": osr,
+        "build": _read_first_line("/BUILD"),
+      },
+    }
+
   # NEOS: /VERSION contains just the number (e.g., "20")
   neos_ver = _read_first_line("/VERSION")
   if neos_ver and re.fullmatch(r"\d+", neos_ver):

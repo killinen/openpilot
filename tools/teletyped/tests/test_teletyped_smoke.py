@@ -31,6 +31,37 @@ def test_detect_local_port_invalid_env_falls_back(monkeypatch: pytest.MonkeyPatc
   assert helper._detect_local_port() == 22
 
 
+def test_get_os_info_prefers_agnos_version_file_for_tici(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import helper
+
+  monkeypatch.setattr(
+    helper,
+    "get_hardware_info",
+    lambda: {"type": "comma three", "model": "tici", "name": "Tici"},
+  )
+  monkeypatch.setattr(
+    helper,
+    "_read_first_line",
+    lambda path: {
+      "/VERSION": "9",
+      "/BUILD": "deadbeef 2026-04-13T12:00:00Z",
+    }.get(path),
+  )
+  monkeypatch.setattr(
+    helper,
+    "_read_os_release",
+    lambda: {"PRETTY_NAME": "Ubuntu 20.04.6 LTS", "VERSION_ID": "20.04"},
+  )
+
+  info = helper.get_os_info()
+
+  assert info["platform"] == "AGNOS"
+  assert info["version"] == "9"
+  assert info["display"] == "AGNOS 9"
+  assert info["extras"]["base_os"] == "Ubuntu 20.04.6 LTS"
+  assert info["extras"]["build"] == "deadbeef 2026-04-13T12:00:00Z"
+
+
 def test_ensure_local_keypair_fallback_generation(tmp_path, monkeypatch: pytest.MonkeyPatch):
   from openpilot.tools.teletyped import ssh_key
 
@@ -174,10 +205,20 @@ def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
   class FakeResponse:
     status_code = 200
 
+  os_info = {
+    "platform": "AGNOS",
+    "version": "9",
+    "display": "AGNOS 9",
+    "extras": {
+      "base_os": "Ubuntu 20.04.6 LTS",
+      "build": "deadbeef 2026-04-13T12:00:00Z",
+    },
+  }
+
   monkeypatch.setattr(teletyped, "build_auth_headers", lambda: {"X-Device-JWT": "test"})
   monkeypatch.setattr(teletyped, "has_internet_connection", lambda: True)
   monkeypatch.setattr(teletyped, "get_hardware_info", lambda: {"type": "tici", "model": "comma 3X", "name": "test"})
-  monkeypatch.setattr(teletyped, "get_os_info", lambda: {"platform": "linux", "version": "1.0", "display": "Test OS"})
+  monkeypatch.setattr(teletyped, "get_os_info", lambda: os_info)
   monkeypatch.setattr(teletyped, "get_op_params_info", dict)
   monkeypatch.setattr(teletyped, "_read_tunnel_pid", lambda: 1234)
   monkeypatch.setattr(teletyped.psutil, "boot_time", lambda: 100.0)
@@ -192,3 +233,8 @@ def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
 
   assert captured["json"]["device_id"] == "DONGLE123"
   assert captured["json"]["details"]["uptime_seconds"] == 60
+  assert captured["json"]["details"]["os_platform"] == "AGNOS"
+  assert captured["json"]["details"]["os_version"] == "9"
+  assert captured["json"]["details"]["os_base"] == "Ubuntu 20.04.6 LTS"
+  assert captured["json"]["details"]["os_build"] == "deadbeef 2026-04-13T12:00:00Z"
+  assert captured["json"]["details"]["os"] == os_info

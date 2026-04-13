@@ -822,6 +822,8 @@ def send_heartbeat(device_id, tunnel_status):
     det["os_platform"]     = osinfo.get("platform")
     det["os_version"]      = osinfo.get("version")
     det["os_display"]      = osinfo.get("display")
+    det["os_base"]         = (osinfo.get("extras") or {}).get("base_os")
+    det["os_build"]        = (osinfo.get("extras") or {}).get("build")
 
     # ===== NEW: OP params straight from Params =====
     opinfo = get_op_params_info()
