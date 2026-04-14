@@ -544,7 +544,7 @@ BO_ 1680 CLU2: 8 XXX
     SG_ CF_Clu_SunRoofOpenState : 60|1@1+ (1,0) [0|1] "" XXX
 
 
-BU_: XXX EON EPAS INTERCEPTOR
+BU_: XXX EON EPAS INTERCEPTOR CAN_Host STM32G474_TRQI
 
 CM_ "GAS INTERCEPTOR and StepperServoCAN messages";
 
@@ -582,23 +582,108 @@ BO_ 559 STEERING_STATUS: 8 EPAS
  SG_ TEMPERATURE : 32|8@1+ (1,-60) [-60|195] "C" EON
  SG_ DEBUG_STATES : 56|8@1+ (1,0) [0|255] "" EON
 
-CM_ SG_ 558 STEER_TORQUE "Steering torque request";
-CM_ SG_ 558 STEER_ANGLE "Steering relative angle request for internal close loop controller";
-CM_ SG_ 558 STEER_MODE "Control mode request. 
-Off - instant 0 torque.
-TorqueControl - use steer_torque
-RelativeControl - use steer_angle as relative target and steer_torque as feedforward. 
-SoftOff - ramp torque to 0 in 1s. 
-Command Off after SoftOff to re-enable control.";
-CM_ SG_ 558 COUNTER "Rolling counter";
-CM_ SG_ 558 CHECKSUM "8bit sum of all bytes and message id";
-CM_ SG_ 559 STEERING_ANGLE "Steering angle calculated from motor position sensor";
-CM_ SG_ 559 STEERING_SPEED "Steering speed calculated from motor position sensor";
-CM_ SG_ 559 STEERING_TORQUE "Motor torque calculated at the steering";
-CM_ SG_ 559 CONTROL_STATUS "Bitwise states: bit0 - sensored torque control is enabled, bit1 - sensor feedback enabled, bit2 - openloop soft off active, bit3 - internal closeloop mode enabled";
-CM_ SG_ 559 COUNTER "Rolling counter";
-CM_ SG_ 559 CHECKSUM "8bit sum of all bytes and message id";
-CM_ SG_ 559 TEMPERATURE "Motor PCB temperature";
-CM_ SG_ 559 DEBUG_STATES "Bitwise status. Refer to source";
+BO_ 560 TRQI_AbsCmd: 7 CAN_Host
+    SG_ DAC1_Code : 0|16@1+ (1,0) [0|4095] "code" STM32G474_TRQI
+    SG_ DAC2_Code : 16|16@1+ (1,0) [0|4095] "code" STM32G474_TRQI
+    SG_ Midpoint_InputVoltage : 32|16@1+ (0.001,0) [0|65.535] "V" STM32G474_TRQI
+    SG_ REL_Cmd : 48|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+    SG_ RELE_Cmd : 49|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+    SG_ SaveToNVM : 55|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+
+BO_ 561 TRQI_DeltaCmd: 6 CAN_Host
+    SG_ DAC_Delta : 0|16@1- (1,0) [-2047|2047] "code" STM32G474_TRQI
+    SG_ DAC_Delta_Redundant : 16|16@1- (1,0) [-2047|2047] "code" STM32G474_TRQI
+    SG_ REL_Cmd : 32|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+    SG_ RELE_Cmd : 33|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+    SG_ Delta_Counter : 36|4@1+ (1,0) [0|15] "" STM32G474_TRQI
+    SG_ Delta_Checksum : 40|8@1+ (1,0) [0|255] "" STM32G474_TRQI
+
+BO_ 576 TRQI_AdcStatus: 8 STM32G474_TRQI
+    SG_ ADC1_Raw : 0|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ ADC2_Raw : 12|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ ADC3_Raw : 24|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ ADC4_Raw : 36|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ ADC5_Raw : 48|12@1+ (1,0) [0|4095] "code" CAN_Host
+
+BO_ 577 TRQI_IOStatus: 8 STM32G474_TRQI
+    SG_ DAC1_Code : 0|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ DAC2_Code : 12|12@1+ (1,0) [0|4095] "code" CAN_Host
+    SG_ REL_State : 24|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ RELE_State : 25|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ RC_Minus : 26|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ RC_Plus : 27|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ Delta_Dlc_Error : 28|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ Delta_Mismatch_Error : 29|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ Delta_Checksum_Error : 30|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ Watchdog_Timeout : 31|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ SNR_Pair_Error : 32|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ EPS_Pair_Error : 33|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ Delta_Counter_Error : 34|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ IOStatus_Counter : 35|4@1+ (1,0) [0|15] "" CAN_Host
+    SG_ Output_Range_Error : 39|1@1+ (1,0) [0|1] "" CAN_Host
+    SG_ EPS_REFV_VIN : 40|16@1+ (0.001,0) [0|65.535] "V" CAN_Host
+    SG_ IOStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+BO_ 579 TRQI_VoltageStatus: 8 STM32G474_TRQI
+    SG_ SNR1_VIN : 0|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+    SG_ SNR2_VIN : 12|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+    SG_ EPS1_VIN : 24|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+    SG_ EPS2_VIN : 36|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+    SG_ VoltageStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
+    SG_ VoltageStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+CM_ BO_ 560 "Absolute DAC, shared midpoint, and relay command. DAC1_Code and DAC2_Code are raw 12-bit DAC codes. Midpoint_InputVoltage is the external input voltage before halving for the DAC center; SaveToNVM stores that midpoint to flash.";
+CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, Delta_Counter is a 4-bit rolling counter in flags bits4..7 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is low8(id_lo + id_hi + bytes0..4).";
+CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..63 are currently unused.";
+CM_ BO_ 577 "Reported DAC output codes packed as two 12-bit fields, relay and RC input states, TRQI delta-command error flags, watchdog timeout state, SNR/EPS pair plausibility error bits, Delta_Counter_Error, a 4-bit IOStatus_Counter, Output_Range_Error, EPS_REFV_VIN in millivolts, and IOStatus_Checksum. RC_Minus maps PB4, RC_Plus maps PB1.";
+CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as packed 12-bit values at 1.25 mV/LSB (0..5.11875 V), followed by VoltageStatus_Counter and VoltageStatus_Checksum.";
+
+CM_ SG_ 560 DAC1_Code "Raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
+CM_ SG_ 560 DAC2_Code "Raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
+CM_ SG_ 561 DAC_Delta "Signed raw DAC-count offset around the active midpoint; this is in code counts, not volts.";
+CM_ SG_ 561 DAC_Delta_Redundant "Redundant copy of DAC_Delta; it must match DAC_Delta exactly for the command to be accepted.";
+CM_ SG_ 561 Delta_Counter "4-bit rolling counter carried in the upper nibble of the flags byte for 0x231; after the first valid delta frame the receiver expects the next modulo-16 value.";
+CM_ SG_ 576 ADC1_Raw "Raw 12-bit ADC conversion code 0..4095 from PB15 / SNR1 before divider scaling to input volts.";
+CM_ SG_ 576 ADC2_Raw "Raw 12-bit ADC conversion code 0..4095 from PB13 / SNR2 before divider scaling to input volts.";
+CM_ SG_ 576 ADC3_Raw "Raw 12-bit ADC conversion code 0..4095 from PA1 / EPS1 before divider scaling to input volts.";
+CM_ SG_ 576 ADC4_Raw "Raw 12-bit ADC conversion code 0..4095 from PA2 / EPS2 before divider scaling to input volts.";
+CM_ SG_ 576 ADC5_Raw "Raw 12-bit ADC conversion code 0..4095 from PA8 / EPS_REFV before divider scaling to input volts.";
+CM_ SG_ 577 SNR_Pair_Error "Set when the SNR pair differs by more than the configured plausibility bound in distance from EPS_REFV/2, or when both SNR signals move to the same side of EPS_REFV/2 once meaningfully away from center.";
+CM_ SG_ 577 EPS_Pair_Error "Set when the EPS pair differs by more than the configured plausibility bound in distance from EPS_REFV/2, or when both EPS signals move to the same side of EPS_REFV/2 once meaningfully away from center.";
+CM_ SG_ 577 DAC1_Code "Reported raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
+CM_ SG_ 577 DAC2_Code "Reported raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
+CM_ SG_ 560 SaveToNVM "When set, the midpoint value is saved to internal flash.";
+CM_ SG_ 561 Delta_Checksum "8-bit checksum of the 0x231 message: low8(id_lo + id_hi + bytes0..4).";
+CM_ SG_ 577 RC_Minus "Digital input PB4 / RC-.";
+CM_ SG_ 577 RC_Plus "Digital input PB1 / RC+.";
+CM_ SG_ 577 Delta_Dlc_Error "Set when the last TRQI delta frame was rejected because DLC was shorter than 6 bytes.";
+CM_ SG_ 577 Delta_Mismatch_Error "Set when the last TRQI delta frame was rejected because DAC_Delta and DAC_Delta_Redundant did not match.";
+CM_ SG_ 577 Delta_Checksum_Error "Set when the last TRQI delta frame was rejected because Delta_Checksum did not match the computed value.";
+CM_ SG_ 577 Watchdog_Timeout "Set when the TRQI command watchdog timed out after 500 ms without a valid 0x230 or 0x231 command; outputs are forced to neutral center and both relays are driven off.";
+CM_ SG_ 577 Delta_Counter_Error "Set when the last TRQI delta frame was rejected because Delta_Counter was not the expected next modulo-16 value; the receiver resynchronizes to the received counter.";
+CM_ SG_ 577 IOStatus_Counter "4-bit rolling counter incremented on each successful 0x241 transmit.";
+CM_ SG_ 577 Output_Range_Error "Set when a TRQI command would drive DAC1 or DAC2 outside the allowed 1.2..3.5 V output window and the firmware had to clamp the output.";
+CM_ SG_ 577 IOStatus_Checksum "8-bit checksum of the 0x241 message: low8(id_lo + id_hi + bytes0..6).";
+CM_ SG_ 579 VoltageStatus_Counter "8-bit rolling counter incremented on each successful 0x243 transmit.";
+CM_ SG_ 579 VoltageStatus_Checksum "8-bit checksum of the 0x243 message: low8(id_lo + id_hi + bytes0..6).";
+
+BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
+BA_ "GenMsgCycleTime" BO_ 576 100;
+BA_ "GenMsgCycleTime" BO_ 577 100;
+BA_ "GenMsgCycleTime" BO_ 579 100;
 
 VAL_ 558 STEER_MODE 0 "Off" 1 "TorqueControl" 2 "RelativeControl" 3 "SoftOff" ;
+VAL_ 560 REL_Cmd 0 "OFF" 1 "ON" ;
+VAL_ 560 RELE_Cmd 0 "OFF" 1 "ON" ;
+VAL_ 560 SaveToNVM 0 "No" 1 "Save" ;
+VAL_ 561 REL_Cmd 0 "OFF" 1 "ON" ;
+VAL_ 561 RELE_Cmd 0 "OFF" 1 "ON" ;
+VAL_ 577 REL_State 0 "OFF" 1 "ON" ;
+VAL_ 577 RELE_State 0 "OFF" 1 "ON" ;
+VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH" ;
+VAL_ 577 RC_Plus 0 "LOW" 1 "HIGH" ;
+VAL_ 577 Delta_Dlc_Error 0 "OK" 1 "ERROR" ;
+VAL_ 577 Delta_Mismatch_Error 0 "OK" 1 "ERROR" ;
+VAL_ 577 Delta_Checksum_Error 0 "OK" 1 "ERROR" ;
+VAL_ 577 Delta_Counter_Error 0 "OK" 1 "ERROR" ;
+VAL_ 577 Output_Range_Error 0 "OK" 1 "ERROR" ;
