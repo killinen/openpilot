@@ -43,6 +43,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/img_experimental_white.svg",
     },
     {
+      "TRQISteeringToggle",
+      tr("Use TRQI Steering Logic"),
+      tr("Switch the Hyundai i30 steering path from the legacy SSC command to the TRQI delta backend. This toggle is only used on the custom i30 port and is applied on the next reboot."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "DisengageOnAccelerator",
       tr("Disengage on Accelerator Pedal"),
       tr("When enabled, pressing the accelerator pedal will disengage openpilot."),
@@ -205,6 +211,8 @@ void TogglesPanel::updateToggles() {
   driver_camera_toggle->setVisible(!(frogpilot_toggles.value("no_logging").toBool() && frogpilot_toggles.value("no_uploads").toBool()));
   auto nav_settings_left_toggle = toggles["NavSettingLeftSide"];
   nav_settings_left_toggle->setVisible(!frogpilot_toggles.value("full_map").toBool());
+  auto trqi_steering_toggle = toggles["TRQISteeringToggle"];
+  trqi_steering_toggle->setVisible(false);
 
   auto experimental_mode_toggle = toggles["ExperimentalMode"];
   auto op_long_toggle = toggles["ExperimentalLongitudinalEnabled"];
@@ -226,6 +234,11 @@ void TogglesPanel::updateToggles() {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(cp_bytes.data(), cp_bytes.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
+    std::string car_fingerprint = CP.getCarFingerprint();
+
+    // The TRQI toggle only applies to the custom i30 port. Key off the
+    // fingerprint alone here, since some custom ports reuse a different carName.
+    trqi_steering_toggle->setVisible(car_fingerprint == "HYUNDAI_I30_GD_2014");
 
     if (!CP.getExperimentalLongitudinalAvailable()) {
       params.remove("ExperimentalLongitudinalEnabled");

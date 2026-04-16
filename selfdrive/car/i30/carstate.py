@@ -3,7 +3,7 @@ from collections import deque
 from cereal import car, custom
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
-from openpilot.selfdrive.car.i30.values import DBC, Buttons, CarControllerParams
+from openpilot.selfdrive.car.i30.values import DBC, Buttons, CarControllerParams, i30_uses_trqi_steering
 
 PREV_BUTTON_SAMPLES = 8
 
@@ -122,50 +122,60 @@ class CarState(CarStateBase):
 
     ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
     fp_ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
-    ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
-    ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
-    if not ssc_can_valid:
+    if i30_uses_trqi_steering():
+      # TRQI mode replaces the old STEERING_STATUS heartbeat with TRQI_IOStatus.
+      # The standalone board does not publish the old angle/torque feedback, so
+      # disable the SSC-specific alignment path when this mode is selected.
+      ret.steeringTorqueEps = 0.0
       self.i30_angle_offset_needed = True
       self.i30_angle_aligned = False
       self.i30_ssc_angle_initialized = False
     else:
-      ssc_angle = cp_cam.vl["STEERING_STATUS"]["STEERING_ANGLE"] * (16.0 / 26.0)  # convert SSC gear ratio (16/26)
+      ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
-      # Unwrap SSC angle to avoid false divergence on wrap/reset.
-      if not self.i30_ssc_angle_initialized:
-        self.i30_ssc_angle_initialized = True
-        self.i30_ssc_angle_last = ssc_angle
-        self.i30_ssc_angle_unwrapped = ssc_angle
-      else:
-        delta = ssc_angle - self.i30_ssc_angle_last
-        if delta > 180.0:
-          delta -= 360.0
-        elif delta < -180.0:
-          delta += 360.0
-        self.i30_ssc_angle_unwrapped += delta
-        self.i30_ssc_angle_last = ssc_angle
-
-      steering_status_angle = self.i30_ssc_angle_unwrapped
-      if self.i30_angle_offset_needed:
-        self.i30_angle_offset = steering_status_angle - ret.steeringAngleDeg
-        self.i30_angle_offset_needed = False
+      ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
+      if not ssc_can_valid:
+        self.i30_angle_offset_needed = True
         self.i30_angle_aligned = False
+        self.i30_ssc_angle_initialized = False
       else:
-        ssc_aligned_angle = steering_status_angle - self.i30_angle_offset
-        angle_error = ssc_aligned_angle - ret.steeringAngleDeg
+        ssc_angle = cp_cam.vl["STEERING_STATUS"]["STEERING_ANGLE"] * (16.0 / 26.0)  # convert SSC gear ratio (16/26)
 
-        if not self.i30_angle_aligned and abs(angle_error) < 0.1:
-          self.i30_angle_aligned = True
-        self.i30_min_error = angle_error
-        self.i30_max_error = angle_error
+        # Unwrap SSC angle to avoid false divergence on wrap/reset.
+        if not self.i30_ssc_angle_initialized:
+          self.i30_ssc_angle_initialized = True
+          self.i30_ssc_angle_last = ssc_angle
+          self.i30_ssc_angle_unwrapped = ssc_angle
+        else:
+          delta = ssc_angle - self.i30_ssc_angle_last
+          if delta > 180.0:
+            delta -= 360.0
+          elif delta < -180.0:
+            delta += 360.0
+          self.i30_ssc_angle_unwrapped += delta
+          self.i30_ssc_angle_last = ssc_angle
 
-        if self.i30_angle_aligned:
-          self.i30_min_error = min(self.i30_min_error, angle_error)
-          self.i30_max_error = max(self.i30_max_error, angle_error)
-          fp_ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
+        steering_status_angle = self.i30_ssc_angle_unwrapped
+        if self.i30_angle_offset_needed:
+          self.i30_angle_offset = steering_status_angle - ret.steeringAngleDeg
+          self.i30_angle_offset_needed = False
+          self.i30_angle_aligned = False
+        else:
+          ssc_aligned_angle = steering_status_angle - self.i30_angle_offset
+          angle_error = ssc_aligned_angle - ret.steeringAngleDeg
 
-        fp_ret.steeringAngleDegError = angle_error
+          if not self.i30_angle_aligned and abs(angle_error) < 0.1:
+            self.i30_angle_aligned = True
+          self.i30_min_error = angle_error
+          self.i30_max_error = angle_error
+
+          if self.i30_angle_aligned:
+            self.i30_min_error = min(self.i30_min_error, angle_error)
+            self.i30_max_error = max(self.i30_max_error, angle_error)
+            fp_ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
+
+          fp_ret.steeringAngleDegError = angle_error
     # emulate driver steering torque - allows lane change assist on blinker hold
     ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane
 
@@ -197,9 +207,14 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_cam_can_parser(CP, FPCP):
-    messages = [
-      ("STEERING_STATUS", 20),  # Checks if SSC is connected
-    ]
+    messages = []
+    if i30_uses_trqi_steering():
+      # Use TRQI_IOStatus as the actuator-side heartbeat when the standalone TRQI
+      # board is in charge of steering. This keeps cp_cam valid without requiring
+      # the old STEERING_STATUS message to still be present on bus 1.
+      messages.append(("TRQI_IOStatus", 10))
+    else:
+      messages.append(("STEERING_STATUS", 20))  # Checks if SSC is connected
     if CP.enableGasInterceptor:
       messages.append(("GAS_SENSOR", 50))
 

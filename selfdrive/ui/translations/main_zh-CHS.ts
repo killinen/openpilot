@@ -5906,6 +5906,14 @@ This may take up to a minute.</source>
         <source>&lt;b&gt;Set the panda CAN2 nominal bitrate.&lt;/b&gt; This applies directly to the panda bus configuration.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Use TRQI Steering Logic</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Switch the Hyundai i30 steering path from the legacy SSC command to the TRQI delta backend. This toggle is only used on the custom i30 port and is applied on the next reboot.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

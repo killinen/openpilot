@@ -213,8 +213,9 @@ def unpack_packed_12bit(payload: bytes, count: int) -> tuple[int, ...]:
 
 
 def build_command(delta: int, rel: int, rele: int, counter: int) -> tuple[bytes, int, int]:
-  flags = (FLAG_REL if rel else 0) | (FLAG_RELE if rele else 0) | ((counter & 0x0F) << 4)
-  payload_without_checksum = struct.pack("<hhB", delta, delta, flags)
+  flags = (FLAG_REL if rel else 0) | (FLAG_RELE if rele else 0)
+  counter_byte = counter & 0x0F
+  payload_without_checksum = struct.pack("<hhBB", delta, delta, flags, counter_byte)
   checksum = compute_checksum(CANCTR_DELTA_ADDR, payload_without_checksum)
   return payload_without_checksum + bytes([checksum]), flags, checksum
 
@@ -313,8 +314,9 @@ def decode_io_status(payload: bytes):
     raise ValueError(f"expected 8 bytes for CANCTR_IOStatus, got {len(payload)}")
 
   dac1_code, dac2_code = unpack_packed_12bit(payload[:3], 2)
-  status = payload[3]
-  aux = payload[4]
+  ref_voltage = int.from_bytes(payload[3:5], "little") * 0.001
+  status = payload[5]
+  aux = payload[6]
   checksum = payload[7]
   expected_checksum = compute_checksum(CANCTR_IO_STATUS_ADDR, payload[:7])
   return {
@@ -329,12 +331,12 @@ def decode_io_status(payload: bytes):
     "delta_mismatch_error": bool(status & IO_STATUS_FLAG_DELTA_MISMATCH_ERROR),
     "delta_checksum_error": bool(status & IO_STATUS_FLAG_DELTA_CHECKSUM_ERROR),
     "watchdog_timeout": bool(status & IO_STATUS_FLAG_WATCHDOG_TIMEOUT),
+    "io_status_counter": aux & 0x0F,
     "snr_pair_error": bool(aux & IO_STATUS_AUX_SNR_PAIR_ERROR),
     "eps_pair_error": bool(aux & IO_STATUS_AUX_EPS_PAIR_ERROR),
     "delta_counter_error": bool(aux & IO_STATUS_AUX_DELTA_COUNTER_ERROR),
     "output_range_error": bool(aux & IO_STATUS_AUX_OUTPUT_RANGE_ERROR),
-    "io_status_counter": (aux >> 3) & 0x0F,
-    "ref_voltage": int.from_bytes(payload[5:7], "little") * 0.001,
+    "eps_refv": ref_voltage,
     "checksum_ok": checksum == expected_checksum,
     "checksum": checksum,
     "expected_checksum": expected_checksum,
@@ -342,7 +344,7 @@ def decode_io_status(payload: bytes):
 
 
 def decode_io_status_ref_voltage(payload: bytes) -> float:
-  return float(decode_io_status(payload)["ref_voltage"])
+  return float(decode_io_status(payload)["eps_refv"])
 
 
 def format_canctr_io_status(io_status) -> str:
@@ -371,7 +373,7 @@ def format_canctr_io_status(io_status) -> str:
   errors_text = ", ".join(error_names) if error_names else "none"
   return (
     f"CANCTR_IOStatus age={age_s:0.3f}s checksum={checksum_text} ctr={io_status['io_status_counter']} "
-    + f"DAC1={io_status['dac1_code']} DAC2={io_status['dac2_code']} REF={io_status['ref_voltage']:.3f}V "
+    + f"DAC1={io_status['dac1_code']} DAC2={io_status['dac2_code']} EPS_REFV={io_status['eps_refv']:.3f}V "
     + f"REL={int(io_status['rel_state'])} RELE={int(io_status['rele_state'])} "
     + f"RC-={int(io_status['rc_minus'])} RC+={int(io_status['rc_plus'])} errors={errors_text}"
   )
@@ -418,7 +420,7 @@ def build_monitor_message(torque_bus: int, voltage_bus: int, elapsed: float,
     + f"EPS2={format_optional_voltage(eps2_voltage)} "
     + f"SNR1={format_optional_voltage(snr1_voltage)} "
     + f"SNR2={format_optional_voltage(snr2_voltage)} "
-    + f"REF={format_optional_voltage(ref_voltage)}"
+    + f"EPS_REFV={format_optional_voltage(ref_voltage)}"
   )
 
 
@@ -451,7 +453,7 @@ def monitor_vsm2(panda: Panda, torque_bus: int, voltage_bus: int,
         snr1_voltage, snr2_voltage, eps1_voltage, eps2_voltage = decode_voltage_status(payload)
       elif addr == CANCTR_IO_STATUS_ADDR and rx_bus == voltage_bus:
         io_status = decode_io_status(payload)
-        ref_voltage = io_status["ref_voltage"]
+        ref_voltage = io_status["eps_refv"]
         if status_cache is not None:
           status_cache.update_io_status(io_status)
       else:
@@ -620,7 +622,7 @@ def run_interactive(panda: Panda, bus: int, command_state: CommandState,
 
 def main() -> None:
   parser = argparse.ArgumentParser(
-    description="Send guarded CANCTR delta-control frames (0x231) directly with Panda, including the byte-5 checksum. By default the script keeps resending the last command every 100 ms so the STM32 CANCTR watchdog stays fed. Optional --TQ mode interprets values as torque using 100 torque = 165 legacy input = 0.165 V.",
+    description="Send guarded CANCTR delta-control frames (0x231) directly with Panda, including the byte-6 checksum and a zeroed openpilot-limit byte. By default the script keeps resending the last command every 100 ms so the STM32 CANCTR watchdog stays fed. Optional --TQ mode interprets values as torque using 100 torque = 165 legacy input = 0.165 V.",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
   )
   parser.add_argument("--bus", type=int, default=DEFAULT_BUS, help="CAN bus to send the command on")
@@ -661,7 +663,7 @@ def main() -> None:
   parser.add_argument(
     "--monitor",
     action="store_true",
-    help="Track VSM2 torques on bus 0 plus EPS1/EPS2/SNR1/SNR2 from 0x243 and REF from 0x241 on bus 1",
+    help="Track VSM2 torques on bus 0 plus EPS1/EPS2/SNR1/SNR2 from 0x243 and EPS_REFV from 0x241 on bus 1",
   )
   parser.add_argument(
     "--no-monitor",

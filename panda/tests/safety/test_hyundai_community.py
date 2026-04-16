@@ -37,6 +37,9 @@ def _i30_compute_checksum(addr: int, dat: bytes) -> int:
   if addr in (0x200, 0x201):
     return _crc8_pedal(dat[:5])
 
+  if addr == 0x231:
+    return (((addr & 0xFF) + ((addr >> 8) & 0xFF) + sum(dat[:6])) & 0xFF)
+
   if addr == 0x22F:
     ssc_chksum = 0x22F
     for i in range(1, 7):
@@ -62,6 +65,7 @@ class _I30Counters:
   c165: int = 0
   c22f: int = 0
   c201: int = 0
+  c231: int = 0
   c260: int = 0
   c2b0: int = 0
   c200: int = 0
@@ -140,7 +144,7 @@ class _I30MsgFactory:
     return common.make_msg(0, 0x260, 8, bytes(dat))
 
   def msg_201(self, interceptor_raw: int, bus: int = 1) -> libpanda_py.CANPacket:
-    dat = bytearray(b"\x00" * 6)
+    dat = bytearray(b"\x00" * 7)
     dat[0] = (interceptor_raw >> 8) & 0xFF
     dat[1] = interceptor_raw & 0xFF
     dat[2] = (interceptor_raw >> 8) & 0xFF
@@ -171,9 +175,27 @@ class _I30MsgFactory:
     dat[5] = _i30_compute_checksum(0x200, bytes(dat)) & 0xFF
     return common.make_msg(1, 0x200, 6, bytes(dat))
 
+  def msg_231_trqi(self, delta: int, rel: bool, rele: bool, counter: int | None = None, delta_redundant: int | None = None) -> libpanda_py.CANPacket:
+    dat = bytearray(b"\x00" * 7)
+    if delta_redundant is None:
+      delta_redundant = delta
+    if counter is None:
+      counter = self._next("c231", 15)
+
+    delta_raw = delta & 0xFFFF
+    delta_redundant_raw = delta_redundant & 0xFFFF
+    dat[0] = delta_raw & 0xFF
+    dat[1] = (delta_raw >> 8) & 0xFF
+    dat[2] = delta_redundant_raw & 0xFF
+    dat[3] = (delta_redundant_raw >> 8) & 0xFF
+    dat[4] = (0x01 if rel else 0x00) | (0x02 if rele else 0x00)
+    dat[5] = counter & 0x0F
+    dat[6] = _i30_compute_checksum(0x231, bytes(dat)) & 0xFF
+    return common.make_msg(1, 0x231, 7, bytes(dat))
+
 
 class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x22E, 1, 5)]
+  TX_MSGS = [(0x22E, 1, 5), (0x231, 1, 7)]
 
   def setUp(self):
     self.packer = _I30MsgFactory()
@@ -207,9 +229,35 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
     msg = self.packer.msg_200_gas_cmd(enable=False, gas_command=0, gas_command2=0)
     self.assertFalse(self._tx(msg))
 
+  def test_trqi_delta_counter_checksum_and_controls(self):
+    neutral = self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)
+    self.assertTrue(self._tx(neutral))
+
+    self.safety.set_controls_allowed(1)
+    enabled = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=1)
+    self.assertTrue(self._tx(enabled))
+
+    bad_counter = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=3)
+    self.assertFalse(self._tx(bad_counter))
+
+    bad_mismatch = self.packer.msg_231_trqi(delta=400, delta_redundant=399, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(bad_mismatch))
+
+    dat = bytearray(self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2).data)
+    dat[6] ^= 0xFF
+    bad_checksum = common.make_msg(1, 0x231, 7, bytes(dat))
+    self.assertFalse(self._tx(bad_checksum))
+
+    too_large = self.packer.msg_231_trqi(delta=900, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(too_large))
+
+    self.safety.set_controls_allowed(0)
+    blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(blocked_no_controls))
+
 
 class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x200, 1, 6), (0x22E, 1, 5)]
+  TX_MSGS = [(0x200, 1, 6), (0x22E, 1, 5), (0x231, 1, 7)]
   I30_LONGITUDINAL_PARAM = 4
 
   def setUp(self):
@@ -281,6 +329,32 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
 
     bad_range = self.packer.msg_200_gas_cmd(enable=True, gas_command=3000, gas_command2=1000, counter=2)
     self.assertFalse(self._tx(bad_range))
+
+  def test_trqi_delta_counter_checksum_and_controls(self):
+    neutral = self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)
+    self.assertTrue(self._tx(neutral))
+
+    self.safety.set_controls_allowed(1)
+    enabled = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=1)
+    self.assertTrue(self._tx(enabled))
+
+    bad_counter = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=3)
+    self.assertFalse(self._tx(bad_counter))
+
+    bad_mismatch = self.packer.msg_231_trqi(delta=400, delta_redundant=399, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(bad_mismatch))
+
+    dat = bytearray(self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2).data)
+    dat[6] ^= 0xFF
+    bad_checksum = common.make_msg(1, 0x231, 7, bytes(dat))
+    self.assertFalse(self._tx(bad_checksum))
+
+    too_large = self.packer.msg_231_trqi(delta=900, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(too_large))
+
+    self.safety.set_controls_allowed(0)
+    blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(blocked_no_controls))
 
   def test_fwd_hook_blocks(self):
     self.assertEqual(self.safety.safety_fwd_hook(0, 0x123), -1)

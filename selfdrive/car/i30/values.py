@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from cereal import car
+from openpilot.common.params import Params
 from openpilot.selfdrive.car import CarSpecs, PlatformConfig, Platforms, dbc_dict
 from openpilot.selfdrive.car.docs_definitions import CarDocs, CarHarness, CarParts
 
@@ -19,6 +20,28 @@ class CarControllerParams:
     self.STEER_MAX = 384
 
 
+class I30SteeringCommandMode:
+  LEGACY_SSC = "legacy_ssc"
+  TRQI_TQ_DELTA = "trqi_tq_delta"
+
+
+TRQI_STEERING_PARAM = "TRQISteeringToggle"
+_params = Params()
+
+# Read the steering backend selection once at startup so carstate, controller,
+# and the Panda safety expectations all stay aligned for the life of the process.
+# The UI toggle is therefore intended to take effect on the next reboot.
+I30_STEERING_COMMAND_MODE = (
+  I30SteeringCommandMode.TRQI_TQ_DELTA
+  if _params.get_bool(TRQI_STEERING_PARAM)
+  else I30SteeringCommandMode.LEGACY_SSC
+)
+
+
+def i30_uses_trqi_steering() -> bool:
+  return I30_STEERING_COMMAND_MODE == I30SteeringCommandMode.TRQI_TQ_DELTA
+
+
 class SteerLimitParams:  # controls running @ 100hz
   MAX_STEERING_TQ = 4             # Nm (original 12), this is for NEMA23, effective max steer torque
   STEER_DELTA_UP = 5 / 100        # 5 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light
@@ -29,6 +52,34 @@ class SteerLimitParams:  # controls running @ 100hz
   STEER_DRIVER_ALLOWANCE = 0      # We use these only for apply_driver_steer_torque_limits() compliance
   STEER_DRIVER_MULTIPLIER = 0     # We use these only for apply_driver_steer_torque_limits() compliance
   STEER_DRIVER_FACTOR = 0         # We use these only for apply_driver_steer_torque_limits() compliance
+
+
+class TrqiSteerLimitParams:  # controls running @ 100hz
+  # TRQI uses the sender's "TQ" domain, not the physical Nm signal from the old
+  # standalone servo message. Full-scale 400 TQ is about 0.66 V of delta, which
+  # narrows the command window to roughly 1.7..3.0 V around a typical mid-point
+  # without touching the board-side absolute clamp.
+  MAX_STEERING_TQ = 400.0
+  STEER_DELTA_UP = 7.5
+  STEER_DELTA_DOWN = 60.0
+  STEER_STEP = 1
+  STEER_MAX = 400.0
+
+  # Positive TQ is intentionally defined as a right-turn command for TRQI mode.
+  # openpilot's internal steering sign is the opposite on this platform, so the
+  # controller multiplies by this sign before encoding the TRQI frame.
+  OPENPILOT_TO_TRQI_TQ_SIGN = -1.0
+
+  # Copy the debug sender's TQ-mode conversion:
+  #   100 TQ -> 165 legacy input units -> -0.165 V -> DAC delta counts.
+  TORQUE_REFERENCE = 100.0
+  LEGACY_INPUT_AT_TORQUE_REFERENCE = 165.0
+  INPUT_SCALE = 1000.0
+  DAC_FULL_SCALE_VOLTS = 5.0
+  DAC_BITS = 12
+  MAX_DELTA = 2047
+  RELAY_ENABLED = 1
+  RELAYE_ENABLED = 1
 
 
 class CAR(Platforms):
