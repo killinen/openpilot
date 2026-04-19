@@ -16,7 +16,7 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 from openpilot.selfdrive.car import gen_empty_fingerprint
 from openpilot.selfdrive.car.gm.values import GMFlags
-from openpilot.selfdrive.car.interfaces import TORQUE_SUBSTITUTE_PATH, CarInterfaceBase
+from openpilot.selfdrive.car.interfaces import TORQUE_SUBSTITUTE_PATH, NNFF_SUBSTITUTE_PATH, CarInterfaceBase
 from openpilot.selfdrive.car.mock.values import CAR as MOCK
 from openpilot.selfdrive.car.subaru.values import SubaruFlags
 from openpilot.selfdrive.car.toyota.values import ToyotaFlags, ToyotaFrogPilotFlags
@@ -167,8 +167,12 @@ def get_nnff_model_files():
 @cache
 def get_nnff_substitutes():
   with open(TORQUE_SUBSTITUTE_PATH, "rb") as f:
-    substitutes_data = tomllib.load(f)
-  return dict(substitutes_data)
+    substitutes_data = dict(tomllib.load(f))
+
+  with open(NNFF_SUBSTITUTE_PATH, "rb") as f:
+    substitutes_data.update(tomllib.load(f))
+
+  return substitutes_data
 
 def nnff_supported(car_fingerprint):
   model_files = get_nnff_model_files()

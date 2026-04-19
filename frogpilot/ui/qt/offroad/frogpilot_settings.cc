@@ -19,6 +19,29 @@
 bool nnffLogFileExists(const QString &carFingerprint) {
   static QStringList files;
   static QMap<QString, QString> substitutes;
+  auto load_substitutes = [&](const QString &path) {
+    QFile sub_file(path);
+    if (!sub_file.open(QIODevice::ReadOnly)) {
+      return;
+    }
+
+    QTextStream in(&sub_file);
+    while (!in.atEnd()) {
+      QString line = in.readLine().trimmed();
+      if (line.startsWith("#") || line.startsWith("legend") || !line.contains("=")) {
+        continue;
+      }
+
+      QStringList parts = line.split("=");
+      if (parts.size() == 2) {
+        QString key = parts[0].trimmed().remove('"');
+        QString value = parts[1].trimmed().remove('"');
+        if (!key.isEmpty() && !value.isEmpty()) {
+          substitutes[key] = value;
+        }
+      }
+    }
+  };
 
   if (files.isEmpty()) {
     QFileInfoList fileInfoList = QDir(QStringLiteral("../../frogpilot/assets/nnff_models")).entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
@@ -26,25 +49,8 @@ bool nnffLogFileExists(const QString &carFingerprint) {
       files.append(fileInfo.completeBaseName());
     }
 
-    QFile sub_file(QStringLiteral("../../selfdrive/car/torque_data/substitute.toml"));
-    if (sub_file.open(QIODevice::ReadOnly)) {
-      QTextStream in(&sub_file);
-      while (!in.atEnd()) {
-        QString line = in.readLine().trimmed();
-        if (line.startsWith("#") || line.startsWith("legend") || !line.contains("=")) {
-          continue;
-        }
-
-        QStringList parts = line.split("=");
-        if (parts.size() == 2) {
-          QString key = parts[0].trimmed().remove('"');
-          QString value = parts[1].trimmed().remove('"');
-          if (!key.isEmpty() && !value.isEmpty()) {
-            substitutes[key] = value;
-          }
-        }
-      }
-    }
+    load_substitutes(QStringLiteral("../../selfdrive/car/torque_data/substitute.toml"));
+    load_substitutes(QStringLiteral("../../selfdrive/car/torque_data/nnff_substitute.toml"));
   }
 
   QStringList fingerprintsToCheck;
