@@ -14,7 +14,7 @@ SAMPLING_FREQ = 100  # Hz
 # the other backend.
 TRQI_ALPHA = 1.0
 SSC_ALPHA = 0.35
-TRQI_OUT_TQ_FREEZE_THRESHOLD = 5.0
+TRQI_OUT_TQ_LIMIT_THRESHOLD = 5.0
 
 # Steer angle limits
 ANGLE_MAX_BP = [5., 15., 30]  # m/s (8, 54, 108 km/h)
@@ -130,12 +130,14 @@ class CarController(CarControllerBase):
         )
 
         measured_out_tq = abs(getattr(CS, "steering_torque_out", 0.0))
-        if measured_out_tq > TRQI_OUT_TQ_FREEZE_THRESHOLD:
-          # Freeze the outgoing TRQI request once the measured MDPS output torque
-          # is already above the target window.
-          trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_LIMITED
-          max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
-          apply_trqi_tq = self.last_trqi_tq
+        if measured_out_tq > TRQI_OUT_TQ_LIMIT_THRESHOLD:
+          # Once the measured MDPS output torque is already above the target
+          # window, block only further windup. Still allow the controller to
+          # unwind toward zero so the measured output torque can fall again.
+          if abs(apply_trqi_tq) > abs(self.last_trqi_tq):
+            trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_LIMITED
+            max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
+            apply_trqi_tq = self.last_trqi_tq
 
         if delta_up_limited:
           trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_STEER_DELTA_UP
