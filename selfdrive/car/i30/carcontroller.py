@@ -108,9 +108,9 @@ class CarController(CarControllerBase):
     can_sends = []
 
     if self.use_trqi_steering:
-      # TRQI delta mode only needs the torque-like path. The old standalone angle
-      # request does not exist on 0x231, so we translate openpilot steer directly
-      # into the sender's TQ domain and then into a TRQI delta frame.
+      # TRQI torque mode only needs the torque-like path. The old standalone angle
+      # request does not exist on the TRQI bus, so we translate openpilot steer
+      # directly into signed Ncm demand for 0x232.
       self.target_angle_delta = 0.0
       self.apply_steer_last = 0
       self.last_target_angle_lim = 0.0
@@ -119,9 +119,8 @@ class CarController(CarControllerBase):
       trqi_limit_flags = 0
       if CC.latActive:
         requested_trqi_tq = actuators.steer * TrqiSteerLimitParams.STEER_MAX
-        requested_trqi_tq *= TrqiSteerLimitParams.OPENPILOT_TO_TRQI_TQ_SIGN
 
-        # Filter the output so the raw TQ request does not chatter on the board.
+        # Filter the output so the raw Ncm request does not chatter on the board.
         # Higher alpha follows the requested steering faster with less smoothing.
         # Lower alpha smooths more, but it also makes steering response slower.
         alpha = TRQI_ALPHA
@@ -134,13 +133,10 @@ class CarController(CarControllerBase):
         if measured_out_tq > TRQI_OUT_TQ_FREEZE_THRESHOLD:
           # Freeze the outgoing TRQI request once the measured MDPS output torque
           # is already above the target window.
-          trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_FREEZE
+          trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_LIMITED
           max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
           apply_trqi_tq = self.last_trqi_tq
 
-        # Export the openpilot-side limit hits into the outgoing TRQI frame so
-        # captured 0x231 traffic shows whether the command was clipped before the
-        # actuator saw it. This is purely diagnostic and does not change control.
         if delta_up_limited:
           trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_STEER_DELTA_UP
         if delta_down_limited:
@@ -148,20 +144,20 @@ class CarController(CarControllerBase):
         if max_limited:
           trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_STEER_MAX
 
-        self.steer_rate_limited = (trqi_limit_flags != 0) or (abs(filtered_trqi_tq - apply_trqi_tq) > 1e-6)
+        self.steer_rate_limited = delta_up_limited or delta_down_limited or max_limited or (abs(filtered_trqi_tq - apply_trqi_tq) > 1e-6)
       else:
         apply_trqi_tq = 0.0
         self.steer_rate_limited = False
 
       self.last_trqi_tq = apply_trqi_tq
-      can_sends.append(i30can.create_trqi_steer_command(apply_trqi_tq, CC.latActive, self.trqi_counter, trqi_limit_flags))
+      can_sends.append(i30can.create_trqi_torque_command(apply_trqi_tq, CC.latActive, self.trqi_counter, trqi_limit_flags))
       self.trqi_counter = (self.trqi_counter + 1) & 0x0F
 
       # Report the applied command back in openpilot's native steer sign so the
       # rest of the stack still sees the familiar normalized actuator value.
       applied_steer = 0.0
       if TrqiSteerLimitParams.STEER_MAX != 0:
-        applied_steer = apply_trqi_tq / (TrqiSteerLimitParams.STEER_MAX * TrqiSteerLimitParams.OPENPILOT_TO_TRQI_TQ_SIGN)
+        applied_steer = apply_trqi_tq / TrqiSteerLimitParams.STEER_MAX
     else:
       self.last_trqi_tq = 0.0
 

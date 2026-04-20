@@ -9,20 +9,20 @@ const int I30_STANDSTILL_THRSLD = 30;  // ~1kph
 
 const int I30_MAX_ACCEL = 200;  // 1/100 m/s2
 const int I30_MIN_ACCEL = -350; // 1/100 m/s2
-const int I30_TRQI_MAX_DELTA = 541; // 400 TQ with the sender's 100->165->-0.165 V mapping is about 0.66 V / 541 DAC counts
+const int I30_TRQI_MAX_TORQUE_NCM = 400;   // match the openpilot-side TRQI steering demand window
 
 #define I30_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2U) // avg between 2 tracks
 
 // These are messages that will/can be sent to the busses
 const CanMsg I30_TX_MSGS[] = {
   {0x22E, 1, 5},  // SSC Bus 1
-  {0x231, 1, 7},  // TRQI_DeltaCmd Bus 1
+  {0x232, 1, 7},  // TRQI_TorqueCmd Bus 1
 };
 
 const CanMsg I30_LONG_TX_MSGS[] = {
   {0x200, 1, 6},  // GAS_COMMAND Bus 1
   {0x22E, 1, 5},  // SSC Bus 1
-  {0x231, 1, 7},  // TRQI_DeltaCmd Bus 1
+  {0x232, 1, 7},  // TRQI_TorqueCmd Bus 1
 };
 
 // older i30 models have less checks due to missing counters and checksums
@@ -88,6 +88,38 @@ static uint8_t i30_compute_pedal_crc(const CANPacket_t *to_push) {
   return crc8_pedal(dat, 5);
 }
 
+static uint8_t i30_compute_trqi_crc8(const CANPacket_t *to_push) {
+  uint8_t crc = 0x00U;
+  const uint8_t addr_bytes[2] = {
+    (uint8_t)(GET_ADDR(to_push) & 0xFFU),
+    (uint8_t)((GET_ADDR(to_push) >> 8) & 0xFFU),
+  };
+
+  for (int i = 0; i < 2; i++) {
+    crc ^= addr_bytes[i];
+    for (int j = 0; j < 8; j++) {
+      if ((crc & 0x80U) != 0U) {
+        crc = (uint8_t)((crc << 1) ^ 0x07U);
+      } else {
+        crc = (uint8_t)(crc << 1);
+      }
+    }
+  }
+
+  for (int i = 0; i < 6; i++) {
+    crc ^= GET_BYTE(to_push, i);
+    for (int j = 0; j < 8; j++) {
+      if ((crc & 0x80U) != 0U) {
+        crc = (uint8_t)((crc << 1) ^ 0x07U);
+      } else {
+        crc = (uint8_t)(crc << 1);
+      }
+    }
+  }
+
+  return crc;
+}
+
 static uint8_t i30_get_counter(const CANPacket_t *to_push) {
   const uint32_t addr = GET_ADDR(to_push);
 
@@ -99,6 +131,8 @@ static uint8_t i30_get_counter(const CANPacket_t *to_push) {
   } else if (addr == 0x22FU) {
     cnt = GET_BYTE(to_push, 1) & 0xFU;
   } else if (addr == 0x231U) {
+    cnt = GET_BYTE(to_push, 5) & 0xFU;
+  } else if (addr == 0x232U) {
     cnt = GET_BYTE(to_push, 5) & 0xFU;
   } else if (addr == 0x201U) {
     cnt = GET_BYTE(to_push, 4) & 0xFU;
@@ -122,6 +156,8 @@ static uint32_t i30_get_checksum(const CANPacket_t *to_push) {
   } else if (addr == 0x201U) {
     chksum = GET_BYTE(to_push, 5);
   } else if (addr == 0x231U) {
+    chksum = GET_BYTE(to_push, 6);
+  } else if (addr == 0x232U) {
     chksum = GET_BYTE(to_push, 6);
   } else if (addr == 0x22FU) {
     chksum = GET_BYTE(to_push, 0);
@@ -154,12 +190,8 @@ static uint32_t i30_compute_checksum(const CANPacket_t *to_push) {
     }
   } else if (addr == 0x201U) {
     chksum = i30_compute_pedal_crc(to_push);
-  } else if (addr == 0x231U) {
-    uint16_t trqi_chksum = (uint16_t)(addr & 0xFFU) + (uint16_t)((addr >> 8) & 0xFFU);
-    for (int i = 0; i < 6; i++) {
-      trqi_chksum += GET_BYTE(to_push, i);
-    }
-    chksum = (uint8_t)(trqi_chksum & 0xFFU);
+  } else if ((addr == 0x231U) || (addr == 0x232U)) {
+    chksum = i30_compute_trqi_crc8(to_push);
   } else if (addr == 0x22FU) {
     uint16_t ssc_chksum = (uint16_t)0x22FU;
     const int data_length = 7;
@@ -181,6 +213,20 @@ static uint32_t i30_compute_checksum(const CANPacket_t *to_push) {
   }
 
   return chksum;
+}
+
+static int16_t i30_decode_signed12_low_word(uint8_t lo, uint8_t hi) {
+  uint16_t raw12 = (uint16_t)lo | (((uint16_t)hi & 0x0FU) << 8U);
+
+  if ((raw12 & 0x0800U) != 0U) {
+    raw12 |= 0xF000U;
+  }
+
+  return (int16_t)raw12;
+}
+
+static uint16_t i30_decode_raw12_low_word(uint8_t lo, uint8_t hi) {
+  return (uint16_t)lo | (((uint16_t)hi & 0x0FU) << 8U);
 }
 
 static void i30_rx_hook(const CANPacket_t *to_push) {
@@ -278,13 +324,13 @@ static bool i30_tx_hook(const CANPacket_t *to_send) {
 
   bool tx = true;
 
-  // TRQI steering command. This mirrors send_canctr_delta.py:
-  // duplicated signed delta, relay plus openpilot limit flags in byte 4, 4-bit rolling counter in byte 5, checksum in byte 6.
-  if (addr == 0x231) {
-    const uint16_t delta_raw = (uint16_t)GET_BYTE(to_send, 0) | ((uint16_t)GET_BYTE(to_send, 1) << 8U);
-    const uint16_t delta_redundant_raw = (uint16_t)GET_BYTE(to_send, 2) | ((uint16_t)GET_BYTE(to_send, 3) << 8U);
-    int32_t delta = (int32_t)delta_raw;
-    int32_t delta_redundant = (int32_t)delta_redundant_raw;
+  // TRQI steering torque command on 0x232:
+  // signed low-12-bit Ncm value in bytes0..1, raw12 ones-complement in bytes2..3, relay flags in byte 4,
+  // 4-bit rolling counter in byte 5, CRC-8 in byte 6.
+  if (addr == 0x232) {
+    const uint16_t torque_raw12 = i30_decode_raw12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
+    const uint16_t torque_complement_raw12 = i30_decode_raw12_low_word(GET_BYTE(to_send, 2), GET_BYTE(to_send, 3));
+    const int16_t torque = i30_decode_signed12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
     const uint8_t flags = GET_BYTE(to_send, 4);
     const bool rel_cmd = (flags & 0x1U) != 0U;
     const bool rele_cmd = (flags & 0x2U) != 0U;
@@ -292,21 +338,15 @@ static bool i30_tx_hook(const CANPacket_t *to_send) {
     const uint8_t checksum = GET_BYTE(to_send, 6);
 
     bool violation = false;
-    const bool neutral = (delta_raw == 0U) && (delta_redundant_raw == 0U) && !rel_cmd && !rele_cmd;
+    const bool complement_valid = ((torque_raw12 ^ 0x0FFFU) == torque_complement_raw12);
+    const bool neutral = (torque == 0) && complement_valid && !rel_cmd && !rele_cmd;
     const bool counter_valid = (((i30_counter_trqi_last + 1U) & 0xFU) == counter);
     const bool counter_initted = (i30_counter_trqi_last != 0xFFU);
 
-    if (delta > 32767) {
-      delta -= 65536;
-    }
-    if (delta_redundant > 32767) {
-      delta_redundant -= 65536;
-    }
-
-    if (delta != delta_redundant) {
+    if (!complement_valid) {
       violation = true;
     }
-    if ((delta < -I30_TRQI_MAX_DELTA) || (delta > I30_TRQI_MAX_DELTA)) {
+    if ((torque < -I30_TRQI_MAX_TORQUE_NCM) || (torque > I30_TRQI_MAX_TORQUE_NCM)) {
       violation = true;
     }
     if (i30_compute_checksum(to_send) != checksum) {

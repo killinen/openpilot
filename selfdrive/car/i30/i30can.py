@@ -3,13 +3,12 @@ import struct
 from openpilot.selfdrive.car import make_can_msg
 from openpilot.selfdrive.car.i30.values import TrqiSteerLimitParams
 
-TRQI_DELTA_ADDR = 0x231
+TRQI_TORQUE_ADDR = 0x232
 TRQI_CAN_BUS = 1
-TRQI_DAC_MAX_CODE = (1 << TrqiSteerLimitParams.DAC_BITS) - 1
 TRQI_LIMIT_FLAG_STEER_DELTA_UP = 0x01
 TRQI_LIMIT_FLAG_STEER_DELTA_DOWN = 0x02
 TRQI_LIMIT_FLAG_STEER_MAX = 0x04
-TRQI_LIMIT_FLAG_OUT_TQ_FREEZE = 0x08
+TRQI_LIMIT_FLAG_OUT_TQ_LIMITED = 0x08
 
 
 # Simple checksum helper copied from the Hyundai implementation. The i30 actuator
@@ -76,40 +75,34 @@ def create_steer_command(packer, mode: int, steer_delta: float, steer_tq: float,
   return packer.make_can_msg("STEERING_COMMAND", 1, values)
 
 
-def clamp_trqi_delta(delta: int) -> int:
-  return max(-TrqiSteerLimitParams.MAX_DELTA, min(TrqiSteerLimitParams.MAX_DELTA, delta))
+def clamp_trqi_torque_demand(command_tq: int) -> int:
+  return max(-2048, min(2047, command_tq))
 
 
-def compute_trqi_checksum(addr: int, payload_without_checksum: bytes) -> int:
-  # TRQI delta frames use the board's simple low8(id_lo + id_hi + bytes0..5) checksum.
-  total = (addr & 0xFF) + ((addr >> 8) & 0xFF) + sum(payload_without_checksum)
-  return total & 0xFF
+def compute_trqi_crc8(addr: int, payload_without_checksum: bytes) -> int:
+  crc = 0x00
+  for byte in ((addr & 0xFF), ((addr >> 8) & 0xFF), *payload_without_checksum):
+    crc ^= byte
+    for _ in range(8):
+      if crc & 0x80:
+        crc = ((crc << 1) ^ 0x07) & 0xFF
+      else:
+        crc = (crc << 1) & 0xFF
+  return crc
 
 
-def trqi_torque_to_delta(command_tq: float) -> int:
-  # Match send_canctr_delta.py exactly:
-  #   TQ -> legacy input -> voltage -> raw DAC delta counts.
-  legacy_input = command_tq * TrqiSteerLimitParams.LEGACY_INPUT_AT_TORQUE_REFERENCE / TrqiSteerLimitParams.TORQUE_REFERENCE
-  voltage = -legacy_input / TrqiSteerLimitParams.INPUT_SCALE
-  delta = int(round(voltage * TRQI_DAC_MAX_CODE / TrqiSteerLimitParams.DAC_FULL_SCALE_VOLTS))
-  return clamp_trqi_delta(delta)
-
-
-def create_trqi_steer_command(command_tq: float, lat_active: bool, counter: int, op_limit_flags: int = 0):
-  # Positive command_tq is defined as a right-turn request for TRQI mode.
-  # The sender-compatible conversion above intentionally makes that become a
-  # negative voltage / delta on the wire, which matches the standalone tool.
-  delta = trqi_torque_to_delta(command_tq)
+def create_trqi_torque_command(command_tq: float, lat_active: bool, counter: int, op_limit_flags: int = 0):
+  # 0x232 carries signed Ncm demand in the low 12 bits of bytes0..1, the raw12
+  # ones-complement in bytes2..3, and a CRC-8 in byte6.
+  torque_ncm = clamp_trqi_torque_demand(int(round(command_tq)))
+  torque_raw = torque_ncm & 0x0FFF
+  torque_complement_raw = torque_raw ^ 0x0FFF
   rel = TrqiSteerLimitParams.RELAY_ENABLED if lat_active else 0
   rele = TrqiSteerLimitParams.RELAYE_ENABLED if lat_active else 0
-  # Byte 4 carries relay control plus openpilot-side limit information so
-  # captured 0x231 traffic shows whether openpilot clipped the outgoing TRQI
-  # request before it reached the actuator. Byte 5 carries only the rolling
-  # counter in its lower nibble so the board and Panda can sequence-check it.
   flags = (rel & 0x1) | ((rele & 0x1) << 1) | ((op_limit_flags & 0x0F) << 2)
   counter_byte = counter & 0x0F
-  payload_without_checksum = struct.pack("<hhBB", delta, delta, flags, counter_byte)
-  checksum = compute_trqi_checksum(TRQI_DELTA_ADDR, payload_without_checksum)
+  payload_without_checksum = struct.pack("<HHBB", torque_raw, torque_complement_raw, flags, counter_byte)
+  checksum = compute_trqi_crc8(TRQI_TORQUE_ADDR, payload_without_checksum)
   # Use the standard Openpilot CAN tuple shape: [address, busTime, dat, src].
   # card.py/sendcan -> can_list_to_can_capnp expects all four fields.
-  return make_can_msg(TRQI_DELTA_ADDR, payload_without_checksum + bytes([checksum]), TRQI_CAN_BUS)
+  return make_can_msg(TRQI_TORQUE_ADDR, payload_without_checksum + bytes([checksum]), TRQI_CAN_BUS)

@@ -21,6 +21,18 @@ def _crc8_pedal(data: bytes) -> int:
   return crc
 
 
+def _crc8_trqi(addr: int, data: bytes) -> int:
+  crc = 0
+  for byte in ((addr & 0xFF), ((addr >> 8) & 0xFF), *data[:6]):
+    crc ^= byte
+    for _ in range(8):
+      if crc & 0x80:
+        crc = ((crc << 1) ^ 0x07) & 0xFF
+      else:
+        crc = (crc << 1) & 0xFF
+  return crc
+
+
 def _i30_compute_checksum(addr: int, dat: bytes) -> int:
   if addr in (0x165, 0x2B0):
     data_length = 5 if addr == 0x2B0 else 7
@@ -37,8 +49,8 @@ def _i30_compute_checksum(addr: int, dat: bytes) -> int:
   if addr in (0x200, 0x201):
     return _crc8_pedal(dat[:5])
 
-  if addr == 0x231:
-    return (((addr & 0xFF) + ((addr >> 8) & 0xFF) + sum(dat[:6])) & 0xFF)
+  if addr in (0x231, 0x232):
+    return _crc8_trqi(addr, dat)
 
   if addr == 0x22F:
     ssc_chksum = 0x22F
@@ -66,6 +78,7 @@ class _I30Counters:
   c22f: int = 0
   c201: int = 0
   c231: int = 0
+  c232: int = 0
   c260: int = 0
   c2b0: int = 0
   c200: int = 0
@@ -193,9 +206,28 @@ class _I30MsgFactory:
     dat[6] = _i30_compute_checksum(0x231, bytes(dat)) & 0xFF
     return common.make_msg(1, 0x231, 7, bytes(dat))
 
+  def msg_232_trqi(self, torque: int, rel: bool, rele: bool, counter: int | None = None,
+                   torque_complement_raw: int | None = None) -> libpanda_py.CANPacket:
+    dat = bytearray(b"\x00" * 7)
+    if counter is None:
+      counter = self._next("c232", 15)
+
+    torque_raw = torque & 0x0FFF
+    if torque_complement_raw is None:
+      torque_complement_raw = torque_raw ^ 0x0FFF
+
+    dat[0] = torque_raw & 0xFF
+    dat[1] = (torque_raw >> 8) & 0x0F
+    dat[2] = torque_complement_raw & 0xFF
+    dat[3] = (torque_complement_raw >> 8) & 0x0F
+    dat[4] = (0x01 if rel else 0x00) | (0x02 if rele else 0x00)
+    dat[5] = counter & 0x0F
+    dat[6] = _i30_compute_checksum(0x232, bytes(dat)) & 0xFF
+    return common.make_msg(1, 0x232, 7, bytes(dat))
+
 
 class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x22E, 1, 5), (0x231, 1, 7)]
+  TX_MSGS = [(0x22E, 1, 5), (0x231, 1, 7), (0x232, 1, 7)]
 
   def setUp(self):
     self.packer = _I30MsgFactory()
@@ -255,9 +287,35 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
     blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(blocked_no_controls))
 
+  def test_trqi_torque_counter_crc_and_controls(self):
+    neutral = self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)
+    self.assertTrue(self._tx(neutral))
+
+    self.safety.set_controls_allowed(1)
+    enabled = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=1)
+    self.assertTrue(self._tx(enabled))
+
+    bad_counter = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=3)
+    self.assertFalse(self._tx(bad_counter))
+
+    bad_complement = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2, torque_complement_raw=(400 & 0x0FFF))
+    self.assertFalse(self._tx(bad_complement))
+
+    dat = bytearray(self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2).data)
+    dat[6] ^= 0xFF
+    bad_crc = common.make_msg(1, 0x232, 7, bytes(dat))
+    self.assertFalse(self._tx(bad_crc))
+
+    too_large = self.packer.msg_232_trqi(torque=401, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(too_large))
+
+    self.safety.set_controls_allowed(0)
+    blocked_no_controls = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(blocked_no_controls))
+
 
 class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x200, 1, 6), (0x22E, 1, 5), (0x231, 1, 7)]
+  TX_MSGS = [(0x200, 1, 6), (0x22E, 1, 5), (0x231, 1, 7), (0x232, 1, 7)]
   I30_LONGITUDINAL_PARAM = 4
 
   def setUp(self):
@@ -354,6 +412,32 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
 
     self.safety.set_controls_allowed(0)
     blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(blocked_no_controls))
+
+  def test_trqi_torque_counter_crc_and_controls(self):
+    neutral = self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)
+    self.assertTrue(self._tx(neutral))
+
+    self.safety.set_controls_allowed(1)
+    enabled = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=1)
+    self.assertTrue(self._tx(enabled))
+
+    bad_counter = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=3)
+    self.assertFalse(self._tx(bad_counter))
+
+    bad_complement = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2, torque_complement_raw=(400 & 0x0FFF))
+    self.assertFalse(self._tx(bad_complement))
+
+    dat = bytearray(self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2).data)
+    dat[6] ^= 0xFF
+    bad_crc = common.make_msg(1, 0x232, 7, bytes(dat))
+    self.assertFalse(self._tx(bad_crc))
+
+    too_large = self.packer.msg_232_trqi(torque=401, rel=True, rele=True, counter=2)
+    self.assertFalse(self._tx(too_large))
+
+    self.safety.set_controls_allowed(0)
+    blocked_no_controls = self.packer.msg_232_trqi(torque=400, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(blocked_no_controls))
 
   def test_fwd_hook_blocks(self):
