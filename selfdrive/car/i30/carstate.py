@@ -46,6 +46,7 @@ class CarState(CarStateBase):
     self.i30_clutch_pressed = False
     self.i30_clutch_press_samples = 0
     self.i30_clutch_release_samples = 0
+    self.steering_torque_out = 0.0
 
   def update(self, cp, cp_cam, frogpilot_toggles):
     return self.update_i30(cp, cp_cam)
@@ -121,7 +122,8 @@ class CarState(CarStateBase):
       ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
 
     ret.steeringTorque = cp.vl["VSM2"]["CR_Mdps_StrTq"]
-    fp_ret.steeringTorqueOut = cp.vl["VSM2"]["CR_Mdps_OutTq"]
+    self.steering_torque_out = cp.vl["VSM2"]["CR_Mdps_OutTq"]
+    fp_ret.steeringTorqueOut = self.steering_torque_out
 
     if i30_uses_trqi_steering():
       # TRQI mode replaces the old STEERING_STATUS heartbeat with TRQI_IOStatus.

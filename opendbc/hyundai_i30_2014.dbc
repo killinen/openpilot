@@ -598,6 +598,7 @@ BO_ 561 TRQI_DeltaCmd: 7 CAN_Host
     SG_ OP_Steer_Delta_Up_Limited : 34|1@1+ (1,0) [0|1] "" STM32G474_TRQI
     SG_ OP_Steer_Delta_Down_Limited : 35|1@1+ (1,0) [0|1] "" STM32G474_TRQI
     SG_ OP_Steer_Max_Limited : 36|1@1+ (1,0) [0|1] "" STM32G474_TRQI
+    SG_ OP_OutTq_Limited : 37|1@1+ (1,0) [0|1] "" STM32G474_TRQI
     SG_ Delta_Counter : 40|4@1+ (1,0) [0|15] "" STM32G474_TRQI
     SG_ Delta_Checksum : 48|8@1+ (1,0) [0|255] "" STM32G474_TRQI
 
@@ -656,9 +657,10 @@ CM_ SG_ 577 EPS_Pair_Error "Set when the EPS pair differs by more than the confi
 CM_ SG_ 577 DAC1_Code "Reported raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 577 DAC2_Code "Reported raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 560 SaveToNVM "When set, the midpoint value is saved to internal flash.";
-CM_ SG_ 561 OP_Steer_Delta_Up_Limited "Set by markpilot when the TRQI command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
-CM_ SG_ 561 OP_Steer_Delta_Down_Limited "Set by markpilot when the TRQI command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
-CM_ SG_ 561 OP_Steer_Max_Limited "Set by markpilot when the TRQI command was clipped by the openpilot STEER_MAX/MAX_STEERING_TQ limit before transmission.";
+CM_ SG_ 561 OP_Steer_Delta_Up_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
+CM_ SG_ 561 OP_Steer_Delta_Down_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
+CM_ SG_ 561 OP_Steer_Max_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_MAX/MAX_STEERING_TQ limit before transmission.";
+CM_ SG_ 561 OP_OutTq_Limited "Set by openpilot when the TRQI command was limited because measured VSM2.CR_Mdps_OutTq exceeded the configured threshold.";
 CM_ SG_ 561 Delta_Checksum "8-bit checksum of the 0x231 message: low8(id_lo + id_hi + bytes0..5).";
 CM_ SG_ 577 RC_Minus "Digital input PB4 / RC-.";
 CM_ SG_ 577 RC_Plus "Digital input PB1 / RC+.";

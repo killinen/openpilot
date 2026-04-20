@@ -14,6 +14,7 @@ SAMPLING_FREQ = 100  # Hz
 # the other backend.
 TRQI_ALPHA = 1.0
 SSC_ALPHA = 0.35
+TRQI_OUT_TQ_FREEZE_THRESHOLD = 5.0
 
 # Steer angle limits
 ANGLE_MAX_BP = [5., 15., 30]  # m/s (8, 54, 108 km/h)
@@ -128,6 +129,14 @@ class CarController(CarControllerBase):
         apply_trqi_tq, delta_up_limited, delta_down_limited, max_limited = apply_rate_limited_steering_limits_with_flags(
           filtered_trqi_tq, self.last_trqi_tq, TrqiSteerLimitParams
         )
+
+        measured_out_tq = abs(getattr(CS, "steering_torque_out", 0.0))
+        if measured_out_tq > TRQI_OUT_TQ_FREEZE_THRESHOLD:
+          # Freeze the outgoing TRQI request once the measured MDPS output torque
+          # is already above the target window.
+          trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_FREEZE
+          max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
+          apply_trqi_tq = self.last_trqi_tq
 
         # Export the openpilot-side limit hits into the outgoing TRQI frame so
         # captured 0x231 traffic shows whether the command was clipped before the

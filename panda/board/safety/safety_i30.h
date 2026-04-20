@@ -382,9 +382,14 @@ static bool i30_tx_hook(const CANPacket_t *to_send) {
 }
 
 static int i30_fwd_hook(int bus_num, int addr) {
-  (void)bus_num;
-  (void)addr;
-  return -1;
+  int bus_fwd = -1;
+
+  // Mirror selected vehicle-state frames onto the actuator bus for TRQI/auxiliary consumers on bus 1.
+  if ((bus_num == 0) && ((addr == 0x165) || (addr == 0x1F1))) {
+    bus_fwd = 1;
+  }
+
+  return bus_fwd;
 }
 
 static safety_config i30_init(uint16_t param) {

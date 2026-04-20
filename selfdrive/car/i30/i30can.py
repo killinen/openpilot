@@ -9,6 +9,7 @@ TRQI_DAC_MAX_CODE = (1 << TrqiSteerLimitParams.DAC_BITS) - 1
 TRQI_LIMIT_FLAG_STEER_DELTA_UP = 0x01
 TRQI_LIMIT_FLAG_STEER_DELTA_DOWN = 0x02
 TRQI_LIMIT_FLAG_STEER_MAX = 0x04
+TRQI_LIMIT_FLAG_OUT_TQ_FREEZE = 0x08
 
 
 # Simple checksum helper copied from the Hyundai implementation. The i30 actuator
@@ -101,11 +102,11 @@ def create_trqi_steer_command(command_tq: float, lat_active: bool, counter: int,
   delta = trqi_torque_to_delta(command_tq)
   rel = TrqiSteerLimitParams.RELAY_ENABLED if lat_active else 0
   rele = TrqiSteerLimitParams.RELAYE_ENABLED if lat_active else 0
-  # Byte 4 carries relay control plus markpilot-side limit information so
+  # Byte 4 carries relay control plus openpilot-side limit information so
   # captured 0x231 traffic shows whether openpilot clipped the outgoing TRQI
   # request before it reached the actuator. Byte 5 carries only the rolling
   # counter in its lower nibble so the board and Panda can sequence-check it.
-  flags = (rel & 0x1) | ((rele & 0x1) << 1) | ((op_limit_flags & 0x07) << 2)
+  flags = (rel & 0x1) | ((rele & 0x1) << 1) | ((op_limit_flags & 0x0F) << 2)
   counter_byte = counter & 0x0F
   payload_without_checksum = struct.pack("<hhBB", delta, delta, flags, counter_byte)
   checksum = compute_trqi_checksum(TRQI_DELTA_ADDR, payload_without_checksum)
