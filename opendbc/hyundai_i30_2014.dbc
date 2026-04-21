@@ -669,7 +669,7 @@ CM_ SG_ 562 Torque_Demand_Complement "12-bit ones-complement redundancy for Torq
 CM_ SG_ 562 OP_Steer_Delta_Up_Limited "Set by openpilot when the TRQI torque command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
 CM_ SG_ 562 OP_Steer_Delta_Down_Limited "Set by openpilot when the TRQI torque command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
 CM_ SG_ 562 OP_Steer_Max_Limited "Set by openpilot when the TRQI torque command was clipped by the openpilot STEER_MAX/MAX_STEERING_TQ limit before transmission.";
-CM_ SG_ 562 OP_OutTq_Limited "Set by openpilot when the TRQI torque command was limited because measured VSM2.CR_Mdps_OutTq exceeded the configured threshold.";
+CM_ SG_ 562 OP_OutTq_Limited "Set by openpilot while measured VSM2.CR_Mdps_OutTq exceeds the configured threshold.";
 CM_ SG_ 562 Torque_Counter "4-bit rolling counter carried in byte5 bits0..3 for 0x232; after the first valid torque frame the receiver expects the next modulo-16 value.";
 CM_ SG_ 562 Torque_Checksum "8-bit CRC of the 0x232 message over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
 CM_ SG_ 576 ADC1_Raw "Raw 12-bit ADC conversion code 0..4095 from PB15 / SNR1 before divider scaling to input volts.";
@@ -685,7 +685,7 @@ CM_ SG_ 560 SaveToNVM "When set, the midpoint value is saved to internal flash."
 CM_ SG_ 561 OP_Steer_Delta_Up_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
 CM_ SG_ 561 OP_Steer_Delta_Down_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
 CM_ SG_ 561 OP_Steer_Max_Limited "Set by openpilot when the TRQI command was clipped by the openpilot STEER_MAX/MAX_STEERING_TQ limit before transmission.";
-CM_ SG_ 561 OP_OutTq_Limited "Set by openpilot when the TRQI command was limited because measured VSM2.CR_Mdps_OutTq exceeded the configured threshold.";
+CM_ SG_ 561 OP_OutTq_Limited "Set by openpilot while measured VSM2.CR_Mdps_OutTq exceeds the configured threshold.";
 CM_ SG_ 561 Delta_Checksum "8-bit CRC of the 0x231 message over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
 CM_ SG_ 577 RC_Minus "Digital input PB4 / RC-.";
 CM_ SG_ 577 RC_Plus "Digital input PB1 / RC+.";

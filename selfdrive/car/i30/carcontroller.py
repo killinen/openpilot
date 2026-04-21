@@ -131,11 +131,12 @@ class CarController(CarControllerBase):
 
         measured_out_tq = abs(getattr(CS, "steering_torque_out", 0.0))
         if measured_out_tq > TRQI_OUT_TQ_LIMIT_THRESHOLD:
+          trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_LIMITED
+
           # Once the measured MDPS output torque is already above the target
           # window, block only further windup. Still allow the controller to
           # unwind toward zero so the measured output torque can fall again.
           if abs(apply_trqi_tq) > abs(self.last_trqi_tq):
-            trqi_limit_flags |= i30can.TRQI_LIMIT_FLAG_OUT_TQ_LIMITED
             max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
             apply_trqi_tq = self.last_trqi_tq
 
