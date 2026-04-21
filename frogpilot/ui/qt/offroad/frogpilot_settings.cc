@@ -321,7 +321,7 @@ void FrogPilotSettingsWindow::updateVariables() {
     isAngleCar = CP.getSteerControlType() == cereal::CarParams::SteerControlType::ANGLE;
     isBolt = carFingerprint == "CHEVROLET_BOLT_CC" || carFingerprint == "CHEVROLET_BOLT_EUV";
     isGM = carMake == "gm";
-    isHKG = carMake == "hyundai";
+    isHKG = carMake == "hyundai" || carMake == "i30";
     isHKGCanFd = isHKG && safetyModel == cereal::CarParams::SafetyModel::HYUNDAI_CANFD;
     isSubaru = carMake == "subaru";
     isTorqueCar = CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
