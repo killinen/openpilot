@@ -187,9 +187,16 @@ class LongControl:
 
       error = self.v_pid - CS.vEgo
       error_deadzone = apply_deadzone(error, deadzone)
+
+      # Gas interceptor cars cannot realize negative acceleration commands;
+      # negative accel just becomes zero gas. Prevent negative integral windup
+      # during long coast-downs so throttle can resume as soon as speed reaches
+      # the new setpoint.
+      integrator_min = 0.0 if self.CP.enableGasInterceptor else None
       output_accel = self.pid.update(error_deadzone, speed=CS.vEgo,
                                      feedforward=a_target,
-                                     freeze_integrator=freeze_integrator)
+                                     freeze_integrator=freeze_integrator,
+                                     integrator_min=integrator_min)
 
     self.last_output_accel = clip(output_accel, accel_limits[0], accel_limits[1])
 

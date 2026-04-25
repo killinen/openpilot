@@ -43,7 +43,8 @@ class PIDController:
     self.pos_limit = pos_limit
     self.neg_limit = neg_limit
 
-  def update(self, error, error_rate=0.0, speed=0.0, feedforward=0., freeze_integrator=False):
+  def update(self, error, error_rate=0.0, speed=0.0, feedforward=0., freeze_integrator=False,
+             integrator_min=None, integrator_max=None):
     self.speed = speed
     self.p = self.k_p * float(error)
     self.d = self.k_d * error_rate
@@ -57,6 +58,11 @@ class PIDController:
       i_upperbound = self.i if test_control > self.pos_limit else self.pos_limit
       i_lowerbound = self.i if test_control < self.neg_limit else self.neg_limit
       self.i = np.clip(i, i_lowerbound, i_upperbound)
+
+    if integrator_min is not None or integrator_max is not None:
+      self.i = np.clip(self.i,
+                       self.neg_limit if integrator_min is None else integrator_min,
+                       self.pos_limit if integrator_max is None else integrator_max)
 
     control = self.p + self.i + self.d + self.f
     self.control = np.clip(control, self.neg_limit, self.pos_limit)
