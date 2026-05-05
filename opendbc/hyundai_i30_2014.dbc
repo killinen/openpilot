@@ -620,6 +620,9 @@ BO_ 576 TRQI_AdcStatus: 8 STM32G474_TRQI
  SG_ ADC3_Raw : 24|12@1+ (1,0) [0|4095] "code" CAN_Host
  SG_ ADC4_Raw : 36|12@1+ (1,0) [0|4095] "code" CAN_Host
  SG_ ADC5_Raw : 48|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ SNR_Passthrough_Requested : 60|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Passthrough_Active : 61|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Passthrough_Pending : 62|1@1+ (1,0) [0|1] "" CAN_Host
 
 BO_ 577 TRQI_IOStatus: 8 STM32G474_TRQI
  SG_ DAC1_Code : 0|12@1+ (1,0) [0|4095] "code" CAN_Host
@@ -654,8 +657,8 @@ BO_ 579 TRQI_VoltageStatus: 8 STM32G474_TRQI
 
 CM_ BO_ 560 "Absolute DAC, shared midpoint, and relay command. DAC1_Code and DAC2_Code are raw 12-bit DAC codes. Midpoint_InputVoltage is the external input voltage before halving for the DAC center; SaveToNVM stores that midpoint to flash.";
 CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, byte4 carries relay commands plus openpilot limit-hit bits, Delta_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
-CM_ BO_ 562 "Torque-domain command using the built-in drive-log torque-to-DAC calibration. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm value, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
-CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..63 are currently unused.";
+CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. The receiver requires recent forwarded 0x1F1 wheel speed, maps desired output torque to required MDPS input torque with a speed-binned drive-log map, then applies the torque-to-DAC calibration. It rejects stale speed, implausible torque jumps, large sign flips away from zero, and demands above +-600 Ncm.";
+CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..62 report SNR passthrough requested, active, and torque-confirm-pending state; bit63 is currently unused.";
 CM_ BO_ 577 "Reported DAC output codes packed as two 12-bit fields, EPS_VREF as a 12-bit field at 1.25 mV/LSB, relay and RC input states, TRQI delta-command error flags, watchdog timeout state, a 4-bit IOStatus_Counter, SNR/EPS pair plausibility error bits, Delta_Counter_Error, Output_Range_Error, local DAC feedback and RC state error bits, live torque-calibration state bits, and IOStatus_Checksum. RC_Minus maps PB4, RC_Plus maps PB1.";
 CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as packed 12-bit values at 1.25 mV/LSB (0..5.11875 V), followed by VoltageStatus_Counter and VoltageStatus_Checksum.";
 
@@ -664,7 +667,7 @@ CM_ SG_ 560 DAC2_Code "Raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 lab
 CM_ SG_ 561 DAC_Delta "Signed raw DAC-count offset around the active midpoint; this is in code counts, not volts.";
 CM_ SG_ 561 DAC_Delta_Redundant "Redundant copy of DAC_Delta; it must match DAC_Delta exactly for the command to be accepted.";
 CM_ SG_ 561 Delta_Counter "4-bit rolling counter carried in byte5 bits0..3 for 0x231; after the first valid delta frame the receiver expects the next modulo-16 value.";
-CM_ SG_ 562 Torque_Demand "Signed steering torque demand in Ncm carried in the low 12 bits of bytes0..1. Accepted 0x232 frames are converted through the built-in drive-log calibration into absolute DAC1/DAC2 outputs.";
+CM_ SG_ 562 Torque_Demand "Signed desired EPS output torque demand in Ncm carried in the low 12 bits of bytes0..1. Accepted 0x232 frames are mapped through recent 0x1F1 speed into required MDPS input torque, then converted through the built-in or live torque-to-DAC calibration into absolute DAC1/DAC2 outputs.";
 CM_ SG_ 562 Torque_Demand_Complement "12-bit ones-complement redundancy for Torque_Demand. It is encoded as Torque_Demand raw12 XOR 0x0FFF in the low 12 bits of bytes2..3.";
 CM_ SG_ 562 OP_Steer_Delta_Up_Limited "Set by openpilot when the TRQI torque command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
 CM_ SG_ 562 OP_Steer_Delta_Down_Limited "Set by openpilot when the TRQI torque command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
@@ -701,6 +704,9 @@ CM_ SG_ 577 RC_State_Error "Set when the local CANCTR RC state check is active b
 CM_ SG_ 577 TorqueCal_Valid "Set when a live PC4 torque calibration has completed successfully and its RAM map is valid.";
 CM_ SG_ 577 TorqueCal_Active "Set while a live PC4 torque calibration capture is currently running.";
 CM_ SG_ 577 IOStatus_Checksum "8-bit CRC of the 0x241 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
+CM_ SG_ 576 SNR_Passthrough_Requested "Set when SNR passthrough is requested by the SNR1/SNR2 difference threshold and has not released yet.";
+CM_ SG_ 576 SNR_Passthrough_Active "Set while SNR passthrough is blended into the applied DAC output.";
+CM_ SG_ 576 SNR_Passthrough_Pending "Set while torque-mode SNR passthrough is waiting for the short anti-spike confirmation window.";
 CM_ SG_ 579 VoltageStatus_Counter "8-bit rolling counter incremented on each successful 0x243 transmit.";
 CM_ SG_ 579 VoltageStatus_Checksum "8-bit CRC of the 0x243 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
 
@@ -717,6 +723,9 @@ VAL_ 561 REL_Cmd 0 "OFF" 1 "ON" ;
 VAL_ 561 RELE_Cmd 0 "OFF" 1 "ON" ;
 VAL_ 577 REL_State 0 "OFF" 1 "ON" ;
 VAL_ 577 RELE_State 0 "OFF" 1 "ON" ;
+VAL_ 576 SNR_Passthrough_Requested 0 "OFF" 1 "ON";
+VAL_ 576 SNR_Passthrough_Active 0 "OFF" 1 "ON";
+VAL_ 576 SNR_Passthrough_Pending 0 "OFF" 1 "ON";
 VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH" ;
 VAL_ 577 RC_Plus 0 "LOW" 1 "HIGH" ;
 VAL_ 577 Delta_Dlc_Error 0 "OK" 1 "ERROR" ;

@@ -110,7 +110,7 @@ class CarController(CarControllerBase):
     if self.use_trqi_steering:
       # TRQI torque mode only needs the torque-like path. The old standalone angle
       # request does not exist on the TRQI bus, so we translate openpilot steer
-      # directly into signed Ncm demand for 0x232.
+      # directly into signed EPS output-torque Ncm demand for 0x232.
       self.target_angle_delta = 0.0
       self.apply_steer_last = 0
       self.last_target_angle_lim = 0.0

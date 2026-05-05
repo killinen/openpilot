@@ -324,7 +324,7 @@ static bool i30_tx_hook(const CANPacket_t *to_send) {
 
   bool tx = true;
 
-  // TRQI steering torque command on 0x232:
+  // TRQI desired EPS output torque command on 0x232:
   // signed low-12-bit Ncm value in bytes0..1, raw12 ones-complement in bytes2..3, relay flags in byte 4,
   // 4-bit rolling counter in byte 5, CRC-8 in byte 6.
   if (addr == 0x232) {

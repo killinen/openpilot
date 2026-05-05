@@ -55,7 +55,7 @@ class SteerLimitParams:  # controls running @ 100hz
 
 
 class TrqiSteerLimitParams:  # controls running @ 100hz
-  # 0x232 uses signed steering torque demand in Ncm. Keep the openpilot-side
+  # 0x232 uses signed desired EPS output torque in Ncm. Keep the openpilot-side
   # range aligned with the existing ~4 Nm steering window.
   MAX_STEERING_TQ = 400.0
   STEER_DELTA_UP = 7.5

@@ -92,8 +92,8 @@ def compute_trqi_crc8(addr: int, payload_without_checksum: bytes) -> int:
 
 
 def create_trqi_torque_command(command_tq: float, lat_active: bool, counter: int, op_limit_flags: int = 0):
-  # 0x232 carries signed Ncm demand in the low 12 bits of bytes0..1, the raw12
-  # ones-complement in bytes2..3, and a CRC-8 in byte6.
+  # 0x232 carries desired EPS output torque as signed Ncm in the low 12 bits
+  # of bytes0..1, the raw12 ones-complement in bytes2..3, and a CRC-8 in byte6.
   torque_ncm = clamp_trqi_torque_demand(int(round(command_tq)))
   torque_raw = torque_ncm & 0x0FFF
   torque_complement_raw = torque_raw ^ 0x0FFF
