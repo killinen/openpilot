@@ -1,6 +1,7 @@
 venv/
 .venv/
 .ci_cache
+.codex
 .env
 .clang-format
 .DS_Store
