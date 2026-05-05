@@ -163,6 +163,17 @@ class LongitudinalPlanner:
     self.a_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.a_solution)
     self.j_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC[:-1], self.mpc.j_solution)
 
+    if mode == 'acc' and self.mpc.source == 'cruise' and not self.mpc.status and not force_slow_decel:
+      if v_cruise >= v_ego:
+        v_desired_trajectory = np.minimum(self.v_desired_trajectory, v_cruise)
+      else:
+        v_desired_trajectory = np.maximum(self.v_desired_trajectory, v_cruise)
+
+      if np.any(v_desired_trajectory != self.v_desired_trajectory):
+        self.v_desired_trajectory = v_desired_trajectory
+        self.a_desired_trajectory = np.gradient(self.v_desired_trajectory, CONTROL_N_T_IDX)
+        self.a_desired_trajectory_full = self.a_desired_trajectory
+
     # TODO counter is only needed because radar is glitchy, remove once radar is gone
     self.fcw = self.mpc.crash_cnt > 2 and not sm['carState'].standstill
     if self.fcw:
