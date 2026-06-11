@@ -83,6 +83,13 @@ class CarInterface(CarInterfaceBase):
     if self.CS.brake_error:
       events.add(EventName.brakeUnavailable)
 
+    if self.CS.trqi_disengage_error:
+      events.add(EventName.trqiDisengageError)
+    if self.CS.trqi_non_disengage_error:
+      events.add(EventName.trqiNonDisengageError)
+    if self.CS.trqi_limit:
+      events.add(EventName.trqiLimit)
+
     # low speed steer alert hysteresis logic (only for cars with steer cut off above 10 m/s)
     if ret.vEgo < (self.CP.minSteerSpeed + 2.) and self.CP.minSteerSpeed > 10.:
       self.low_speed_alert = True

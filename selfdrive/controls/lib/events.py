@@ -977,6 +977,29 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.NO_ENTRY: NoEntryAlert("LKAS Fault: Restart the Car"),
   },
 
+  EventName.trqiDisengageError: {
+    ET.IMMEDIATE_DISABLE: ImmediateDisableAlert("TRQI Steering Fault"),
+    ET.PERMANENT: NormalPermanentAlert("TRQI Steering Fault", "Check steering controller"),
+    ET.NO_ENTRY: NoEntryAlert("TRQI Steering Fault"),
+  },
+
+  EventName.trqiNonDisengageError: {
+    ET.WARNING: Alert(
+      "TRQI Steering Warning",
+      "Check steering controller",
+      AlertStatus.userPrompt, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.none, 0.2),
+    ET.PERMANENT: NormalPermanentAlert("TRQI Steering Warning", "Check steering controller", creation_delay=1.),
+  },
+
+  EventName.trqiLimit: {
+    ET.WARNING: Alert(
+      "TRQI Steering Limited",
+      "",
+      AlertStatus.userPrompt, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.none, 0.2, creation_delay=0.5),
+  },
+
   EventName.reverseGear: {
     ET.PERMANENT: Alert(
       "Reverse\nGear",
