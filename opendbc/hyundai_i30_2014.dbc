@@ -647,6 +647,50 @@ BO_ 577 TRQI_IOStatus: 8 STM32G474_TRQI
  SG_ TorqueCal_Active : 55|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ IOStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
 
+BO_ 578 TRQI_FaultStatus: 8 STM32G474_TRQI
+ SG_ Disengage_Error : 0|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Any_Limit : 1|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Diagnostic_Safe_State_Pending : 2|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Error_Disengage_Pending : 3|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Transient_Error_Hold : 4|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Commanded_Safe_State : 5|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Error : 6|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Non_Disengage_Error : 7|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Watchdog_Timeout_Error : 8|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Dlc_Error : 9|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Mode_Error : 10|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Dlc_Error_Detail : 11|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Mismatch_Error_Detail : 12|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Checksum_Error_Detail : 13|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Counter_Error_Detail : 14|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Mode_Error : 15|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Dlc_Error : 16|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Checksum_Error : 17|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Complement_Error : 18|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Counter_Error : 19|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Stale_Speed_Error : 20|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Sign_Flip_Error : 21|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Step_Error : 22|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Pair_Error_Detail : 23|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ EPS_Pair_Error_Detail : 24|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ DAC_FB_Error_Detail : 25|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RC_State_Error_Detail : 26|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_RX_FIFO_Lost_Error : 27|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Controller_Error : 28|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_TX_Drop_Error : 29|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_RX_Overrun_Error : 30|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ DAC_Output_Clamp_Limit : 32|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Demand_Clamp_Limit : 33|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Demand_Clamp_Limit : 34|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_DAC_Code_Clamp_Limit : 35|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Midpoint_Clamp_Limit : 36|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Delta_Up_Limit : 37|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Delta_Down_Limit : 38|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Max_Limit : 39|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_OutTq_Limit : 40|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ FaultStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ FaultStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
 BO_ 579 TRQI_VoltageStatus: 8 STM32G474_TRQI
  SG_ SNR1_VIN : 0|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
  SG_ SNR2_VIN : 12|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
@@ -655,12 +699,27 @@ BO_ 579 TRQI_VoltageStatus: 8 STM32G474_TRQI
  SG_ VoltageStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
  SG_ VoltageStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
 
+BO_ 580 TRQI_TorqueMapDebug: 8 STM32G474_TRQI
+ SG_ MapDebug_Speed : 0|16@1+ (0.1,0) [0|6553.5] "km/h" CAN_Host
+ SG_ MapDebug_OutputTorque : 16|16@1- (1,0) [-32768|32767] "Ncm" CAN_Host
+ SG_ MapDebug_InputTorque : 32|16@1- (1,0) [-32768|32767] "Ncm" CAN_Host
+ SG_ MapDebug_SpeedBin_Lower : 48|3@1+ (1,0) [0|7] "" CAN_Host
+ SG_ MapDebug_SpeedBin_Upper : 51|3@1+ (1,0) [0|7] "" CAN_Host
+ SG_ MapDebug_Valid : 54|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Torque_Clipped : 55|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_TorquePoint_Upper : 56|5@1+ (1,0) [0|31] "" CAN_Host
+ SG_ MapDebug_Torque_Extrapolated : 61|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Speed_Extrapolated : 62|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Cell_Calibrated : 63|1@1+ (1,0) [0|1] "" CAN_Host
+
 CM_ BO_ 560 "Absolute DAC, shared midpoint, and relay command. DAC1_Code and DAC2_Code are raw 12-bit DAC codes. Midpoint_InputVoltage is the external input voltage before halving for the DAC center; SaveToNVM stores that midpoint to flash.";
-CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, byte4 carries relay commands plus openpilot limit-hit bits, Delta_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
-CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. The receiver requires recent forwarded 0x1F1 wheel speed, maps desired output torque to required MDPS input torque with a speed-binned drive-log map, then applies the torque-to-DAC calibration. It rejects stale speed, implausible torque jumps, large sign flips away from zero, and demands above +-600 Ncm.";
+CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Delta_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
+CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. The receiver requires recent forwarded 0x1F1 wheel speed, maps desired output torque to required MDPS input torque with a speed-binned drive-log map, then applies the torque-to-DAC calibration. It rejects stale speed, implausible torque jumps, and large sign flips away from zero; demands above +-801 Ncm are clipped to +-801 Ncm and reported with Output_Range_Error.";
 CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..62 report SNR passthrough requested, active, and torque-confirm-pending state; bit63 is currently unused.";
 CM_ BO_ 577 "Reported DAC output codes packed as two 12-bit fields, EPS_VREF as a 12-bit field at 1.25 mV/LSB, relay and RC input states, TRQI delta-command error flags, watchdog timeout state, a 4-bit IOStatus_Counter, SNR/EPS pair plausibility error bits, Delta_Counter_Error, Output_Range_Error, local DAC feedback and RC state error bits, live torque-calibration state bits, and IOStatus_Checksum. RC_Minus maps PB4, RC_Plus maps PB1.";
+CM_ BO_ 578 "Expanded TRQI fault and limiter detail. Byte0 carries disengage/report-only error summary, limit summary, safe-state, CAN category, and pending-delay bits; bytes1..3 carry individual error bits; bytes4..5 carry individual limiter bits; byte6 is FaultStatus_Counter; byte7 is CRC-8 over id_lo, id_hi, and bytes0..6 with polynomial 0x07 and init 0x00. Command/diagnostic event details latch until the next valid command; CAN transport event details remain visible during the transient hold window; live diagnostic bits also reflect active status.";
 CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as packed 12-bit values at 1.25 mV/LSB (0..5.11875 V), followed by VoltageStatus_Counter and VoltageStatus_Checksum.";
+CM_ BO_ 580 "Latest accepted 0x232 torque-map calculation for debugging. Reports the vehicle speed used, limited EPS output-torque demand, mapped MDPS input torque, speed-bin interpolation indexes, torque-axis point index, and map coverage/extrapolation flags. The frame has no checksum or counter; MapDebug_Valid is cleared outside active torque-map control.";
 
 CM_ SG_ 560 DAC1_Code "Raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 560 DAC2_Code "Raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
@@ -680,8 +739,8 @@ CM_ SG_ 576 ADC2_Raw "Raw 12-bit ADC conversion code 0..4095 from PB13 / SNR2 be
 CM_ SG_ 576 ADC3_Raw "Raw 12-bit ADC conversion code 0..4095 from PA1 / EPS1 before divider scaling to input volts.";
 CM_ SG_ 576 ADC4_Raw "Raw 12-bit ADC conversion code 0..4095 from PA2 / EPS2 before divider scaling to input volts.";
 CM_ SG_ 576 ADC5_Raw "Raw 12-bit ADC conversion code 0..4095 from PA8 / EPS_VREF before divider scaling to input volts.";
-CM_ SG_ 577 SNR_Pair_Error "Set when the SNR pair differs by more than the configured plausibility bound in distance from EPS_VREF/2, or when both SNR signals move to the same side of EPS_VREF/2 once meaningfully away from center.";
-CM_ SG_ 577 EPS_Pair_Error "Set when the EPS pair differs by more than the configured plausibility bound in distance from EPS_VREF/2, or when both EPS signals move to the same side of EPS_VREF/2 once meaningfully away from center.";
+CM_ SG_ 577 SNR_Pair_Error "Set when the SNR pair differs by more than the configured plausibility bound in distance from EPS_VREF/2, or when both SNR signals move to the same side of EPS_VREF/2 once meaningfully away from center. Starts the diagnostic safe-state delay.";
+CM_ SG_ 577 EPS_Pair_Error "Set when the EPS pair differs by more than the configured plausibility bound in distance from EPS_VREF/2, or when both EPS signals move to the same side of EPS_VREF/2 once meaningfully away from center. Starts the diagnostic safe-state delay.";
 CM_ SG_ 577 DAC1_Code "Reported raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 577 DAC2_Code "Reported raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 560 SaveToNVM "When set, the midpoint value is saved to internal flash.";
@@ -692,44 +751,104 @@ CM_ SG_ 561 OP_OutTq_Limited "Set by openpilot while measured VSM2.CR_Mdps_OutTq
 CM_ SG_ 561 Delta_Checksum "8-bit CRC of the 0x231 message over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
 CM_ SG_ 577 RC_Minus "Digital input PB4 / RC-.";
 CM_ SG_ 577 RC_Plus "Digital input PB1 / RC+.";
-CM_ SG_ 577 Delta_Dlc_Error "Set when the last TRQI delta frame was rejected because DLC was shorter than 6 bytes.";
+CM_ SG_ 577 Delta_Dlc_Error "Set when the last TRQI delta frame was rejected because DLC was shorter than 7 bytes.";
 CM_ SG_ 577 Delta_Mismatch_Error "Set when the last TRQI delta frame was rejected because DAC_Delta and DAC_Delta_Redundant did not match.";
 CM_ SG_ 577 Delta_Checksum_Error "Set when the last TRQI delta frame was rejected because Delta_Checksum did not match the computed CRC-8 value.";
 CM_ SG_ 577 CAN_WDG_TIMO "Set when the TRQI command watchdog timed out after 500 ms without a valid 0x230, 0x231, or 0x232 command; outputs are forced to neutral center and both relays are driven off.";
 CM_ SG_ 577 Delta_Counter_Error "Set when the last TRQI delta frame was rejected because Delta_Counter was not the expected next modulo-16 value; the receiver resynchronizes to the received counter.";
 CM_ SG_ 577 IOStatus_Counter "4-bit rolling counter incremented on each successful 0x241 transmit.";
-CM_ SG_ 577 Output_Range_Error "Set when an absolute, delta, or torque TRQI command would drive DAC1 or DAC2 outside the allowed 1.2..3.5 V output window and the firmware had to clamp the output.";
+CM_ SG_ 577 Output_Range_Error "Set when an absolute, delta, or torque TRQI command would drive DAC1 or DAC2 outside the allowed 1.2..3.5 V output window, or when a 0x232 output-torque demand exceeded +-801 Ncm, and the firmware had to clamp the output.";
 CM_ SG_ 577 DAC_FB_Error "Set when the local CANCTR DAC feedback check is active because EPS1/EPS2 do not match the applied DAC outputs within the configured thresholds.";
 CM_ SG_ 577 RC_State_Error "Set when the local CANCTR RC state check is active because PB4/PB1 do not match the expected relay-state combination.";
 CM_ SG_ 577 TorqueCal_Valid "Set when a live PC4 torque calibration has completed successfully and its RAM map is valid.";
 CM_ SG_ 577 TorqueCal_Active "Set while a live PC4 torque calibration capture is currently running.";
 CM_ SG_ 577 IOStatus_Checksum "8-bit CRC of the 0x241 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
+CM_ SG_ 578 Disengage_Error "Set when any active individual error bit is in the disengage-class mask. Current TRQI error bits are disengage-class; limit bits are reported separately through Any_Limit.";
+CM_ SG_ 578 Any_Limit "Set when any individual limiter bit in TRQI_FaultStatus is active.";
+CM_ SG_ 578 Diagnostic_Safe_State_Pending "Set while a confirmed DAC feedback, RC state, SNR pair, or EPS pair error is waiting for the 100 ms diagnostic safe-state delay to expire.";
+CM_ SG_ 578 CAN_Error_Disengage_Pending "Set while a CAN controller/RX/TX/overrun fault is waiting for the 100 ms CAN error disengage delay to expire.";
+CM_ SG_ 578 Transient_Error_Hold "Set while the local transient error hold is active for LED/diagnostic visibility.";
+CM_ SG_ 578 Commanded_Safe_State "Set when the latest valid 0x230/0x231/0x232 control command requested safe state by not commanding both REL and RELE; clears on the next valid active command or mode reset.";
+CM_ SG_ 578 CAN_Error "Set when any CAN transport/controller detail bit is active.";
+CM_ SG_ 578 Non_Disengage_Error "Set when any active individual error bit is report-only and does not request safe state. No current TRQI error bits are in this class.";
+CM_ SG_ 578 Watchdog_Timeout_Error "Set when the 500 ms CANCTR command watchdog has timed out.";
+CM_ SG_ 578 Abs_Dlc_Error "Set when a 0x230 absolute command was shorter than the required 7 bytes.";
+CM_ SG_ 578 Abs_Mode_Error "Set when a 0x230 absolute command was rejected because torque mode was active.";
+CM_ SG_ 578 Delta_Dlc_Error_Detail "Set when a 0x231 delta command was shorter than the required 7 bytes.";
+CM_ SG_ 578 Delta_Mismatch_Error_Detail "Set when a 0x231 delta command redundant delta did not match the primary delta.";
+CM_ SG_ 578 Delta_Checksum_Error_Detail "Set when a 0x231 delta command checksum failed.";
+CM_ SG_ 578 Delta_Counter_Error_Detail "Set when a 0x231 delta command counter was repeated, too old, or skipped farther than the allowed tolerance.";
+CM_ SG_ 578 Delta_Mode_Error "Set when a 0x231 delta command was rejected because torque mode was active.";
+CM_ SG_ 578 Torque_Dlc_Error "Set when a 0x232 torque command was shorter than the required 7 bytes.";
+CM_ SG_ 578 Torque_Checksum_Error "Set when a 0x232 torque command checksum failed.";
+CM_ SG_ 578 Torque_Complement_Error "Set when a 0x232 torque command 12-bit complement did not match Torque_Demand.";
+CM_ SG_ 578 Torque_Counter_Error "Set when a 0x232 torque command counter was repeated, too old, or skipped farther than the allowed tolerance.";
+CM_ SG_ 578 Torque_Stale_Speed_Error "Set when a 0x232 torque command was rejected because no recent forwarded 0x1F1 wheel speed was available.";
+CM_ SG_ 578 Torque_Sign_Flip_Error "Set when a 0x232 torque command was rejected for a large sign flip away from zero.";
+CM_ SG_ 578 Torque_Step_Error "Set when a 0x232 torque command was rejected for exceeding the allowed torque step/rate guard.";
+CM_ SG_ 578 SNR_Pair_Error_Detail "Set when the SNR pair plausibility check is active, or latched as the cause of a diagnostic safe-state transition.";
+CM_ SG_ 578 EPS_Pair_Error_Detail "Set when the EPS pair plausibility check is active, or latched as the cause of a diagnostic safe-state transition.";
+CM_ SG_ 578 DAC_FB_Error_Detail "Set when the DAC feedback check is active, or latched as the cause of a diagnostic safe-state transition.";
+CM_ SG_ 578 RC_State_Error_Detail "Set when the RC state check is active, or latched as the cause of a diagnostic safe-state transition.";
+CM_ SG_ 578 CAN_RX_FIFO_Lost_Error "Set when FDCAN reports an RX FIFO0 message-lost event while CANCTR is active.";
+CM_ SG_ 578 CAN_Controller_Error "Set when FDCAN reports a controller/protocol status interrupt while CANCTR is active.";
+CM_ SG_ 578 CAN_TX_Drop_Error "Set when a CANCTR status frame could not be queued after retries.";
+CM_ SG_ 578 CAN_RX_Overrun_Error "Set when a latest-frame slot was overwritten before the CANCTR frame was processed, or when the local CAN RX queue overflowed and dropped frames.";
+CM_ SG_ 578 DAC_Output_Clamp_Limit "Set when CANCTR clamps DAC1 or DAC2 to the allowed 1.2..3.5 V output window.";
+CM_ SG_ 578 Torque_Demand_Clamp_Limit "Set when a 0x232 output torque demand exceeded +-801 Ncm and was clipped.";
+CM_ SG_ 578 Delta_Demand_Clamp_Limit "Set when a 0x231 delta command exceeded the raw DAC delta range and was clipped.";
+CM_ SG_ 578 Abs_DAC_Code_Clamp_Limit "Set when a 0x230 absolute DAC code exceeded the raw 12-bit DAC range and was clipped.";
+CM_ SG_ 578 Abs_Midpoint_Clamp_Limit "Set when a 0x230 midpoint input implied an output midpoint above the 0..5 V DAC domain and was clipped.";
+CM_ SG_ 578 OP_Steer_Delta_Up_Limit "Mirrors the latest valid 0x231/0x232 OP_STEER_DELTA_UP limiter flag from the command source.";
+CM_ SG_ 578 OP_Steer_Delta_Down_Limit "Mirrors the latest valid 0x231/0x232 OP_STEER_DELTA_DOWN limiter flag from the command source.";
+CM_ SG_ 578 OP_Steer_Max_Limit "Mirrors the latest valid 0x231/0x232 OP_STEER_MAX limiter flag from the command source.";
+CM_ SG_ 578 OP_OutTq_Limit "Mirrors the latest valid 0x231/0x232 OP_OUTTQ limiter flag from the command source.";
+CM_ SG_ 578 FaultStatus_Counter "8-bit counter incremented on each successful 0x242 transmit.";
+CM_ SG_ 578 FaultStatus_Checksum "8-bit CRC of the 0x242 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
 CM_ SG_ 576 SNR_Passthrough_Requested "Set when SNR passthrough is requested by the SNR1/SNR2 difference threshold and has not released yet.";
 CM_ SG_ 576 SNR_Passthrough_Active "Set while SNR passthrough is blended into the applied DAC output.";
 CM_ SG_ 576 SNR_Passthrough_Pending "Set while torque-mode SNR passthrough is waiting for the short anti-spike confirmation window.";
 CM_ SG_ 579 VoltageStatus_Counter "8-bit rolling counter incremented on each successful 0x243 transmit.";
 CM_ SG_ 579 VoltageStatus_Checksum "8-bit CRC of the 0x243 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
+CM_ SG_ 580 MapDebug_Speed "Vehicle speed used by the latest accepted 0x232 torque-map calculation.";
+CM_ SG_ 580 MapDebug_OutputTorque "Limited EPS output torque demand passed into the speed map.";
+CM_ SG_ 580 MapDebug_InputTorque "MDPS input torque produced by the speed map before torque-to-DAC conversion.";
+CM_ SG_ 580 MapDebug_SpeedBin_Lower "Lower speed-bin row index used for interpolation; equals MapDebug_SpeedBin_Upper when speed is outside or exactly on an endpoint row.";
+CM_ SG_ 580 MapDebug_SpeedBin_Upper "Upper speed-bin row index used for interpolation; equals MapDebug_SpeedBin_Lower when speed is outside or exactly on an endpoint row.";
+CM_ SG_ 580 MapDebug_Valid "Set when the frame contains a current accepted 0x232 torque-map sample; cleared after safe state, absolute/delta control, or mode reset.";
+CM_ SG_ 580 MapDebug_Torque_Clipped "Set when the original 0x232 output torque demand was clipped to +-801 Ncm before mapping.";
+CM_ SG_ 580 MapDebug_TorquePoint_Upper "Upper output-torque point index used on the map torque axis. For endpoint extrapolation this is the endpoint index.";
+CM_ SG_ 580 MapDebug_Torque_Extrapolated "Set when the limited output torque is outside the generated map torque-axis range.";
+CM_ SG_ 580 MapDebug_Speed_Extrapolated "Set when speed is outside the generated speed-bin center range and the endpoint speed row is used.";
+CM_ SG_ 580 MapDebug_Cell_Calibrated "Set when all speed/torque map cells used by the current interpolation are marked calibrated in the generated map.";
 
 BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 576 100;
 BA_ "GenMsgCycleTime" BO_ 577 100;
+BA_ "GenMsgCycleTime" BO_ 578 100;
 BA_ "GenMsgCycleTime" BO_ 579 100;
+BA_ "GenMsgCycleTime" BO_ 580 100;
 
-VAL_ 558 STEER_MODE 0 "Off" 1 "TorqueControl" 2 "RelativeControl" 3 "SoftOff" ;
-VAL_ 560 REL_Cmd 0 "OFF" 1 "ON" ;
-VAL_ 560 RELE_Cmd 0 "OFF" 1 "ON" ;
-VAL_ 560 SaveToNVM 0 "No" 1 "Save" ;
-VAL_ 561 REL_Cmd 0 "OFF" 1 "ON" ;
-VAL_ 561 RELE_Cmd 0 "OFF" 1 "ON" ;
-VAL_ 577 REL_State 0 "OFF" 1 "ON" ;
-VAL_ 577 RELE_State 0 "OFF" 1 "ON" ;
+VAL_ 560 REL_Cmd 0 "OFF" 1 "ON";
+VAL_ 560 RELE_Cmd 0 "OFF" 1 "ON";
+VAL_ 560 SaveToNVM 0 "No" 1 "Save";
+VAL_ 561 REL_Cmd 0 "OFF" 1 "ON";
+VAL_ 561 RELE_Cmd 0 "OFF" 1 "ON";
+VAL_ 562 REL_Cmd 0 "OFF" 1 "ON";
+VAL_ 562 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Requested 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Active 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Pending 0 "OFF" 1 "ON";
-VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH" ;
-VAL_ 577 RC_Plus 0 "LOW" 1 "HIGH" ;
-VAL_ 577 Delta_Dlc_Error 0 "OK" 1 "ERROR" ;
-VAL_ 577 Delta_Mismatch_Error 0 "OK" 1 "ERROR" ;
-VAL_ 577 Delta_Checksum_Error 0 "OK" 1 "ERROR" ;
-VAL_ 577 Delta_Counter_Error 0 "OK" 1 "ERROR" ;
-VAL_ 577 Output_Range_Error 0 "OK" 1 "ERROR" ;
+VAL_ 577 REL_State 0 "OFF" 1 "ON";
+VAL_ 577 RELE_State 0 "OFF" 1 "ON";
+VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH";
+VAL_ 577 RC_Plus 0 "LOW" 1 "HIGH";
+VAL_ 577 Delta_Dlc_Error 0 "OK" 1 "ERROR";
+VAL_ 577 Delta_Mismatch_Error 0 "OK" 1 "ERROR";
+VAL_ 577 Delta_Checksum_Error 0 "OK" 1 "ERROR";
+VAL_ 577 SNR_Pair_Error 0 "OK" 1 "ERROR";
+VAL_ 577 EPS_Pair_Error 0 "OK" 1 "ERROR";
+VAL_ 577 Delta_Counter_Error 0 "OK" 1 "ERROR";
+VAL_ 577 Output_Range_Error 0 "OK" 1 "ERROR";
+
+VAL_ 558 STEER_MODE 0 "Off" 1 "TorqueControl" 2 "RelativeControl" 3 "SoftOff" ;
