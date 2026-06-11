@@ -47,6 +47,10 @@ class CarState(CarStateBase):
     self.i30_clutch_press_samples = 0
     self.i30_clutch_release_samples = 0
     self.steering_torque_out = 0.0
+    self.trqi_disengage_error = False
+    self.trqi_non_disengage_error = False
+    self.trqi_limit = False
+    self.trqi_host_command_limited = False
 
   def update(self, cp, cp_cam, frogpilot_toggles):
     return self.update_i30(cp, cp_cam)
@@ -130,10 +134,18 @@ class CarState(CarStateBase):
       # The standalone board does not publish the old angle/torque feedback, so
       # disable the SSC-specific alignment path when this mode is selected.
       ret.steeringTorqueEps = 0.0
+      self.trqi_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Disengage_Error"])
+      self.trqi_non_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Non_Disengage_Error"])
+      self.trqi_limit = bool(cp_cam.vl["TRQI_FaultStatus"]["Any_TRQI_Limit"])
+      self.trqi_host_command_limited = bool(cp_cam.vl["TRQI_FaultStatus"]["Host_Command_Limited"])
       self.i30_angle_offset_needed = True
       self.i30_angle_aligned = False
       self.i30_ssc_angle_initialized = False
     else:
+      self.trqi_disengage_error = False
+      self.trqi_non_disengage_error = False
+      self.trqi_limit = False
+      self.trqi_host_command_limited = False
       ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
       ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
@@ -215,6 +227,7 @@ class CarState(CarStateBase):
       # board is in charge of steering. This keeps cp_cam valid without requiring
       # the old STEERING_STATUS message to still be present on bus 1.
       messages.append(("TRQI_IOStatus", 10))
+      messages.append(("TRQI_FaultStatus", 10))
     else:
       messages.append(("STEERING_STATUS", 20))  # Checks if SSC is connected
     if CP.enableGasInterceptor:
