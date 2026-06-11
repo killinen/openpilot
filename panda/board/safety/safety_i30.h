@@ -9,7 +9,7 @@ const int I30_STANDSTILL_THRSLD = 30;  // ~1kph
 
 const int I30_MAX_ACCEL = 200;  // 1/100 m/s2
 const int I30_MIN_ACCEL = -350; // 1/100 m/s2
-const int I30_TRQI_MAX_TORQUE_NCM = 400;   // match the openpilot-side TRQI steering demand window
+const int I30_TRQI_MAX_TORQUE_NCM = 801;   // match the openpilot-side TRQI steering demand window
 
 #define I30_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2U) // avg between 2 tracks
 
