@@ -14,7 +14,7 @@ SAMPLING_FREQ = 100  # Hz
 # the other backend.
 TRQI_ALPHA = 1.0
 SSC_ALPHA = 0.35
-TRQI_OUT_TQ_LIMIT_THRESHOLD = 5.0
+TRQI_OUT_TQ_LIMIT_THRESHOLD = 9.0
 
 # Steer angle limits
 ANGLE_MAX_BP = [5., 15., 30]  # m/s (8, 54, 108 km/h)
