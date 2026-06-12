@@ -6,8 +6,25 @@ from openpilot.selfdrive.controls.lib.pid import PIDController
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
 CONTROL_N_T_IDX = ModelConstants.T_IDXS[:CONTROL_N]
+GAS_INTERCEPTOR_OVERSPEED_MARGIN = 0.25  # m/s
+GAS_INTERCEPTOR_TARGET_ACCEL_MARGIN = 0.05  # m/s
 
 LongCtrlState = car.CarControl.Actuators.LongControlState
+
+
+def gas_interceptor_integrator_limits(v_ego, v_pid, v_target_1sec, p_term, feedforward):
+  integrator_min = 0.0
+  integrator_max = None
+
+  above_target = v_ego > v_pid + GAS_INTERCEPTOR_OVERSPEED_MARGIN
+  target_not_accelerating = v_target_1sec <= v_pid + GAS_INTERCEPTOR_TARGET_ACCEL_MARGIN
+  if above_target and target_not_accelerating:
+    # Keep the integral only as high as can be cancelled by P/FF. This stops
+    # positive throttle while overspeed without dumping useful integral during
+    # a large cruise target drop where P is already strongly negative.
+    integrator_max = max(0.0, -p_term - feedforward)
+
+  return integrator_min, integrator_max
 
 
 def long_control_state_trans(CP, active, long_control_state, v_ego,
@@ -188,15 +205,22 @@ class LongControl:
       error = self.v_pid - CS.vEgo
       error_deadzone = apply_deadzone(error, deadzone)
 
-      # Gas interceptor cars cannot realize negative acceleration commands;
-      # negative accel just becomes zero gas. Prevent negative integral windup
-      # during long coast-downs so throttle can resume as soon as speed reaches
-      # the new setpoint.
-      integrator_min = 0.0 if self.CP.enableGasInterceptor else None
+      integrator_min = None
+      integrator_max = None
+      if self.CP.enableGasInterceptor:
+        # Gas interceptor cars cannot realize negative acceleration commands;
+        # negative accel just becomes zero gas. Prevent negative integral windup
+        # during long coast-downs so throttle can resume as soon as speed reaches
+        # the new setpoint. Also cap positive integral while overspeed so stored
+        # ramp-up integral cannot keep requesting throttle above the capped target.
+        p_term = interp(CS.vEgo, self.CP.longitudinalTuning.kpBP, self.CP.longitudinalTuning.kpV) * error_deadzone
+        integrator_min, integrator_max = gas_interceptor_integrator_limits(CS.vEgo, self.v_pid, v_target_1sec, p_term, a_target)
+
       output_accel = self.pid.update(error_deadzone, speed=CS.vEgo,
                                      feedforward=a_target,
                                      freeze_integrator=freeze_integrator,
-                                     integrator_min=integrator_min)
+                                     integrator_min=integrator_min,
+                                     integrator_max=integrator_max)
 
     self.last_output_accel = clip(output_accel, accel_limits[0], accel_limits[1])
 

@@ -154,6 +154,11 @@ class LongitudinalPlanner:
     if force_slow_decel:
       v_cruise = 0.0
 
+    cruise_cap_active = v_cruise_initialized or force_slow_decel
+    if cruise_cap_active and self.v_desired_filter.x > v_cruise:
+      self.v_desired_filter.x = v_cruise
+      self.a_desired = min(self.a_desired, 0.0)
+
     self.mpc.set_weights(sm['frogpilotPlan'].accelerationJerk, sm['frogpilotPlan'].dangerJerk, sm['frogpilotPlan'].speedJerk, prev_accel_constraint, personality=sm['controlsState'].personality)
     self.mpc.set_cur_state(self.v_desired_filter.x, self.a_desired)
     self.mpc.update(sm['radarState'], v_cruise, x, v, a, j, sm['frogpilotPlan'].tFollow, personality=sm['controlsState'].personality)
@@ -163,11 +168,8 @@ class LongitudinalPlanner:
     self.a_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC, self.mpc.a_solution)
     self.j_desired_trajectory = np.interp(CONTROL_N_T_IDX, T_IDXS_MPC[:-1], self.mpc.j_solution)
 
-    if mode == 'acc' and self.mpc.source == 'cruise' and not self.mpc.status and not force_slow_decel:
-      if v_cruise >= v_ego:
-        v_desired_trajectory = np.minimum(self.v_desired_trajectory, v_cruise)
-      else:
-        v_desired_trajectory = np.maximum(self.v_desired_trajectory, v_cruise)
+    if cruise_cap_active and not force_slow_decel:
+      v_desired_trajectory = np.minimum(self.v_desired_trajectory, v_cruise)
 
       if np.any(v_desired_trajectory != self.v_desired_trajectory):
         self.v_desired_trajectory = v_desired_trajectory
@@ -182,7 +184,11 @@ class LongitudinalPlanner:
     # Interpolate 0.05 seconds and save as starting point for next iteration
     a_prev = self.a_desired
     self.a_desired = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
-    self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
+    v_desired_next = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
+    if cruise_cap_active and v_desired_next > v_cruise:
+      v_desired_next = v_cruise
+      self.a_desired = min(self.a_desired, 0.0)
+    self.v_desired_filter.x = v_desired_next
 
     action_t = frogpilot_toggles.longitudinalActuatorDelay + DT_MDL
     output_a_target_mpc, output_should_stop_mpc = get_accel_from_plan(self.v_desired_trajectory, self.a_desired_trajectory, CONTROL_N_T_IDX,
