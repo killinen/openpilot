@@ -336,7 +336,7 @@ void FrogPilotSettingsWindow::updateVariables() {
       auto kpV = CP.getLateralTuning().getPid().getKpV();
       steerKp = kpV.size() > 0 ? kpV[0] : 1.0;
     } else {
-      steerKp = 1.0;
+      steerKp = 0.7;
     }
     steerRatio = CP.getSteerRatio();
     stopAccel = CP.getStopAccel();
