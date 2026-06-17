@@ -207,12 +207,13 @@ def clip_curvature(v_ego, prev_curvature, new_curvature, roll) -> tuple[float, b
 
 
 def get_friction(lateral_accel_error: float, lateral_accel_deadzone: float, friction_threshold: float,
-                 torque_params: car.CarParams.LateralTorqueTuning) -> float:
+                 torque_params: car.CarParams.LateralTorqueTuning, friction_scale: float = 1.0) -> float:
   # TODO torque params' friction should be in lataxel space, not torque space
+  friction = torque_params.friction * friction_scale * torque_params.latAccelFactor
   friction_interp = interp(
     apply_center_deadzone(lateral_accel_error, lateral_accel_deadzone),
     [-friction_threshold, friction_threshold],
-    [-torque_params.friction * torque_params.latAccelFactor, torque_params.friction * torque_params.latAccelFactor]
+    [-friction, friction]
   )
   return float(friction_interp)
 
