@@ -38,11 +38,11 @@ J_EGO_COST = 5.0
 A_CHANGE_COST = 200.
 DANGER_ZONE_COST = 100.
 CRASH_DISTANCE = .25
-LEAD_DANGER_FACTOR = 0.75
+LEAD_DANGER_FACTOR = 0.9          # Orig 0.75
 LIMIT_COST = 1e6
 ACADOS_SOLVER_TYPE = 'SQP_RTI'
 # Default lead acceleration decay set to 50% at 1s
-LEAD_ACCEL_TAU = 1.5
+LEAD_ACCEL_TAU = 1.1              # Orig 1.5
 
 
 # Fewer timestamps don't hurt performance and lead to

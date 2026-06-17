@@ -21,7 +21,7 @@ from openpilot.selfdrive.controls.lib.vehicle_model import ACCELERATION_DUE_TO_G
 # Additionally, there is friction in the steering wheel that needs
 # to be overcome to move it at all, this is compensated for too.
 
-KP = 0.7    # Original 1.0
+KP = 0.72    # Original 1.0
 KI = 0.3
 KD = 0.0
 INTERP_SPEEDS = [1, 1.5, 2.0, 3.0, 5, 7.5, 10, 15, 30]
@@ -30,6 +30,8 @@ KP_INTERP = [250, 120, 65, 30, 11.5, 5.5, 3.5, 2.0, KP]
 LP_FILTER_CUTOFF_HZ = 1.2
 LAT_ACCEL_REQUEST_BUFFER_SECONDS = 1.0
 VERSION = 0
+FRICTION_SPEED_REF = 25.0  # m/s, keep low/mid-speed friction unchanged up to ~90 kph
+FRICTION_SPEED_EXP = 0.7
 
 class LatControlTorque(LatControl):
   def __init__(self, CP, CI, dt):
@@ -88,7 +90,8 @@ class LatControlTorque(LatControl):
       # latAccelOffset corrects roll compensation bias from device roll misalignment relative to car roll
       ff -= self.torque_params.latAccelOffset
       # TODO jerk is weighted by lat_delay for legacy reasons, but should be made independent of it
-      ff += get_friction(error, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params)
+      friction_scale = min(1.0, (FRICTION_SPEED_REF / max(CS.vEgo, FRICTION_SPEED_REF)) ** FRICTION_SPEED_EXP)
+      ff += get_friction(error, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params, friction_scale)
 
       freeze_integrator = steer_limited_by_safety or CS.steeringPressed or CS.vEgo < 5
       output_lataccel = self.pid.update(pid_log.error,
