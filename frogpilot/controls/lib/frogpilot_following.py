@@ -6,6 +6,11 @@ from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import COMFO
 from openpilot.frogpilot.common.frogpilot_variables import CITY_SPEED_LIMIT, MAX_T_FOLLOW
 
 TRAFFIC_MODE_BP = [0., CITY_SPEED_LIMIT]
+# i30 gas-interceptor tuning: these values are offsets added to the active
+# FrogPilot/UI follow time while tracking a lead, so the UI value remains the
+# main knob. Example: UI follow 1.85s gives 2.30s @50 kph and 1.80s @130 kph.
+I30_T_FOLLOW_OFFSET_SPEED_BP = [50 / 3.6, 80 / 3.6, 100 / 3.6, 120 / 3.6, 130 / 3.6]
+I30_T_FOLLOW_OFFSET_V = [0.45, 0.35, 0.15, 0.00, -0.05]
 
 class FrogPilotFollowing:
   def __init__(self, FrogPilotPlanner):
@@ -59,6 +64,10 @@ class FrogPilotFollowing:
       self.base_danger_jerk = 0
       self.base_speed_jerk = 0
       self.t_follow = 0
+
+    if sm["controlsState"].enabled and self.frogpilot_planner.tracking_lead and getattr(frogpilot_toggles, "car_make", "") == "i30":
+      t_follow_offset = float(np.interp(v_ego, I30_T_FOLLOW_OFFSET_SPEED_BP, I30_T_FOLLOW_OFFSET_V))
+      self.t_follow = float(np.clip(self.t_follow + t_follow_offset, 1.6, MAX_T_FOLLOW))
 
     self.acceleration_jerk = self.base_acceleration_jerk
     self.danger_jerk = self.base_danger_jerk
