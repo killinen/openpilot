@@ -56,7 +56,7 @@ OPENPILOT_UI_TOGGLE_DEFINITIONS = [
   {
     "key": "IgnitionOverride",
     "label": "Ignition Override",
-    "default_value": "0",
+    "default_value": "2",
     "value_map": {
       "": ("AUTO", "default"),
       "0": ("AUTO", "default"),
