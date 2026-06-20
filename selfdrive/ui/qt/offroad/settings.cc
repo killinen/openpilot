@@ -67,6 +67,12 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "../assets/offroad/icon_monitoring.png",
     },
     {
+      "RecordWideRoad",
+      tr("Record and Upload Wide Road Camera"),
+      tr("Save and upload wide road camera footage. Disable this to prevent ecamera.hevc files from being stored."),
+      "../assets/offroad/icon_road.png",
+    },
+    {
       "GoranConnectEnabled",
       tr("GoranConnect access"),
       tr("Allow remote support features (reverse SSH tunnel and route transfers) via GoranConnect. Disable to stop remote access."),
@@ -209,6 +215,8 @@ void TogglesPanel::updateToggles() {
   disengage_on_accelerator_toggle->setVisible(!frogpilot_toggles.value("always_on_lateral").toBool());
   auto driver_camera_toggle = toggles["RecordFront"];
   driver_camera_toggle->setVisible(!(frogpilot_toggles.value("no_logging").toBool() && frogpilot_toggles.value("no_uploads").toBool()));
+  auto wide_road_camera_toggle = toggles["RecordWideRoad"];
+  wide_road_camera_toggle->setVisible(!(frogpilot_toggles.value("no_logging").toBool() && frogpilot_toggles.value("no_uploads").toBool()));
   auto nav_settings_left_toggle = toggles["NavSettingLeftSide"];
   nav_settings_left_toggle->setVisible(!frogpilot_toggles.value("full_map").toBool());
   auto trqi_steering_toggle = toggles["TRQISteeringToggle"];

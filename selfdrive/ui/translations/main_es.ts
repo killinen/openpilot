@@ -5924,6 +5924,14 @@ Esto puede tardar hasta un minuto.</translation>
         <source>Switch the Hyundai i30 steering path from the legacy SSC command to the TRQI delta backend. This toggle is only used on the custom i30 port and is applied on the next reboot.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Record and Upload Wide Road Camera</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save and upload wide road camera footage. Disable this to prevent ecamera.hevc files from being stored.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>
