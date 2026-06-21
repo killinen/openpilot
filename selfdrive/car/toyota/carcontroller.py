@@ -11,7 +11,7 @@ from openpilot.selfdrive.car.interfaces import CarControllerBase
 from openpilot.selfdrive.car.toyota import toyotacan
 from openpilot.selfdrive.car.toyota.values import CAR, STATIC_DSU_MSGS, NO_STOP_TIMER_CAR, TSS2_CAR, \
                                         MIN_ACC_SPEED, PEDAL_TRANSITION, CarControllerParams, ToyotaFlags, \
-                                        UNSUPPORTED_DSU_CAR, STOP_AND_GO_CAR
+                                        UNSUPPORTED_DSU_CAR, STOP_AND_GO_CAR, HRR_CAR
 from openpilot.selfdrive.controls.lib.pid import PIDController
 from opendbc.can.packer import CANPacker
 
@@ -43,6 +43,11 @@ MAX_USER_TORQUE = 500
 MAX_LTA_ANGLE = 94.9461  # deg
 MAX_LTA_DRIVER_TORQUE_ALLOWANCE = 150  # slightly above steering pressed allows some resistance when changing lanes
 
+TOYOTA_HRR_MAX_TORQUE_NCM = 400.0  # 4 Nm
+TOYOTA_HRR_DELTA_UP = 6.0
+TOYOTA_HRR_DELTA_DOWN = 6.0
+TOYOTA_HRR_ALPHA = 1.0
+
 # Lock / unlock door commands - Credit goes to AlexandreSato!
 LOCK_CMD = b"\x40\x05\x30\x11\x00\x80\x00\x00"
 UNLOCK_CMD = b"\x40\x05\x30\x11\x00\x40\x00\x00"
@@ -58,6 +63,42 @@ def get_long_tune(CP, params):
                        rate=1 / (DT_CTRL * 3))
 
 
+def lowpass_filter(new_val, prev_val, alpha):
+  return alpha * new_val + (1 - alpha) * prev_val
+
+
+def apply_hrr_steering_limits(apply_torque, apply_torque_last):
+  delta_up_limited = False
+  delta_down_limited = False
+
+  if apply_torque_last > 0:
+    lower_down = apply_torque_last - TOYOTA_HRR_DELTA_DOWN
+    lower_up_floor = -TOYOTA_HRR_DELTA_UP
+    lower = max(lower_down, lower_up_floor)
+    upper = apply_torque_last + TOYOTA_HRR_DELTA_UP
+    if apply_torque < lower:
+      delta_down_limited = lower == lower_down
+      delta_up_limited = lower == lower_up_floor
+    elif apply_torque > upper:
+      delta_up_limited = True
+  else:
+    lower = apply_torque_last - TOYOTA_HRR_DELTA_UP
+    upper_down = apply_torque_last + TOYOTA_HRR_DELTA_DOWN
+    upper_up_cap = TOYOTA_HRR_DELTA_UP
+    upper = min(upper_down, upper_up_cap)
+    if apply_torque < lower:
+      delta_up_limited = True
+    elif apply_torque > upper:
+      delta_down_limited = upper == upper_down
+      delta_up_limited = upper == upper_up_cap
+
+  rate_limited = clip(apply_torque, lower, upper)
+  max_clipped = clip(rate_limited, -TOYOTA_HRR_MAX_TORQUE_NCM, TOYOTA_HRR_MAX_TORQUE_NCM)
+  max_limited = abs(rate_limited - max_clipped) > 1e-6
+
+  return max_clipped, delta_up_limited, delta_down_limited, max_limited
+
+
 class CarController(CarControllerBase):
   def __init__(self, dbc_name, CP, VM):
     self.CP = CP
@@ -71,6 +112,9 @@ class CarController(CarControllerBase):
     self.permit_braking = True
     self.steer_rate_counter = 0
     self.distance_button = 0
+    self.use_hrr_steering = self.CP.carFingerprint in HRR_CAR
+    self.last_hrr_tq = 0.0
+    self.hrr_counter = 0
 
     # *** start long control state ***
     self.long_pid = get_long_tune(self.CP, self.params)
@@ -121,51 +165,87 @@ class CarController(CarControllerBase):
           carlog.error("SecOC synchronization MAC mismatch, wrong key?")
 
     # *** steer torque ***
-    new_steer = int(round(actuators.steer * self.params.STEER_MAX))
-    apply_steer = apply_meas_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, self.params)
+    apply_steer = 0
+    steer_output_can = 0
+    applied_steer = 0.0
 
-    # >100 degree/sec steering fault prevention
-    self.steer_rate_counter, apply_steer_req = common_fault_avoidance(abs(CS.out.steeringRateDeg) >= MAX_STEER_RATE, lat_active,
-                                                                      self.steer_rate_counter, MAX_STEER_RATE_FRAMES)
+    if self.use_hrr_steering:
+      hrr_limit_flags = 0
+      self.last_steer = 0
+      self.steer_rate_counter = 0
 
-    if not lat_active:
-      apply_steer = 0
+      if lat_active:
+        requested_hrr_tq = actuators.steer * TOYOTA_HRR_MAX_TORQUE_NCM
+        filtered_hrr_tq = lowpass_filter(requested_hrr_tq, self.last_hrr_tq, TOYOTA_HRR_ALPHA)
+        apply_hrr_tq, delta_up_limited, delta_down_limited, max_limited = apply_hrr_steering_limits(filtered_hrr_tq, self.last_hrr_tq)
 
-    # *** steer angle ***
-    if self.CP.steerControlType == SteerControlType.angle:
-      # If using LTA control, disable LKA and set steering angle command
-      apply_steer = 0
-      apply_steer_req = False
-      if self.frame % 2 == 0:
-        # EPS uses the torque sensor angle to control with, offset to compensate
-        apply_angle = actuators.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
+        if delta_up_limited:
+          hrr_limit_flags |= toyotacan.HRR_LIMIT_FLAG_STEER_DELTA_UP
+        if delta_down_limited:
+          hrr_limit_flags |= toyotacan.HRR_LIMIT_FLAG_STEER_DELTA_DOWN
+        if max_limited:
+          hrr_limit_flags |= toyotacan.HRR_LIMIT_FLAG_STEER_MAX
 
-        # Angular rate limit based on speed
-        apply_angle = apply_std_steer_angle_limits(apply_angle, self.last_angle, CS.out.vEgoRaw, self.params)
+        self.steer_rate_limited = delta_up_limited or delta_down_limited or max_limited or (abs(filtered_hrr_tq - apply_hrr_tq) > 1e-6)
+      else:
+        apply_hrr_tq = 0.0
+        self.steer_rate_limited = False
 
-        if not lat_active:
-          apply_angle = CS.out.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
+      self.last_hrr_tq = apply_hrr_tq
+      can_sends.append(toyotacan.create_hrr_torque_command(apply_hrr_tq, lat_active, self.hrr_counter, hrr_limit_flags))
+      self.hrr_counter = (self.hrr_counter + 1) & 0x0F
+      applied_steer = apply_hrr_tq / TOYOTA_HRR_MAX_TORQUE_NCM
+      steer_output_can = int(round(apply_hrr_tq))
+    else:
+      self.last_hrr_tq = 0.0
 
-        self.last_angle = clip(apply_angle, -MAX_LTA_ANGLE, MAX_LTA_ANGLE)
+      new_steer = int(round(actuators.steer * self.params.STEER_MAX))
+      apply_steer = apply_meas_steer_torque_limits(new_steer, self.last_steer, CS.out.steeringTorqueEps, self.params)
 
-    self.last_steer = apply_steer
+      # >100 degree/sec steering fault prevention
+      self.steer_rate_counter, apply_steer_req = common_fault_avoidance(abs(CS.out.steeringRateDeg) >= MAX_STEER_RATE, lat_active,
+                                                                        self.steer_rate_counter, MAX_STEER_RATE_FRAMES)
 
-    # toyota can trace shows STEERING_LKA at 42Hz, with counter adding alternatively 1 and 2;
-    # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
-    # on consecutive messages
-    steer_command = toyotacan.create_steer_command(self.packer, apply_steer, apply_steer_req)
-    if self.CP.flags & ToyotaFlags.SECOC.value:
-      # TODO: check if this slow and needs to be done by the CANPacker
-      steer_command = add_mac(self.secoc_key,
-                              int(CS.secoc_synchronization['TRIP_CNT']),
-                              int(CS.secoc_synchronization['RESET_CNT']),
-                              self.secoc_lka_message_counter,
-                              steer_command)
-      self.secoc_lka_message_counter += 1
-    can_sends.append(steer_command)
+      if not lat_active:
+        apply_steer = 0
+
+      # *** steer angle ***
+      if self.CP.steerControlType == SteerControlType.angle:
+        # If using LTA control, disable LKA and set steering angle command
+        apply_steer = 0
+        apply_steer_req = False
+        if self.frame % 2 == 0:
+          # EPS uses the torque sensor angle to control with, offset to compensate
+          apply_angle = actuators.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
+
+          # Angular rate limit based on speed
+          apply_angle = apply_std_steer_angle_limits(apply_angle, self.last_angle, CS.out.vEgoRaw, self.params)
+
+          if not lat_active:
+            apply_angle = CS.out.steeringAngleDeg + CS.out.steeringAngleOffsetDeg
+
+          self.last_angle = clip(apply_angle, -MAX_LTA_ANGLE, MAX_LTA_ANGLE)
+
+      self.last_steer = apply_steer
+
+      # toyota can trace shows STEERING_LKA at 42Hz, with counter adding alternatively 1 and 2;
+      # sending it at 100Hz seem to allow a higher rate limit, as the rate limit seems imposed
+      # on consecutive messages
+      steer_command = toyotacan.create_steer_command(self.packer, apply_steer, apply_steer_req)
+      if self.CP.flags & ToyotaFlags.SECOC.value:
+        # TODO: check if this slow and needs to be done by the CANPacker
+        steer_command = add_mac(self.secoc_key,
+                                int(CS.secoc_synchronization['TRIP_CNT']),
+                                int(CS.secoc_synchronization['RESET_CNT']),
+                                self.secoc_lka_message_counter,
+                                steer_command)
+        self.secoc_lka_message_counter += 1
+      can_sends.append(steer_command)
+      applied_steer = apply_steer / self.params.STEER_MAX
+      steer_output_can = apply_steer
 
     # STEERING_LTA does not seem to allow more rate by sending faster, and may wind up easier
-    if self.frame % 2 == 0 and self.CP.carFingerprint in TSS2_CAR:
+    if not self.use_hrr_steering and self.frame % 2 == 0 and self.CP.carFingerprint in TSS2_CAR:
       lta_active = lat_active and self.CP.steerControlType == SteerControlType.angle
       # cut steering torque with TORQUE_WIND_DOWN when either EPS torque or driver torque is above
       # the threshold, to limit max lateral acceleration and for driver torque blending respectively.
@@ -354,8 +434,8 @@ class CarController(CarControllerBase):
       can_sends.append([0x750, 0, b"\x0F\x02\x3E\x00\x00\x00\x00\x00", 0])
 
     new_actuators = actuators.as_builder()
-    new_actuators.steer = apply_steer / self.params.STEER_MAX
-    new_actuators.steerOutputCan = apply_steer
+    new_actuators.steer = applied_steer
+    new_actuators.steerOutputCan = steer_output_can
     new_actuators.steeringAngleDeg = self.last_angle
     new_actuators.accel = float(self.accel)
 

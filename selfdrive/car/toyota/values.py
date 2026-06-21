@@ -341,6 +341,12 @@ class CAR(Platforms):
     [ToyotaCarDocs("Lexus LC 2024")],
     CarSpecs(mass=4500. * CV.LB_TO_KG, wheelbase=2.87, steerRatio=13.0, tireStiffnessFactor=0.444),
   )
+  LEXUS_LS600h = PlatformConfig(
+    [ToyotaCarDocs("Lexus LS 600h 2013-17", "Pre-Collision System and Dynamic Radar Cruise Control")],
+    CarSpecs(mass=5159. * CV.LB_TO_KG, wheelbase=3.09, steerRatio=13.3, tireStiffnessFactor=0.444),
+    dbc_dict('toyota_new_mc_pt_generated', 'toyota_adas'),
+    flags=ToyotaFlags.UNSUPPORTED_DSU,
+  )
   LEXUS_RC = PlatformConfig(
     [ToyotaCarDocs("Lexus RC 2018-20")],
     LEXUS_IS.specs,
@@ -605,6 +611,9 @@ RADAR_ACC_CAR = CAR.with_flags(ToyotaFlags.RADAR_ACC)
 ANGLE_CONTROL_CAR = CAR.with_flags(ToyotaFlags.ANGLE_CONTROL)
 
 SECOC_CAR = CAR.with_flags(ToyotaFlags.SECOC)
+
+# LS600h uses the external HRR steering controller instead of Toyota STEERING_LKA actuation.
+HRR_CAR = {CAR.LEXUS_LS600h}
 
 # no resume button press required
 NO_STOP_TIMER_CAR = CAR.with_flags(ToyotaFlags.NO_STOP_TIMER)

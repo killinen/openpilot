@@ -2,7 +2,7 @@ from cereal import car, custom
 from panda import Panda
 from panda.python import uds
 from openpilot.selfdrive.car.toyota.values import Ecu, CAR, DBC, ToyotaFlags, CarControllerParams, TSS2_CAR, RADAR_ACC_CAR, NO_DSU_CAR, \
-                                        MIN_ACC_SPEED, EPS_SCALE, UNSUPPORTED_DSU_CAR, NO_STOP_TIMER_CAR, ANGLE_CONTROL_CAR, STOP_AND_GO_CAR
+                                        MIN_ACC_SPEED, EPS_SCALE, UNSUPPORTED_DSU_CAR, NO_STOP_TIMER_CAR, ANGLE_CONTROL_CAR, STOP_AND_GO_CAR, HRR_CAR
 from openpilot.selfdrive.car import create_button_events, get_safety_config
 from openpilot.selfdrive.car.disable_ecu import disable_ecu
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
@@ -44,6 +44,9 @@ class CarInterface(CarInterfaceBase):
 
       ret.steerActuatorDelay = 0.12  # Default delay, Prius has larger delay
       ret.steerLimitTimer = 0.4
+
+    if candidate in HRR_CAR:
+      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_TOYOTA_HRR
 
     ret.stoppingControl = False  # Toyota starts braking more when it thinks you want to stop
 

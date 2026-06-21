@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import random
+import struct
 import unittest
 import itertools
 
@@ -16,6 +17,7 @@ TOYOTA_COMMON_LONG_TX_MSGS = [[0x283, 0], [0x2E6, 0], [0x2E7, 0], [0x33E, 0], [0
                               [0x411, 0],  # PCS_HUD
                               [0x750, 0]]  # radar diagnostic address
 GAS_INTERCEPTOR_TX_MSGS = [[0x200, 0]]
+HRR_TX_MSGS = [[0x232, 1]]
 
 
 class TestToyotaSafetyBase(common.PandaCarSafetyTest, common.LongitudinalAccelSafetyTest):
@@ -185,6 +187,66 @@ class TestToyotaSafetyTorque(TestToyotaSafetyBase, common.MotorTorqueSteeringSaf
 
 class TestToyotaSafetyTorqueGasInterceptor(TestToyotaSafetyGasInterceptorBase, TestToyotaSafetyTorque):
   pass
+
+
+class TestToyotaSafetyHrr(TestToyotaSafetyBase):
+
+  TX_MSGS = TOYOTA_COMMON_TX_MSGS + HRR_TX_MSGS
+  MAX_HRR_TORQUE = 400
+
+  def setUp(self):
+    self.packer = CANPackerPanda("toyota_new_mc_pt_generated")
+    self.safety = libpanda_py.libpanda
+    self.safety.set_safety_hooks(Panda.SAFETY_TOYOTA, self.EPS_SCALE | Panda.FLAG_TOYOTA_STOCK_LONGITUDINAL | Panda.FLAG_TOYOTA_HRR)
+    self.safety.init_tests()
+
+  def test_accel_actuation_limits(self, stock_longitudinal=True):
+    super().test_accel_actuation_limits(stock_longitudinal=stock_longitudinal)
+
+  def test_lka_steer_cmd(self):
+    for controls_allowed, torque, steer_req in itertools.product([True, False], [-1, 0, 1], [0, 1]):
+      self.safety.set_controls_allowed(controls_allowed)
+      should_tx = torque == 0 and steer_req == 0
+      self.assertEqual(should_tx, self._tx(self._torque_cmd_msg(torque, steer_req)))
+
+  @staticmethod
+  def _hrr_crc(payload: bytes) -> int:
+    crc = 0x00
+    for byte in (0x32, 0x02, *payload):
+      crc ^= byte
+      for _ in range(8):
+        if crc & 0x80:
+          crc = ((crc << 1) ^ 0x07) & 0xFF
+        else:
+          crc = (crc << 1) & 0xFF
+    return crc
+
+  def _hrr_msg(self, torque, counter, rel=True, rele=True, valid_complement=True, valid_checksum=True):
+    torque_raw = torque & 0x0FFF
+    torque_complement = torque_raw ^ 0x0FFF if valid_complement else torque_raw
+    flags = int(rel) | (int(rele) << 1)
+    payload = struct.pack("<HHBB", torque_raw, torque_complement, flags, counter & 0xF)
+    checksum = self._hrr_crc(payload)
+    if not valid_checksum:
+      checksum ^= 0xFF
+    return libpanda_py.make_CANPacket(0x232, 1, payload + bytes([checksum]))
+
+  def test_hrr_safety_check(self):
+    self.safety.set_controls_allowed(True)
+
+    # First non-neutral command must not be accepted until the counter is synchronized.
+    self.assertFalse(self._tx(self._hrr_msg(1, 0)))
+    self.assertTrue(self._tx(self._hrr_msg(0, 0, rel=False, rele=False)))
+    self.assertTrue(self._tx(self._hrr_msg(self.MAX_HRR_TORQUE, 1)))
+    self.assertTrue(self._tx(self._hrr_msg(-self.MAX_HRR_TORQUE, 2)))
+
+    self.assertFalse(self._tx(self._hrr_msg(self.MAX_HRR_TORQUE + 1, 3)))
+    self.assertFalse(self._tx(self._hrr_msg(1, 3, valid_complement=False)))
+    self.assertFalse(self._tx(self._hrr_msg(1, 3, valid_checksum=False)))
+
+    self.safety.set_controls_allowed(False)
+    self.assertFalse(self._tx(self._hrr_msg(1, 3)))
+    self.assertTrue(self._tx(self._hrr_msg(0, 3, rel=False, rele=False)))
 
 
 class TestToyotaSafetyAngle(TestToyotaSafetyBase, common.AngleSteeringSafetyTest):

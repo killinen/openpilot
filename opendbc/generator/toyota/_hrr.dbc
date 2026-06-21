@@ -1,0 +1,130 @@
+BU_: CAN_Host STM32G474_HRR
+
+CM_ "External HRR steering controller messages. This Toyota fragment intentionally omits HRR_AbsCmd (0x230) and HRR_DeltaCmd (0x231), since Toyota's shared DBC already uses decimal 560 (0x230) for BRAKE_2. Import this only into LS600h-specific DBCs once the base Toyota platform DBC is known.";
+
+BO_ 562 HRR_TorqueCmd: 7 CAN_Host
+ SG_ Torque_Demand : 0|12@1- (1,0) [-2048|2047] "Ncm" STM32G474_HRR
+ SG_ Torque_Demand_Complement : 16|12@1+ (1,0) [0|4095] "raw12" STM32G474_HRR
+ SG_ REL_Cmd : 32|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ RELE_Cmd : 33|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ OP_Steer_Delta_Up_Limited : 34|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ OP_Steer_Delta_Down_Limited : 35|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ OP_Steer_Max_Limited : 36|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ OP_OutTq_Limited : 37|1@1+ (1,0) [0|1] "" STM32G474_HRR
+ SG_ Torque_Counter : 40|4@1+ (1,0) [0|15] "" STM32G474_HRR
+ SG_ Torque_Checksum : 48|8@1+ (1,0) [0|255] "" STM32G474_HRR
+
+BO_ 576 HRR_AdcStatus: 8 STM32G474_HRR
+ SG_ ADC1_Raw : 0|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ ADC2_Raw : 12|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ ADC3_Raw : 24|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ ADC4_Raw : 36|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ ADC5_Raw : 48|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ SNR_Passthrough_Requested : 60|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Passthrough_Active : 61|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Passthrough_Pending : 62|1@1+ (1,0) [0|1] "" CAN_Host
+
+BO_ 577 HRR_IOStatus: 8 STM32G474_HRR
+ SG_ DAC1_Code : 0|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ DAC2_Code : 12|12@1+ (1,0) [0|4095] "code" CAN_Host
+ SG_ EPS_VREF : 24|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+ SG_ REL_State : 36|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RELE_State : 37|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RC_Minus : 38|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RC_Plus : 39|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Dlc_Error : 40|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Mismatch_Error : 41|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Checksum_Error : 42|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_WDG_TIMO : 43|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ IOStatus_Counter : 44|4@1+ (1,0) [0|15] "" CAN_Host
+ SG_ SNR_Pair_Error : 48|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ EPS_Pair_Error : 49|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Counter_Error : 50|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Output_Range_Error : 51|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ DAC_FB_Error : 52|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RC_State_Error : 53|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ TorqueCal_Valid : 54|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ TorqueCal_Active : 55|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ IOStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+BO_ 578 HRR_FaultStatus: 8 STM32G474_HRR
+ SG_ Disengage_Error : 0|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Any_HRR_Limit : 1|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Diagnostic_Safe_State_Pending : 2|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Error_Disengage_Pending : 3|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Transient_Error_Hold : 4|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Commanded_Safe_State : 5|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Error : 6|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Non_Disengage_Error : 7|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Watchdog_Timeout_Error : 8|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Dlc_Error : 9|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Mode_Error : 10|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Dlc_Error_Detail : 11|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Mismatch_Error_Detail : 12|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Checksum_Error_Detail : 13|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Counter_Error_Detail : 14|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Mode_Error : 15|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Dlc_Error : 16|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Checksum_Error : 17|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Complement_Error : 18|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Counter_Error : 19|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Stale_Speed_Error : 20|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Sign_Flip_Error : 21|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Step_Error : 22|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ SNR_Pair_Error_Detail : 23|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ EPS_Pair_Error_Detail : 24|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ DAC_FB_Error_Detail : 25|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ RC_State_Error_Detail : 26|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_RX_FIFO_Lost_Error : 27|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Controller_Error : 28|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_TX_Drop_Error : 29|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_RX_Overrun_Error : 30|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ DAC_Output_Clamp_Limit : 32|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Torque_Demand_Clamp_Limit : 33|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Delta_Demand_Clamp_Limit : 34|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_DAC_Code_Clamp_Limit : 35|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Abs_Midpoint_Clamp_Limit : 36|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Delta_Up_Limit : 37|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Delta_Down_Limit : 38|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_Steer_Max_Limit : 39|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ OP_OutTq_Limit : 40|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Host_Command_Limited : 41|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ FaultStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ FaultStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+BO_ 579 HRR_VoltageStatus: 8 STM32G474_HRR
+ SG_ SNR1_VIN : 0|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+ SG_ SNR2_VIN : 12|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+ SG_ EPS1_VIN : 24|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+ SG_ EPS2_VIN : 36|12@1+ (0.00125,0) [0|5.11875] "V" CAN_Host
+ SG_ VoltageStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ VoltageStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+BO_ 580 HRR_TorqueMapDebug: 8 STM32G474_HRR
+ SG_ MapDebug_Speed : 0|16@1+ (0.1,0) [0|6553.5] "km/h" CAN_Host
+ SG_ MapDebug_OutputTorque : 16|16@1- (1,0) [-32768|32767] "Ncm" CAN_Host
+ SG_ MapDebug_InputTorque : 32|16@1- (1,0) [-32768|32767] "Ncm" CAN_Host
+ SG_ MapDebug_SpeedBin_Lower : 48|3@1+ (1,0) [0|7] "" CAN_Host
+ SG_ MapDebug_SpeedBin_Upper : 51|3@1+ (1,0) [0|7] "" CAN_Host
+ SG_ MapDebug_Valid : 54|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Torque_Clipped : 55|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_TorquePoint_Upper : 56|5@1+ (1,0) [0|31] "" CAN_Host
+ SG_ MapDebug_Torque_Extrapolated : 61|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Speed_Extrapolated : 62|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MapDebug_Cell_Calibrated : 63|1@1+ (1,0) [0|1] "" CAN_Host
+
+CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
+CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..62 report SNR passthrough requested, active, and torque-confirm-pending state.";
+CM_ BO_ 577 "Reported DAC output codes, EPS_VREF, relay and RC input states, delta-command error flags, watchdog timeout state, plausibility errors, live torque-calibration state bits, counter, and checksum.";
+CM_ BO_ 578 "Expanded HRR fault and limiter detail. Byte0 carries summary status; bytes1..3 carry individual error bits; bytes4..5 carry HRR clamp bits and mirrored openpilot/host limiter bits; byte6 is FaultStatus_Counter; byte7 is CRC-8.";
+CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as packed 12-bit values at 1.25 mV/LSB, followed by VoltageStatus_Counter and VoltageStatus_Checksum.";
+CM_ BO_ 580 "Latest accepted 0x232 torque-map calculation for debugging.";
+
+CM_ SG_ 562 Torque_Demand "Signed desired EPS output torque demand in Ncm carried in the low 12 bits of bytes0..1.";
+CM_ SG_ 562 Torque_Demand_Complement "12-bit ones-complement redundancy for Torque_Demand. It is encoded as Torque_Demand raw12 XOR 0x0FFF in the low 12 bits of bytes2..3.";
+CM_ SG_ 562 OP_Steer_Delta_Up_Limited "Set by openpilot when the HRR torque command was clipped by the openpilot STEER_DELTA_UP limit before transmission.";
+CM_ SG_ 562 OP_Steer_Delta_Down_Limited "Set by openpilot when the HRR torque command was clipped by the openpilot STEER_DELTA_DOWN limit before transmission.";
+CM_ SG_ 562 OP_Steer_Max_Limited "Set by openpilot when the HRR torque command was clipped by the openpilot STEER_MAX/MAX_STEERING_TQ limit before transmission.";
+CM_ SG_ 562 OP_OutTq_Limited "Set by openpilot while measured actuator output torque exceeds the configured threshold.";
+CM_ SG_ 562 Torque_Counter "4-bit rolling counter carried in byte5 bits0..3 for 0x232.";
+CM_ SG_ 562 Torque_Checksum "8-bit CRC of the 0x232 message over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";

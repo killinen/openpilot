@@ -1,6 +1,18 @@
+import struct
+
 from cereal import car
+from openpilot.selfdrive.car import make_can_msg
 
 SteerControlType = car.CarParams.SteerControlType
+
+HRR_TORQUE_ADDR = 0x232
+HRR_CAN_BUS = 1
+HRR_LIMIT_FLAG_STEER_DELTA_UP = 0x01
+HRR_LIMIT_FLAG_STEER_DELTA_DOWN = 0x02
+HRR_LIMIT_FLAG_STEER_MAX = 0x04
+HRR_LIMIT_FLAG_OUT_TQ_LIMITED = 0x08
+HRR_RELAY_ENABLED = 1
+HRR_RELAYE_ENABLED = 1
 
 
 def create_steer_command(packer, steer, steer_req):
@@ -38,6 +50,35 @@ def create_lta_steer_command_2(packer, frame):
     "COUNTER": frame + 128,
   }
   return packer.make_can_msg("STEERING_LTA_2", 0, values)
+
+
+def clamp_hrr_torque_demand(command_tq: int) -> int:
+  return max(-2048, min(2047, command_tq))
+
+
+def compute_hrr_crc8(addr: int, payload_without_checksum: bytes) -> int:
+  crc = 0x00
+  for byte in ((addr & 0xFF), ((addr >> 8) & 0xFF), *payload_without_checksum):
+    crc ^= byte
+    for _ in range(8):
+      if crc & 0x80:
+        crc = ((crc << 1) ^ 0x07) & 0xFF
+      else:
+        crc = (crc << 1) & 0xFF
+  return crc
+
+
+def create_hrr_torque_command(command_tq: float, lat_active: bool, counter: int, op_limit_flags: int = 0):
+  torque_ncm = clamp_hrr_torque_demand(int(round(command_tq)))
+  torque_raw = torque_ncm & 0x0FFF
+  torque_complement_raw = torque_raw ^ 0x0FFF
+  rel = HRR_RELAY_ENABLED if lat_active else 0
+  rele = HRR_RELAYE_ENABLED if lat_active else 0
+  flags = (rel & 0x1) | ((rele & 0x1) << 1) | ((op_limit_flags & 0x0F) << 2)
+  counter_byte = counter & 0x0F
+  payload_without_checksum = struct.pack("<HHBB", torque_raw, torque_complement_raw, flags, counter_byte)
+  checksum = compute_hrr_crc8(HRR_TORQUE_ADDR, payload_without_checksum)
+  return make_can_msg(HRR_TORQUE_ADDR, payload_without_checksum + bytes([checksum]), HRR_CAN_BUS)
 
 
 def create_accel_command(packer, accel, pcm_cancel, permit_braking, standstill_req, lead, acc_type, fcw_alert, distance, reverse_cruise_active):

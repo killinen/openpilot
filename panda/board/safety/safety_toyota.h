@@ -30,6 +30,7 @@ const SteeringLimits TOYOTA_STEERING_LIMITS = {
 const int TOYOTA_LTA_MAX_ANGLE = 1657;  // EPS only accepts up to 94.9461
 const int TOYOTA_LTA_MAX_MEAS_TORQUE = 1500;
 const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
+const int TOYOTA_HRR_MAX_TORQUE_NCM = 400;  // 4 Nm
 
 // longitudinal limits
 const LongitudinalLimits TOYOTA_LONG_LIMITS = {
@@ -87,6 +88,22 @@ const CanMsg TOYOTA_INTERCEPTOR_TX_MSGS[] = {
   {0x200, 0, 6},  // gas interceptor
 };
 
+const CanMsg TOYOTA_HRR_TX_MSGS[] = {
+  TOYOTA_COMMON_TX_MSGS
+  {0x232, 1, 7},  // HRR_TorqueCmd
+};
+
+const CanMsg TOYOTA_HRR_LONG_TX_MSGS[] = {
+  TOYOTA_COMMON_LONG_TX_MSGS
+  {0x232, 1, 7},  // HRR_TorqueCmd
+};
+
+const CanMsg TOYOTA_HRR_INTERCEPTOR_TX_MSGS[] = {
+  TOYOTA_COMMON_LONG_TX_MSGS
+  {0x200, 0, 6},  // gas interceptor
+  {0x232, 1, 7},  // HRR_TorqueCmd
+};
+
 #define TOYOTA_COMMON_RX_CHECKS(lta)                                                                        \
   {.msg = {{ 0xaa, 0, 8, .check_checksum = false, .frequency = 83U}, { 0 }, { 0 }}},                        \
   {.msg = {{0x260, 0, 8, .check_checksum = true, .quality_flag = (lta), .frequency = 50U}, { 0 }, { 0 }}},  \
@@ -135,11 +152,14 @@ const uint32_t TOYOTA_PARAM_STOCK_LONGITUDINAL = 2UL << TOYOTA_PARAM_OFFSET;
 const uint32_t TOYOTA_PARAM_LTA = 4UL << TOYOTA_PARAM_OFFSET;
 const uint32_t TOYOTA_PARAM_GAS_INTERCEPTOR = 8UL << TOYOTA_PARAM_OFFSET;
 const uint32_t TOYOTA_PARAM_SECOC = 16UL << TOYOTA_PARAM_OFFSET;
+const uint32_t TOYOTA_PARAM_HRR = 32UL << TOYOTA_PARAM_OFFSET;
 
 bool toyota_secoc = false;
 bool toyota_alt_brake = false;
 bool toyota_stock_longitudinal = false;
 bool toyota_lta = false;
+bool toyota_hrr = false;
+uint8_t toyota_counter_hrr_last = 0xFFU;
 int toyota_dbc_eps_torque_factor = 100;   // conversion factor for STEER_TORQUE_EPS in %: see dbc file
 
 static uint32_t toyota_compute_checksum(const CANPacket_t *to_push) {
@@ -157,6 +177,52 @@ static uint32_t toyota_get_checksum(const CANPacket_t *to_push) {
   return (uint8_t)(GET_BYTE(to_push, checksum_byte));
 }
 
+static uint8_t toyota_compute_hrr_crc8(const CANPacket_t *to_push) {
+  uint8_t crc = 0x00U;
+  const uint8_t addr_bytes[2] = {
+    (uint8_t)(GET_ADDR(to_push) & 0xFFU),
+    (uint8_t)((GET_ADDR(to_push) >> 8) & 0xFFU),
+  };
+
+  for (int i = 0; i < 2; i++) {
+    crc ^= addr_bytes[i];
+    for (int j = 0; j < 8; j++) {
+      if ((crc & 0x80U) != 0U) {
+        crc = (uint8_t)((crc << 1) ^ 0x07U);
+      } else {
+        crc = (uint8_t)(crc << 1);
+      }
+    }
+  }
+
+  for (int i = 0; i < 6; i++) {
+    crc ^= GET_BYTE(to_push, i);
+    for (int j = 0; j < 8; j++) {
+      if ((crc & 0x80U) != 0U) {
+        crc = (uint8_t)((crc << 1) ^ 0x07U);
+      } else {
+        crc = (uint8_t)(crc << 1);
+      }
+    }
+  }
+
+  return crc;
+}
+
+static int16_t toyota_decode_hrr_signed12_low_word(uint8_t lo, uint8_t hi) {
+  uint16_t raw12 = (uint16_t)lo | (((uint16_t)hi & 0x0FU) << 8U);
+
+  if ((raw12 & 0x0800U) != 0U) {
+    raw12 |= 0xF000U;
+  }
+
+  return (int16_t)raw12;
+}
+
+static uint16_t toyota_decode_hrr_raw12_low_word(uint8_t lo, uint8_t hi) {
+  return (uint16_t)lo | (((uint16_t)hi & 0x0FU) << 8U);
+}
+
 static uint8_t toyota_get_counter(const CANPacket_t *to_push) {
   int addr = GET_ADDR(to_push);
 
@@ -164,6 +230,9 @@ static uint8_t toyota_get_counter(const CANPacket_t *to_push) {
   if (addr == 0x201) {
     // Signal: COUNTER_PEDAL
     cnt = GET_BYTE(to_push, 4) & 0x0FU;
+  } else if (addr == 0x232) {
+    cnt = GET_BYTE(to_push, 5) & 0x0FU;
+  } else {
   }
   return cnt;
 }
@@ -410,7 +479,11 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
       desired_torque = to_signed(desired_torque, 16);
       bool steer_req = GET_BIT(to_send, 0U);
       // When using LTA (angle control), assert no actuation on LKA message
-      if (!toyota_lta) {
+      if (toyota_hrr) {
+        if ((desired_torque != 0) || steer_req) {
+          tx = false;
+        }
+      } else if (!toyota_lta) {
         if (steer_torque_cmd_checks(desired_torque, steer_req, TOYOTA_STEERING_LIMITS)) {
           tx = false;
         }
@@ -419,6 +492,49 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
           tx = false;
         }
       }
+    }
+  }
+
+  // HRR desired EPS output torque command on 0x232:
+  // signed low-12-bit Ncm value in bytes0..1, raw12 ones-complement in bytes2..3, relay flags in byte 4,
+  // 4-bit rolling counter in byte 5, CRC-8 in byte 6.
+  if (addr == 0x232) {
+    const uint16_t torque_raw12 = toyota_decode_hrr_raw12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
+    const uint16_t torque_complement_raw12 = toyota_decode_hrr_raw12_low_word(GET_BYTE(to_send, 2), GET_BYTE(to_send, 3));
+    const int16_t torque = toyota_decode_hrr_signed12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
+    const uint8_t flags = GET_BYTE(to_send, 4);
+    const bool rel_cmd = (flags & 0x1U) != 0U;
+    const bool rele_cmd = (flags & 0x2U) != 0U;
+    const uint8_t counter = GET_BYTE(to_send, 5) & 0xFU;
+    const uint8_t checksum = GET_BYTE(to_send, 6);
+
+    bool violation = !toyota_hrr || (bus != 1);
+    const bool complement_valid = ((torque_raw12 ^ 0x0FFFU) == torque_complement_raw12);
+    const bool neutral = (torque == 0) && complement_valid && !rel_cmd && !rele_cmd;
+    const bool counter_valid = (((toyota_counter_hrr_last + 1U) & 0xFU) == counter);
+    const bool counter_initted = (toyota_counter_hrr_last != 0xFFU);
+
+    if (!complement_valid) {
+      violation = true;
+    }
+    if ((torque < -TOYOTA_HRR_MAX_TORQUE_NCM) || (torque > TOYOTA_HRR_MAX_TORQUE_NCM)) {
+      violation = true;
+    }
+    if (toyota_compute_hrr_crc8(to_send) != checksum) {
+      violation = true;
+    }
+    if ((!counter_initted || !counter_valid) && !neutral) {
+      violation = true;
+    }
+    if (!controls_allowed && !neutral) {
+      violation = true;
+    }
+
+    if (violation) {
+      tx = false;
+    } else if (tx) {
+      toyota_counter_hrr_last = counter;
+    } else {
     }
   }
 
@@ -444,8 +560,10 @@ static safety_config toyota_init(uint16_t param) {
   toyota_alt_brake = GET_FLAG(param, TOYOTA_PARAM_ALT_BRAKE);
   toyota_stock_longitudinal = GET_FLAG(param, TOYOTA_PARAM_STOCK_LONGITUDINAL);
   toyota_lta = GET_FLAG(param, TOYOTA_PARAM_LTA);
+  toyota_hrr = GET_FLAG(param, TOYOTA_PARAM_HRR);
   enable_gas_interceptor = GET_FLAG(param, TOYOTA_PARAM_GAS_INTERCEPTOR);
   toyota_dbc_eps_torque_factor = param & TOYOTA_EPS_FACTOR;
+  toyota_counter_hrr_last = 0xFFU;
 
   // Gas interceptor should not be used if openpilot is not controlling longitudinal
   if (toyota_stock_longitudinal) {
@@ -462,14 +580,21 @@ static safety_config toyota_init(uint16_t param) {
     if (toyota_secoc) {
       SET_TX_MSGS(TOYOTA_SECOC_TX_MSGS, ret);
     } else {
-      SET_TX_MSGS(TOYOTA_TX_MSGS, ret);
+      toyota_hrr ? SET_TX_MSGS(TOYOTA_HRR_TX_MSGS, ret) : \
+                    SET_TX_MSGS(TOYOTA_TX_MSGS, ret);
     }
   } else {
     if (toyota_secoc) {
       SET_TX_MSGS(toyota_secoc_long_tx_msgs, ret);
     } else {
-      enable_gas_interceptor ? SET_TX_MSGS(TOYOTA_INTERCEPTOR_TX_MSGS, ret) : \
-                               SET_TX_MSGS(TOYOTA_LONG_TX_MSGS, ret);
+      if (toyota_hrr && enable_gas_interceptor) {
+        SET_TX_MSGS(TOYOTA_HRR_INTERCEPTOR_TX_MSGS, ret);
+      } else if (toyota_hrr) {
+        SET_TX_MSGS(TOYOTA_HRR_LONG_TX_MSGS, ret);
+      } else {
+        enable_gas_interceptor ? SET_TX_MSGS(TOYOTA_INTERCEPTOR_TX_MSGS, ret) : \
+                                 SET_TX_MSGS(TOYOTA_LONG_TX_MSGS, ret);
+      }
     }
   }
 
