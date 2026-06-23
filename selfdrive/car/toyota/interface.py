@@ -25,7 +25,7 @@ class CarInterface(CarInterfaceBase):
     ret.safetyConfigs[0].safetyParam = EPS_SCALE[candidate]
 
     # BRAKE_MODULE is on a different address for these cars
-    if DBC[candidate]["pt"] == "toyota_new_mc_pt_generated":
+    if DBC[candidate]["pt"] == "toyota_new_mc_pt_generated" or candidate == CAR.LEXUS_LS600h:
       ret.safetyConfigs[0].safetyParam |= Panda.FLAG_TOYOTA_ALT_BRAKE
 
     if ret.flags & ToyotaFlags.SECOC.value:

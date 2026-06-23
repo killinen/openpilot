@@ -1,0 +1,445 @@
+BU_: XXX CGW EPS
+
+CM_ "Lexus LS600h candidate DBC derived from sustained bus 2 CAN traffic in route 9f2573520aa994fd/00000001--93ba1d9657. Bus 1-only and one-shot diagnostic messages are intentionally omitted.";
+CM_ "Only messages present in all 8 route segments are included. Unknown messages use raw byte signals until their layouts are identified.";
+
+BO_ 32 LS600H_020: 7 XXX
+ SG_ LS600H_020_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_020_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 32 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
+
+BO_ 36 KINEMATICS: 8 XXX
+ SG_ ACCEL_Y : 33|10@0+ (0.03589,-18.375) [0|65535] "m/s^2" XXX
+ SG_ YAW_RATE : 1|10@0+ (0.244,-125) [0|65535] "deg/s" XXX
+ SG_ ACCEL_X : 17|10@0+ (0.03589,-18.375) [0|65535] "m/s^2" XXX
+CM_ BO_ 36 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
+
+BO_ 37 STEER_ANGLE_SENSOR: 8 XXX
+ SG_ STEER_ANGLE : 3|12@0- (1.5,0) [-500|500] "deg" XXX
+ SG_ STEER_FRACTION : 39|4@0- (0.1,0) [-0.7|0.7] "deg" XXX
+ SG_ STEER_RATE : 35|12@0- (1,0) [-2000|2000] "deg/s" XXX
+CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
+
+BO_ 40 LS600H_STEER_028: 8 XXX
+ SG_ STEER_OUTSHAFT_RAW : 3|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_TORSION_DYN : 23|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_INSHAFT_RAW : 39|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 40 "Observed continuously on bus 2 at approximately 80 Hz in the source route. Tentative EPS/steering-related frame; signal names are not 100% confirmed.";
+CM_ SG_ 40 STEER_OUTSHAFT_RAW "Tracks steering angle most closely in the stationary steering sweep; likely the output shaft resolver. Local fit only: steering angle deg ~= 3.24 * raw - 7.6.";
+CM_ SG_ 40 STEER_TORSION_DYN "Tentative dynamic steering/EPS signal. In the stationary steering sweep it correlates with STEER_INSHAFT_RAW - STEER_OUTSHAFT_RAW and calculated angle derivative, but it is not confirmed as steering rate.";
+CM_ SG_ 40 STEER_INSHAFT_RAW "Tracks steering angle and forms a small torque-correlated delta against STEER_OUTSHAFT_RAW; likely the input shaft resolver. Local fit only: steering angle deg ~= 2.95 * raw - 8.1.";
+CM_ SG_ 40 CHECKSUM "Observed checksum formula: (sum(byte0..byte6) + 0x30) & 0xff.";
+
+BO_ 180 SPEED: 8 XXX
+ SG_ ENCODER : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ SPEED : 47|16@0+ (0.01,0) [0|250] "km/h" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 180 "Observed continuously on bus 2 at approximately 40 Hz in the source route.";
+
+BO_ 182 LS600H_0B6: 4 XXX
+ SG_ SPEED : 7|16@0+ (0.01,0) [0|250] "km/h" XXX
+ SG_ STATUS : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ CHECKSUM : 31|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 182 "Observed continuously on bus 2 at approximately 20 Hz in the source route. Tentative decode: compact vehicle speed/status/checksum frame; signal names are not 100% confirmed.";
+CM_ SG_ 182 CHECKSUM "Observed checksum formula: (byte0 + byte1 + byte2 + 0xBA) & 0xff.";
+
+BO_ 184 LS600H_0B8: 8 XXX
+ SG_ LS600H_0B8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0B8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 184 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
+
+BO_ 241 LS600H_0F1: 8 XXX
+ SG_ LS600H_0F1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 241 "Observed continuously on bus 2 at approximately 41.7 Hz in the source route.";
+
+BO_ 242 LS600H_0F2: 8 XXX
+ SG_ LS600H_0F2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_0F2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 242 "Observed continuously on bus 2 at approximately 41.7 Hz in the source route.";
+
+BO_ 384 LS600H_180: 5 XXX
+ SG_ LS600H_180_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_180_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_180_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_180_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_180_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 384 "Observed continuously on bus 2 at approximately 62.5 Hz in the source route.";
+
+BO_ 385 LS600H_181: 6 XXX
+ SG_ LS600H_181_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_181_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_181_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_181_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_181_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_181_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 385 "Observed continuously on bus 2 at approximately 62.5 Hz in the source route.";
+
+BO_ 386 LS600H_182: 7 XXX
+ SG_ LS600H_182_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_182_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 386 "Observed continuously on bus 2 at approximately 62.5 Hz in the source route.";
+
+BO_ 389 LS600H_185: 8 XXX
+ SG_ LS600H_185_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_185_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 389 "Observed continuously on bus 2 at approximately 62.5 Hz in the source route.";
+
+BO_ 548 BRAKE_MODULE: 8 XXX
+ SG_ BRAKE_PRESSURE : 43|12@0+ (1,0) [0|4047] "" XXX
+ SG_ BRAKE_PRESSED : 5|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 548 "Observed continuously on bus 2 at approximately 40 Hz in the source route.";
+
+BO_ 564 LS600H_234: 8 XXX
+ SG_ LS600H_234_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_234_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 564 "Observed continuously on bus 2 at approximately 40 Hz in the source route.";
+
+BO_ 608 STEER_TORQUE_SENSOR: 8 XXX
+ SG_ STEER_TORQUE_EPS : 47|16@0- (1,0) [-32768|32767] "" XXX
+ SG_ STEER_TORQUE_DRIVER : 15|16@0- (1,0) [-32768|32767] "" XXX
+ SG_ STEER_ANGLE : 31|16@0- (0.0573,0) [-500|500] "" XXX
+ SG_ STEER_ANGLE_INITIALIZING : 3|1@0+ (1,0) [0|1] "" XXX
+ SG_ STEER_OVERRIDE : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 608 "Observed continuously on bus 2 at approximately 49.5 Hz in the source route.";
+
+BO_ 622 LS600H_EPS_STATUS_26E: 8 XXX
+ SG_ CH0_STATUS : 7|4@0+ (1,0) [0|15] "" XXX
+ SG_ CH0_RAW : 3|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH1_STATUS : 23|4@0+ (1,0) [0|15] "" XXX
+ SG_ CH1_RAW : 19|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH2_STATUS : 39|4@0+ (1,0) [0|15] "" XXX
+ SG_ CH2_RAW : 35|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH3_STATUS : 55|4@0+ (1,0) [0|15] "" XXX
+ SG_ CH3_RAW : 51|12@0+ (1,0) [0|4095] "" XXX
+CM_ BO_ 622 "Observed continuously on bus 2 at approximately 27.8 Hz in the source route. Tentative coarse EPS/status raw-channel frame; signal names are not 100% confirmed.";
+
+BO_ 623 LS600H_STEER_26F: 8 XXX
+ SG_ CH0_STATUS : 7|4@0+ (1,0) [0|15] "" XXX
+ SG_ STEER_RAW_A : 3|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH1_STATUS : 23|4@0+ (1,0) [0|15] "" XXX
+ SG_ STEER_RAW_B : 19|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH2_STATUS : 39|4@0+ (1,0) [0|15] "" XXX
+ SG_ RAW_CH2 : 35|12@0+ (1,0) [0|4095] "" XXX
+ SG_ CH3_STATUS : 55|4@0+ (1,0) [0|15] "" XXX
+ SG_ RAW_CH3 : 51|12@0+ (1,0) [0|4095] "" XXX
+CM_ BO_ 623 "Observed continuously on bus 2 at approximately 41.7 Hz in the source route. Tentative steering/EPS raw multi-channel frame; signal names are not 100% confirmed.";
+CM_ SG_ 623 STEER_RAW_A "Strongly anti-correlates with steering angle in the stationary steering sweep. Local fit only: steering angle deg ~= -5.90 * raw + 3762.7.";
+CM_ SG_ 623 STEER_RAW_B "Strongly correlates with steering angle in the stationary steering sweep. Local fit only: steering angle deg ~= 5.36 * raw - 3346.8.";
+
+BO_ 641 LS600H_281: 6 XXX
+ SG_ LS600H_281_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_281_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_281_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_281_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_281_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_281_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 641 "Observed continuously on bus 2 at approximately 31.3 Hz in the source route.";
+
+BO_ 642 LS600H_282: 3 XXX
+ SG_ LS600H_282_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_282_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_282_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 642 "Observed continuously on bus 2 at approximately 31.3 Hz in the source route.";
+
+BO_ 744 LS600H_2E8: 3 XXX
+ SG_ LS600H_2E8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_2E8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_2E8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 744 "Observed continuously on bus 2 at approximately 2 Hz in the source route.";
+
+BO_ 800 VSC1S07: 8 CGW
+ SG_ FBKRLY : 6|1@0+ (1,0) [0|0] "" DS1
+ SG_ FVSCM : 4|1@0+ (1,0) [0|0] "" DS1
+ SG_ FVSCSFT : 3|1@0+ (1,0) [0|0] "" DS1
+ SG_ FABS : 2|1@0+ (1,0) [0|0] "" DS1,FCM
+ SG_ TSVSC : 1|1@0+ (1,0) [0|0] "" DS1
+ SG_ FVSCL : 0|1@0+ (1,0) [0|0] "" DS1
+ SG_ RQCSTBKB : 15|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ PSBSTBY : 14|1@0+ (1,0) [0|0] "" DS1
+ SG_ P2BRXMK : 13|1@0+ (1,0) [0|0] "" DS1
+ SG_ MCC : 11|1@0+ (1,0) [0|0] "" DS1
+ SG_ RQBKB : 10|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ BRSTOP : 9|1@0+ (1,0) [0|0] "" DS1,FCM
+ SG_ BRKON : 8|1@0+ (1,0) [0|0] "" DS1,FCM
+ SG_ ASLP : 23|8@0- (1,0) [0|0] "deg" DS1
+ SG_ BRTYPACC : 31|2@0+ (1,0) [0|0] "" DS1
+ SG_ BRKABT3 : 26|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ BRKABT2 : 25|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ BRKABT1 : 24|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ GVC : 39|8@0- (0.04,0) [0|0] "m/s^2" DS1
+ SG_ XGVCINV : 43|1@0+ (1,0) [0|0] "" DS1
+ SG_ S07CNT : 52|1@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ PCSBRSTA : 50|2@0+ (1,0) [0|0] "" DS1
+ SG_ VSC07SUM : 63|8@0+ (1,0) [0|0] "" DS1,FCM
+CM_ BO_ 800 "Observed continuously on bus 2 at approximately 20 Hz in the source route.";
+
+BO_ 900 LS600H_384: 6 XXX
+ SG_ LS600H_384_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_384_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_384_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_384_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_384_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_384_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 900 "Observed continuously on bus 2 at approximately 0.3 Hz in the source route.";
+
+BO_ 902 LS600H_386: 6 XXX
+ SG_ LS600H_386_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_386_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_386_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_386_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_386_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_386_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 902 "Observed continuously on bus 2 at approximately 0.3 Hz in the source route.";
+
+BO_ 916 LS600H_394: 1 XXX
+ SG_ LS600H_394_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 916 "Observed continuously on bus 2 at approximately 3.3 Hz in the source route.";
+
+BO_ 917 LS600H_395: 3 XXX
+ SG_ LS600H_395_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_395_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_395_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 917 "Observed continuously on bus 2 at approximately 0.5 Hz in the source route.";
+
+BO_ 919 LS600H_397: 1 XXX
+ SG_ LS600H_397_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 919 "Observed continuously on bus 2 at approximately 3.3 Hz in the source route.";
+
+BO_ 924 LS600H_39C: 1 XXX
+ SG_ LS600H_39C_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 924 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 925 LS600H_39D: 1 XXX
+ SG_ LS600H_39D_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 925 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 945 LS600H_3B1: 8 XXX
+ SG_ LS600H_3B1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 945 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 994 LS600H_3E2: 8 XXX
+ SG_ LS600H_3E2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 994 "Observed continuously on bus 2 at approximately 2 Hz in the source route.";
+
+BO_ 995 LS600H_3E3: 8 XXX
+ SG_ LS600H_3E3_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E3_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 995 "Observed continuously on bus 2 at approximately 2 Hz in the source route.";
+
+BO_ 998 LS600H_3E6: 5 XXX
+ SG_ LS600H_3E6_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E6_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3E6_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 998 "Observed continuously on bus 2 at approximately 0.3 Hz in the source route.";
+
+BO_ 1059 LS600H_423: 1 XXX
+ SG_ LS600H_423_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1059 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1217 LS600H_4C1: 8 XXX
+ SG_ LS600H_4C1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1217 "Observed continuously on bus 2 at approximately 1.1 Hz in the source route.";
+
+BO_ 1219 LS600H_4C3: 8 XXX
+ SG_ LS600H_4C3_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C3_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1219 "Observed continuously on bus 2 at approximately 1.1 Hz in the source route.";
+
+BO_ 1222 LS600H_4C6: 8 XXX
+ SG_ LS600H_4C6_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C6_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1222 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1223 LS600H_4C7: 8 XXX
+ SG_ LS600H_4C7_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C7_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1223 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1224 LS600H_4C8: 8 XXX
+ SG_ LS600H_4C8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1224 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1226 LS600H_4CA: 8 XXX
+ SG_ LS600H_4CA_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CA_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1226 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1227 LS600H_4CB: 8 XXX
+ SG_ LS600H_4CB_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CB_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1227 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1236 LS600H_4D4: 8 XXX
+ SG_ LS600H_4D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1236 "Observed continuously on bus 2 at approximately 0.9 Hz in the source route.";
+
+BO_ 1241 LS600H_4D9: 8 XXX
+ SG_ LS600H_4D9_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D9_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1241 "Observed continuously on bus 2 at approximately 0.9 Hz in the source route.";
+
+BO_ 1254 LS600H_4E6: 8 XXX
+ SG_ LS600H_4E6_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E6_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1254 "Observed continuously on bus 2 at approximately 0.9 Hz in the source route.";
+
+BO_ 1255 LS600H_4E7: 8 XXX
+ SG_ LS600H_4E7_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4E7_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1255 "Observed continuously on bus 2 at approximately 0.9 Hz in the source route.";
+
+BO_ 1572 LS600H_624: 8 XXX
+ SG_ LS600H_624_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_624_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1572 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
+
+BO_ 1616 LS600H_650: 8 XXX
+ SG_ LS600H_650_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_650_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1616 "Observed continuously on bus 2 at approximately 3.3 Hz in the source route.";

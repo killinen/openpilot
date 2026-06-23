@@ -344,7 +344,7 @@ class CAR(Platforms):
   LEXUS_LS600h = PlatformConfig(
     [ToyotaCarDocs("Lexus LS 600h 2013-17", "Pre-Collision System and Dynamic Radar Cruise Control")],
     CarSpecs(mass=5159. * CV.LB_TO_KG, wheelbase=3.09, steerRatio=13.3, tireStiffnessFactor=0.444),
-    dbc_dict('toyota_new_mc_pt_generated', 'toyota_adas'),
+    dbc_dict('lexus_ls600h_generated', None),
     flags=ToyotaFlags.UNSUPPORTED_DSU,
   )
   LEXUS_RC = PlatformConfig(

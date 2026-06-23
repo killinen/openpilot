@@ -46,7 +46,9 @@ class CarState(CarStateBase):
     self.cluster_speed_hyst_gap = CV.KPH_TO_MS / 2.
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
-    if CP.flags & ToyotaFlags.SECOC.value:
+    if CP.carFingerprint == CAR.LEXUS_LS600h:
+      self.shifter_values = {}
+    elif CP.flags & ToyotaFlags.SECOC.value:
       self.shifter_values = can_define.dv["GEAR_PACKET_HYBRID"]["GEAR"]
     else:
       self.shifter_values = can_define.dv["GEAR_PACKET"]["GEAR"]
@@ -75,7 +77,42 @@ class CarState(CarStateBase):
     self.angle_offset_zss = 0
     self.zorro_steer_value = 0
 
+  def update_ls600h(self, cp):
+    ret = car.CarState.new_message()
+    fp_ret = custom.FrogPilotCarState.new_message()
+
+    speed_kph = cp.vl["SPEED"]["SPEED"]
+    ret.wheelSpeeds = self.get_wheel_speeds(speed_kph, speed_kph, speed_kph, speed_kph)
+    ret.vEgoRaw = speed_kph * CV.KPH_TO_MS * self.CP.wheelSpeedFactor
+    ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
+    ret.vEgoCluster = ret.vEgo
+    ret.standstill = abs(ret.vEgoRaw) < 1e-3
+
+    ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"] + cp.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"]
+    ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
+    ret.yawRate = cp.vl["KINEMATICS"]["YAW_RATE"]
+
+    ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
+    ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_EPS"] * self.eps_torque_scale
+    ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
+
+    ret.brakePressed = cp.vl["BRAKE_MODULE"]["BRAKE_PRESSED"] != 0
+    ret.gearShifter = car.CarState.GearShifter.unknown
+
+    self.gvc = cp.vl["VSC1S07"]["GVC"]
+    self.pcm_acc_status = 0
+    self.cruise_decreased = False
+    self.cruise_increased = False
+    self.distance_button = 0
+    self.lkas_previously_enabled = self.lkas_enabled
+    self.lkas_enabled = False
+
+    return ret, fp_ret
+
   def update(self, cp, cp_cam, CC, frogpilot_toggles):
+    if self.CP.carFingerprint == CAR.LEXUS_LS600h:
+      return self.update_ls600h(cp)
+
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
     cp_acc = cp_cam if self.CP.carFingerprint in (TSS2_CAR - RADAR_ACC_CAR) else cp
@@ -256,6 +293,17 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_can_parser(CP, FPCP):
+    if CP.carFingerprint == CAR.LEXUS_LS600h:
+      messages = [
+        ("KINEMATICS", 80),
+        ("SPEED", 40),
+        ("BRAKE_MODULE", 40),
+        ("STEER_ANGLE_SENSOR", 80),
+        ("STEER_TORQUE_SENSOR", 50),
+        ("VSC1S07", 20),
+      ]
+      return CANParser(DBC[CP.carFingerprint]["pt"], messages, 0)
+
     messages = [
       ("LIGHT_STALK", 1),
       ("BLINKERS_STATE", 0.15),
@@ -327,6 +375,9 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_cam_can_parser(CP, FPCP):
+    if CP.carFingerprint == CAR.LEXUS_LS600h:
+      return CANParser(DBC[CP.carFingerprint]["pt"], [], 0)
+
     messages = []
 
     messages += [
