@@ -19,6 +19,21 @@ def sign_of(a):
   return 1 if a > 0 else -1
 
 
+def float_range(start: float, stop: float, step: float) -> list[float]:
+  assert step != 0
+  values: list[float] = []
+  value = start
+  if step > 0:
+    while value < stop:
+      values.append(value)
+      value += step
+  else:
+    while value > stop:
+      values.append(value)
+      value += step
+  return values
+
+
 def make_msg(bus: int, addr: int, length: int = 8, dat: bytes | None = None) -> libpanda_py.CANPacket:
   if dat is None:
     dat = b'\x00' * length
@@ -92,7 +107,8 @@ class PandaSafetyTestBase(unittest.TestCase):
 
     for controls_allowed in [False, True]:
       # enforce we don't skip over 0 or inactive
-      for v in np.concatenate((np.arange(min_possible_value, max_possible_value, test_delta), np.array([0, inactive_value]))):
+      values = float_range(min_possible_value, max_possible_value, test_delta) + [0, inactive_value]
+      for v in values:
         v = round(v, 2)  # floats might not hit exact boundary conditions without rounding
         self.safety.set_controls_allowed(controls_allowed)
         if additional_setup is not None:
@@ -104,7 +120,7 @@ class PandaSafetyTestBase(unittest.TestCase):
   def _common_measurement_test(self, msg_func: Callable, min_value: float, max_value: float, factor: float,
                                meas_min_func: Callable[[], int], meas_max_func: Callable[[], int]):
     """Tests accurate measurement parsing, and that the struct is reset on safety mode init"""
-    for val in np.arange(min_value, max_value, 0.5):
+    for val in float_range(min_value, max_value, 0.5):
       for i in range(MAX_SAMPLE_VALS):
         self.assertTrue(self._rx(msg_func(val + i * 0.1)))
 
