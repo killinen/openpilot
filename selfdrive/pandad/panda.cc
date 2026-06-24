@@ -133,6 +133,14 @@ void Panda::set_power_saving(bool power_saving) {
   handle->control_write(0xe7, power_saving, 0);
 }
 
+void Panda::set_force_intercept_relay(bool enabled) {
+  handle->control_write(0xc7, enabled, 0);
+}
+
+void Panda::set_safety_forwarding_disabled(bool disabled) {
+  handle->control_write(0xc8, disabled, 0);
+}
+
 void Panda::enable_deepsleep() {
   handle->control_write(0xfb, 0, 0);
 }

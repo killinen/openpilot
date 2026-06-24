@@ -141,6 +141,13 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
                                           tr("<b>Set the panda CAN2 nominal bitrate.</b> This applies directly to the panda bus configuration."),
                                           "../assets/offroad/icon_network.png",
                                           can_speed_texts, can_speed_values, 110);
+  auto force_harness_relay_setting = new ParamControl("ForceHarnessRelayOn", tr("Force Harness Relay On"),
+                                          tr("<b>Force the panda harness relay into intercept mode for multi-bus CAN testing.</b> "
+                                             "This keeps CAN0 and CAN2 physically separated, keeps panda CAN awake while offroad, "
+                                             "and disables panda firmware forwarding while keeping the active car safety mode. "
+                                             "This setting persists until turned off."),
+                                          "../assets/offroad/icon_network.png",
+                                          this);
 
   // set up uiState update for personality setting
   QObject::connect(uiState(), &UIState::uiUpdate, this, &TogglesPanel::updateState);
@@ -159,6 +166,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       addItem(can0_speed_setting);
       addItem(can1_speed_setting);
       addItem(can2_speed_setting);
+      addItem(force_harness_relay_setting);
     }
 
     // insert longitudinal personality after NDOG toggle

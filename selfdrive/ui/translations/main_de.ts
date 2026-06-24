@@ -5930,6 +5930,14 @@ Dies kann bis zu einer Minute dauern.</translation>
         <source>Save and upload wide road camera footage. Disable this to prevent ecamera.hevc files from being stored.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Force Harness Relay On</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Force the panda harness relay into intercept mode for multi-bus CAN testing.&lt;/b&gt; This keeps CAN0 and CAN2 physically separated, keeps panda CAN awake while offroad, and disables panda firmware forwarding while keeping the active car safety mode. This setting persists until turned off.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

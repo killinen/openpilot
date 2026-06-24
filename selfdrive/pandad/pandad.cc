@@ -57,6 +57,7 @@ enum class IgnitionOverride : int {
 
 constexpr std::array<int, PANDA_CAN_CNT> kDefaultCanSpeeds = {500, 500, 500};
 constexpr std::array<int, 8> kSupportedCanSpeeds = {10, 20, 50, 100, 125, 250, 500, 1000};
+constexpr const char *kForceHarnessRelayParam = "ForceHarnessRelayOn";
 
 bool is_valid_can_speed(int speed) {
   return std::find(kSupportedCanSpeeds.begin(), kSupportedCanSpeeds.end(), speed) != kSupportedCanSpeeds.end();
@@ -273,7 +274,7 @@ void can_recv_thread(std::vector<Panda *> pandas) {
   }
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override, bool force_harness_relay) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -340,18 +341,18 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     auto panda = pandas[i];
     const auto &health = pandaStates[i];
 
-    // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
     if (health.safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::SILENT)) {
+      // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node.
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
-    bool power_save_desired = !ignition_local;
+    bool power_save_desired = !ignition_local && !force_harness_relay;
     if (health.power_save_enabled_pkt != power_save_desired) {
       panda->set_power_saving(power_save_desired);
     }
 
     // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
-    if (!ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
+    if (!force_harness_relay && !ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
@@ -470,6 +471,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
   bool is_onroad = false;
   bool is_onroad_last = false;
   std::future<bool> safety_future;
+  std::optional<bool> force_harness_relay_applied;
 
   std::vector<std::string> connected_serials;
   for (Panda *p : pandas) {
@@ -495,7 +497,17 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       (ignition_override_value == static_cast<int>(IgnitionOverride::OFF)) ? IgnitionOverride::OFF :
       IgnitionOverride::AUTO;
 
-    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override);
+    const bool force_harness_relay = params.getBool(kForceHarnessRelayParam);
+    if (!force_harness_relay_applied || *force_harness_relay_applied != force_harness_relay) {
+      LOGW("forced harness relay testing %s", force_harness_relay ? "enabled" : "disabled");
+      for (const auto &panda : pandas) {
+        panda->set_force_intercept_relay(force_harness_relay);
+        panda->set_safety_forwarding_disabled(force_harness_relay);
+      }
+      force_harness_relay_applied = force_harness_relay;
+    }
+
+    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, force_harness_relay);
 
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");
@@ -503,7 +515,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       continue;
     }
 
-    ignition = *ignition_opt;
+    ignition = *ignition_opt || force_harness_relay;
 
     // check if we should have pandad reconnect
     if (!ignition) {

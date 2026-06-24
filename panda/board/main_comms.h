@@ -145,6 +145,15 @@ int comms_control_handler(ControlPacket_t *req, uint8_t *resp) {
       resp[0] = current_board->read_som_gpio();
       resp_len = 1;
       break;
+    // **** 0xc7: DEBUG: persistently force intercept relay
+    case 0xc7:
+      harness.force_intercept_relay = ((req->param1 & 0x1U) != 0U);
+      set_intercept_relay(is_car_safety_mode(current_safety_mode), false);
+      break;
+    // **** 0xc8: DEBUG: disable safety forwarding
+    case 0xc8:
+      safety_fwd_disabled = ((req->param1 & 0x1U) != 0U);
+      break;
     // **** 0xd0: fetch serial (aka the provisioned dongle ID)
     case 0xd0:
       // addresses are OTP

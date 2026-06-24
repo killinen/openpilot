@@ -7,6 +7,7 @@ struct harness_t {
   uint16_t sbu1_voltage_mV;
   uint16_t sbu2_voltage_mV;
   bool relay_driven;
+  bool force_intercept_relay;
   bool sbu_adc_lock;
 };
 struct harness_t harness;
@@ -28,7 +29,7 @@ struct harness_configuration {
 // The ignition relay is only used for testing purposes
 void set_intercept_relay(bool intercept, bool ignition_relay) {
   if (current_board->harness_config->has_harness) {
-    bool drive_relay = intercept;
+    bool drive_relay = intercept || harness.force_intercept_relay;
     if (harness.status == HARNESS_STATUS_NC) {
       // no harness, no relay to drive
       drive_relay = false;

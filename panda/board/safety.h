@@ -57,6 +57,7 @@ uint16_t current_safety_mode = SAFETY_SILENT;
 uint16_t current_safety_param = 0;
 const safety_hooks *current_hooks = &nooutput_hooks;
 safety_config current_safety_config;
+bool safety_fwd_disabled = false;
 
 bool safety_rx_hook(const CANPacket_t *to_push) {
   bool controls_allowed_prev = controls_allowed;
@@ -85,7 +86,7 @@ bool safety_tx_hook(CANPacket_t *to_send) {
 }
 
 int safety_fwd_hook(int bus_num, int addr) {
-  return (relay_malfunction ? -1 : current_hooks->fwd(bus_num, addr));
+  return ((relay_malfunction || safety_fwd_disabled) ? -1 : current_hooks->fwd(bus_num, addr));
 }
 
 bool get_longitudinal_allowed(void) {
