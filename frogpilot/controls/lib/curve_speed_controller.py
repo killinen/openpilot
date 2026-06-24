@@ -88,10 +88,10 @@ class CurveSpeedController:
 
     params.put_float_nonblocking("CalibratedLateralAcceleration", self.lateral_acceleration)
 
-  def update_target(self, v_ego):
-    lateral_acceleration = self.lateral_acceleration
+  def update_target(self, v_ego, frogpilot_toggles):
+    lateral_acceleration = frogpilot_toggles.curve_speed_lateral_acceleration
     if self.frogpilot_planner.frogpilot_weather.weather_id != 0:
-      lateral_acceleration -= self.lateral_acceleration * self.frogpilot_planner.frogpilot_weather.reduce_lateral_acceleration
+      lateral_acceleration -= lateral_acceleration * self.frogpilot_planner.frogpilot_weather.reduce_lateral_acceleration
 
     if self.target_set:
       csc_speed = (lateral_acceleration / abs(self.frogpilot_planner.road_curvature))**0.5

@@ -284,6 +284,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int, str]] = [
   ("ConditionalExperimental", "1", 1, "0"),
   ("CurvatureData", "", 2, ""),
   ("CurveSpeedController", "1", 1, "0"),
+  ("CurveSpeedLateralAcceleration", str(DEFAULT_LATERAL_ACCELERATION), 2, str(DEFAULT_LATERAL_ACCELERATION)),
   ("CustomAlerts", "0", 0, "0"),
   ("CustomColors", "frog", 0, "stock"),
   ("CustomCruise", "1", 2, "1"),
@@ -788,6 +789,10 @@ class FrogPilotVariables:
     toggle.cem_status = toggle.conditional_experimental_mode and (params.get_bool("ShowCEMStatus") if tuning_level >= level["ShowCEMStatus"] else default.get_bool("ShowCEMStatus")) or toggle.debug_mode
 
     toggle.curve_speed_controller = toggle.openpilot_longitudinal and (params.get_bool("CurveSpeedController") if tuning_level >= level["CurveSpeedController"] else default.get_bool("CurveSpeedController"))
+    toggle.curve_speed_lateral_acceleration = (
+      float(np.clip(params.get_float("CurveSpeedLateralAcceleration"), 1.0, 3.5))
+      if toggle.curve_speed_controller and tuning_level >= level["CurveSpeedLateralAcceleration"] else default.get_float("CurveSpeedLateralAcceleration")
+    )
     toggle.csc_status = toggle.curve_speed_controller and (params.get_bool("ShowCSCStatus") if tuning_level >= level["ShowCSCStatus"] else default.get_bool("ShowCSCStatus")) or toggle.debug_mode
 
     toggle.custom_alerts = params.get_bool("CustomAlerts") if tuning_level >= level["CustomAlerts"] else default.get_bool("CustomAlerts")

@@ -2522,6 +2522,18 @@
         <source>&lt;b&gt;Force openpilot to stop whenever the driving model "detects" a red light or stop sign.&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;i&gt;&lt;b&gt;Disclaimer&lt;/b&gt;: openpilot does not explicitly detect traffic lights or stop signs. In "Experimental Mode", openpilot makes end-to-end driving decisions from camera input, which means it may stop even when there's no clear reason!&lt;/i&gt;</source>
         <translation type="gpt-5-generated">&lt;b&gt;Erzwinge, dass openpilot anhält, sobald das Fahrmodell eine rote Ampel oder ein Stoppschild „erkennt“.&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;i&gt;&lt;b&gt;Haftungsausschluss&lt;/b&gt;: openpilot erkennt Verkehrsampeln oder Stoppschilder nicht ausdrücklich. Im „Experimentellen Modus“ trifft openpilot End-to-End-Fahrentscheidungen anhand der Kameraeingaben, was bedeutet, dass es auch anhalten kann, wenn es keinen klaren Grund gibt!&lt;/i&gt;</translation>
     </message>
+    <message>
+        <source>Target Lateral Acceleration</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Set how fast openpilot takes curves.&lt;/b&gt; Higher values allow faster cornering; lower values slow the vehicle for gentler turns. The default is 2.0 m/s².</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;The learned lateral acceleration from collected driving data.&lt;/b&gt; Use this as a reference when setting the target lateral acceleration.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FrogPilotManageControl</name>

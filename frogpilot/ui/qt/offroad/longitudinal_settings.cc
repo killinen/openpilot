@@ -104,7 +104,8 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     {"ShowCEMStatus", tr("Status Widget"), tr("<b>Show which condition triggered \"Experimental Mode\"</b> on the driving screen."), ""},
 
     {"CurveSpeedController", tr("Curve Speed Controller"), tr("<b>Automatically slow down for upcoming curves</b> using data learned from your driving style, adapting to curves as you would."), "../../frogpilot/assets/toggle_icons/icon_speed_map.png"},
-    {"CalibratedLateralAcceleration", tr("Calibrated Lateral Acceleration"), tr("<b>The learned lateral acceleration from collected driving data.</b> This sets how fast openpilot will take curves. Higher values allow faster cornering; lower values slow the vehicle for gentler turns."), ""},
+    {"CurveSpeedLateralAcceleration", tr("Target Lateral Acceleration"), tr("<b>Set how fast openpilot takes curves.</b> Higher values allow faster cornering; lower values slow the vehicle for gentler turns. The default is 2.0 m/s²."), ""},
+    {"CalibratedLateralAcceleration", tr("Calibrated Lateral Acceleration"), tr("<b>The learned lateral acceleration from collected driving data.</b> Use this as a reference when setting the target lateral acceleration."), ""},
     {"CalibrationProgress", tr("Calibration Progress"), tr("<b>How much curve data has been collected.</b> This is a progress meter; it is normal for the value to stay low and rarely reach 100%."), ""},
     {"ResetCurveData", tr("Reset Curve Data"), tr("<b>Reset collected user data for \"Curve Speed Controller\".</b>"), ""},
     {"ShowCSCStatus", tr("Status Widget"), tr("<b>Show the \"Curve Speed Controller\" target speed on the driving screen.</b>"), ""},
@@ -284,6 +285,8 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
         longitudinalLayout->setCurrentWidget(curveSpeedPanel);
       });
       longitudinalToggle = curveControlToggle;
+    } else if (param == "CurveSpeedLateralAcceleration") {
+      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1.0, 3.5, tr(" m/s²"), std::map<float, QString>(), 0.1);
     } else if (param == "CalibrationProgress") {
       calibrationProgressLabel = new LabelControl(title, QString::number(params.getFloat("CalibrationProgress"), 'f', 2) + "%", desc);
       longitudinalToggle = calibrationProgressLabel;
