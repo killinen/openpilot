@@ -128,6 +128,12 @@ class CarInterface(CarInterfaceBase):
     ret.openpilotLongitudinalControl = use_sdsu or ret.enableDsu or candidate in (TSS2_CAR - RADAR_ACC_CAR) or bool(ret.flags & ToyotaFlags.DISABLE_RADAR.value)
     ret.openpilotLongitudinalControl &= not frogpilot_toggles.disable_openpilot_long
 
+    # LS600h is currently state-only: follow stock cruise engagement without commanding the car.
+    if candidate == CAR.LEXUS_LS600h:
+      ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.noOutput)]
+      ret.pcmCruise = True
+      ret.openpilotLongitudinalControl = False
+
     ret.autoResumeSng = ret.openpilotLongitudinalControl and candidate in NO_STOP_TIMER_CAR
     ret.enableGasInterceptor = 0x201 in fingerprint[0] and ret.openpilotLongitudinalControl
 

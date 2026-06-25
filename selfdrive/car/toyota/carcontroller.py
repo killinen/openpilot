@@ -140,6 +140,17 @@ class CarController(CarControllerBase):
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     actuators = CC.actuators
+
+    # Temporary LS600h bring-up mode: publish engagement state without sending control CAN.
+    if self.CP.carFingerprint == CAR.LEXUS_LS600h:
+      new_actuators = actuators.as_builder()
+      new_actuators.steer = 0.0
+      new_actuators.steerOutputCan = 0
+      new_actuators.steeringAngleDeg = 0.0
+      new_actuators.accel = 0.0
+      self.frame += 1
+      return new_actuators, []
+
     stopping = actuators.longControlState == LongCtrlState.stopping
     hud_control = CC.hudControl
     pcm_cancel_cmd = CC.cruiseControl.cancel

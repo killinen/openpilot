@@ -72,6 +72,7 @@ legend = ["LAT_ACCEL_FACTOR", "MAX_LAT_ACCEL_MEASURED", "FRICTION"]
 "KIA_K8_HEV_1ST_GEN" = [2.5, 2.5, 0.1]
 "HYUNDAI_CUSTIN_1ST_GEN" = [2.5, 2.5, 0.1]
 "LEXUS_GS_F" = [2.5, 2.5, 0.08]
+"LEXUS_LS600h" = [2.0, 2.0, 0.1]  # Provisional; experimental NO_OUTPUT mode does not apply steering.
 "HYUNDAI_STARIA_4TH_GEN" = [1.8, 2.0, 0.15]
 
 # Dashcam or fallback configured as ideal car
