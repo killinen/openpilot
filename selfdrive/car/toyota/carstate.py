@@ -47,7 +47,7 @@ class CarState(CarStateBase):
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
     if CP.carFingerprint == CAR.LEXUS_LS600h:
-      self.shifter_values = {}
+      self.shifter_values = can_define.dv["GEAR_PACKET"]["GEAR"]
     elif CP.flags & ToyotaFlags.SECOC.value:
       self.shifter_values = can_define.dv["GEAR_PACKET_HYBRID"]["GEAR"]
     else:
@@ -77,15 +77,20 @@ class CarState(CarStateBase):
     self.angle_offset_zss = 0
     self.zorro_steer_value = 0
 
-  def update_ls600h(self, cp):
+  def update_ls600h(self, cp, cp_body):
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
 
-    speed_kph = cp.vl["SPEED"]["SPEED"]
-    ret.wheelSpeeds = self.get_wheel_speeds(speed_kph, speed_kph, speed_kph, speed_kph)
-    ret.vEgoRaw = speed_kph * CV.KPH_TO_MS * self.CP.wheelSpeedFactor
+    # Physical wheel ordering is not yet confirmed; the average used for vEgo is unaffected.
+    ret.wheelSpeeds = self.get_wheel_speeds(
+      cp_body.vl["LS600H_0B0"]["WHEEL_SPEED_1"],
+      cp_body.vl["LS600H_0B0"]["WHEEL_SPEED_2"],
+      cp_body.vl["LS600H_0B2"]["WHEEL_SPEED_3"],
+      cp_body.vl["LS600H_0B2"]["WHEEL_SPEED_4"],
+    )
+    ret.vEgoRaw = mean([ret.wheelSpeeds.fl, ret.wheelSpeeds.fr, ret.wheelSpeeds.rl, ret.wheelSpeeds.rr])
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
-    ret.vEgoCluster = ret.vEgo
+    ret.vEgoCluster = cp.vl["SPEED"]["SPEED"] * CV.KPH_TO_MS
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
     ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"] + cp.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"]
@@ -97,10 +102,25 @@ class CarState(CarStateBase):
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
     ret.brakePressed = cp.vl["BRAKE_MODULE"]["BRAKE_PRESSED"] != 0
-    ret.gearShifter = car.CarState.GearShifter.unknown
+    ret.gasPressed = cp_body.vl["LS600H_126"]["GAS_PEDAL_PRESSED"] != 0
+
+    body_state = cp_body.vl["BODY_CONTROL_STATE"]
+    ret.doorOpen = any([body_state["DOOR_OPEN_FL"], body_state["DOOR_OPEN_FR"],
+                        body_state["DOOR_OPEN_RL"], body_state["DOOR_OPEN_RR"]])
+    ret.seatbeltUnlatched = body_state["SEATBELT_DRIVER_UNLATCHED"] != 0
+    ret.parkingBrake = body_state["PARKING_BRAKE"] == 1
+
+    gear_packet = cp_body.vl["GEAR_PACKET"]
+    gear = "B" if gear_packet["B_GEAR_ENGAGED"] else self.shifter_values.get(int(gear_packet["GEAR"]))
+    ret.gearShifter = self.parse_gear_shifter(gear)
+
+    cruise_active = bool(cp_body.vl["LS600H_124"]["CRUISE_ACTIVE"])
+    ret.cruiseState.available = cruise_active
+    ret.cruiseState.enabled = cruise_active
 
     self.gvc = cp.vl["VSC1S07"]["GVC"]
-    self.pcm_acc_status = 0
+    # The LS-specific frame currently exposes only active/inactive, not Toyota's full CRUISE_STATE enum.
+    self.pcm_acc_status = 8 if cruise_active else 0
     self.cruise_decreased = False
     self.cruise_increased = False
     self.distance_button = 0
@@ -111,7 +131,7 @@ class CarState(CarStateBase):
 
   def update(self, cp, cp_cam, CC, frogpilot_toggles):
     if self.CP.carFingerprint == CAR.LEXUS_LS600h:
-      return self.update_ls600h(cp)
+      return self.update_ls600h(cp, cp_cam)
 
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
@@ -376,7 +396,15 @@ class CarState(CarStateBase):
   @staticmethod
   def get_cam_can_parser(CP, FPCP):
     if CP.carFingerprint == CAR.LEXUS_LS600h:
-      return CANParser(DBC[CP.carFingerprint]["pt"], [], 0)
+      messages = [
+        ("LS600H_0B0", 10),
+        ("LS600H_0B2", 10),
+        ("LS600H_124", 5),
+        ("LS600H_126", 10),
+        ("GEAR_PACKET", 0.1),
+        ("BODY_CONTROL_STATE", 0.5),
+      ]
+      return CANParser(DBC[CP.carFingerprint]["pt"], messages, 1)
 
     messages = []
 

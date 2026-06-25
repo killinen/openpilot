@@ -1,7 +1,7 @@
-BU_: XXX CGW EPS
+BU_: XXX CGW EPS SCM
 
-CM_ "Lexus LS600h candidate DBC derived from sustained bus 2 CAN traffic in route 9f2573520aa994fd/00000001--93ba1d9657. Bus 1-only and one-shot diagnostic messages are intentionally omitted.";
-CM_ "Only messages present in all 8 route segments are included. Unknown messages use raw byte signals until their layouts are identified.";
+CM_ "Lexus LS600h candidate DBC derived from sustained CAN traffic in routes 9f2573520aa994fd/00000001--93ba1d9657 and 9f2573520aa994fd/00000004--52b0dd2646.";
+CM_ "Only messages present in every segment of their source capture are included. One-shot diagnostic traffic is omitted; unknown messages use raw byte signals until their layouts are identified.";
 
 BO_ 32 LS600H_020: 7 XXX
  SG_ LS600H_020_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
@@ -26,14 +26,14 @@ BO_ 37 STEER_ANGLE_SENSOR: 8 XXX
 CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
 
 BO_ 40 LS600H_STEER_028: 8 XXX
- SG_ STEER_OUTSHAFT_RAW : 3|12@0- (1,0) [-2048|2047] "" XXX
- SG_ STEER_TORSION_DYN : 23|12@0- (1,0) [-2048|2047] "" XXX
- SG_ STEER_INSHAFT_RAW : 39|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_INSHAFT_RAW : 2|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_TORSION_BAR_RAW : 23|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_OUTSHAFT_RAW : 39|12@0- (1,0) [-2048|2047] "" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 CM_ BO_ 40 "Observed continuously on bus 2 at approximately 80 Hz in the source route. Tentative EPS/steering-related frame; signal names are not 100% confirmed.";
-CM_ SG_ 40 STEER_OUTSHAFT_RAW "Tracks steering angle most closely in the stationary steering sweep; likely the output shaft resolver. Local fit only: steering angle deg ~= 3.24 * raw - 7.6.";
-CM_ SG_ 40 STEER_TORSION_DYN "Tentative dynamic steering/EPS signal. In the stationary steering sweep it correlates with STEER_INSHAFT_RAW - STEER_OUTSHAFT_RAW and calculated angle derivative, but it is not confirmed as steering rate.";
-CM_ SG_ 40 STEER_INSHAFT_RAW "Tracks steering angle and forms a small torque-correlated delta against STEER_OUTSHAFT_RAW; likely the input shaft resolver. Local fit only: steering angle deg ~= 2.95 * raw - 8.1.";
+CM_ SG_ 40 STEER_INSHAFT_RAW "Tentative input shaft resolver. In route 9f2573520aa994fd/00000008--797fae1937 it tracks steering angle with local fit angle deg ~= 2.27 * raw - 26.94. Naming is based on the hypothesis that this channel is before the torsion bar; needs more confirmation.";
+CM_ SG_ 40 STEER_TORSION_BAR_RAW "Tentative torsion-bar/torque-related raw channel. It does not track absolute steering angle in route 9f2573520aa994fd/00000008--797fae1937. Exact physical meaning is not confirmed.";
+CM_ SG_ 40 STEER_OUTSHAFT_RAW "Tentative output shaft resolver. Tracks steering angle most closely in route 9f2573520aa994fd/00000008--797fae1937 with local fit angle deg ~= 2.99 * raw - 17.75.";
 CM_ SG_ 40 CHECKSUM "Observed checksum formula: (sum(byte0..byte6) + 0x30) & 0xff.";
 
 BO_ 180 SPEED: 8 XXX
@@ -82,13 +82,14 @@ BO_ 242 LS600H_0F2: 8 XXX
  SG_ LS600H_0F2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
 CM_ BO_ 242 "Observed continuously on bus 2 at approximately 41.7 Hz in the source route.";
 
-BO_ 384 LS600H_180: 5 XXX
- SG_ LS600H_180_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_180_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_180_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_180_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_180_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 384 "Observed continuously on bus 2 at approximately 62.5 Hz in the source route.";
+BO_ 384 STEERING_LKA: 5 XXX
+ SG_ LKA_STATE : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ STEER_REQUEST : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ COUNTER : 6|6@0+ (1,0) [0|63] "" XXX
+ SG_ SET_ME_1 : 7|1@0+ (1,0) [0|1] "" XXX
+ SG_ STEER_TORQUE_CMD : 15|16@0- (1,0) [0|65535] "" XXX
+ SG_ CHECKSUM : 39|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 384 "Matches standard Toyota STEERING_LKA command layout, but observed as static inactive 00 00 00 00 86 in LS600h logs so far.";
 
 BO_ 385 LS600H_181: 6 XXX
  SG_ LS600H_181_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
@@ -123,7 +124,19 @@ CM_ BO_ 389 "Observed continuously on bus 2 at approximately 62.5 Hz in the sour
 BO_ 548 BRAKE_MODULE: 8 XXX
  SG_ BRAKE_PRESSURE : 43|12@0+ (1,0) [0|4047] "" XXX
  SG_ BRAKE_PRESSED : 5|1@0+ (1,0) [0|1] "" XXX
-CM_ BO_ 548 "Observed continuously on bus 2 at approximately 40 Hz in the source route.";
+ SG_ TENTATIVE_BRAKE_ACTIVITY : 46|1@1+ (1,0) [0|1] "" XXX
+CM_ BO_ 548 "Observed on LS600h as a brake/status frame. Multi-route ACC/decel scan showed this is not an ACC command frame; most samples are zero, with pressure/status-like bytes changing during brake activity.";
+CM_ SG_ 548 TENTATIVE_BRAKE_ACTIVITY "Unconfirmed raw byte5 mask 0x40. Correlates with VSC1S07 BRKON in the available routes but is not confirmed as a discrete brake state.";
+CM_ BU_ XXX "LS600h DBC note: some addresses are bus-dependent. Address 0x224 is brake/status on bus 0/1 in current logs, while bus 2 also carries radar-track-like data at the same address. DBC files cannot disambiguate by bus, so the bus 2 0x224 radar slot is intentionally not added as a duplicate BO_ definition.";
+
+BO_ 550 LS600H_BRAKE_MODULE_226: 8 XXX
+ SG_ BRAKE_PRESSURE : 0|9@0+ (1,0) [0|511] "" XXX
+ SG_ BRAKE_POSITION : 16|9@0+ (1,0) [0|511] "" XXX
+ SG_ BRAKE_PRESSED : 37|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 550 "Matched by address and DLC to toyota_tnga_k_pt.dbc/toyota_nodsu_pt.dbc BRAKE_MODULE; observed continuously on bus 2 at approximately 20 Hz in route ff528bde139e99de/0000051e--6ae54d23d9.";
+CM_ BU_ XXX "LS600h DBC note: address 0x226 is brake/status on bus 1 in earlier logs and radar-track-like on bus 2 in later logs. This DBC keeps the existing brake/status definition and does not add a duplicate bus 2 radar-track BO_ for 0x226.";
+CM_ SG_ 550 BRAKE_PRESSURE "Known Toyota layout: seems proportional to pedal force.";
+CM_ SG_ 550 BRAKE_POSITION "Known Toyota layout: seems proportional to pedal displacement.";
 
 BO_ 564 LS600H_234: 8 XXX
  SG_ LS600H_234_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
@@ -169,20 +182,381 @@ CM_ BO_ 623 "Observed continuously on bus 2 at approximately 41.7 Hz in the sour
 CM_ SG_ 623 STEER_RAW_A "Strongly anti-correlates with steering angle in the stationary steering sweep. Local fit only: steering angle deg ~= -5.90 * raw + 3762.7.";
 CM_ SG_ 623 STEER_RAW_B "Strongly correlates with steering angle in the stationary steering sweep. Local fit only: steering angle deg ~= 5.36 * raw - 3346.8.";
 
-BO_ 641 LS600H_281: 6 XXX
- SG_ LS600H_281_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_281_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+BO_ 641 LS600H_LEAD_INFO: 6 XXX
+ SG_ LEAD_REL_SPEED : 0|8@1- (0.1,0) [-12.8|12.7] "m/s" XXX
+ SG_ LEAD_LONG_DIST : 8|8@1+ (1,0) [0|255] "m" XXX
  SG_ LS600H_281_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_281_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_281_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_281_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 641 "Observed continuously on bus 2 at approximately 31.3 Hz in the source route.";
+ SG_ TENTATIVE_CHECKSUM : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 641 "Observed continuously on bus 0 at approximately 31.3 Hz across LS600h routes. Tentative radar lead-info layout; useful for lead presence/distance but not an ACC command frame.";
+CM_ SG_ 641 LEAD_REL_SPEED "Tentative signed relative speed. Byte value correlated weakly with model/radarState lead relative speed; scale needs confirmation.";
+CM_ SG_ 641 LEAD_LONG_DIST "Tentative lead distance in meters. 0xff was observed when no lead was visible. During visual lead windows this tracks model/radarState lead distance with roughly +2 m average offset.";
+CM_ SG_ 641 TENTATIVE_CHECKSUM "Tentative checksum appears to be (LEAD_REL_SPEED raw byte + LEAD_LONG_DIST raw byte + 0x89) & 0xff in the observed route.";
+VAL_ 641 LEAD_LONG_DIST 255 "NO_LEAD" ;
 
 BO_ 642 LS600H_282: 3 XXX
- SG_ LS600H_282_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_282_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_282_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 642 "Observed continuously on bus 2 at approximately 31.3 Hz in the source route.";
+ SG_ LS600H_282_BYTE_0_LOW : 0|6@1+ (1,0) [0|63] "" XXX
+ SG_ TENTATIVE_ACC_RADAR_MODE_ACTIVE : 6|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_282_BYTE_0_HIGH : 7|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_ACC_MOVING_FOLLOW_READY : 8|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_282_BYTE_1_HIGH : 9|7@1+ (1,0) [0|127] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 642 "Observed continuously on bus 0 at approximately 31.3 Hz across LS600h routes. Radar/ACC status candidate, not an ACC command frame. In the 2026-06-30 ACC comparison, regular non-ACC cruise stayed at 000087, ACC moving/follow states used 4001c8, and ACC standstill hold used 4000c7.";
+CM_ SG_ 642 TENTATIVE_ACC_RADAR_MODE_ACTIVE "Unconfirmed raw byte0 mask 0x40. Clear separator between regular cruise and ACC/radar-follow mode in routes 00000004--2809598fb3, 00000005--225e17a206, and 00000006--0500d7b8dc.";
+CM_ SG_ 642 TENTATIVE_ACC_MOVING_FOLLOW_READY "Unconfirmed raw byte1 mask 0x01. High in ACC moving/follow-ready state 4001c8, low in ACC standstill/hold state 4000c7, and low when inactive 000087.";
+CM_ SG_ 642 TENTATIVE_CHECKSUM "Tentative checksum-like byte. Observed states fit byte2 = (byte0 + byte1 + 0x87) & 0xff for common values 000087, 4000c7, and 4001c8.";
+VAL_ 642 TENTATIVE_ACC_RADAR_MODE_ACTIVE 0 "INACTIVE_OR_REGULAR_CRUISE" 1 "ACC_RADAR_MODE_ACTIVE" ;
+VAL_ 642 TENTATIVE_ACC_MOVING_FOLLOW_READY 0 "INACTIVE_OR_STANDSTILL_HOLD" 1 "ACC_MOVING_FOLLOW_READY" ;
+
+BO_ 272 LS600H_RADAR_STATUS_110: 8 XXX
+ SG_ RADAR_STATUS_110_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_110_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 272 "Tentative bus 2 front radar/object-recognition ECU status/config frame. Observed in ACC and regular-cruise comparison routes; byte layout is not decoded.";
+
+BO_ 273 LS600H_RADAR_STATUS_111: 8 XXX
+ SG_ RADAR_STATUS_111_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_111_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 273 "Tentative bus 2 front radar/object-recognition ECU status/config frame. Observed in ACC and regular-cruise comparison routes; byte layout is not decoded.";
+
+BO_ 304 LS600H_RADAR_STATUS_130: 8 XXX
+ SG_ RADAR_STATUS_130_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_130_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 304 "Tentative bus 2 front radar/object-recognition ECU status/config frame. Payload changes during radar/object activity but exact fields are not decoded.";
+
+BO_ 528 LS600H_RADAR_TRACK_A_210: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_210_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 528 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_0 family, but LS600h bit layout/scales are not confirmed; byte0 is a rolling counter and byte7 is checksum-like.";
+
+BO_ 529 LS600H_RADAR_TRACK_A_211: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_211_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 529 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_1 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 530 LS600H_RADAR_TRACK_A_212: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_212_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 530 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_2 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 531 LS600H_RADAR_TRACK_A_213: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_213_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 531 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_3 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 532 LS600H_RADAR_TRACK_A_214: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_214_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 532 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_4 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 533 LS600H_RADAR_TRACK_A_215: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_215_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 533 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_5 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 534 LS600H_RADAR_TRACK_A_216: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_216_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 534 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_6 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 535 LS600H_RADAR_TRACK_A_217: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_A_217_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 535 "Tentative bus 2 radar object track frame. Address matches Toyota older ADAS TRACK_A_7 family; LS600h bit layout/scales are not confirmed.";
+
+BO_ 544 LS600H_RADAR_TRACK_B_220: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_220_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 544 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_0 family, but LS600h layout/scales are not confirmed; byte0 is a rolling counter and byte7 is checksum-like.";
+
+BO_ 545 LS600H_RADAR_TRACK_B_221: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_221_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 545 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_1 family; LS600h layout/scales are not confirmed.";
+
+BO_ 546 LS600H_RADAR_TRACK_B_222: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_222_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 546 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_2 family; LS600h layout/scales are not confirmed.";
+
+BO_ 547 LS600H_RADAR_TRACK_B_223: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_223_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 547 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_3 family; LS600h layout/scales are not confirmed.";
+
+BO_ 549 LS600H_RADAR_TRACK_B_225: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_225_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 549 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_5 family; LS600h layout/scales are not confirmed.";
+
+BO_ 551 LS600H_RADAR_TRACK_B_227: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_TRACK_B_227_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 551 "Tentative bus 2 radar object track/status frame. Address matches Toyota older ADAS TRACK_B_7 family; LS600h layout/scales are not confirmed.";
+
+BO_ 656 LS600H_RADAR_OBJECT_290: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_290_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 656 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; strongly present during radar/object activity but physical signal layout is not decoded.";
+
+BO_ 657 LS600H_RADAR_OBJECT_291: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_291_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 657 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 658 LS600H_RADAR_OBJECT_292: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_292_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 658 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 659 LS600H_RADAR_OBJECT_293: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_293_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 659 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 660 LS600H_RADAR_OBJECT_294: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_294_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 660 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 661 LS600H_RADAR_OBJECT_295: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_295_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 661 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 662 LS600H_RADAR_OBJECT_296: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_296_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 662 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 663 LS600H_RADAR_OBJECT_297: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_297_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 663 "Tentative bus 2 radar/object frame. High-entropy payload with byte0 rolling counter and checksum-like byte7; physical signal layout is not decoded.";
+
+BO_ 688 LS600H_RADAR_OBJECT_STATUS_2B0: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B0_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 688 "Tentative bus 2 radar object status/score/classification frame. Changes with object/standstill events; physical signal layout is not decoded.";
+
+BO_ 689 LS600H_RADAR_OBJECT_STATUS_2B1: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 689 "Tentative bus 2 radar object status/score/classification frame. Changes with object/standstill events; physical signal layout is not decoded.";
+
+BO_ 690 LS600H_RADAR_OBJECT_STATUS_2B2: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 690 "Tentative bus 2 radar object status/score/classification frame. Changes with object/standstill events; physical signal layout is not decoded.";
+
+BO_ 691 LS600H_RADAR_OBJECT_STATUS_2B3: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_STATUS_2B3_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 691 "Tentative bus 2 radar object status/score/classification frame. Changes with object/standstill events; physical signal layout is not decoded.";
+
+BO_ 704 LS600H_RADAR_OBJECT_SUMMARY_2C0: 8 XXX
+ SG_ RADAR_COUNTER : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_OBJECT_SUMMARY_2C0_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 704 "Tentative lower-rate bus 2 radar/object summary/status frame. Observed near 10 Hz/2 in ACC comparison routes; byte0 is a counter and byte7 checksum-like. Physical layout is not decoded.";
+
+BO_ 705 COMMAND: 8 XXX
+ SG_ NOT_ACCELERATING_PEDAL : 3|1@1+ (1,0) [0|1] "" XXX
+ SG_ ACC_PEDAL_SENSOR : 55|16@0+ (1,0) [0|65535] "" XXX
+ SG_ ACC_COMMAND : 31|16@0- (1,0) [0|7] "" XXX
+ SG_ ACC_PEDAL_MEAN : 15|16@0- (1,0) [0|255] "" XXX
+ SG_ NEGATIVE_COMMAND_OFFSET : 47|8@0- (1,0) [0|255] "" XXX
+CM_ BO_ 705 "Observed continuously on bus 2 at approximately 10 Hz in route ff528bde139e99de/0000051e--6ae54d23d9 and in ACC comparison routes. Earlier COMMAND/pedal names are still unconfirmed; latest analysis also shows this as a lower-rate radar/object/status candidate, not a proven ACC actuator command.";
+
+BO_ 1392 LS600H_RADAR_STATUS_570: 8 XXX
+ SG_ RADAR_STATUS_570_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ RADAR_STATUS_570_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_CHECKSUM : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1392 "Tentative bus 2 radar/object ECU status frame. Payload states change between approach, standstill hold, and post-stop windows; exact fields are not decoded.";
 
 BO_ 744 LS600H_2E8: 3 XXX
  SG_ LS600H_2E8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
@@ -433,13 +807,475 @@ BO_ 1572 LS600H_624: 8 XXX
  SG_ LS600H_624_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
 CM_ BO_ 1572 "Observed continuously on bus 2 at approximately 1 Hz in the source route.";
 
-BO_ 1616 LS600H_650: 8 XXX
+BO_ 1616 STEERING_LEVERS: 8 XXX
  SG_ LS600H_650_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_650_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_650_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
- SG_ LS600H_650_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TURN_SIGNALS : 31|2@0+ (1,0) [0|3] "" XXX
  SG_ LS600H_650_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_650_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_650_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_650_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 1616 "Observed continuously on bus 2 at approximately 3.3 Hz in the source route.";
+CM_ BO_ 1616 "Observed continuously on bus 2 at approximately 3.3 Hz in the source route; TURN_SIGNALS also observed on buses 0/1 in route ff528bde139e99de/0000051e--6ae54d23d9.";
+CM_ SG_ 1616 TURN_SIGNALS "Toyota/Lexus steering lever turn-signal state. 1 = left, 2 = right.";
+
+CM_ "Additional sustained bus 1 traffic from route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 55 LS600H_037: 4 XXX
+ SG_ LS600H_037_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_037_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_037_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_037_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 55 "Observed continuously on bus 1 at approximately 21.44 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 57 LS600H_039: 5 XXX
+ SG_ ENGINE_TEMP : 0|8@1+ (1,0) [0|255] "degC" XXX
+ SG_ LS600H_039_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_039_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_039_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_039_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 57 "Observed continuously on bus 1 at approximately 21.46 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+CM_ SG_ 57 ENGINE_TEMP "Likely engine/coolant temperature in Celsius. Observed byte 0 range was 32..88 C and settled around 85..87 C in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 166 BRAKE: 8 XXX
+ SG_ BRAKE_AMOUNT : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ BRAKE_FORCE : 23|8@0+ (40,0) [0|10200] "N" XXX
+CM_ BO_ 166 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 14.28 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 176 LS600H_0B0: 8 XXX
+ SG_ WHEEL_SPEED_1 : 7|16@0- (0.01,0) [-327.68|327.67] "km/h" XXX
+ SG_ WHEEL_SPEED_2 : 23|16@0- (0.01,0) [-327.68|327.67] "km/h" XXX
+ SG_ STATUS_1 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ STATUS_2 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ STATUS_3 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 176 "Wheel speed pair observed continuously on bus 1 at approximately 14.41 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+CM_ SG_ 176 WHEEL_SPEED_1 "Correlates with vehicle speed at 0.9994 using signed big-endian raw * 0.01 km/h. Exact physical wheel position is not yet identified.";
+CM_ SG_ 176 WHEEL_SPEED_2 "Correlates with vehicle speed at 0.9995 using signed big-endian raw * 0.01 km/h. Exact physical wheel position is not yet identified.";
+CM_ SG_ 176 CHECKSUM "Toyota checksum: (address + payload length + sum(byte0..byte6)) & 0xff.";
+
+BO_ 178 LS600H_0B2: 8 XXX
+ SG_ WHEEL_SPEED_3 : 7|16@0- (0.01,0) [-327.68|327.67] "km/h" XXX
+ SG_ WHEEL_SPEED_4 : 23|16@0- (0.01,0) [-327.68|327.67] "km/h" XXX
+ SG_ STATUS_1 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ STATUS_2 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ STATUS_3 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 178 "Wheel speed pair observed continuously on bus 1 at approximately 14.41 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+CM_ SG_ 178 WHEEL_SPEED_3 "Correlates with vehicle speed at 0.9996 using signed big-endian raw * 0.01 km/h. Exact physical wheel position is not yet identified.";
+CM_ SG_ 178 WHEEL_SPEED_4 "Correlates with vehicle speed at 0.9995 using signed big-endian raw * 0.01 km/h. Exact physical wheel position is not yet identified.";
+CM_ SG_ 178 CHECKSUM "Toyota checksum: (address + payload length + sum(byte0..byte6)) & 0xff.";
+
+BO_ 288 LS600H_120: 7 XXX
+ SG_ LS600H_120_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_120_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 288 "Observed continuously on bus 1 at approximately 10.72 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 292 LS600H_124: 8 XXX
+ SG_ LS600H_124_BYTE_0_LOW : 0|4@1+ (1,0) [0|15] "" XXX
+ SG_ CRUISE_ACTIVE : 4|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_124_BYTE_0_HIGH : 5|3@1+ (1,0) [0|7] "" XXX
+ SG_ LS600H_124_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_124_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_124_BYTE_3_LOW : 24|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_CRUISE_INACTIVE : 25|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_124_BYTE_3_HIGH : 26|6@1+ (1,0) [0|63] "" XXX
+ SG_ LS600H_124_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_124_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_124_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_124_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 292 "Observed continuously on bus 1 at approximately 5.5 Hz across LS600h routes. Cruise/status frame; not an ACC command frame.";
+CM_ SG_ 292 CRUISE_ACTIVE "Cruise control active state, byte 0 mask 0x10. Confirmed against multiple cruise on/off windows.";
+CM_ SG_ 292 TENTATIVE_CRUISE_INACTIVE "Unconfirmed raw byte3 mask 0x02. Strong inverse correlation with CRUISE_ACTIVE in available routes.";
+
+BO_ 294 LS600H_126: 8 XXX
+ SG_ LS600H_126_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TENTATIVE_DECEL_STATUS_1 : 8|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_DECEL_STATUS_2 : 9|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_DECEL_STATUS_3 : 10|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_1_BIT3 : 11|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_DECEL_STATUS_4 : 12|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_1_BIT5 : 13|1@1+ (1,0) [0|1] "" XXX
+ SG_ TENTATIVE_BRKON_STATUS : 14|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_1_BIT7 : 15|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_2_LOW : 16|7@1+ (1,0) [0|127] "" XXX
+ SG_ TENTATIVE_DECEL_STATUS_5 : 23|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_3_LOW : 24|6@1+ (1,0) [0|63] "" XXX
+ SG_ GAS_PEDAL_PRESSED : 30|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_3_HIGH : 31|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_126_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_126_BYTE_6_LOW : 48|7@1+ (1,0) [0|127] "" XXX
+ SG_ TENTATIVE_CRUISE_ACCEL_ALLOWED : 55|1@1+ (1,0) [0|1] "" XXX
+ SG_ LS600H_126_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 294 "Observed continuously on bus 1 at approximately 10.7 Hz across LS600h routes. Pedal/status frame; not an ACC command frame. Some bits are lead/status-correlated in limited data but are not named yet.";
+CM_ SG_ 294 GAS_PEDAL_PRESSED "Accelerator pedal pressed state, byte 3 mask 0x40.";
+CM_ SG_ 294 TENTATIVE_DECEL_STATUS_1 "Unconfirmed raw byte1 mask 0x01. Correlates with decel/BRKON windows in available routes.";
+CM_ SG_ 294 TENTATIVE_DECEL_STATUS_2 "Unconfirmed raw byte1 mask 0x02. Correlates with decel/BRKON windows in available routes.";
+CM_ SG_ 294 TENTATIVE_DECEL_STATUS_3 "Unconfirmed raw byte1 mask 0x04. Correlates with decel/BRKON windows in available routes.";
+CM_ SG_ 294 TENTATIVE_DECEL_STATUS_4 "Unconfirmed raw byte1 mask 0x10. Correlates with decel/BRKON windows in available routes.";
+CM_ SG_ 294 TENTATIVE_BRKON_STATUS "Unconfirmed raw byte1 mask 0x40. Strongest correlation with VSC1S07 BRKON in available routes.";
+CM_ SG_ 294 TENTATIVE_DECEL_STATUS_5 "Unconfirmed raw byte2 mask 0x80. Correlates with decel/BRKON windows in available routes.";
+CM_ SG_ 294 TENTATIVE_CRUISE_ACCEL_ALLOWED "Unconfirmed raw byte6 mask 0x80. Usually high during cruise and low during BRKON/decel windows.";
+
+BO_ 296 LS600H_128: 8 XXX
+ SG_ LS600H_128_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_128_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 296 "Observed continuously on bus 1 at approximately 10.72 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 560 BRAKE_2: 7 XXX
+ SG_ BRAKE_PRESSED : 26|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 560 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 7.21 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 566 LS600H_236: 4 XXX
+ SG_ LS600H_236_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_236_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_236_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_236_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 566 "Observed continuously on bus 1 at approximately 7.14 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 580 LS600H_244: 7 XXX
+ SG_ LS600H_244_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_244_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 580 "Observed continuously on bus 1 at approximately 7.46 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 610 EPS_STATUS: 5 EPS
+ SG_ IPAS_STATE : 3|4@0+ (1,0) [0|15] "" XXX
+ SG_ LKA_STATE : 31|7@0+ (1,0) [0|127] "" XXX
+ SG_ TYPE : 24|1@0+ (1,0) [0|1] "" XXX
+ SG_ CHECKSUM : 39|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 610 "Matched by address, DLC, and plausible decoded values to toyota_new_mc_pt.dbc; observed continuously on bus 1 at approximately 4.40 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 620 LS600H_26C: 5 XXX
+ SG_ LS600H_26C_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_26C_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_26C_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_26C_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_26C_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 620 "Observed continuously on bus 1 at approximately 7.33 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 640 LS600H_280: 8 XXX
+ SG_ LS600H_280_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_280_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 640 "Observed continuously on bus 1 at approximately 5.49 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 710 LS600H_2C6: 3 XXX
+ SG_ LS600H_2C6_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_2C6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_2C6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 710 "Observed continuously on bus 1 at approximately 5.53 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 810 LS600H_32A: 2 XXX
+ SG_ LS600H_32A_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_32A_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 810 "Observed continuously on bus 1 at approximately 3.57 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 812 LS600H_32C: 2 XXX
+ SG_ LS600H_32C_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_32C_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 812 "Observed continuously on bus 1 at approximately 3.67 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 845 LS600H_34D: 7 XXX
+ SG_ LS600H_34D_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_34D_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 845 "Observed continuously on bus 1 at approximately 3.46 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 905 LS600H_389: 3 XXX
+ SG_ LS600H_389_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_389_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_389_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 905 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 918 LS600H_396: 7 XXX
+ SG_ LS600H_396_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_396_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 918 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 929 LS600H_3A1: 8 XXX
+ SG_ LS600H_3A1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3A1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 929 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 944 LS600H_3B0: 6 XXX
+ SG_ LS600H_3B0_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B0_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B0_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B0_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B0_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B0_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 944 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 948 LS600H_3B4: 8 XXX
+ SG_ LS600H_3B4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3B4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 948 "Observed continuously on bus 1 at approximately 0.19 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 954 LS600H_3BA: 1 XXX
+ SG_ LS600H_3BA_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 954 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 956 GEAR_PACKET: 8 XXX
+ SG_ SPORT_ON : 2|1@0+ (1,0) [0|1] "" XXX
+ SG_ GEAR : 13|6@0+ (1,0) [0|63] "" XXX
+ SG_ SPORT_GEAR_ON : 33|1@0+ (1,0) [0|1] "" XXX
+ SG_ SPORT_GEAR : 38|3@0+ (1,0) [0|7] "" XXX
+ SG_ ECON_ON : 40|1@0+ (1,0) [0|1] "" XXX
+ SG_ B_GEAR_ENGAGED : 41|1@0+ (1,0) [0|1] "" XXX
+ SG_ DRIVE_ENGAGED : 47|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 956 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 0.17 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 968 LS600H_3C8: 6 XXX
+ SG_ LS600H_3C8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3C8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3C8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3C8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3C8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3C8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 968 "Observed continuously on bus 1 at approximately 2.68 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 975 LS600H_3CF: 5 XXX
+ SG_ LS600H_3CF_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3CF_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3CF_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3CF_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3CF_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 975 "Observed continuously on bus 1 at approximately 1.34 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1014 BSM: 8 XXX
+ SG_ L_ADJACENT : 0|1@0+ (1,0) [0|1] "" XXX
+ SG_ L_APPROACHING : 8|1@0+ (1,0) [0|1] "" XXX
+ SG_ R_ADJACENT : 1|1@0+ (1,0) [0|1] "" XXX
+ SG_ R_APPROACHING : 10|1@0+ (1,0) [0|1] "" XXX
+ SG_ ADJACENT_ENABLED : 7|1@0+ (1,0) [0|1] "" XXX
+ SG_ APPROACHING_ENABLED : 15|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 1014 "Matched by address, DLC, and plausible decoded values to toyota_nodsu_pt.dbc; observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 1017 LS600H_3F9: 8 XXX
+ SG_ LS600H_3F9_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_3F9_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1017 "Observed continuously on bus 1 at approximately 0.70 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1056 VSC1S08: 8 CGW
+ SG_ YR1Z : 7|16@0- (1,0) [0|0] "rad/s" DS1,FCM,MAV
+ SG_ YR2Z : 23|16@0- (1,0) [0|0] "rad/s" DS1,FCM,MAV
+ SG_ GL1Z : 39|8@0- (0.0359,0) [0|0] "m/s^2" DS1,FCM,KSS,MAV,SCS
+ SG_ GL2Z : 47|8@0- (0.0359,0) [0|0] "m/s^2" DS1,FCM,KSS,MAV,SCS
+ SG_ YRGSDIR : 55|1@0+ (1,0) [0|0] "" DS1,FCM,KSS,SCS
+ SG_ GLZS : 51|1@0+ (1,0) [0|0] "" DS1,FCM,KSS,MAV,SCS
+ SG_ YRZF : 50|1@0+ (1,0) [0|0] "" DS1,FCM,MAV
+ SG_ YRZS : 49|1@0+ (1,0) [0|0] "" DS1,FCM,MAV
+ SG_ YRZKS : 48|1@0+ (1,0) [0|0] "" DS1,FCM,MAV
+ SG_ VSC08SUM : 63|8@0+ (1,0) [0|0] "" DS1,FCM,MAV
+CM_ BO_ 1056 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 0.17 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 1112 LS600H_458: 8 XXX
+ SG_ LS600H_458_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_458_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1112 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1187 LS600H_4A3: 8 XXX
+ SG_ LS600H_4A3_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A3_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1187 "Observed continuously on bus 1 at approximately 0.35 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1193 LS600H_4A9: 8 XXX
+ SG_ LS600H_4A9_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4A9_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1193 "Observed continuously on bus 1 at approximately 0.35 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1194 LS600H_4AA: 8 XXX
+ SG_ LS600H_4AA_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AA_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1194 "Observed continuously on bus 1 at approximately 0.35 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1195 LS600H_4AB: 8 XXX
+ SG_ LS600H_4AB_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4AB_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1195 "Observed continuously on bus 1 at approximately 0.35 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1221 LS600H_4C5: 8 XXX
+ SG_ LS600H_4C5_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4C5_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1221 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1228 LS600H_4CC: 8 XXX
+ SG_ LS600H_4CC_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4CC_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1228 "Observed continuously on bus 1 at approximately 0.17 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1232 LS600H_4D0: 8 XXX
+ SG_ LS600H_4D0_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D0_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1232 "Observed continuously on bus 1 at approximately 0.17 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1237 LS600H_4D5: 8 XXX
+ SG_ LS600H_4D5_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_4D5_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1237 "Observed continuously on bus 1 at approximately 0.14 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1552 BODY_CONTROL_STATE_2: 8 XXX
+ SG_ UI_SPEED : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ METER_SLIDER_BRIGHTNESS_PCT : 30|7@0+ (1,0) [12|100] "%" XXX
+ SG_ METER_SLIDER_LOW_BRIGHTNESS : 37|1@0+ (1,0) [0|1] "" XXX
+ SG_ METER_SLIDER_DIMMED : 38|1@0+ (1,0) [0|1] "" XXX
+ SG_ UNITS : 63|3@0+ (1,0) [1|4] "" XXX
+CM_ BO_ 1552 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 0.36 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 1568 BODY_CONTROL_STATE: 8 XXX
+ SG_ METER_DIMMED : 38|1@0+ (1,0) [0|1] "" XXX
+ SG_ PARKING_BRAKE : 60|1@0+ (1,0) [0|1] "" XXX
+ SG_ SEATBELT_DRIVER_UNLATCHED : 62|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_FL : 45|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_RL : 42|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_RR : 43|1@0+ (1,0) [0|1] "" XXX
+ SG_ DOOR_OPEN_FR : 44|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 1568 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 0.60 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 1570 LIGHT_STALK: 8 SCM
+ SG_ AUTO_HIGH_BEAM : 37|1@0+ (1,0) [0|1] "" XXX
+ SG_ FRONT_FOG : 27|1@0+ (1,0) [0|1] "" XXX
+ SG_ PARKING_LIGHT : 28|1@0+ (1,0) [0|1] "" XXX
+ SG_ LOW_BEAM : 29|1@0+ (1,0) [0|1] "" XXX
+ SG_ HIGH_BEAM : 30|1@0+ (1,0) [0|1] "" XXX
+ SG_ DAYTIME_RUNNING_LIGHT : 31|1@0+ (1,0) [0|1] "" XXX
+CM_ BO_ 1570 "Matched by address, DLC, and plausible decoded values to _toyota_2017.dbc; observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646.";
+
+BO_ 1602 LS600H_642: 8 XXX
+ SG_ LS600H_642_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_642_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1602 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1744 LS600H_6D0: 8 XXX
+ SG_ LS600H_6D0_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D0_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1744 "Observed continuously on bus 1 at approximately 1.77 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+BO_ 1752 LS600H_6D8: 8 XXX
+ SG_ LS600H_6D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ LS600H_6D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 1752 "Observed continuously on bus 1 at approximately 0.18 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+
+VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
+VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";

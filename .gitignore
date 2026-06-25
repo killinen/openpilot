@@ -2,6 +2,7 @@ venv/
 .venv/
 .ci_cache
 .codex
+AGENTS.md
 .env
 .clang-format
 .DS_Store
