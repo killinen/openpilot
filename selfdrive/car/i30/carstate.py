@@ -131,9 +131,11 @@ class CarState(CarStateBase):
 
     if i30_uses_trqi_steering():
       # TRQI mode replaces the old STEERING_STATUS heartbeat with TRQI_IOStatus.
-      # The standalone board does not publish the old angle/torque feedback, so
-      # disable the SSC-specific alignment path when this mode is selected.
-      ret.steeringTorqueEps = 0.0
+      # The standalone board does not publish the old angle feedback, so disable
+      # the SSC-specific alignment path when this mode is selected. Reuse
+      # steeringTorqueEps for measured MDPS output torque so controls can report
+      # TRQI output-torque saturation through the standard steerSaturated event.
+      ret.steeringTorqueEps = self.steering_torque_out
       self.trqi_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Disengage_Error"])
       self.trqi_non_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Non_Disengage_Error"])
       self.trqi_limit = bool(cp_cam.vl["TRQI_FaultStatus"]["Any_TRQI_Limit"])

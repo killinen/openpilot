@@ -159,6 +159,7 @@ class CarController(CarControllerBase):
       # Report the applied command back in openpilot's native steer sign so the
       # rest of the stack still sees the familiar normalized actuator value.
       applied_steer = 0.0
+      applied_steering_angle = 0.0
       if TrqiSteerLimitParams.STEER_MAX != 0:
         applied_steer = apply_trqi_tq / TrqiSteerLimitParams.STEER_MAX
     else:
@@ -188,6 +189,7 @@ class CarController(CarControllerBase):
         # LatControlTorque outputs 0 angle; derive desired angle from curvature for SSC.
         target_angle = math.degrees(self.VM.get_steer_from_curvature(-actuators.curvature, CS.out.vEgo, 0.0))
       target_angle_lim = clip(target_angle, -angle_lim, angle_lim)
+      applied_steering_angle = target_angle_lim
       if CC.enabled:
         # windup slower
         if (self.last_target_angle_lim * target_angle_lim) > 0. and abs(target_angle_lim) > abs(self.last_target_angle_lim):
@@ -243,6 +245,7 @@ class CarController(CarControllerBase):
 
     new_actuators = actuators.as_builder()
     new_actuators.steer = applied_steer
+    new_actuators.steeringAngleDeg = applied_steering_angle
     new_actuators.accel = self.accel
     new_actuators.gas = self.gas
 

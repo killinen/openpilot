@@ -13,13 +13,15 @@ from msgq.visionipc import VisionIpcClient, VisionStreamType
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.git import get_short_branch
-from openpilot.common.numpy_fast import clip
+from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
 from openpilot.common.swaglog import cloudlog
 
 from openpilot.selfdrive.car.car_helpers import get_car_interface, get_startup_event
 from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags
+from openpilot.selfdrive.car.i30.carcontroller import ANGLE_MAX, ANGLE_MAX_BP, TRQI_OUT_TQ_LIMIT_THRESHOLD
+from openpilot.selfdrive.car.i30.values import i30_uses_trqi_steering
 from openpilot.selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
 from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature
 from openpilot.selfdrive.controls.lib.events import Events, ET
@@ -159,6 +161,8 @@ class Controls:
     self.logged_comm_issue = None
     self.not_running_prev = None
     self.steer_limited_by_safety = False
+    self.i30_angle_max_limited = False
+    self.i30_trqi_out_tq_limited = False
     self.curvature = 0.0
     self.desired_curvature = 0.0
     self.experimental_mode = False
@@ -722,7 +726,7 @@ class Controls:
       undershooting = abs(desired_lateral_accel) / abs(1e-3 + actual_lateral_accel) > 1.2
       turning = abs(desired_lateral_accel) > 1.0
       # TODO: lac.saturated includes speed and other checks, should be pulled out
-      if undershooting and turning and lac_log.saturated:
+      if (undershooting and turning and lac_log.saturated) or self.i30_angle_max_limited or self.i30_trqi_out_tq_limited:
         if self.frogpilot_toggles.goat_scream_alert:
           self.frogpilot_events.add(FrogPilotEventName.goatSteerSaturated)
         else:
@@ -842,6 +846,8 @@ class Controls:
     if current_alert:
       hudControl.visualAlert = current_alert.visual_alert
 
+    self.i30_angle_max_limited = False
+    self.i30_trqi_out_tq_limited = False
     if not self.CP.passive and self.initialized:
       CO = self.sm['carOutput']
       if self.CP.steerControlType == car.CarParams.SteerControlType.angle:
@@ -849,6 +855,17 @@ class Controls:
                                               STEER_ANGLE_SATURATION_THRESHOLD
       else:
         self.steer_limited_by_safety = abs(CC.actuators.steer - CO.actuatorsOutput.steer) > 1e-2
+
+      if self.CP.carName == "i30" and CC.latActive:
+        self.i30_trqi_out_tq_limited = i30_uses_trqi_steering() and abs(CS.steeringTorqueEps) > TRQI_OUT_TQ_LIMIT_THRESHOLD
+
+        requested_angle = CC.actuators.steeringAngleDeg
+        if requested_angle == 0.0 and CC.actuators.curvature != 0.0:
+          requested_angle = math.degrees(self.VM.get_steer_from_curvature(-CC.actuators.curvature, CS.vEgo, 0.0))
+
+        angle_lim = interp(CS.vEgo, ANGLE_MAX_BP, ANGLE_MAX)
+        applied_angle = CO.actuatorsOutput.steeringAngleDeg
+        self.i30_angle_max_limited = abs(requested_angle) >= angle_lim and abs(applied_angle) >= angle_lim - 1e-3
 
     force_decel = (self.sm['driverMonitoringState'].awarenessStatus < 0.) or \
                   (self.state == State.softDisabling) or \
