@@ -120,7 +120,6 @@ class CarState(CarStateBase):
 
     if self.CP.enableGasInterceptor:
       ret.gas = (cp_cam.vl["GAS_SENSOR"]["INTERCEPTOR_GAS"] + cp_cam.vl["GAS_SENSOR"]["INTERCEPTOR_GAS2"]) / 2.
-      # TODO: tune this threshold --> 805 is a good start
       ret.gasPressed = ret.gas > 5
     else:
       ret.gasPressed = cp.vl["EMS6"]['CF_Ems_AclAct'] > 0.05
@@ -140,6 +139,7 @@ class CarState(CarStateBase):
       self.trqi_non_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Non_Disengage_Error"])
       self.trqi_limit = bool(cp_cam.vl["TRQI_FaultStatus"]["Any_TRQI_Limit"])
       self.trqi_host_command_limited = bool(cp_cam.vl["TRQI_FaultStatus"]["Host_Command_Limited"])
+      ret.steeringPressed = bool(cp_cam.vl["TRQI_AdcStatus"]["SNR_Passthrough_Active"])
       self.i30_angle_offset_needed = True
       self.i30_angle_aligned = False
       self.i30_ssc_angle_initialized = False
@@ -192,8 +192,10 @@ class CarState(CarStateBase):
             fp_ret.steeringAngleDegDivergence = self.i30_max_error - self.i30_min_error
 
           fp_ret.steeringAngleDegError = angle_error
-    # emulate driver steering torque - allows lane change assist on blinker hold
-    ret.steeringPressed = ret.gasPressed    # i30 with SSC doesn't have separate torque sensor, so lightly pressing the gas indicates driver intention to change lane
+      # Emulate driver steering torque in SSC mode. i30 with SSC doesn't have a
+      # separate torque sensor, so lightly pressing the gas indicates driver
+      # intention to change lane.
+      ret.steeringPressed = ret.gasPressed
 
     # Allow openpilot set speed even when stock cruise main is off.
     ret.cruiseState.available = self.CP.openpilotLongitudinalControl or (cp.vl["EMS6"]['CRUISE_LAMP_M'] != 0)
@@ -228,6 +230,7 @@ class CarState(CarStateBase):
       # Use TRQI_IOStatus as the actuator-side heartbeat when the standalone TRQI
       # board is in charge of steering. This keeps cp_cam valid without requiring
       # the old STEERING_STATUS message to still be present on bus 1.
+      messages.append(("TRQI_AdcStatus", 10))
       messages.append(("TRQI_IOStatus", 10))
       messages.append(("TRQI_FaultStatus", 10))
     else:
