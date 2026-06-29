@@ -61,8 +61,8 @@ segments = [
   ("FORD", "regenDC288ED0D78|2024-05-21--07-02-18--0"),
 ]
 
-# dashcamOnly makes don't need to be tested until a full port is done
-excluded_interfaces = ["i30", "mock", "tesla"]
+# Bring-up/custom ports do not need replay routes until a full port is done.
+excluded_interfaces = ["i30", "mock", "motorhome", "tesla"]
 
 BASE_URL = "https://commadataci.blob.core.windows.net/openpilotci/"
 REF_COMMIT_FN = os.path.join(PROC_REPLAY_DIR, "ref_commit")
