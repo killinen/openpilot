@@ -1,0 +1,1957 @@
+VERSION ""
+
+
+NS_ :
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    CAT_DEF_
+    CAT_
+    FILTER
+    BA_DEF_DEF_
+    EV_DATA_
+    ENVVAR_DATA_
+    SGTYPE_
+    SGTYPE_VAL_
+    SIG_TYPE_REF_
+    SIG_GROUP_
+    SIG_VALTYPE_
+    SIGTYPE_VALTYPE_
+    BO_TX_BU_
+    BA_DEF_REL_
+    BA_REL_
+    BA_DEF_DEF_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    BU_BO_REL_
+    SG_MUL_VAL_
+
+BS_:
+
+BU_: XXX ENGINE TRANS CCVS17 CCVS21
+
+CM_ "Focused SAE J1939 DBC for standard PGNs observed on CAN0 in route d7e6d73e25126716/0000000f--8f235f2453.";
+CM_ "Messages use full 29-bit CAN IDs, so the same PGN from different source addresses is represented as a separate BO_. Proprietary FFxx traffic is intentionally omitted.";
+
+BO_ 217056256 EEC1_ENGINE_00: 8 ENGINE
+ SG_ ENGINE_TORQUE_MODE : 0|4@1+ (1,0) [0|15] "" XXX
+ SG_ DRIVER_DEMAND_ENGINE_TORQUE : 8|8@1+ (1,-125) [-125|125] "%" XXX
+ SG_ ACTUAL_ENGINE_TORQUE : 16|8@1+ (1,-125) [-125|125] "%" XXX
+ SG_ ENGINE_SPEED : 24|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
+ SG_ SOURCE_ADDRESS_OF_CONTROLLING_DEVICE : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ENGINE_STARTER_MODE : 48|4@1+ (1,0) [0|15] "" XXX
+ SG_ ENGINE_DEMAND_TORQUE : 56|8@1+ (1,-125) [-125|125] "%" XXX
+CM_ BO_ 217056256 "PGN 61444 / 0xF004, Electronic Engine Controller 1, source address 0x00. Observed at approximately 29.75 Hz.";
+CM_ SG_ 217056256 ENGINE_SPEED "SPN 190, engine speed.";
+
+BO_ 217056000 EEC2_ENGINE_00: 8 ENGINE
+ SG_ ACCELERATOR_PEDAL_POSITION_1 : 8|8@1+ (0.4,0) [0|100] "%" XXX
+ SG_ ENGINE_PERCENT_LOAD_AT_SPEED : 16|8@1+ (1,0) [0|250] "%" XXX
+ SG_ ACTUAL_MAX_AVAILABLE_ENGINE_TORQUE : 32|8@1+ (1,-125) [-125|125] "%" XXX
+ SG_ ACCELERATOR_PEDAL_POSITION_2 : 56|8@1+ (0.4,0) [0|100] "%" XXX
+CM_ BO_ 217056000 "PGN 61443 / 0xF003, Electronic Engine Controller 2, source address 0x00. Observed at approximately 29.74 Hz.";
+
+BO_ 419361024 CCVS_00: 8 ENGINE
+ SG_ WHEEL_BASED_VEHICLE_SPEED : 8|16@1+ (0.00390625,0) [0|250.996] "kph" XXX
+ SG_ CRUISE_CONTROL_ACTIVE : 24|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
+ SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
+ SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
+ SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
+CM_ BO_ 419361024 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x00. Observed at approximately 5.94 Hz.";
+CM_ SG_ 419361024 WHEEL_BASED_VEHICLE_SPEED "SPN 84, wheel-based vehicle speed.";
+CM_ SG_ 419361024 CRUISE_CONTROL_SET_SPEED "SPN 86, cruise-control set speed.";
+CM_ SG_ 419361024 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 0/off in this route while this source reported brake/clutch as not available.";
+CM_ SG_ 419361024 BRAKE_SWITCH "SPN 597, brake switch. J1939 2-bit state: 0 = off, 1 = on, 2 = error, 3 = not available.";
+
+BO_ 419361047 CCVS_17: 8 CCVS17
+ SG_ WHEEL_BASED_VEHICLE_SPEED : 8|16@1+ (0.00390625,0) [0|250.996] "kph" XXX
+ SG_ CRUISE_CONTROL_ACTIVE : 24|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
+ SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
+ SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
+ SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
+CM_ BO_ 419361047 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x17. Observed at approximately 5.68 Hz; this source carried cruise set-speed values up to 85 kph in the scanned route.";
+CM_ SG_ 419361047 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 3/not available in this route.";
+CM_ SG_ 419361047 CRUISE_CONTROL_ENABLE_SWITCH "SPN 596, cruise control enable switch. In this route it was 1/on only when CRUISE_CONTROL_SET_SPEED was 85 kph, making it the best candidate cruise-state signal so far.";
+CM_ SG_ 419361047 CRUISE_CONTROL_SET_SPEED "SPN 86, cruise-control set speed. Observed 85 kph for 31 frames and 0 otherwise in this route.";
+CM_ SG_ 419361047 BRAKE_SWITCH "SPN 597, brake switch. J1939 2-bit state: 0 = off, 1 = on, 2 = error, 3 = not available.";
+
+BO_ 419361057 CCVS_21: 8 CCVS21
+ SG_ WHEEL_BASED_VEHICLE_SPEED : 8|16@1+ (0.00390625,0) [0|250.996] "kph" XXX
+ SG_ CRUISE_CONTROL_ACTIVE : 24|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
+ SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
+ SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
+ SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
+CM_ BO_ 419361057 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x21. Observed at approximately 10.00 Hz.";
+CM_ SG_ 419361057 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 3/not available in this route.";
+CM_ SG_ 419361057 BRAKE_SWITCH "SPN 597, brake switch. J1939 2-bit state: 0 = off, 1 = on, 2 = error, 3 = not available.";
+
+BO_ 419360256 ET1_ENGINE_TEMP_00: 8 ENGINE
+ SG_ ENGINE_COOLANT_TEMP : 0|8@1+ (1,-40) [-40|210] "degC" XXX
+ SG_ FUEL_TEMP : 8|8@1+ (1,-40) [-40|210] "degC" XXX
+ SG_ ENGINE_OIL_TEMP : 16|16@1+ (0.03125,-273) [-273|1735] "degC" XXX
+ SG_ ENGINE_TURBO_OIL_TEMP : 32|16@1+ (0.03125,-273) [-273|1735] "degC" XXX
+ SG_ ENGINE_INTERCOOLER_TEMP : 48|8@1+ (1,-40) [-40|210] "degC" XXX
+ SG_ ENGINE_INTERCOOLER_THERMOSTAT_OPENING : 56|8@1+ (0.4,0) [0|100] "%" XXX
+CM_ BO_ 419360256 "PGN 65262 / 0xFEEE, Engine Temperature 1, source address 0x00. Observed at approximately 0.60 Hz.";
+CM_ SG_ 419360256 ENGINE_COOLANT_TEMP "SPN 110, engine coolant temperature.";
+
+BO_ 419360512 EFL_P1_ENGINE_FLUIDS_00: 8 ENGINE
+ SG_ ENGINE_FUEL_DELIVERY_PRESSURE : 0|8@1+ (4,0) [0|1000] "kPa" XXX
+ SG_ ENGINE_EXTENDED_CRANKCASE_BLOW_BY_PRESSURE : 8|8@1+ (0.05,0) [0|12.5] "kPa" XXX
+ SG_ ENGINE_OIL_LEVEL : 16|8@1+ (0.4,0) [0|100] "%" XXX
+ SG_ ENGINE_OIL_PRESSURE : 24|8@1+ (4,0) [0|1000] "kPa" XXX
+ SG_ ENGINE_CRANKCASE_PRESSURE : 32|8@1+ (0.05,-6.4) [-6.4|6.1] "kPa" XXX
+ SG_ ENGINE_COOLANT_PRESSURE : 40|8@1+ (2,0) [0|500] "kPa" XXX
+ SG_ ENGINE_COOLANT_LEVEL : 48|8@1+ (0.4,0) [0|100] "%" XXX
+CM_ BO_ 419360512 "PGN 65263 / 0xFEEF, Engine Fluid Level/Pressure 1, source address 0x00. Observed at approximately 1.19 Hz.";
+CM_ SG_ 419360512 ENGINE_OIL_PRESSURE "SPN 100, engine oil pressure.";
+
+BO_ 419361280 LFE_FUEL_ECONOMY_00: 8 ENGINE
+ SG_ FUEL_RATE : 0|16@1+ (0.05,0) [0|3212.75] "L/h" XXX
+ SG_ INSTANT_FUEL_ECONOMY : 16|16@1+ (0.001953125,0) [0|125.5] "km/L" XXX
+ SG_ AVERAGE_FUEL_ECONOMY : 32|16@1+ (0.001953125,0) [0|125.5] "km/L" XXX
+ SG_ ENGINE_THROTTLE_VALVE_1_POSITION_1 : 48|8@1+ (0.4,0) [0|100] "%" XXX
+CM_ BO_ 419361280 "PGN 65266 / 0xFEF2, Fuel Economy, source address 0x00. Observed at approximately 5.94 Hz.";
+
+BO_ 419356672 VD_DISTANCE_00: 8 ENGINE
+ SG_ TRIP_DISTANCE : 0|32@1+ (0.125,0) [0|526385151.875] "km" XXX
+ SG_ TOTAL_VEHICLE_DISTANCE : 32|32@1+ (0.125,0) [0|526385151.875] "km" XXX
+CM_ BO_ 419356672 "PGN 65248 / 0xFEE0, Vehicle Distance, source address 0x00. Observed at approximately 5.95 Hz.";
+
+BO_ 419348736 HRVD_DISTANCE_00: 8 ENGINE
+ SG_ HIGH_RES_TRIP_DISTANCE : 0|32@1+ (5,0) [0|21055406075] "m" XXX
+ SG_ HIGH_RES_TOTAL_VEHICLE_DISTANCE : 32|32@1+ (5,0) [0|21055406075] "m" XXX
+CM_ BO_ 419348736 "PGN 65217 / 0xFEC1, High Resolution Vehicle Distance, source address 0x00. Observed at approximately 0.59 Hz.";
+
+BO_ 419357952 HOURS_ENGINE_00: 8 ENGINE
+ SG_ ENGINE_TOTAL_HOURS_OF_OPERATION : 0|32@1+ (0.05,0) [0|210554060.75] "h" XXX
+ SG_ ENGINE_TOTAL_REVOLUTIONS : 32|32@1+ (1000,0) [0|4294967295000] "rev" XXX
+CM_ BO_ 419357952 "PGN 65253 / 0xFEE5, Engine Hours/Revolutions, source address 0x00. Observed at approximately 0.54 Hz.";
+
+BO_ 419358976 HOURS_VEHICLE_00: 8 ENGINE
+ SG_ TOTAL_VEHICLE_HOURS : 0|32@1+ (0.05,0) [0|210554060.75] "h" XXX
+ SG_ TOTAL_POWER_TAKEOFF_HOURS : 32|32@1+ (0.05,0) [0|210554060.75] "h" XXX
+CM_ BO_ 419358976 "PGN 65257 / 0xFEE9, Vehicle Hours, source address 0x00. Observed at approximately 0.27 Hz.";
+
+BO_ 419362048 AMB_CONDITIONS_00: 8 ENGINE
+ SG_ BAROMETRIC_PRESSURE : 0|8@1+ (0.5,0) [0|125] "kPa" XXX
+ SG_ CAB_INTERIOR_TEMP : 8|16@1+ (0.03125,-273) [-273|1735] "degC" XXX
+ SG_ AMBIENT_AIR_TEMP : 24|16@1+ (0.03125,-273) [-273|1735] "degC" XXX
+ SG_ AIR_INLET_TEMP : 48|8@1+ (1,-40) [-40|210] "degC" XXX
+ SG_ ROAD_SURFACE_TEMP : 56|8@1+ (1,-40) [-40|210] "degC" XXX
+CM_ BO_ 419362048 "PGN 65269 / 0xFEF5, Ambient Conditions, source address 0x00. Observed at approximately 0.59 Hz.";
+
+BO_ 419351040 DM1_ENGINE_00: 8 ENGINE
+ SG_ PROTECT_LAMP_STATUS : 0|2@1+ (1,0) [0|3] "" XXX
+ SG_ AMBER_WARNING_LAMP_STATUS : 2|2@1+ (1,0) [0|3] "" XXX
+ SG_ RED_STOP_LAMP_STATUS : 4|2@1+ (1,0) [0|3] "" XXX
+ SG_ MALFUNCTION_INDICATOR_LAMP_STATUS : 6|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_PROTECT_LAMP : 8|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_AMBER_WARNING_LAMP : 10|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_RED_STOP_LAMP : 12|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_MALFUNCTION_INDICATOR_LAMP : 14|2@1+ (1,0) [0|3] "" XXX
+ SG_ DM1_DTC_BYTES : 16|32@1+ (1,0) [0|4294967295] "" XXX
+CM_ BO_ 419351040 "PGN 65226 / 0xFECA, DM1 Active Diagnostic Trouble Codes, source address 0x00. Observed at approximately 0.59 Hz.";
+
+BO_ 419351043 DM1_TRANS_03: 8 TRANS
+ SG_ PROTECT_LAMP_STATUS : 0|2@1+ (1,0) [0|3] "" XXX
+ SG_ AMBER_WARNING_LAMP_STATUS : 2|2@1+ (1,0) [0|3] "" XXX
+ SG_ RED_STOP_LAMP_STATUS : 4|2@1+ (1,0) [0|3] "" XXX
+ SG_ MALFUNCTION_INDICATOR_LAMP_STATUS : 6|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_PROTECT_LAMP : 8|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_AMBER_WARNING_LAMP : 10|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_RED_STOP_LAMP : 12|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_MALFUNCTION_INDICATOR_LAMP : 14|2@1+ (1,0) [0|3] "" XXX
+ SG_ DM1_DTC_BYTES : 16|32@1+ (1,0) [0|4294967295] "" XXX
+CM_ BO_ 419351043 "PGN 65226 / 0xFECA, DM1 Active Diagnostic Trouble Codes, source address 0x03. Observed at approximately 0.57 Hz.";
+
+BO_ 419351051 DM1_0B: 8 XXX
+ SG_ PROTECT_LAMP_STATUS : 0|2@1+ (1,0) [0|3] "" XXX
+ SG_ AMBER_WARNING_LAMP_STATUS : 2|2@1+ (1,0) [0|3] "" XXX
+ SG_ RED_STOP_LAMP_STATUS : 4|2@1+ (1,0) [0|3] "" XXX
+ SG_ MALFUNCTION_INDICATOR_LAMP_STATUS : 6|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_PROTECT_LAMP : 8|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_AMBER_WARNING_LAMP : 10|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_RED_STOP_LAMP : 12|2@1+ (1,0) [0|3] "" XXX
+ SG_ FLASH_MALFUNCTION_INDICATOR_LAMP : 14|2@1+ (1,0) [0|3] "" XXX
+ SG_ DM1_DTC_BYTES : 16|32@1+ (1,0) [0|4294967295] "" XXX
+CM_ BO_ 419351051 "PGN 65226 / 0xFECA, DM1 Active Diagnostic Trouble Codes, source address 0x0B. Observed at approximately 0.57 Hz.";
+
+BO_ 418053888 REQUEST_GLOBAL_ENGINE_00: 8 ENGINE
+ SG_ REQUESTED_PGN : 0|24@1+ (1,0) [0|16777215] "" XXX
+CM_ BO_ 418053888 "PGN 59904 / 0xEA00, Request, source address 0x00, global destination 0xFF.";
+
+BO_ 418053891 REQUEST_GLOBAL_TRANS_03: 8 TRANS
+ SG_ REQUESTED_PGN : 0|24@1+ (1,0) [0|16777215] "" XXX
+CM_ BO_ 418053891 "PGN 59904 / 0xEA00, Request, source address 0x03, global destination 0xFF.";
+
+BO_ 417988631 REQUEST_TO_ENGINE_17: 8 CCVS17
+ SG_ REQUESTED_PGN : 0|24@1+ (1,0) [0|16777215] "" XXX
+CM_ BO_ 417988631 "PGN 59904 / 0xEA00, Request, source address 0x17, destination 0x00.";
+
+BO_ 418250984 ADDRESS_CLAIMED_E8: 8 XXX
+ SG_ IDENTITY_NUMBER : 0|21@1+ (1,0) [0|2097151] "" XXX
+ SG_ MANUFACTURER_CODE : 21|11@1+ (1,0) [0|2047] "" XXX
+ SG_ ECU_INSTANCE : 32|3@1+ (1,0) [0|7] "" XXX
+ SG_ FUNCTION_INSTANCE : 35|5@1+ (1,0) [0|31] "" XXX
+ SG_ FUNCTION : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEHICLE_SYSTEM : 49|7@1+ (1,0) [0|127] "" XXX
+ SG_ VEHICLE_SYSTEM_INSTANCE : 56|4@1+ (1,0) [0|15] "" XXX
+ SG_ INDUSTRY_GROUP : 60|3@1+ (1,0) [0|7] "" XXX
+ SG_ ARBITRARY_ADDRESS_CAPABLE : 63|1@1+ (1,0) [0|1] "" XXX
+CM_ BO_ 418250984 "PGN 60928 / 0xEE00, Address Claimed, source address 0xE8. Observed repeatedly in the scanned route.";
+
+BO_ 418316167 ADDRESS_CLAIMED_87: 8 XXX
+ SG_ IDENTITY_NUMBER : 0|21@1+ (1,0) [0|2097151] "" XXX
+ SG_ MANUFACTURER_CODE : 21|11@1+ (1,0) [0|2047] "" XXX
+ SG_ ECU_INSTANCE : 32|3@1+ (1,0) [0|7] "" XXX
+ SG_ FUNCTION_INSTANCE : 35|5@1+ (1,0) [0|31] "" XXX
+ SG_ FUNCTION : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEHICLE_SYSTEM : 49|7@1+ (1,0) [0|127] "" XXX
+ SG_ VEHICLE_SYSTEM_INSTANCE : 56|4@1+ (1,0) [0|15] "" XXX
+ SG_ INDUSTRY_GROUP : 60|3@1+ (1,0) [0|7] "" XXX
+ SG_ ARBITRARY_ADDRESS_CAPABLE : 63|1@1+ (1,0) [0|1] "" XXX
+CM_ BO_ 418316167 "PGN 60928 / 0xEE00, Address Claimed, source address 0x87, global destination 0xFF.";
+
+CM_ "Additional raw J1939 CAN0 messages observed at least 100 times in route d7e6d73e25126716/0000000f--8f235f2453. These entries identify PGN/source/rate but keep payload bytes raw until individual SPNs are validated.";
+
+BO_ 201326595 TSC1_00_03: 8 XXX
+ SG_ TSC1_00_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201326595 "Raw J1939 message from CAN0 log. PGN 0x00000, source address 0x03, destination address 0x00, observed 343 frames at approximately 0.39 Hz.";
+
+BO_ 201326603 TSC1_00_0B: 8 XXX
+ SG_ TSC1_00_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_00_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201326603 "Raw J1939 message from CAN0 log. PGN 0x00000, source address 0x0B, destination address 0x00, observed 5018 frames at approximately 5.66 Hz.";
+
+BO_ 201330443 TSC1_0F_0B: 8 XXX
+ SG_ TSC1_0F_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_0F_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201330443 "Raw J1939 message from CAN0 log. PGN 0x00000, source address 0x0B, destination address 0x0F, observed 2509 frames at approximately 2.83 Hz.";
+
+BO_ 201330699 TSC1_10_0B: 8 XXX
+ SG_ TSC1_10_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_10_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201330699 "Raw J1939 message from CAN0 log. PGN 0x00000, source address 0x0B, destination address 0x10, observed 2509 frames at approximately 2.83 Hz.";
+
+BO_ 201337099 TSC1_29_0B: 8 XXX
+ SG_ TSC1_29_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TSC1_29_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201337099 "Raw J1939 message from CAN0 log. PGN 0x00000, source address 0x0B, destination address 0x29, observed 2509 frames at approximately 2.83 Hz.";
+
+BO_ 201392901 PGN_00100_03_05: 8 XXX
+ SG_ PGN_00100_03_05_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_00100_03_05_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 201392901 "Raw J1939 message from CAN0 log. PGN 0x00100, source address 0x05, destination address 0x03, observed 10459 frames at approximately 11.80 Hz.";
+
+BO_ 417398528 CAB_MSG1_FF_00: 8 XXX
+ SG_ CAB_MSG1_FF_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ CAB_MSG1_FF_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 417398528 "Raw J1939 message from CAN0 log. PGN 0x0E000, source address 0x00, destination address 0xFF, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 418054276 TP_DT_00_84: 8 XXX
+ SG_ TP_DT_00_84_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_84_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418054276 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x84, destination address 0x00, observed 145 frames at approximately 0.16 Hz.";
+
+BO_ 418054277 TP_DT_00_85: 8 XXX
+ SG_ TP_DT_00_85_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_85_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418054277 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x85, destination address 0x00, observed 145 frames at approximately 0.16 Hz.";
+
+BO_ 418054278 TP_DT_00_86: 8 XXX
+ SG_ TP_DT_00_86_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_86_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418054278 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x86, destination address 0x00, observed 145 frames at approximately 0.16 Hz.";
+
+BO_ 418054279 TP_DT_00_87: 8 XXX
+ SG_ TP_DT_00_87_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_00_87_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418054279 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x87, destination address 0x00, observed 145 frames at approximately 0.16 Hz.";
+
+BO_ 485228288 TP_DT_FF_00: 8 XXX
+ SG_ TP_DT_FF_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 485228288 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x00, destination address 0xFF, observed 543 frames at approximately 0.61 Hz.";
+
+BO_ 418119435 TP_DT_FF_0B: 8 XXX
+ SG_ TP_DT_FF_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418119435 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x0B, destination address 0xFF, observed 145 frames at approximately 0.16 Hz.";
+
+BO_ 485228303 TP_DT_FF_0F: 8 XXX
+ SG_ TP_DT_FF_0F_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_DT_FF_0F_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 485228303 "Raw J1939 message from CAN0 log. PGN 0x0EB00, source address 0x0F, destination address 0xFF, observed 326 frames at approximately 0.37 Hz.";
+
+BO_ 485293824 TP_CM_FF_00: 8 XXX
+ SG_ TP_CM_FF_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 485293824 "Raw J1939 message from CAN0 log. PGN 0x0EC00, source address 0x00, destination address 0xFF, observed 109 frames at approximately 0.12 Hz.";
+
+BO_ 485293839 TP_CM_FF_0F: 8 XXX
+ SG_ TP_CM_FF_0F_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TP_CM_FF_0F_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 485293839 "Raw J1939 message from CAN0 log. PGN 0x0EC00, source address 0x0F, destination address 0xFF, observed 109 frames at approximately 0.12 Hz.";
+
+BO_ 418317571 PROPRIETARY_A_05_03: 8 XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROPRIETARY_A_05_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418317571 "Raw J1939 message from CAN0 log. PGN 0x0EF00, source address 0x03, destination address 0x05, observed 5053 frames at approximately 5.70 Hz.";
+
+BO_ 418381839 ERC1_0F: 8 XXX
+ SG_ ERC1_0F_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ ERC1_0F_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418381839 "Raw J1939 message from CAN0 log. PGN 0x0F000, source address 0x0F, global, observed 5266 frames at approximately 5.94 Hz.";
+
+BO_ 418382080 EBC1_00: 8 XXX
+ SG_ EBC1_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418382080 "Raw J1939 message from CAN0 log. PGN 0x0F001, source address 0x00, global, observed 5266 frames at approximately 5.94 Hz.";
+
+BO_ 418382091 EBC1_0B: 8 XXX
+ SG_ EBC1_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC1_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418382091 "Raw J1939 message from CAN0 log. PGN 0x0F001, source address 0x0B, global, observed 5018 frames at approximately 5.66 Hz.";
+
+BO_ 217055747 ETC2_03: 8 XXX
+ SG_ ETC2_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 217055747 "Raw J1939 message from CAN0 log. PGN 0x0F002, source address 0x03, global, observed 50505 frames at approximately 56.98 Hz.";
+
+BO_ 418383107 ETC1_03: 8 XXX
+ SG_ ETC1_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC1_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 418383107 "Raw J1939 message from CAN0 log. PGN 0x0F005, source address 0x03, global, observed 5051 frames at approximately 5.70 Hz.";
+
+BO_ 284166120 VDC1_E8: 8 XXX
+ SG_ VDC1_E8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDC1_E8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 284166120 "Raw J1939 message from CAN0 log. PGN 0x0F007, source address 0xE8, global, observed 6350 frames at approximately 7.16 Hz.";
+
+BO_ 217057792 EBC2_00: 8 XXX
+ SG_ EBC2_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ EBC2_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 217057792 "Raw J1939 message from CAN0 log. PGN 0x0F00A, source address 0x00, global, observed 10543 frames at approximately 11.89 Hz.";
+
+BO_ 217058307 ETC7_03: 8 XXX
+ SG_ ETC7_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC7_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC7_SPEED : 16|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
+ SG_ ETC7_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC7_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC7_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC7_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 217058307 "Raw J1939 message from CAN0 log. PGN 0x0F00C, source address 0x03, global, observed 25253 frames at approximately 28.49 Hz.";
+CM_ SG_ 217058307 ETC7_SPEED "Tentative speed signal from ETC7 bytes 2-3, little endian, 0.125 rpm/bit. In route d7e6d73e25126716/0000000f--8f235f2453 it matched EEC1.ENGINE_SPEED almost exactly, so it may be an engine-speed echo or a transmission shaft speed equal to engine speed in this condition.";
+
+BO_ 352098304 PGN_FC98_00: 8 XXX
+ SG_ PGN_FC98_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FC98_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352098304 "Raw J1939 message from CAN0 log. PGN 0x0FC98, source address 0x00, global, observed 1053 frames at approximately 1.19 Hz.";
+
+BO_ 419224576 PGN_FCDC_00: 8 XXX
+ SG_ PGN_FCDC_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FCDC_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419224576 "Raw J1939 message from CAN0 log. PGN 0x0FCDC, source address 0x00, global, observed 2023 frames at approximately 2.28 Hz.";
+
+BO_ 419235095 PGN_FD05_17: 8 XXX
+ SG_ PGN_FD05_17_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD05_17_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419235095 "Raw J1939 message from CAN0 log. PGN 0x0FD05, source address 0x17, global, observed 482 frames at approximately 0.54 Hz.";
+
+BO_ 419235584 PGN_FD07_00: 8 XXX
+ SG_ PGN_FD07_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD07_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419235584 "Raw J1939 message from CAN0 log. PGN 0x0FD07, source address 0x00, global, observed 528 frames at approximately 0.60 Hz.";
+
+BO_ 419236096 PGN_FD09_00: 8 XXX
+ SG_ PGN_FD09_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD09_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419236096 "Raw J1939 message from CAN0 log. PGN 0x0FD09, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419265280 PGN_FD7B_00: 8 XXX
+ SG_ PGN_FD7B_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7B_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419265280 "Raw J1939 message from CAN0 log. PGN 0x0FD7B, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419265536 PGN_FD7C_00: 8 XXX
+ SG_ PGN_FD7C_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD7C_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419265536 "Raw J1939 message from CAN0 log. PGN 0x0FD7C, source address 0x00, global, observed 527 frames at approximately 0.59 Hz.";
+
+BO_ 217944576 PGN_FD92_00: 8 XXX
+ SG_ PGN_FD92_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD92_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 217944576 "Raw J1939 message from CAN0 log. PGN 0x0FD92, source address 0x00, global, observed 2106 frames at approximately 2.38 Hz.";
+
+BO_ 419271939 PGN_FD95_03: 8 XXX
+ SG_ PGN_FD95_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD95_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419271939 "Raw J1939 message from CAN0 log. PGN 0x0FD95, source address 0x03, global, observed 505 frames at approximately 0.57 Hz.";
+
+BO_ 419273472 PGN_FD9B_00: 8 XXX
+ SG_ PGN_FD9B_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FD9B_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419273472 "Raw J1939 message from CAN0 log. PGN 0x0FD9B, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419279616 PGN_FDB3_00: 8 XXX
+ SG_ PGN_FDB3_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB3_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419279616 "Raw J1939 message from CAN0 log. PGN 0x0FDB3, source address 0x00, global, observed 1053 frames at approximately 1.19 Hz.";
+
+BO_ 419279872 PGN_FDB4_00: 8 XXX
+ SG_ PGN_FDB4_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDB4_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419279872 "Raw J1939 message from CAN0 log. PGN 0x0FDB4, source address 0x00, global, observed 1053 frames at approximately 1.19 Hz.";
+
+BO_ 419284480 PGN_FDC6_00: 8 XXX
+ SG_ PGN_FDC6_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FDC6_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419284480 "Raw J1939 message from CAN0 log. PGN 0x0FDC6, source address 0x00, global, observed 1052 frames at approximately 1.19 Hz.";
+
+BO_ 419318275 PGN_FE4A_03: 8 XXX
+ SG_ PGN_FE4A_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE4A_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419318275 "Raw J1939 message from CAN0 log. PGN 0x0FE4A, source address 0x03, global, observed 5053 frames at approximately 5.70 Hz.";
+
+BO_ 419321344 AT1_IG1_00: 8 XXX
+ SG_ AT1_IG1_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ AT1_IG1_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419321344 "Raw J1939 message from CAN0 log. PGN 0x0FE56, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419322401 VDS_21: 8 XXX
+ SG_ VDS_21_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS_21_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419322401 "Raw J1939 message from CAN0 log. PGN 0x0FE5A, source address 0x21, global, observed 8864 frames at approximately 10.00 Hz.";
+
+BO_ 419322856 VDS2_E8: 8 XXX
+ SG_ VDS2_E8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ VDS2_E8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419322856 "Raw J1939 message from CAN0 log. PGN 0x0FE5B, source address 0xE8, global, observed 6350 frames at approximately 7.16 Hz.";
+
+BO_ 285110248 PGN_FE6F_E8: 8 XXX
+ SG_ PGN_FE6F_E8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FE6F_E8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 285110248 "Raw J1939 message from CAN0 log. PGN 0x0FE6F, source address 0xE8, global, observed 6350 frames at approximately 7.16 Hz.";
+
+BO_ 419347712 PGN_FEBD_00: 8 XXX
+ SG_ PGN_FEBD_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PGN_FEBD_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419347712 "Raw J1939 message from CAN0 log. PGN 0x0FEBD, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419348235 WHEEL_SPEED_INFO_0B: 8 XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ WHEEL_SPEED_INFO_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419348235 "Raw J1939 message from CAN0 log. PGN 0x0FEBF, source address 0x0B, global, observed 5018 frames at approximately 5.66 Hz.";
+
+BO_ 419356416 EEC3_00: 8 XXX
+ SG_ EEC3_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ EEC3_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419356416 "Raw J1939 message from CAN0 log. PGN 0x0FEDF, source address 0x00, global, observed 26364 frames at approximately 29.74 Hz.";
+
+BO_ 419357696 SHUTDN_00: 8 XXX
+ SG_ SHUTDN_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ SHUTDN_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419357696 "Raw J1939 message from CAN0 log. PGN 0x0FEE4, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419360768 PTO_00: 8 XXX
+ SG_ PTO_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419360768 "Raw J1939 message from CAN0 log. PGN 0x0FEF0, source address 0x00, global, observed 5267 frames at approximately 5.94 Hz.";
+
+BO_ 419360791 PTO_17: 8 XXX
+ SG_ PTO_17_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PTO_17_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419360791 "Raw J1939 message from CAN0 log. PGN 0x0FEF0, source address 0x17, global, observed 5039 frames at approximately 5.68 Hz.";
+
+BO_ 419362304 IC1_00: 8 XXX
+ SG_ IC1_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ IC1_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419362304 "Raw J1939 message from CAN0 log. PGN 0x0FEF6, source address 0x00, global, observed 1052 frames at approximately 1.19 Hz.";
+
+BO_ 419362560 VEP1_00: 8 XXX
+ SG_ VEP1_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ VEP1_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419362560 "Raw J1939 message from CAN0 log. PGN 0x0FEF7, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419362819 TF1_03: 8 XXX
+ SG_ TF1_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ TF1_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419362819 "Raw J1939 message from CAN0 log. PGN 0x0FEF8, source address 0x03, global, observed 505 frames at approximately 0.57 Hz.";
+
+BO_ 419363840 DD_00: 8 XXX
+ SG_ DD_00_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_00_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419363840 "Raw J1939 message from CAN0 log. PGN 0x0FEFC, source address 0x00, global, observed 526 frames at approximately 0.59 Hz.";
+
+BO_ 419363863 DD_17: 8 XXX
+ SG_ DD_17_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ FUEL_LEVEL_1 : 8|8@1+ (0.4,0) [0|100] "%" XXX
+ SG_ DD_17_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_17_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_17_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_17_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_17_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ DD_17_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419363863 "Raw J1939 message from CAN0 log. PGN 0x0FEFC, source address 0x17, global, observed 482 frames at approximately 0.54 Hz.";
+CM_ SG_ 419363863 FUEL_LEVEL_1 "SPN 96, fuel level 1. In this route byte 1 ranged roughly 188..238, decoding to about 75..95 percent.";
+
+BO_ 352256209 PROP_0FF00_D1: 8 XXX
+ SG_ PROP_0FF00_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352256209 "Raw J1939 message from CAN0 log. PGN 0x0FF00, source address 0xD1, global, observed 912 frames at approximately 1.03 Hz.";
+
+BO_ 352256210 PROP_0FF00_D2: 8 XXX
+ SG_ PROP_0FF00_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352256210 "Raw J1939 message from CAN0 log. PGN 0x0FF00, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352256212 PROP_0FF00_D4: 8 XXX
+ SG_ PROP_0FF00_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352256212 "Raw J1939 message from CAN0 log. PGN 0x0FF00, source address 0xD4, global, observed 889 frames at approximately 1.00 Hz.";
+
+BO_ 352256216 PROP_0FF00_D8: 8 XXX
+ SG_ PROP_0FF00_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF00_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352256216 "Raw J1939 message from CAN0 log. PGN 0x0FF00, source address 0xD8, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 419369092 PROP_0FF10_84: 8 XXX
+ SG_ PROP_0FF10_84_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_84_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369092 "Raw J1939 message from CAN0 log. PGN 0x0FF10, source address 0x84, global, observed 1955 frames at approximately 2.21 Hz.";
+
+BO_ 419369093 PROP_0FF10_85: 8 XXX
+ SG_ PROP_0FF10_85_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_85_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369093 "Raw J1939 message from CAN0 log. PGN 0x0FF10, source address 0x85, global, observed 796 frames at approximately 0.90 Hz.";
+
+BO_ 419369094 PROP_0FF10_86: 8 XXX
+ SG_ PROP_0FF10_86_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_86_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369094 "Raw J1939 message from CAN0 log. PGN 0x0FF10, source address 0x86, global, observed 1588 frames at approximately 1.79 Hz.";
+
+BO_ 419369095 PROP_0FF10_87: 8 XXX
+ SG_ PROP_0FF10_87_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF10_87_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369095 "Raw J1939 message from CAN0 log. PGN 0x0FF10, source address 0x87, global, observed 529 frames at approximately 0.60 Hz.";
+
+BO_ 419369348 PROP_0FF11_84: 8 XXX
+ SG_ PROP_0FF11_84_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_84_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369348 "Raw J1939 message from CAN0 log. PGN 0x0FF11, source address 0x84, global, observed 2285 frames at approximately 2.58 Hz.";
+
+BO_ 352260561 PROP_0FF11_D1: 8 XXX
+ SG_ PROP_0FF11_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352260561 "Raw J1939 message from CAN0 log. PGN 0x0FF11, source address 0xD1, global, observed 2115 frames at approximately 2.39 Hz.";
+
+BO_ 352260562 PROP_0FF11_D2: 8 XXX
+ SG_ PROP_0FF11_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352260562 "Raw J1939 message from CAN0 log. PGN 0x0FF11, source address 0xD2, global, observed 2011 frames at approximately 2.27 Hz.";
+
+BO_ 352260564 PROP_0FF11_D4: 8 XXX
+ SG_ PROP_0FF11_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352260564 "Raw J1939 message from CAN0 log. PGN 0x0FF11, source address 0xD4, global, observed 1613 frames at approximately 1.82 Hz.";
+
+BO_ 352260568 PROP_0FF11_D8: 8 XXX
+ SG_ PROP_0FF11_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF11_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352260568 "Raw J1939 message from CAN0 log. PGN 0x0FF11, source address 0xD8, global, observed 1643 frames at approximately 1.85 Hz.";
+
+BO_ 419369605 PROP_0FF12_85: 8 XXX
+ SG_ PROP_0FF12_85_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF12_85_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 419369605 "Raw J1939 message from CAN0 log. PGN 0x0FF12, source address 0x85, global, observed 2322 frames at approximately 2.62 Hz.";
+
+BO_ 352261073 PROP_0FF13_D1: 8 XXX
+ SG_ PROP_0FF13_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352261073 "Raw J1939 message from CAN0 log. PGN 0x0FF13, source address 0xD1, global, observed 927 frames at approximately 1.05 Hz.";
+
+BO_ 352261074 PROP_0FF13_D2: 8 XXX
+ SG_ PROP_0FF13_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352261074 "Raw J1939 message from CAN0 log. PGN 0x0FF13, source address 0xD2, global, observed 1007 frames at approximately 1.14 Hz.";
+
+BO_ 352261076 PROP_0FF13_D4: 8 XXX
+ SG_ PROP_0FF13_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352261076 "Raw J1939 message from CAN0 log. PGN 0x0FF13, source address 0xD4, global, observed 895 frames at approximately 1.01 Hz.";
+
+BO_ 352261080 PROP_0FF13_D8: 8 XXX
+ SG_ PROP_0FF13_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF13_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352261080 "Raw J1939 message from CAN0 log. PGN 0x0FF13, source address 0xD8, global, observed 890 frames at approximately 1.00 Hz.";
+
+BO_ 352264401 PROP_0FF20_D1: 8 XXX
+ SG_ PROP_0FF20_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352264401 "Raw J1939 message from CAN0 log. PGN 0x0FF20, source address 0xD1, global, observed 914 frames at approximately 1.03 Hz.";
+
+BO_ 352264402 PROP_0FF20_D2: 8 XXX
+ SG_ PROP_0FF20_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352264402 "Raw J1939 message from CAN0 log. PGN 0x0FF20, source address 0xD2, global, observed 1451 frames at approximately 1.64 Hz.";
+
+BO_ 352264404 PROP_0FF20_D4: 8 XXX
+ SG_ PROP_0FF20_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352264404 "Raw J1939 message from CAN0 log. PGN 0x0FF20, source address 0xD4, global, observed 904 frames at approximately 1.02 Hz.";
+
+BO_ 352264408 PROP_0FF20_D8: 8 XXX
+ SG_ PROP_0FF20_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF20_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352264408 "Raw J1939 message from CAN0 log. PGN 0x0FF20, source address 0xD8, global, observed 1451 frames at approximately 1.64 Hz.";
+
+BO_ 352268497 PROP_0FF30_D1: 8 XXX
+ SG_ PROP_0FF30_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352268497 "Raw J1939 message from CAN0 log. PGN 0x0FF30, source address 0xD1, global, observed 879 frames at approximately 0.99 Hz.";
+
+BO_ 352268498 PROP_0FF30_D2: 8 XXX
+ SG_ PROP_0FF30_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352268498 "Raw J1939 message from CAN0 log. PGN 0x0FF30, source address 0xD2, global, observed 884 frames at approximately 1.00 Hz.";
+
+BO_ 352268500 PROP_0FF30_D4: 8 XXX
+ SG_ PROP_0FF30_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352268500 "Raw J1939 message from CAN0 log. PGN 0x0FF30, source address 0xD4, global, observed 882 frames at approximately 1.00 Hz.";
+
+BO_ 352268504 PROP_0FF30_D8: 8 XXX
+ SG_ PROP_0FF30_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF30_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352268504 "Raw J1939 message from CAN0 log. PGN 0x0FF30, source address 0xD8, global, observed 884 frames at approximately 1.00 Hz.";
+
+BO_ 352276689 PROP_0FF50_D1: 8 XXX
+ SG_ PROP_0FF50_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276689 "Raw J1939 message from CAN0 log. PGN 0x0FF50, source address 0xD1, global, observed 908 frames at approximately 1.02 Hz.";
+
+BO_ 352276690 PROP_0FF50_D2: 8 XXX
+ SG_ PROP_0FF50_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276690 "Raw J1939 message from CAN0 log. PGN 0x0FF50, source address 0xD2, global, observed 1277 frames at approximately 1.44 Hz.";
+
+BO_ 352276692 PROP_0FF50_D4: 8 XXX
+ SG_ PROP_0FF50_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276692 "Raw J1939 message from CAN0 log. PGN 0x0FF50, source address 0xD4, global, observed 912 frames at approximately 1.03 Hz.";
+
+BO_ 352276696 PROP_0FF50_D8: 8 XXX
+ SG_ PROP_0FF50_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF50_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276696 "Raw J1939 message from CAN0 log. PGN 0x0FF50, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352276945 PROP_0FF51_D1: 8 XXX
+ SG_ PROP_0FF51_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276945 "Raw J1939 message from CAN0 log. PGN 0x0FF51, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352276946 PROP_0FF51_D2: 8 XXX
+ SG_ PROP_0FF51_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276946 "Raw J1939 message from CAN0 log. PGN 0x0FF51, source address 0xD2, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352276948 PROP_0FF51_D4: 8 XXX
+ SG_ PROP_0FF51_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276948 "Raw J1939 message from CAN0 log. PGN 0x0FF51, source address 0xD4, global, observed 1281 frames at approximately 1.45 Hz.";
+
+BO_ 352276952 PROP_0FF51_D8: 8 XXX
+ SG_ PROP_0FF51_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF51_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352276952 "Raw J1939 message from CAN0 log. PGN 0x0FF51, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352280785 PROP_0FF60_D1: 8 XXX
+ SG_ PROP_0FF60_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352280785 "Raw J1939 message from CAN0 log. PGN 0x0FF60, source address 0xD1, global, observed 1207 frames at approximately 1.36 Hz.";
+
+BO_ 352280786 PROP_0FF60_D2: 8 XXX
+ SG_ PROP_0FF60_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352280786 "Raw J1939 message from CAN0 log. PGN 0x0FF60, source address 0xD2, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352280788 PROP_0FF60_D4: 8 XXX
+ SG_ PROP_0FF60_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352280788 "Raw J1939 message from CAN0 log. PGN 0x0FF60, source address 0xD4, global, observed 888 frames at approximately 1.00 Hz.";
+
+BO_ 352280792 PROP_0FF60_D8: 8 XXX
+ SG_ PROP_0FF60_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF60_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352280792 "Raw J1939 message from CAN0 log. PGN 0x0FF60, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352289489 PROP_0FF82_D1: 8 XXX
+ SG_ PROP_0FF82_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352289489 "Raw J1939 message from CAN0 log. PGN 0x0FF82, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352289490 PROP_0FF82_D2: 8 XXX
+ SG_ PROP_0FF82_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352289490 "Raw J1939 message from CAN0 log. PGN 0x0FF82, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352289492 PROP_0FF82_D4: 8 XXX
+ SG_ PROP_0FF82_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352289492 "Raw J1939 message from CAN0 log. PGN 0x0FF82, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352289496 PROP_0FF82_D8: 8 XXX
+ SG_ PROP_0FF82_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF82_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352289496 "Raw J1939 message from CAN0 log. PGN 0x0FF82, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293073 PROP_0FF90_D1: 8 XXX
+ SG_ PROP_0FF90_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293073 "Raw J1939 message from CAN0 log. PGN 0x0FF90, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352293074 PROP_0FF90_D2: 8 XXX
+ SG_ PROP_0FF90_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293074 "Raw J1939 message from CAN0 log. PGN 0x0FF90, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293076 PROP_0FF90_D4: 8 XXX
+ SG_ PROP_0FF90_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293076 "Raw J1939 message from CAN0 log. PGN 0x0FF90, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293080 PROP_0FF90_D8: 8 XXX
+ SG_ PROP_0FF90_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF90_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293080 "Raw J1939 message from CAN0 log. PGN 0x0FF90, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293329 PROP_0FF91_D1: 8 XXX
+ SG_ PROP_0FF91_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293329 "Raw J1939 message from CAN0 log. PGN 0x0FF91, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352293330 PROP_0FF91_D2: 8 XXX
+ SG_ PROP_0FF91_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293330 "Raw J1939 message from CAN0 log. PGN 0x0FF91, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293332 PROP_0FF91_D4: 8 XXX
+ SG_ PROP_0FF91_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293332 "Raw J1939 message from CAN0 log. PGN 0x0FF91, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293336 PROP_0FF91_D8: 8 XXX
+ SG_ PROP_0FF91_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF91_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293336 "Raw J1939 message from CAN0 log. PGN 0x0FF91, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293585 PROP_0FF92_D1: 8 XXX
+ SG_ PROP_0FF92_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293585 "Raw J1939 message from CAN0 log. PGN 0x0FF92, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352293586 PROP_0FF92_D2: 8 XXX
+ SG_ PROP_0FF92_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293586 "Raw J1939 message from CAN0 log. PGN 0x0FF92, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293588 PROP_0FF92_D4: 8 XXX
+ SG_ PROP_0FF92_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293588 "Raw J1939 message from CAN0 log. PGN 0x0FF92, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293592 PROP_0FF92_D8: 8 XXX
+ SG_ PROP_0FF92_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF92_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293592 "Raw J1939 message from CAN0 log. PGN 0x0FF92, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293841 PROP_0FF93_D1: 8 XXX
+ SG_ PROP_0FF93_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293841 "Raw J1939 message from CAN0 log. PGN 0x0FF93, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352293842 PROP_0FF93_D2: 8 XXX
+ SG_ PROP_0FF93_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293842 "Raw J1939 message from CAN0 log. PGN 0x0FF93, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293844 PROP_0FF93_D4: 8 XXX
+ SG_ PROP_0FF93_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293844 "Raw J1939 message from CAN0 log. PGN 0x0FF93, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352293848 PROP_0FF93_D8: 8 XXX
+ SG_ PROP_0FF93_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF93_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352293848 "Raw J1939 message from CAN0 log. PGN 0x0FF93, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294097 PROP_0FF94_D1: 8 XXX
+ SG_ PROP_0FF94_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294097 "Raw J1939 message from CAN0 log. PGN 0x0FF94, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352294098 PROP_0FF94_D2: 8 XXX
+ SG_ PROP_0FF94_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294098 "Raw J1939 message from CAN0 log. PGN 0x0FF94, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294100 PROP_0FF94_D4: 8 XXX
+ SG_ PROP_0FF94_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294100 "Raw J1939 message from CAN0 log. PGN 0x0FF94, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294104 PROP_0FF94_D8: 8 XXX
+ SG_ PROP_0FF94_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF94_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294104 "Raw J1939 message from CAN0 log. PGN 0x0FF94, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294353 PROP_0FF95_D1: 8 XXX
+ SG_ PROP_0FF95_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294353 "Raw J1939 message from CAN0 log. PGN 0x0FF95, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352294354 PROP_0FF95_D2: 8 XXX
+ SG_ PROP_0FF95_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294354 "Raw J1939 message from CAN0 log. PGN 0x0FF95, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294356 PROP_0FF95_D4: 8 XXX
+ SG_ PROP_0FF95_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294356 "Raw J1939 message from CAN0 log. PGN 0x0FF95, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294360 PROP_0FF95_D8: 8 XXX
+ SG_ PROP_0FF95_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF95_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294360 "Raw J1939 message from CAN0 log. PGN 0x0FF95, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294609 PROP_0FF96_D1: 8 XXX
+ SG_ PROP_0FF96_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294609 "Raw J1939 message from CAN0 log. PGN 0x0FF96, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352294610 PROP_0FF96_D2: 8 XXX
+ SG_ PROP_0FF96_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294610 "Raw J1939 message from CAN0 log. PGN 0x0FF96, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294612 PROP_0FF96_D4: 8 XXX
+ SG_ PROP_0FF96_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294612 "Raw J1939 message from CAN0 log. PGN 0x0FF96, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294616 PROP_0FF96_D8: 8 XXX
+ SG_ PROP_0FF96_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF96_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294616 "Raw J1939 message from CAN0 log. PGN 0x0FF96, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294865 PROP_0FF97_D1: 8 XXX
+ SG_ PROP_0FF97_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294865 "Raw J1939 message from CAN0 log. PGN 0x0FF97, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352294866 PROP_0FF97_D2: 8 XXX
+ SG_ PROP_0FF97_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294866 "Raw J1939 message from CAN0 log. PGN 0x0FF97, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294868 PROP_0FF97_D4: 8 XXX
+ SG_ PROP_0FF97_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294868 "Raw J1939 message from CAN0 log. PGN 0x0FF97, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352294872 PROP_0FF97_D8: 8 XXX
+ SG_ PROP_0FF97_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF97_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352294872 "Raw J1939 message from CAN0 log. PGN 0x0FF97, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295121 PROP_0FF98_D1: 8 XXX
+ SG_ PROP_0FF98_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295121 "Raw J1939 message from CAN0 log. PGN 0x0FF98, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352295122 PROP_0FF98_D2: 8 XXX
+ SG_ PROP_0FF98_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295122 "Raw J1939 message from CAN0 log. PGN 0x0FF98, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295124 PROP_0FF98_D4: 8 XXX
+ SG_ PROP_0FF98_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295124 "Raw J1939 message from CAN0 log. PGN 0x0FF98, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295128 PROP_0FF98_D8: 8 XXX
+ SG_ PROP_0FF98_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF98_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295128 "Raw J1939 message from CAN0 log. PGN 0x0FF98, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295377 PROP_0FF99_D1: 8 XXX
+ SG_ PROP_0FF99_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295377 "Raw J1939 message from CAN0 log. PGN 0x0FF99, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352295378 PROP_0FF99_D2: 8 XXX
+ SG_ PROP_0FF99_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295378 "Raw J1939 message from CAN0 log. PGN 0x0FF99, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295380 PROP_0FF99_D4: 8 XXX
+ SG_ PROP_0FF99_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295380 "Raw J1939 message from CAN0 log. PGN 0x0FF99, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295384 PROP_0FF99_D8: 8 XXX
+ SG_ PROP_0FF99_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF99_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295384 "Raw J1939 message from CAN0 log. PGN 0x0FF99, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295633 PROP_0FF9A_D1: 8 XXX
+ SG_ PROP_0FF9A_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295633 "Raw J1939 message from CAN0 log. PGN 0x0FF9A, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352295634 PROP_0FF9A_D2: 8 XXX
+ SG_ PROP_0FF9A_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295634 "Raw J1939 message from CAN0 log. PGN 0x0FF9A, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295636 PROP_0FF9A_D4: 8 XXX
+ SG_ PROP_0FF9A_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295636 "Raw J1939 message from CAN0 log. PGN 0x0FF9A, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295640 PROP_0FF9A_D8: 8 XXX
+ SG_ PROP_0FF9A_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9A_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295640 "Raw J1939 message from CAN0 log. PGN 0x0FF9A, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295889 PROP_0FF9B_D1: 8 XXX
+ SG_ PROP_0FF9B_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295889 "Raw J1939 message from CAN0 log. PGN 0x0FF9B, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352295890 PROP_0FF9B_D2: 8 XXX
+ SG_ PROP_0FF9B_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295890 "Raw J1939 message from CAN0 log. PGN 0x0FF9B, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295892 PROP_0FF9B_D4: 8 XXX
+ SG_ PROP_0FF9B_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295892 "Raw J1939 message from CAN0 log. PGN 0x0FF9B, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352295896 PROP_0FF9B_D8: 8 XXX
+ SG_ PROP_0FF9B_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9B_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352295896 "Raw J1939 message from CAN0 log. PGN 0x0FF9B, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296145 PROP_0FF9C_D1: 8 XXX
+ SG_ PROP_0FF9C_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296145 "Raw J1939 message from CAN0 log. PGN 0x0FF9C, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352296146 PROP_0FF9C_D2: 8 XXX
+ SG_ PROP_0FF9C_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296146 "Raw J1939 message from CAN0 log. PGN 0x0FF9C, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296148 PROP_0FF9C_D4: 8 XXX
+ SG_ PROP_0FF9C_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296148 "Raw J1939 message from CAN0 log. PGN 0x0FF9C, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296152 PROP_0FF9C_D8: 8 XXX
+ SG_ PROP_0FF9C_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9C_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296152 "Raw J1939 message from CAN0 log. PGN 0x0FF9C, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296401 PROP_0FF9D_D1: 8 XXX
+ SG_ PROP_0FF9D_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296401 "Raw J1939 message from CAN0 log. PGN 0x0FF9D, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352296402 PROP_0FF9D_D2: 8 XXX
+ SG_ PROP_0FF9D_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296402 "Raw J1939 message from CAN0 log. PGN 0x0FF9D, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296404 PROP_0FF9D_D4: 8 XXX
+ SG_ PROP_0FF9D_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296404 "Raw J1939 message from CAN0 log. PGN 0x0FF9D, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296408 PROP_0FF9D_D8: 8 XXX
+ SG_ PROP_0FF9D_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9D_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296408 "Raw J1939 message from CAN0 log. PGN 0x0FF9D, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296657 PROP_0FF9E_D1: 8 XXX
+ SG_ PROP_0FF9E_D1_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D1_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296657 "Raw J1939 message from CAN0 log. PGN 0x0FF9E, source address 0xD1, global, observed 886 frames at approximately 1.00 Hz.";
+
+BO_ 352296658 PROP_0FF9E_D2: 8 XXX
+ SG_ PROP_0FF9E_D2_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D2_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296658 "Raw J1939 message from CAN0 log. PGN 0x0FF9E, source address 0xD2, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296660 PROP_0FF9E_D4: 8 XXX
+ SG_ PROP_0FF9E_D4_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D4_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296660 "Raw J1939 message from CAN0 log. PGN 0x0FF9E, source address 0xD4, global, observed 887 frames at approximately 1.00 Hz.";
+
+BO_ 352296664 PROP_0FF9E_D8: 8 XXX
+ SG_ PROP_0FF9E_D8_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ PROP_0FF9E_D8_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 352296664 "Raw J1939 message from CAN0 log. PGN 0x0FF9E, source address 0xD8, global, observed 887 frames at approximately 1.00 Hz.";
+
+VAL_ 419361024 CRUISE_CONTROL_ACTIVE 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361024 CRUISE_CONTROL_ENABLE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361024 BRAKE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361024 CLUTCH_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361047 CRUISE_CONTROL_ACTIVE 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361047 CRUISE_CONTROL_ENABLE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361047 BRAKE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361047 CLUTCH_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361057 CRUISE_CONTROL_ACTIVE 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361057 CRUISE_CONTROL_ENABLE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361057 BRAKE_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
+VAL_ 419361057 CLUTCH_SWITCH 0 "OFF" 1 "ON" 2 "ERROR" 3 "NOT_AVAILABLE";
