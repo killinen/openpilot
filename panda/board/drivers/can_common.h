@@ -221,6 +221,13 @@ void ignition_can_hook(CANPacket_t *to_push) {
       ignition_can_cnt = 0U;
     }
 
+    // LS600h/Toyota exception: SPEED is a continuous chassis/powertrain frame while the car bus is awake.
+    // There is no confirmed READY bit yet, so use frame presence and let the existing CAN timeout clear ignition.
+    if ((addr == 0xB4) && (len == 8)) {
+      ignition_can = true;
+      ignition_can_cnt = 0U;
+    }
+
   } else if (bus == 2) {
     // GM exception, SDGM cars have this message on bus 2 (disabled for same reason as above)
     // int addr = GET_ADDR(to_push);
