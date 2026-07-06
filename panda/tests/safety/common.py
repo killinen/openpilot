@@ -4,7 +4,7 @@ import unittest
 import importlib
 import numpy as np
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 from opendbc.can.packer import CANPacker  # pylint: disable=import-error
 from panda import ALTERNATIVE_EXPERIENCE
 from panda.tests.libpanda import libpanda_py
@@ -92,7 +92,9 @@ class PandaSafetyTestBase(unittest.TestCase):
 
     for controls_allowed in [False, True]:
       # enforce we don't skip over 0 or inactive
-      for v in np.concatenate((np.arange(min_possible_value, max_possible_value, test_delta), np.array([0, inactive_value]))):
+      test_values_arr = np.concatenate((np.arange(min_possible_value, max_possible_value, test_delta), np.array([0, inactive_value])))
+      test_values = cast(list[float], cast(Any, test_values_arr).tolist())
+      for v in test_values:
         v = round(v, 2)  # floats might not hit exact boundary conditions without rounding
         self.safety.set_controls_allowed(controls_allowed)
         if additional_setup is not None:
@@ -104,7 +106,7 @@ class PandaSafetyTestBase(unittest.TestCase):
   def _common_measurement_test(self, msg_func: Callable, min_value: float, max_value: float, factor: float,
                                meas_min_func: Callable[[], int], meas_max_func: Callable[[], int]):
     """Tests accurate measurement parsing, and that the struct is reset on safety mode init"""
-    for val in np.arange(min_value, max_value, 0.5):
+    for val in cast(list[float], cast(Any, np.arange(min_value, max_value, 0.5)).tolist()):
       for i in range(MAX_SAMPLE_VALS):
         self.assertTrue(self._rx(msg_func(val + i * 0.1)))
 

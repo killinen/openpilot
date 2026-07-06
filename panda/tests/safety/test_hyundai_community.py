@@ -441,7 +441,11 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
     self.assertFalse(self._tx(blocked_no_controls))
 
   def test_fwd_hook_blocks(self):
+    for addr in (0x081, 0x165, 0x1F1, 0x329):
+      self.assertEqual(self.safety.safety_fwd_hook(0, addr), 1)
+
     self.assertEqual(self.safety.safety_fwd_hook(0, 0x123), -1)
+    self.assertEqual(self.safety.safety_fwd_hook(1, 0x081), -1)
 
 
 if __name__ == "__main__":
