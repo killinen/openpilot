@@ -25,7 +25,7 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def _get_params(ret, candidate, fingerprint, car_fw, experimental_long, docs, frogpilot_toggles):
     ret.carName = "motorhome"
-    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.allOutput)]
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.motorhome)]
     ret.radarUnavailable = True
 
     ret.openpilotLongitudinalControl = False
