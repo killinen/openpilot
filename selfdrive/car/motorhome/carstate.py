@@ -34,11 +34,9 @@ class CarState(CarStateBase):
     ret.gas = gas_pedal / 100.0
     ret.gasPressed = gas_pedal > 1.0
 
-    cruise_enable = cp.vl["CCVS_17"]["CRUISE_CONTROL_ENABLE_SWITCH"] == 1
-    cruise_set_speed = cp.vl["CCVS_17"]["CRUISE_CONTROL_SET_SPEED"]
-    ret.cruiseState.available = cruise_enable or cruise_set_speed > 0
-    ret.cruiseState.enabled = cruise_enable
-    ret.cruiseState.speed = cruise_set_speed / 3.6 if cruise_set_speed < 250 else 0.0
+    ret.cruiseState.available = cp.vl["CCVS_17"]["CRUISE_CONTROL_ENABLE_SWITCH"] == 1
+    ret.cruiseState.enabled = cp.vl["CCVS_00"]["CRUISE_CONTROL_ACTIVE"] == 1
+    ret.cruiseState.speed = 0.0
     ret.cruiseState.standstill = False
 
     ret.gearShifter = GearShifter.drive
