@@ -20,6 +20,8 @@ I30_CLUTCH_PRESS_TOL_MULTIPLIER = 2.0
 I30_CLUTCH_RELEASE_TOL_MULTIPLIER = 0.8
 I30_CLUTCH_PRESS_FRAMES = 2
 I30_CLUTCH_RELEASE_FRAMES = 4
+TRQI_MCU_TEMP_WARN_ON = 82.0
+TRQI_MCU_TEMP_WARN_OFF = 80.0
 
 
 class CarState(CarStateBase):
@@ -47,10 +49,12 @@ class CarState(CarStateBase):
     self.i30_clutch_press_samples = 0
     self.i30_clutch_release_samples = 0
     self.steering_torque_out = 0.0
-    self.trqi_disengage_error = False
-    self.trqi_non_disengage_error = False
+    self.trqi_immediate_disengage_error = False
+    self.trqi_non_immediate_disengage_error = False
+    self.trqi_non_immediate_disengage_pending = False
     self.trqi_limit = False
     self.trqi_host_command_limited = False
+    self.trqi_mcu_temp_high = False
 
   def update(self, cp, cp_cam, frogpilot_toggles):
     return self.update_i30(cp, cp_cam)
@@ -135,19 +139,30 @@ class CarState(CarStateBase):
       # steeringTorqueEps for measured MDPS output torque so controls can report
       # TRQI output-torque saturation through the standard steerSaturated event.
       ret.steeringTorqueEps = self.steering_torque_out
-      self.trqi_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Disengage_Error"])
-      self.trqi_non_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Non_Disengage_Error"])
+      self.trqi_immediate_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Immediate_Disengage_Error"])
+      self.trqi_non_immediate_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["NonImmediate_Disengage_Error"])
+      self.trqi_non_immediate_disengage_pending = bool(cp_cam.vl["TRQI_FaultStatus"]["NonImmediate_Disengage_Pending"])
       self.trqi_limit = bool(cp_cam.vl["TRQI_FaultStatus"]["Any_TRQI_Limit"])
       self.trqi_host_command_limited = bool(cp_cam.vl["TRQI_FaultStatus"]["Host_Command_Limited"])
+      if bool(cp_cam.vl["TRQI_McuStatus"]["McuTemp_Valid"]):
+        mcu_temp = cp_cam.vl["TRQI_McuStatus"]["Mcu_Temperature"]
+        if mcu_temp >= TRQI_MCU_TEMP_WARN_ON:
+          self.trqi_mcu_temp_high = True
+        elif mcu_temp <= TRQI_MCU_TEMP_WARN_OFF:
+          self.trqi_mcu_temp_high = False
+      else:
+        self.trqi_mcu_temp_high = False
       ret.steeringPressed = bool(cp_cam.vl["TRQI_AdcStatus"]["SNR_Passthrough_Active"])
       self.i30_angle_offset_needed = True
       self.i30_angle_aligned = False
       self.i30_ssc_angle_initialized = False
     else:
-      self.trqi_disengage_error = False
-      self.trqi_non_disengage_error = False
+      self.trqi_immediate_disengage_error = False
+      self.trqi_non_immediate_disengage_error = False
+      self.trqi_non_immediate_disengage_pending = False
       self.trqi_limit = False
       self.trqi_host_command_limited = False
+      self.trqi_mcu_temp_high = False
       ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
       ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
@@ -233,6 +248,7 @@ class CarState(CarStateBase):
       messages.append(("TRQI_AdcStatus", 10))
       messages.append(("TRQI_IOStatus", 10))
       messages.append(("TRQI_FaultStatus", 10))
+      messages.append(("TRQI_McuStatus", 1))
     else:
       messages.append(("STEERING_STATUS", 20))  # Checks if SSC is connected
     if CP.enableGasInterceptor:

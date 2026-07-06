@@ -83,10 +83,13 @@ class CarInterface(CarInterfaceBase):
     if self.CS.brake_error:
       events.add(EventName.brakeUnavailable)
 
-    if self.CS.trqi_disengage_error:
+    trqi_non_immediate_expired = self.CS.trqi_non_immediate_disengage_error and not self.CS.trqi_non_immediate_disengage_pending
+    if self.CS.trqi_immediate_disengage_error or trqi_non_immediate_expired:
       events.add(EventName.trqiDisengageError)
-    if self.CS.trqi_non_disengage_error:
+    elif self.CS.trqi_non_immediate_disengage_pending:
       events.add(EventName.trqiNonDisengageError)
+    if self.CS.trqi_mcu_temp_high:
+      events.add(EventName.trqiMcuTempHigh)
     if self.CS.trqi_limit:
       events.add(EventName.trqiLimit)
 

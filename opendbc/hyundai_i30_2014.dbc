@@ -648,14 +648,14 @@ BO_ 577 TRQI_IOStatus: 8 STM32G474_TRQI
  SG_ IOStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
 
 BO_ 578 TRQI_FaultStatus: 8 STM32G474_TRQI
- SG_ Disengage_Error : 0|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Immediate_Disengage_Error : 0|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Any_TRQI_Limit : 1|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Diagnostic_Safe_State_Pending : 2|1@1+ (1,0) [0|1] "" CAN_Host
- SG_ CAN_Error_Disengage_Pending : 3|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ NonImmediate_Disengage_Pending : 3|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Transient_Error_Hold : 4|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Commanded_Safe_State : 5|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ CAN_Error : 6|1@1+ (1,0) [0|1] "" CAN_Host
- SG_ Non_Disengage_Error : 7|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ NonImmediate_Disengage_Error : 7|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Watchdog_Timeout_Error : 8|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Abs_Dlc_Error : 9|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Abs_Mode_Error : 10|1@1+ (1,0) [0|1] "" CAN_Host
@@ -679,6 +679,7 @@ BO_ 578 TRQI_FaultStatus: 8 STM32G474_TRQI
  SG_ CAN_Controller_Error : 28|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ CAN_TX_Drop_Error : 29|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ CAN_RX_Overrun_Error : 30|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ CAN_Bus_Off_Error : 31|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ DAC_Output_Clamp_Limit : 32|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Torque_Demand_Clamp_Limit : 33|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ Delta_Demand_Clamp_Limit : 34|1@1+ (1,0) [0|1] "" CAN_Host
@@ -713,14 +714,28 @@ BO_ 580 TRQI_TorqueMapDebug: 8 STM32G474_TRQI
  SG_ MapDebug_Speed_Extrapolated : 62|1@1+ (1,0) [0|1] "" CAN_Host
  SG_ MapDebug_Cell_Calibrated : 63|1@1+ (1,0) [0|1] "" CAN_Host
 
+BO_ 581 TRQI_McuStatus: 8 STM32G474_TRQI
+ SG_ Mcu_Temperature : 0|16@1- (0.1,0) [-3276.8|3276.7] "degC" CAN_Host
+ SG_ Mcu_Temp_Raw : 16|16@1+ (1,0) [0|65535] "code" CAN_Host
+ SG_ McuTemp_Valid : 32|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ High_Temp_Error : 33|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ High_Temp_Disengage_Pending : 34|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ ADC_Background_Active : 35|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MCU_VDDA_Warn : 36|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ MCU_Reset_Cause : 37|3@1+ (1,0) [0|7] "" CAN_Host
+ SG_ Main_Loop_Max_Interval : 40|8@1+ (1,0) [0|255] "ms" CAN_Host
+ SG_ McuStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ McuStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
 CM_ BO_ 560 "Absolute DAC, shared midpoint, and relay command. DAC1_Code and DAC2_Code are raw 12-bit DAC codes. Midpoint_InputVoltage is the external input voltage before halving for the DAC center; SaveToNVM stores that midpoint to flash.";
 CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Delta_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
 CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. The receiver requires recent forwarded 0x1F1 wheel speed, maps desired output torque to required MDPS input torque with a speed-binned drive-log map, then applies the torque-to-DAC calibration. It rejects stale speed, implausible torque jumps, and large sign flips away from zero; demands above +-1000 Ncm are clipped to +-1000 Ncm and reported with Output_Range_Error.";
 CM_ BO_ 576 "ADC1..ADC5 raw 12-bit conversion codes packed into 8 bytes; bits60..62 report SNR passthrough requested, active, and torque-confirm-pending state; bit63 is currently unused.";
 CM_ BO_ 577 "Reported DAC output codes packed as two 12-bit fields, EPS_VREF as a 12-bit field at 1.25 mV/LSB, relay and RC input states, TRQI delta-command error flags, watchdog timeout state, a 4-bit IOStatus_Counter, SNR/EPS pair plausibility error bits, Delta_Counter_Error, Output_Range_Error, local DAC feedback and RC state error bits, live torque-calibration state bits, and IOStatus_Checksum. RC_Minus maps PB4, RC_Plus maps PB1.";
-CM_ BO_ 578 "Expanded TRQI fault and limiter detail. Byte0 carries disengage/report-only error summary, TRQI-owned limit summary, safe-state, CAN category, and pending-delay bits; bytes1..3 carry individual error bits; bytes4..5 carry TRQI clamp bits and mirrored host limiter bits; byte6 is FaultStatus_Counter; byte7 is CRC-8 over id_lo, id_hi, and bytes0..6 with polynomial 0x07 and init 0x00. Command/diagnostic event details latch until the next valid command; CAN transport event details remain visible during the transient hold window; live diagnostic bits also reflect active status.";
+CM_ BO_ 578 "Expanded TRQI fault and limiter detail. Byte0 carries immediate/non-immediate disengagement summaries, TRQI-owned limit summary, safe-state, CAN category, and pending-delay bits; bytes1..3 carry individual error bits; bytes4..5 carry TRQI clamp bits and mirrored host limiter bits; byte6 is FaultStatus_Counter; byte7 is CRC-8 over id_lo, id_hi, and bytes0..6 with polynomial 0x07 and init 0x00. Command/diagnostic event details latch until the next valid command; CAN transport event details remain visible during the transient hold window; live diagnostic bits also reflect active status.";
 CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as packed 12-bit values at 1.25 mV/LSB (0..5.11875 V), followed by VoltageStatus_Counter and VoltageStatus_Checksum.";
 CM_ BO_ 580 "Latest accepted 0x232 torque-map calculation for debugging. Reports the vehicle speed used, limited EPS output-torque demand, mapped MDPS input torque, speed-bin interpolation indexes, torque-axis point index, and map coverage/extrapolation flags. The frame has no checksum or counter; MapDebug_Valid is cleared outside active torque-map control.";
+CM_ BO_ 581 "Slow MCU status. Reports the STM32 internal temperature sensor at 0.1 degC/LSB, the raw temperature ADC code, high-temperature error state, high-temperature non-immediate disengage pending state, ADC/VDDA/reset diagnostics, max main-loop interval since the previous successful 0x245 transmit, McuStatus_Counter, and McuStatus_Checksum. Firmware samples and transmits this frame at 1 Hz.";
 
 CM_ SG_ 560 DAC1_Code "Raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 560 DAC2_Code "Raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
@@ -764,14 +779,14 @@ CM_ SG_ 577 RC_State_Error "Set when the local CANCTR RC state check is active b
 CM_ SG_ 577 TorqueCal_Valid "Set when a live PC4 torque calibration has completed successfully and its RAM map is valid.";
 CM_ SG_ 577 TorqueCal_Active "Set while a live PC4 torque calibration capture is currently running.";
 CM_ SG_ 577 IOStatus_Checksum "8-bit CRC of the 0x241 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
-CM_ SG_ 578 Disengage_Error "Set when any active individual error bit is in the disengage-class mask. Current TRQI error bits are disengage-class; limit bits are reported separately through Any_TRQI_Limit and host limiter detail bits.";
+CM_ SG_ 578 Immediate_Disengage_Error "Set when an active individual error bit is in the immediate-disengage mask. Includes watchdog, command integrity/mode faults, Torque_Sign_Flip, DAC feedback, RC state, SNR/EPS pair faults, and CAN bus-off. These do not get a long driver-warning grace window once confirmed.";
 CM_ SG_ 578 Any_TRQI_Limit "Set when any TRQI-owned limiter/clamp bit is active. Mirrored openpilot/host limiter bits do not set this summary.";
 CM_ SG_ 578 Diagnostic_Safe_State_Pending "Set while a confirmed DAC feedback, RC state, SNR pair, or EPS pair error is waiting for the 100 ms diagnostic safe-state delay to expire.";
-CM_ SG_ 578 CAN_Error_Disengage_Pending "Set while a CAN controller/RX/TX/overrun fault is waiting for the 100 ms CAN error disengage delay to expire.";
+CM_ SG_ 578 NonImmediate_Disengage_Pending "Set while a non-immediate disengagement fault is in its grace window. Current firmware uses this for CAN RX/controller non-immediate faults with a 1000 ms grace and high MCU temperature with a 10 s grace; watchdog and immediate diagnostics still override it.";
 CM_ SG_ 578 Transient_Error_Hold "Set while the local transient error hold is active for LED/diagnostic visibility.";
 CM_ SG_ 578 Commanded_Safe_State "Set when the latest valid 0x230/0x231/0x232 control command requested safe state by not commanding both REL and RELE; clears on the next valid active command or mode reset.";
 CM_ SG_ 578 CAN_Error "Set when any CAN transport/controller detail bit is active.";
-CM_ SG_ 578 Non_Disengage_Error "Set when any active individual error bit is report-only and does not request safe state. No current TRQI error bits are in this class.";
+CM_ SG_ 578 NonImmediate_Disengage_Error "Set when an active individual error bit is in the non-immediate disengage mask, or when High_Temp_Error is active in 0x245. Includes Torque_Stale_Speed, Torque_Step, CAN_RX_FIFO_Lost, CAN_Controller, CAN_RX_Overrun, and high MCU temperature. Some non-immediate classes may still be forced safe by the generic control-fault path until a degraded-control grace mode is implemented.";
 CM_ SG_ 578 Watchdog_Timeout_Error "Set when the 500 ms CANCTR command watchdog has timed out.";
 CM_ SG_ 578 Abs_Dlc_Error "Set when a 0x230 absolute command was shorter than the required 7 bytes.";
 CM_ SG_ 578 Abs_Mode_Error "Set when a 0x230 absolute command was rejected because torque mode was active.";
@@ -791,10 +806,11 @@ CM_ SG_ 578 SNR_Pair_Error_Detail "Set when the SNR pair plausibility check is a
 CM_ SG_ 578 EPS_Pair_Error_Detail "Set when the EPS pair plausibility check is active, or latched as the cause of a diagnostic safe-state transition.";
 CM_ SG_ 578 DAC_FB_Error_Detail "Set when the DAC feedback check is active, or latched as the cause of a diagnostic safe-state transition.";
 CM_ SG_ 578 RC_State_Error_Detail "Set when the RC state check is active, or latched as the cause of a diagnostic safe-state transition.";
-CM_ SG_ 578 CAN_RX_FIFO_Lost_Error "Set when FDCAN reports an RX FIFO0 message-lost event while CANCTR is active.";
-CM_ SG_ 578 CAN_Controller_Error "Set when FDCAN reports a controller/protocol status interrupt while CANCTR is active.";
-CM_ SG_ 578 CAN_TX_Drop_Error "Set when a CANCTR status frame could not be queued after retries.";
-CM_ SG_ 578 CAN_RX_Overrun_Error "Set when a latest-frame slot was overwritten before the CANCTR frame was processed, or when the local CAN RX queue overflowed and dropped frames.";
+CM_ SG_ 578 CAN_RX_FIFO_Lost_Error "Set when FDCAN reports an RX FIFO0 message-lost event while CANCTR is active. Classified as non-immediate; current firmware uses a 1000 ms CAN grace timer while hard faults and watchdog still override it.";
+CM_ SG_ 578 CAN_Controller_Error "Set when FDCAN reports a controller/protocol status interrupt while CANCTR is active. Transient/recovered controller errors are non-immediate; bus-off is split to CAN_Bus_Off_Error and immediate.";
+CM_ SG_ 578 CAN_TX_Drop_Error "Set when a CANCTR status frame could not be queued after retries. Isolated TX drops are report-only and do not arm the non-immediate disengage timer.";
+CM_ SG_ 578 CAN_RX_Overrun_Error "Set when a latest-frame slot was overwritten before the CANCTR frame was processed, or when the local CAN RX queue overflowed and dropped frames. Classified as non-immediate; current firmware uses a 1000 ms CAN grace timer while hard faults and watchdog still override it.";
+CM_ SG_ 578 CAN_Bus_Off_Error "Set when FDCAN reports bus-off while CANCTR is active. Classified as immediate because command reception is no longer trustworthy.";
 CM_ SG_ 578 DAC_Output_Clamp_Limit "Set when CANCTR clamps DAC1 or DAC2 to the allowed 1.2..3.5 V output window.";
 CM_ SG_ 578 Torque_Demand_Clamp_Limit "Set when a 0x232 output torque demand exceeded +-1000 Ncm and was clipped.";
 CM_ SG_ 578 Delta_Demand_Clamp_Limit "Set when a 0x231 delta command exceeded the raw DAC delta range and was clipped.";
@@ -823,6 +839,17 @@ CM_ SG_ 580 MapDebug_TorquePoint_Upper "Upper output-torque point index used on 
 CM_ SG_ 580 MapDebug_Torque_Extrapolated "Set when the limited output torque is outside the generated map torque-axis range.";
 CM_ SG_ 580 MapDebug_Speed_Extrapolated "Set when speed is outside the generated speed-bin center range and the endpoint speed row is used.";
 CM_ SG_ 580 MapDebug_Cell_Calibrated "Set when all speed/torque map cells used by the current interpolation are marked calibrated in the generated map.";
+CM_ SG_ 581 Mcu_Temperature "STM32 internal temperature sensor value in 0.1 degC/LSB. Firmware clamps the reported value to the signed 16-bit signal range.";
+CM_ SG_ 581 Mcu_Temp_Raw "Raw averaged ADC code used for the internal temperature sensor conversion.";
+CM_ SG_ 581 McuTemp_Valid "Set after the firmware has taken at least one MCU temperature sample in CANCTR mode.";
+CM_ SG_ 581 High_Temp_Error "Set when Mcu_Temperature is >=85.0 degC. Clears when Mcu_Temperature falls to <=80.0 degC.";
+CM_ SG_ 581 High_Temp_Disengage_Pending "Set while High_Temp_Error is active and the 10 s non-immediate disengage grace window is running.";
+CM_ SG_ 581 ADC_Background_Active "Set while the ADC DMA background sampler is active.";
+CM_ SG_ 581 MCU_VDDA_Warn "Set when the VDDA estimate used for temperature conversion is outside 3.0..3.6 V.";
+CM_ SG_ 581 MCU_Reset_Cause "Latched reset cause captured at boot before reset flags are cleared.";
+CM_ SG_ 581 Main_Loop_Max_Interval "Maximum scheduled main-loop interval in milliseconds since the previous successful 0x245 transmit, saturated at 255 ms.";
+CM_ SG_ 581 McuStatus_Counter "8-bit counter incremented on each successful 0x245 transmit.";
+CM_ SG_ 581 McuStatus_Checksum "8-bit CRC of the 0x245 message over id_lo, id_hi, and bytes0..6 using polynomial 0x07 and init 0x00.";
 
 BA_DEF_ BO_  "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 576 100;
@@ -841,6 +868,7 @@ VAL_ 562 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Requested 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Active 0 "OFF" 1 "ON";
 VAL_ 576 SNR_Passthrough_Pending 0 "OFF" 1 "ON";
+VAL_ 581 MCU_Reset_Cause 0 "UNKNOWN" 1 "PIN" 2 "BOR" 3 "IWDG" 4 "WWDG" 5 "SOFTWARE" 6 "LOW_POWER" 7 "OTHER";
 VAL_ 577 REL_State 0 "OFF" 1 "ON";
 VAL_ 577 RELE_State 0 "OFF" 1 "ON";
 VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH";

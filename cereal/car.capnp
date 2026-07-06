@@ -120,6 +120,7 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     trqiDisengageError @122;
     trqiNonDisengageError @123;
     trqiLimit @124;
+    trqiMcuTempHigh @125;
 
     radarCanErrorDEPRECATED @15;
     communityFeatureDisallowedDEPRECATED @62;
