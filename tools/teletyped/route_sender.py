@@ -4,13 +4,13 @@ import time
 import json
 import hashlib
 import re
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED, ZIP_STORED
 import subprocess
 import bz2
 from collections.abc import Callable
 from pathlib import Path
 from datetime import datetime, UTC
-from typing import cast
+from typing import Any, cast
 import shutil
 
 from openpilot.tools.teletyped.helper import (
@@ -41,11 +41,38 @@ try:
 except Exception:  # pragma: no cover - runtime fallback for unusual packaging
   OPENPILOT_BASEDIR = None
 
+
+def _env_nonnegative_int(name: str, default: int) -> int:
+  raw = os.environ.get(name)
+  if raw is None:
+    return default
+  try:
+    return max(0, int(raw.strip()))
+  except (TypeError, ValueError):
+    return default
+
+
+def _env_bounded_int(name: str, default: int, lower: int, upper: int) -> int:
+  raw = os.environ.get(name)
+  if raw is None:
+    return default
+  try:
+    value = int(raw.strip())
+  except (TypeError, ValueError):
+    return default
+  return min(upper, max(lower, value))
+
+
 TIMEOUT = 5
 ZIP_EPOCH = datetime(1980, 1, 1).timestamp()
 RETRY_LIMIT = 2
-ZIP_PROGRESS_CHUNK_SIZE = 1024 * 1024
+ZIP_PROGRESS_CHUNK_SIZE = max(
+  1024 * 1024,
+  _env_nonnegative_int("TELETYPED_ZIP_CHUNK_SIZE", 4 * 1024 * 1024),
+)
 ZIP_PROGRESS_REPORT_INTERVAL_SECONDS = 1.0
+RLOG_BZ2_COMPRESSLEVEL = _env_bounded_int("TELETYPED_RLOG_BZ2_COMPRESSLEVEL", 1, 1, 9)
+ZIP_DEFLATE_COMPRESSLEVEL = _env_bounded_int("TELETYPED_ZIP_COMPRESSLEVEL", 1, 0, 9)
 
 DRIVE_SCAN_REQUEST_PATH = f"{API_URL}/drive-scan-requests"
 DRIVE_SCAN_STATUS_PATH = f"{API_URL}/drive-scan-requests"
@@ -65,21 +92,24 @@ _DRIVE_INVENTORY_STATE_PATH: str | None = None
 
 _auth_wait_logged = False
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
+ZIP_STORED_EXTENSIONS = (
+  ".7z",
+  ".bz2",
+  ".gz",
+  ".jpg",
+  ".jpeg",
+  ".lz4",
+  ".mp4",
+  ".png",
+  ".xz",
+  ".zip",
+  ".zst",
+)
 CAPNP_IMPORT_RE = re.compile(
   r'^\s*using(?:\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*)?\s+import\s+"([^"]+)"'
 )
 SCHEMA_FETCH_REQUEST_FILE = "__schema_bundle__"
 SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
-
-
-def _env_nonnegative_int(name: str, default: int) -> int:
-  raw = os.environ.get(name)
-  if raw is None:
-    return default
-  try:
-    return max(0, int(raw.strip()))
-  except (TypeError, ValueError):
-    return default
 
 
 AUTO_DRIVE_INVENTORY_MIN_INTERVAL = _env_nonnegative_int(
@@ -111,6 +141,30 @@ def _human_readable_bytes(num_bytes: int | float) -> str:
     size /= 1024
     unit_index += 1
   return f"{size:.1f} {units[unit_index]}"
+
+
+def _zip_compress_type(name: str) -> int:
+  if ZIP_DEFLATE_COMPRESSLEVEL == 0:
+    return ZIP_STORED
+  if name.lower().endswith(ZIP_STORED_EXTENSIONS):
+    return ZIP_STORED
+  return ZIP_DEFLATED
+
+
+def _zip_info(arcname: str, compress_type: int) -> ZipInfo:
+  info = ZipInfo(arcname)
+  info.compress_type = compress_type
+  if compress_type == ZIP_DEFLATED:
+    cast(Any, info)._compresslevel = ZIP_DEFLATE_COMPRESSLEVEL
+  return info
+
+
+def _zip_write_file(zipf: ZipFile, src_path: str, arcname: str) -> None:
+  compress_type = _zip_compress_type(arcname)
+  if compress_type == ZIP_DEFLATED:
+    zipf.write(src_path, arcname=arcname, compress_type=compress_type, compresslevel=ZIP_DEFLATE_COMPRESSLEVEL)
+  else:
+    zipf.write(src_path, arcname=arcname, compress_type=compress_type)
 
 
 def _inventory_state_default() -> dict[str, float | str]:
@@ -287,8 +341,17 @@ def _copy_path_into_zip(
   arcname: str,
   *,
   progress_cb: Callable[[int], None] | None = None,
+  compress_type: int | None = None,
 ) -> None:
-  with open(src_path, "rb") as src, zipf.open(arcname, "w") as dest:
+  if compress_type is None:
+    compress_type = _zip_compress_type(arcname)
+  info = _zip_info(arcname, compress_type)
+  try:
+    info.file_size = os.path.getsize(src_path)
+  except OSError:
+    pass
+
+  with open(src_path, "rb") as src, zipf.open(info, "w") as dest:
     while True:
       chunk = src.read(ZIP_PROGRESS_CHUNK_SIZE)
       if not chunk:
@@ -296,6 +359,25 @@ def _copy_path_into_zip(
       dest.write(chunk)
       if progress_cb is not None:
         progress_cb(len(chunk))
+
+
+def _compress_path_into_zip(
+  zipf: ZipFile,
+  src_path: str,
+  arcname: str,
+  *,
+  progress_cb: Callable[[int], None] | None = None,
+) -> None:
+  info = _zip_info(arcname, ZIP_STORED)
+  with open(src_path, "rb") as src, zipf.open(info, "w") as zip_dest:
+    with bz2.BZ2File(zip_dest, "wb", compresslevel=RLOG_BZ2_COMPRESSLEVEL) as bz_dest:
+      while True:
+        chunk = src.read(ZIP_PROGRESS_CHUNK_SIZE)
+        if not chunk:
+          break
+        bz_dest.write(chunk)
+        if progress_cb is not None:
+          progress_cb(len(chunk))
 
 
 def _pick_temp_dir(min_bytes: int = 150 * 1024 * 1024) -> str:
@@ -344,43 +426,6 @@ def _boot_file_requested(filename: str, requested_files: list[str] | None) -> bo
   return filename in requested_files or base_no_ext in requested_files
 
 
-def _maybe_compress_for_zip(
-  src_path: str,
-  rel_path: str,
-  temp_dir: str,
-  cleanup: list[str],
-  *,
-  progress_cb: Callable[[int], None] | None = None,
-) -> tuple[str, str]:
-  """
-  For rlog/qlog, create a .bz2 copy in temp_dir and return (path_to_zip, arcname_relative_to_drive).
-  For all other files, return the original path and rel_path unchanged.
-  """
-  base = os.path.basename(rel_path)
-  if base in COMPRESSIBLE_BASENAMES:
-    dest_base = base + ".bz2"
-    dest_path = os.path.join(temp_dir, dest_base)
-    try:
-      with open(src_path, "rb") as fin, bz2.open(dest_path, "wb") as fout:
-        while True:
-          chunk = fin.read(ZIP_PROGRESS_CHUNK_SIZE)
-          if not chunk:
-            break
-          fout.write(chunk)
-          if progress_cb is not None:
-            progress_cb(len(chunk))
-      cleanup.append(dest_path)
-      rel_dir = os.path.dirname(rel_path)
-      arc_rel = os.path.join(rel_dir, dest_base) if rel_dir not in ("", ".") else dest_base
-      return dest_path, arc_rel
-    except Exception as e:
-      capture_exception(e)
-      log(f"❌ Failed to compress {rel_path}: {e}", "ERROR")
-      raise
-
-  return src_path, rel_path
-
-
 def _requested_compressible_basenames(requested_files: list[str] | None) -> list[str]:
   if not requested_files:
     return sorted(COMPRESSIBLE_BASENAMES)
@@ -403,7 +448,7 @@ def _compress_file_in_place(
   dest_path = src_path + ".bz2"
   tmp_path = f"{dest_path}.tmp-{os.getpid()}"
   try:
-    with open(src_path, "rb") as fin, bz2.open(tmp_path, "wb") as fout:
+    with open(src_path, "rb") as fin, bz2.open(tmp_path, "wb", compresslevel=RLOG_BZ2_COMPRESSLEVEL) as fout:
       while True:
         chunk = fin.read(ZIP_PROGRESS_CHUNK_SIZE)
         if not chunk:
@@ -576,8 +621,8 @@ def _prepare_segment_rlog_upload(src_path: str, temp_dir: str) -> tuple[str, lis
     return src_path, []
 
   upload_path = os.path.join(temp_dir, f"{_safe_zip_name(os.path.basename(src_path))}.bz2")
-  with open(src_path, "rb") as fin, bz2.open(upload_path, "wb") as fout:
-    shutil.copyfileobj(fin, fout)
+  with open(src_path, "rb") as fin, bz2.open(upload_path, "wb", compresslevel=RLOG_BZ2_COMPRESSLEVEL) as fout:
+    shutil.copyfileobj(fin, fout, length=ZIP_PROGRESS_CHUNK_SIZE)
   return upload_path, [upload_path]
 
 
@@ -692,10 +737,10 @@ def _build_schema_bundle_zip(temp_dir: str, branch_name: str | None, device_id: 
   rel_paths = _collect_schema_bundle_paths(root_dir)
   zip_label = _safe_zip_name(branch_name or profile_id)
   zip_path = os.path.join(temp_dir, f"{zip_label}-schema.zip")
-  with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
+  with ZipFile(zip_path, 'w') as zipf:
     for rel_path in rel_paths:
       abs_path = os.path.join(root_dir, rel_path)
-      zipf.write(abs_path, arcname=rel_path)
+      _zip_write_file(zipf, abs_path, rel_path)
   return zip_path, rel_paths, profile_id
 
 
@@ -1358,7 +1403,7 @@ def route_sender_step(device_id):
           end_percent=100,
         )
         progress_reporter.report(force=True)
-        with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
+        with ZipFile(zip_path, 'w') as zipf:
           for fname, route_path, _file_size in boot_files:
             arcname = os.path.join("boot", fname)
             _copy_path_into_zip(zipf, route_path, arcname, progress_cb=progress_reporter.advance_bytes)
@@ -1433,7 +1478,6 @@ def route_sender_step(device_id):
 
       temp_dir = _pick_temp_dir()
       zip_path = os.path.join(temp_dir, f"{_safe_zip_name(base_name)}.zip")
-      temp_cleanup: list[str] = []
       try:
         missing_files = []
         selected_files: list[tuple[str, str, int]] = []
@@ -1467,25 +1511,28 @@ def route_sender_step(device_id):
           end_percent=100,
         )
         progress_reporter.report(force=True)
-        with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zipf:
+        with ZipFile(zip_path, 'w') as zipf:
           for abs_path, rel_path, _file_size in selected_files:
             try:
-              src_path, rel_for_zip = _maybe_compress_for_zip(
-                abs_path,
-                rel_path,
-                temp_dir,
-                temp_cleanup,
-                progress_cb=progress_reporter.advance_bytes if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES else None,
-              )
+              if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES:
+                rel_for_zip = rel_path + ".bz2"
+                arcname = os.path.join(base_name, rel_for_zip)
+                _compress_path_into_zip(
+                  zipf,
+                  abs_path,
+                  arcname,
+                  progress_cb=progress_reporter.advance_bytes,
+                )
+                added_files += 1
+                progress_reporter.file_completed()
+                continue
             except Exception:
               missing_files.append(abs_path)
               continue
-            arcname = os.path.join(base_name, rel_for_zip)
+
+            arcname = os.path.join(base_name, rel_path)
             try:
-              if src_path == abs_path:
-                _copy_path_into_zip(zipf, src_path, arcname, progress_cb=progress_reporter.advance_bytes)
-              else:
-                _copy_path_into_zip(zipf, src_path, arcname)
+              _copy_path_into_zip(zipf, abs_path, arcname, progress_cb=progress_reporter.advance_bytes)
               added_files += 1
               progress_reporter.file_completed()
             except FileNotFoundError as e:
@@ -1505,12 +1552,6 @@ def route_sender_step(device_id):
         log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
         report_transfer_error(device_id, drive_name, str(e))
         continue
-      finally:
-        for temp_file in temp_cleanup:
-          try:
-            os.remove(temp_file)
-          except OSError:
-            pass
 
     report_transfer_progress(
       device_id,
