@@ -1,3 +1,4 @@
+import bz2
 import json
 import os
 import stat
@@ -388,3 +389,64 @@ def test_drive_inventory_step_requested_scan_bypasses_auto_throttle(monkeypatch:
   assert len(uploads) == 1
   assert uploads[0]["device_id"] == "DONGLE123"
   assert saved_states[-1]["last_successful_upload_at"] == 2000.0
+
+
+def test_route_sender_step_compress_action_compresses_logs_in_place(
+  tmp_path,
+  monkeypatch: pytest.MonkeyPatch,
+):
+  from openpilot.tools.teletyped import route_sender
+
+  drive_name = "2026-04-13--12-00-00--0"
+  drive_dir = tmp_path / drive_name
+  drive_dir.mkdir()
+  raw_rlog = drive_dir / "rlog"
+  raw_qlog = drive_dir / "qlog"
+  raw_rlog.write_bytes(b"raw rlog payload")
+  raw_qlog.write_bytes(b"raw qlog payload")
+
+  updates: list[dict[str, Any]] = []
+
+  def _get(url, headers, timeout):
+    return _StaticResponse(
+      200,
+      [{
+        "drive_name": drive_name,
+        "status": "queued",
+        "action": "compress",
+        "requested_files": ["rlog"],
+      }],
+    )
+
+  def _post(url, json, headers, timeout):
+    updates.append(json)
+    return _StaticResponse(200, {})
+
+  wormhole_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+  def _send_file_wormhole(*args, **kwargs):
+    wormhole_calls.append((args, kwargs))
+    return False, None, None
+
+  monkeypatch.setattr(route_sender, "REALDATA_DIR", str(tmp_path))
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(route_sender, "http_get", _get)
+  monkeypatch.setattr(route_sender, "http_post", _post)
+  monkeypatch.setattr(route_sender, "upload_drive_inventory_snapshot", lambda device_id: None)
+  monkeypatch.setattr(route_sender, "send_file_wormhole", _send_file_wormhole)
+
+  route_sender.route_sender_step("DONGLE123")
+
+  assert not wormhole_calls
+  assert not raw_rlog.exists()
+  assert raw_qlog.exists()
+  with bz2.open(drive_dir / "rlog.bz2", "rb") as compressed:
+    assert compressed.read() == b"raw rlog payload"
+
+  final_update = updates[-1]
+  assert final_update["device_id"] == "DONGLE123"
+  assert final_update["drive_name"] == drive_name
+  assert final_update["status"] == "sent"
+  assert final_update["stage"] == "compressed"
+  assert final_update["included_files"] == [f"{drive_name}/rlog.bz2"]
