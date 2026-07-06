@@ -5,6 +5,7 @@ import stat
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from zipfile import ZipFile, ZIP_STORED
 
 import pytest
 
@@ -450,3 +451,56 @@ def test_route_sender_step_compress_action_compresses_logs_in_place(
   assert final_update["status"] == "sent"
   assert final_update["stage"] == "compressed"
   assert final_update["included_files"] == [f"{drive_name}/rlog.bz2"]
+
+
+def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
+  tmp_path,
+  monkeypatch: pytest.MonkeyPatch,
+):
+  from openpilot.tools.teletyped import route_sender
+
+  drive_name = "2026-04-13--12-00-00--0"
+  drive_dir = tmp_path / drive_name
+  drive_dir.mkdir()
+  raw_rlog = drive_dir / "rlog"
+  raw_rlog.write_bytes(b"raw rlog payload" * 1024)
+
+  updates: list[dict[str, Any]] = []
+  zipped: dict[str, Any] = {}
+
+  def _get(url, headers, timeout):
+    return _StaticResponse(
+      200,
+      [{
+        "drive_name": drive_name,
+        "status": "queued",
+        "requested_files": ["rlog", "qlog"],
+      }],
+    )
+
+  def _post(url, json, headers, timeout):
+    updates.append(json)
+    return _StaticResponse(200, {})
+
+  def _send_file_wormhole(zip_path, device_id, transfer_drive_name, requested_files):
+    arcname = f"{drive_name}/{drive_name}/rlog.bz2"
+    with ZipFile(zip_path, "r") as zipf:
+      info = zipf.getinfo(arcname)
+      zipped["compress_type"] = info.compress_type
+      with zipf.open(arcname) as compressed:
+        zipped["payload"] = bz2.decompress(compressed.read())
+    return True, "1-test-code", os.path.basename(zip_path)
+
+  monkeypatch.setattr(route_sender, "REALDATA_DIR", str(tmp_path))
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(route_sender, "http_get", _get)
+  monkeypatch.setattr(route_sender, "http_post", _post)
+  monkeypatch.setattr(route_sender, "send_file_wormhole", _send_file_wormhole)
+
+  route_sender.route_sender_step("DONGLE123")
+
+  assert zipped["compress_type"] == ZIP_STORED
+  assert zipped["payload"] == b"raw rlog payload" * 1024
+  assert raw_rlog.exists()
+  assert updates[-1]["stage"] == "ready"
