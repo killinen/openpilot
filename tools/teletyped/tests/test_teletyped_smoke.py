@@ -3,6 +3,7 @@ import json
 import os
 import stat
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from zipfile import ZipFile, ZIP_STORED
@@ -451,6 +452,63 @@ def test_route_sender_step_compress_action_compresses_logs_in_place(
   assert final_update["status"] == "sent"
   assert final_update["stage"] == "compressed"
   assert final_update["included_files"] == [f"{drive_name}/rlog.bz2"]
+
+
+def test_route_sender_bz2_runner_uses_multiple_workers(
+  tmp_path,
+  monkeypatch: pytest.MonkeyPatch,
+):
+  from openpilot.tools.teletyped import route_sender
+
+  src_a = tmp_path / "rlog"
+  src_b = tmp_path / "qlog"
+  dst_a = tmp_path / "rlog.bz2"
+  dst_b = tmp_path / "qlog.bz2"
+  src_a.write_bytes(b"a" * 1024)
+  src_b.write_bytes(b"b" * 1024)
+
+  lock = threading.Lock()
+  active_workers = 0
+  max_active_workers = 0
+  original_compress = route_sender._compress_path_to_bz2_file
+
+  def _compress_with_overlap_probe(src_path, dest_path, *, progress_cb=None):
+    nonlocal active_workers, max_active_workers
+    with lock:
+      active_workers += 1
+      max_active_workers = max(max_active_workers, active_workers)
+    try:
+      time.sleep(0.05)
+      return original_compress(src_path, dest_path, progress_cb=progress_cb)
+    finally:
+      with lock:
+        active_workers -= 1
+
+  monkeypatch.setattr(route_sender, "RLOG_BZ2_WORKERS", 2)
+  monkeypatch.setattr(route_sender, "report_transfer_progress", lambda *args, **kwargs: None)
+  monkeypatch.setattr(route_sender, "_compress_path_to_bz2_file", _compress_with_overlap_probe)
+
+  reporter = route_sender.ZipProgressReporter(
+    "DONGLE123",
+    "drive",
+    stage="compressing",
+    label="Compressing",
+    total_files=2,
+    total_bytes=src_a.stat().st_size + src_b.stat().st_size,
+  )
+  compressed_by_src, failed_paths = route_sender._run_bz2_compressions(
+    [(str(src_a), str(dst_a)), (str(src_b), str(dst_b))],
+    progress_reporter=reporter,
+  )
+
+  assert failed_paths == []
+  assert compressed_by_src == {
+    str(src_a): str(dst_a),
+    str(src_b): str(dst_b),
+  }
+  assert max_active_workers == 2
+  assert bz2.decompress(dst_a.read_bytes()) == b"a" * 1024
+  assert bz2.decompress(dst_b.read_bytes()) == b"b" * 1024
 
 
 def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
