@@ -381,6 +381,162 @@ def _maybe_compress_for_zip(
   return src_path, rel_path
 
 
+def _requested_compressible_basenames(requested_files: list[str] | None) -> list[str]:
+  if not requested_files:
+    return sorted(COMPRESSIBLE_BASENAMES)
+
+  requested = set()
+  for name in requested_files:
+    base = os.path.basename(str(name).strip().replace("\\", "/")).lower()
+    if base.endswith(".bz2"):
+      base = base[:-4]
+    if base in COMPRESSIBLE_BASENAMES:
+      requested.add(base)
+  return sorted(requested)
+
+
+def _compress_file_in_place(
+  src_path: str,
+  *,
+  progress_cb: Callable[[int], None] | None = None,
+) -> str:
+  dest_path = src_path + ".bz2"
+  tmp_path = f"{dest_path}.tmp-{os.getpid()}"
+  try:
+    with open(src_path, "rb") as fin, bz2.open(tmp_path, "wb") as fout:
+      while True:
+        chunk = fin.read(ZIP_PROGRESS_CHUNK_SIZE)
+        if not chunk:
+          break
+        fout.write(chunk)
+        if progress_cb is not None:
+          progress_cb(len(chunk))
+    os.replace(tmp_path, dest_path)
+    os.remove(src_path)
+    return dest_path
+  except Exception:
+    try:
+      if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+    except OSError:
+      pass
+    raise
+
+
+def _compress_route_logs_in_place(
+  device_id: str,
+  drive_name: str,
+  segments: list[str],
+  requested_files: list[str] | None,
+) -> None:
+  basenames = _requested_compressible_basenames(requested_files)
+  if not basenames:
+    report_transfer_error(
+      device_id,
+      drive_name,
+      "no compressible logs requested",
+      detail="Compression requests must include rlog and/or qlog.",
+    )
+    return
+
+  targets: list[tuple[str, int]] = []
+  already_compressed: list[str] = []
+  missing: list[str] = []
+
+  for segment in segments:
+    for base in basenames:
+      src_path = os.path.join(segment, base)
+      dest_path = src_path + ".bz2"
+      if os.path.isfile(src_path):
+        try:
+          file_size = os.path.getsize(src_path)
+        except OSError:
+          file_size = 0
+        targets.append((src_path, file_size))
+      elif os.path.isfile(dest_path):
+        already_compressed.append(dest_path)
+      else:
+        missing.append(src_path)
+
+  if not targets:
+    if already_compressed:
+      update_drive_transfer(
+        device_id,
+        drive_name,
+        status="sent",
+        stage="compressed",
+        detail="Requested logs were already compressed on the device.",
+        clear_progress=True,
+        included_files=[os.path.relpath(path, REALDATA_DIR) for path in already_compressed],
+      )
+      log(f"ℹ️ Requested logs already compressed for {drive_name}")
+      return
+
+    report_transfer_error(
+      device_id,
+      drive_name,
+      "no compressible logs found",
+      detail="No uncompressed rlog/qlog files were found for this drive.",
+    )
+    return
+
+  total_bytes = sum(file_size for _path, file_size in targets)
+  progress_reporter = ZipProgressReporter(
+    device_id,
+    drive_name,
+    stage="compressing",
+    label="Compressing requested logs on the device",
+    total_files=len(targets),
+    total_bytes=total_bytes,
+    start_percent=0,
+    end_percent=100,
+  )
+
+  compressed_paths: list[str] = []
+  failed_paths: list[str] = []
+  report_transfer_progress(
+    device_id,
+    drive_name,
+    stage="compressing",
+    detail=f"Compressing {len(targets)} log file(s) on the device.",
+    clear_progress=True,
+  )
+  progress_reporter.report(force=True)
+
+  for src_path, _file_size in targets:
+    try:
+      compressed_paths.append(
+        _compress_file_in_place(src_path, progress_cb=progress_reporter.advance_bytes)
+      )
+      progress_reporter.file_completed()
+    except Exception as e:
+      capture_exception(e)
+      failed_paths.append(src_path)
+      log(f"❌ Failed to compress {src_path}: {e}", "ERROR")
+
+  if failed_paths:
+    report_transfer_error(
+      device_id,
+      drive_name,
+      "log compression failed",
+      detail=f"Failed to compress {len(failed_paths)} log file(s).",
+    )
+    return
+
+  included_files = [os.path.relpath(path, REALDATA_DIR) for path in compressed_paths]
+  update_drive_transfer(
+    device_id,
+    drive_name,
+    status="sent",
+    stage="compressed",
+    detail=f"Compressed {len(compressed_paths)} log file(s) on the device.",
+    included_files=included_files,
+    clear_progress=True,
+  )
+  log(f"🗜️ Compressed {len(compressed_paths)} log file(s) for {drive_name}")
+  upload_drive_inventory_snapshot(device_id)
+
+
 def _sanitize_segment_component(value: str) -> str:
   sanitized = re.sub(r"[^A-Za-z0-9._-]+", "-", value or "")
   sanitized = re.sub(r"-+", "-", sanitized).strip("-._")
@@ -913,6 +1069,38 @@ def drive_inventory_step(device_id):
       )
     log(f"Failed to upload drive inventory: {e}", "ERROR")
 
+
+def upload_drive_inventory_snapshot(device_id):
+  headers = _auth_headers()
+  if not headers:
+    return
+
+  scanned_at = datetime.now(UTC).isoformat()
+  try:
+    drives, total_size = collect_drive_inventory()
+    response = http_post(
+      DRIVE_INVENTORY_UPLOAD_PATH,
+      json={
+        "device_id": device_id,
+        "drives": drives,
+        "total_size_bytes": total_size,
+        "scanned_at": scanned_at,
+      },
+      headers=headers,
+      timeout=max(TIMEOUT, 30),
+    )
+    response.raise_for_status()
+    state = _load_drive_inventory_state()
+    now = time.time()
+    state["last_successful_upload_at"] = now
+    state["last_inventory_fingerprint"] = _inventory_fingerprint(drives, total_size)
+    _save_drive_inventory_state(state)
+    log(f"📊 Reported post-compression inventory with {len(drives)} drive(s).")
+  except Exception as e:
+    capture_exception(e)
+    log(f"Failed to upload post-compression drive inventory: {e}", "WARN")
+
+
 def log_local_send(device_id, filename, code, timestamp, drive_name=None):
   entry = {
     "device_id": device_id,
@@ -1081,6 +1269,7 @@ def route_sender_step(device_id):
     requested_files = transfer.get("requested_files")
     if requested_files is not None and not isinstance(requested_files, list):
       requested_files = None
+    action = str(transfer.get("action") or "transfer").strip().lower()
 
     if _is_schema_bundle_request(drive_name, requested_files):
       branch_name = transfer.get("schema_branch") if isinstance(transfer.get("schema_branch"), str) else _current_git_branch()
@@ -1205,6 +1394,10 @@ def route_sender_step(device_id):
       if not segments:
         log(f"Missing file(s) for prefix: {base_name}", "WARN")
         report_transfer_error(device_id, drive_name, "segments missing", detail="No matching route segments were found on the device.")
+        continue
+
+      if action == "compress":
+        _compress_route_logs_in_place(device_id, drive_name, segments, requested_files)
         continue
 
       if _is_direct_segment_rlog_request(requested_files):
