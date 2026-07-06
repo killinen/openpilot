@@ -221,6 +221,12 @@ void ignition_can_hook(CANPacket_t *to_push) {
       ignition_can_cnt = 0U;
     }
 
+    // Motorhome J1939 exception
+    if ((addr == 0x18FEF121) && (len == 8)) {
+      ignition_can = true;
+      ignition_can_cnt = 0U;
+    }
+
   } else if (bus == 2) {
     // GM exception, SDGM cars have this message on bus 2 (disabled for same reason as above)
     // int addr = GET_ADDR(to_push);
