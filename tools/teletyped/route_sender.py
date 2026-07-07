@@ -81,6 +81,10 @@ RLOG_BZ2_WORKERS = _env_bounded_int(
   1,
   32,
 )
+WORMHOLE_ZIP_TARGET_BYTES = max(
+  0,
+  _env_nonnegative_int("TELETYPED_WORMHOLE_ZIP_TARGET_BYTES", 4 * 1024 * 1024 * 1024),
+)
 
 DRIVE_SCAN_REQUEST_PATH = f"{API_URL}/drive-scan-requests"
 DRIVE_SCAN_STATUS_PATH = f"{API_URL}/drive-scan-requests"
@@ -950,7 +954,170 @@ def should_include_file(file_name: str, requested: list[str] | None) -> bool:
     return True
   return file_name in requested
 
-def send_wormhole_code(code, zip_path, filename, timestamp, device_id, drive_name=None, requested_files=None):
+
+def _trailing_segment_number(name: str) -> int | None:
+  match = re.search(r"--(\d+)$", name)
+  if not match:
+    return None
+  return int(match.group(1))
+
+
+def _route_segment_sort_key(base_name: str, segment_path: str) -> tuple[int, int, str]:
+  segment_name = os.path.basename(segment_path)
+  if segment_name == base_name:
+    segment_number = _trailing_segment_number(segment_name)
+    return (0, segment_number if segment_number is not None else -1, segment_name)
+
+  prefix = base_name + "--"
+  if segment_name.startswith(prefix):
+    suffix = segment_name[len(prefix):]
+    if suffix.isdigit():
+      return (0, int(suffix), segment_name)
+
+  segment_number = _trailing_segment_number(segment_name)
+  if segment_number is not None:
+    return (0, segment_number, segment_name)
+  return (1, 0, segment_name)
+
+
+def _positive_int(value: Any) -> int | None:
+  try:
+    parsed = int(value)
+  except (TypeError, ValueError):
+    return None
+  return parsed if parsed > 0 else None
+
+
+def _positive_int_set(value: Any) -> set[int]:
+  if not isinstance(value, list):
+    return set()
+  result = set()
+  for item in value:
+    parsed = _positive_int(item)
+    if parsed is not None:
+      result.add(parsed)
+  return result
+
+
+def _split_segment_batches(
+  segment_files: list[tuple[str, list[tuple[str, str, int]]]],
+  target_bytes: int,
+) -> list[list[tuple[str, list[tuple[str, str, int]]]]]:
+  if target_bytes <= 0:
+    return [segment_files] if segment_files else []
+
+  batches: list[list[tuple[str, list[tuple[str, str, int]]]]] = []
+  current: list[tuple[str, list[tuple[str, str, int]]]] = []
+  current_bytes = 0
+
+  for segment_name, files in segment_files:
+    segment_bytes = sum(file_size for _abs_path, _rel_path, file_size in files)
+    if current and current_bytes + segment_bytes > target_bytes:
+      batches.append(current)
+      current = []
+      current_bytes = 0
+    current.append((segment_name, files))
+    current_bytes += segment_bytes
+
+  if current:
+    batches.append(current)
+  return batches
+
+
+def _zip_route_batch(
+  zip_path: str,
+  base_name: str,
+  batch: list[tuple[str, list[tuple[str, str, int]]]],
+  progress_reporter: ZipProgressReporter,
+  temp_dir: str,
+) -> tuple[int, list[str]]:
+  added_files = 0
+  missing_files: list[str] = []
+  batch_files = [file_tuple for _segment_name, files in batch for file_tuple in files]
+  temp_compressed_paths: list[str] = []
+  compressed_zip_sources: dict[str, str] = {}
+  failed_zip_compressions: set[str] = set()
+  compressible_zip_entries = [
+    (abs_path, rel_path)
+    for abs_path, rel_path, _file_size in batch_files
+    if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES
+  ]
+
+  if len(compressible_zip_entries) > 1 and RLOG_BZ2_WORKERS > 1:
+    bz2_targets: list[tuple[str, str]] = []
+    for index, (abs_path, rel_path) in enumerate(compressible_zip_entries):
+      temp_bz2_path = _temporary_bz2_path(temp_dir, rel_path, index)
+      temp_compressed_paths.append(temp_bz2_path)
+      bz2_targets.append((abs_path, temp_bz2_path))
+    compressed_zip_sources, failed_zip_paths = _run_bz2_compressions(
+      bz2_targets,
+      progress_reporter=progress_reporter,
+    )
+    failed_zip_compressions = set(failed_zip_paths)
+    missing_files.extend(failed_zip_paths)
+
+  try:
+    with ZipFile(zip_path, 'w') as zipf:
+      for abs_path, rel_path, _file_size in batch_files:
+        try:
+          if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES:
+            rel_for_zip = rel_path + ".bz2"
+            arcname = os.path.join(base_name, rel_for_zip)
+            if abs_path in compressed_zip_sources:
+              _copy_path_into_zip(
+                zipf,
+                compressed_zip_sources[abs_path],
+                arcname,
+                compress_type=ZIP_STORED,
+              )
+              added_files += 1
+              continue
+            if abs_path in failed_zip_compressions:
+              continue
+            _compress_path_into_zip(
+              zipf,
+              abs_path,
+              arcname,
+              progress_cb=progress_reporter.advance_bytes,
+            )
+            added_files += 1
+            progress_reporter.file_completed()
+            continue
+        except Exception:
+          missing_files.append(abs_path)
+          continue
+
+        arcname = os.path.join(base_name, rel_path)
+        try:
+          _copy_path_into_zip(zipf, abs_path, arcname, progress_cb=progress_reporter.advance_bytes)
+          added_files += 1
+          progress_reporter.file_completed()
+        except FileNotFoundError as e:
+          capture_exception(e)
+          missing_files.append(abs_path)
+          continue
+  finally:
+    for temp_compressed_path in temp_compressed_paths:
+      try:
+        if os.path.exists(temp_compressed_path):
+          os.remove(temp_compressed_path)
+      except OSError:
+        pass
+  return added_files, missing_files
+
+
+def send_wormhole_code(
+  code,
+  zip_path,
+  filename,
+  timestamp,
+  device_id,
+  drive_name=None,
+  requested_files=None,
+  part_number=None,
+  total_parts=None,
+  send_parts=None,
+):
   headers = _auth_headers()
   if not headers:
     return False
@@ -974,6 +1141,12 @@ def send_wormhole_code(code, zip_path, filename, timestamp, device_id, drive_nam
     payload["drive_name"] = drive_name
   if requested_files:
     payload["requested_files"] = requested_files
+  if part_number:
+    payload["part_number"] = part_number
+  if total_parts:
+    payload["total_parts"] = total_parts
+  if send_parts:
+    payload["send_parts"] = sorted(send_parts)
   res = http_post(f"{API_URL}/birdie", json=payload, headers=headers, timeout=TIMEOUT)
   res.raise_for_status()
   log("Wormhole code registered.")
@@ -1250,7 +1423,16 @@ def log_local_send(device_id, filename, code, timestamp, drive_name=None):
 
   log(f"Logged transfer: {filename}")
 
-def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
+def send_file_wormhole(
+  zip_path,
+  device_id,
+  drive_name,
+  requested_files,
+  *,
+  part_number=None,
+  total_parts=None,
+  send_parts=None,
+):
   timestamp = datetime.now(UTC).isoformat()
 
   for attempt in range(1, RETRY_LIMIT + 1):
@@ -1289,6 +1471,9 @@ def send_file_wormhole(zip_path, device_id, drive_name, requested_files):
             device_id,
             drive_name=drive_name,
             requested_files=requested_files,
+            part_number=part_number,
+            total_parts=total_parts,
+            send_parts=send_parts,
           )
           if worked:
             wormhole_sent = True
@@ -1393,6 +1578,9 @@ def route_sender_step(device_id):
     if requested_files is not None and not isinstance(requested_files, list):
       requested_files = None
     action = str(transfer.get("action") or "transfer").strip().lower()
+    max_segments = _positive_int(transfer.get("max_segments"))
+    received_parts = _positive_int_set(transfer.get("received_parts"))
+    zip_paths_to_send: list[tuple[str, int, int]] = []
 
     if _is_schema_bundle_request(drive_name, requested_files):
       branch_name = transfer.get("schema_branch") if isinstance(transfer.get("schema_branch"), str) else _current_git_branch()
@@ -1492,6 +1680,7 @@ def route_sender_step(device_id):
           report_transfer_error(device_id, drive_name, "boot file missing", detail="No boot files were added to the archive.")
           continue
         log(f"📦 Zipped boot files ({added_files}) into folder: boot/")
+        zip_paths_to_send.append((zip_path, 1, 1))
       except Exception as e:
         capture_exception(e)
         log(f"❌ Zip failed for boot files {boot_files}: {e}", "ERROR")
@@ -1513,6 +1702,9 @@ def route_sender_step(device_id):
       for d in entries:
         if d == base_name or d.startswith(legacy_prefix):
           segments.append(os.path.join(REALDATA_DIR, d))
+      segments.sort(key=lambda segment: _route_segment_sort_key(base_name, segment))
+      if max_segments:
+        segments = segments[:max_segments]
 
       if not segments:
         log(f"Missing file(s) for prefix: {base_name}", "WARN")
@@ -1555,11 +1747,11 @@ def route_sender_step(device_id):
         continue
 
       temp_dir = _pick_temp_dir()
-      zip_path = os.path.join(temp_dir, f"{_safe_zip_name(base_name)}.zip")
       try:
         missing_files = []
-        selected_files: list[tuple[str, str, int]] = []
+        segment_files: list[tuple[str, list[tuple[str, str, int]]]] = []
         for segment in segments:
+          selected_files: list[tuple[str, str, int]] = []
           for root, _, files in os.walk(segment):
             for file in files:
               if not should_include_file(file, requested_files):
@@ -1574,113 +1766,145 @@ def route_sender_step(device_id):
                 file_size = 0
               rel_path = os.path.relpath(abs_path, REALDATA_DIR)
               selected_files.append((abs_path, rel_path, file_size))
+          if selected_files:
+            segment_files.append((os.path.basename(segment), selected_files))
 
-        added_files = 0
-        total_selected_bytes = sum(file_size for _abs_path, _rel_path, file_size in selected_files)
-        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting route segments on the device.", clear_progress=True)
-        progress_reporter = ZipProgressReporter(
+        if not segment_files:
+          log(f"No files matched requested list for {base_name}", "WARN")
+          report_transfer_error(device_id, drive_name, "no files match request", detail="No files matched the requested file filter.")
+          continue
+
+        segment_batches = _split_segment_batches(segment_files, WORMHOLE_ZIP_TARGET_BYTES)
+        total_parts = len(segment_batches)
+        received_parts = {part for part in received_parts if part <= total_parts}
+        missing_part_numbers = [part for part in range(1, total_parts + 1) if part not in received_parts]
+        update_drive_transfer(
           device_id,
           drive_name,
-          stage="compressing",
-          label="Compressing and zipping the requested files on the device",
-          total_files=len(selected_files),
-          total_bytes=total_selected_bytes,
-          start_percent=0,
-          end_percent=100,
+          total_parts=total_parts,
+          received_parts=sorted(received_parts),
         )
-        progress_reporter.report(force=True)
-        temp_compressed_paths: list[str] = []
-        compressed_zip_sources: dict[str, str] = {}
-        failed_zip_compressions: set[str] = set()
-        compressible_zip_entries = [
-          (abs_path, rel_path)
-          for abs_path, rel_path, _file_size in selected_files
-          if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES
-        ]
-        if len(compressible_zip_entries) > 1 and RLOG_BZ2_WORKERS > 1:
-          bz2_targets: list[tuple[str, str]] = []
-          for index, (abs_path, rel_path) in enumerate(compressible_zip_entries):
-            temp_bz2_path = _temporary_bz2_path(temp_dir, rel_path, index)
-            temp_compressed_paths.append(temp_bz2_path)
-            bz2_targets.append((abs_path, temp_bz2_path))
-          compressed_zip_sources, failed_zip_paths = _run_bz2_compressions(
-            bz2_targets,
-            progress_reporter=progress_reporter,
+        if not missing_part_numbers:
+          update_drive_transfer(
+            device_id,
+            drive_name,
+            status="received",
+            stage="received",
+            detail="All archive parts were already received by the dock.",
+            clear_progress=True,
           )
-          failed_zip_compressions = set(failed_zip_paths)
-          missing_files.extend(failed_zip_paths)
+          log(f"✅ All archive parts already received for {drive_name}; skipping resend.")
+          continue
 
-        try:
-          with ZipFile(zip_path, 'w') as zipf:
-            for abs_path, rel_path, _file_size in selected_files:
-              try:
-                if os.path.basename(rel_path) in COMPRESSIBLE_BASENAMES:
-                  rel_for_zip = rel_path + ".bz2"
-                  arcname = os.path.join(base_name, rel_for_zip)
-                  if abs_path in compressed_zip_sources:
-                    _copy_path_into_zip(
-                      zipf,
-                      compressed_zip_sources[abs_path],
-                      arcname,
-                      compress_type=ZIP_STORED,
-                    )
-                    added_files += 1
-                    continue
-                  if abs_path in failed_zip_compressions:
-                    continue
-                  _compress_path_into_zip(
-                    zipf,
-                    abs_path,
-                    arcname,
-                    progress_cb=progress_reporter.advance_bytes,
-                  )
-                  added_files += 1
-                  progress_reporter.file_completed()
-                  continue
-              except Exception:
-                missing_files.append(abs_path)
-                continue
-
-              arcname = os.path.join(base_name, rel_path)
-              try:
-                _copy_path_into_zip(zipf, abs_path, arcname, progress_cb=progress_reporter.advance_bytes)
-                added_files += 1
-                progress_reporter.file_completed()
-              except FileNotFoundError as e:
-                capture_exception(e)
-                missing_files.append(abs_path)
-                continue
-        finally:
-          for temp_compressed_path in temp_compressed_paths:
+        total_added_files = 0
+        total_selected_bytes = sum(
+          file_size
+          for _segment_name, files in segment_files
+          for _abs_path, _rel_path, file_size in files
+        )
+        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting route segments on the device.", clear_progress=True)
+        for part_index, batch in enumerate(segment_batches, start=1):
+          if part_index in received_parts:
+            log(f"↩️ Skipping archive part {part_index}/{total_parts}; already received by dock.")
+            continue
+          batch_files = [file_tuple for _segment_name, files in batch for file_tuple in files]
+          batch_bytes = sum(file_size for _abs_path, _rel_path, file_size in batch_files)
+          if total_parts == 1:
+            zip_path = os.path.join(temp_dir, f"{_safe_zip_name(base_name)}.zip")
+            label = "Compressing and zipping the requested files on the device"
+          else:
+            zip_path = os.path.join(
+              temp_dir,
+              f"{_safe_zip_name(base_name)}.part{part_index:02d}-of{total_parts:02d}.zip",
+            )
+            label = f"Compressing route archive part {part_index}/{total_parts} on the device"
+          progress_reporter = ZipProgressReporter(
+            device_id,
+            drive_name,
+            stage="compressing",
+            label=label,
+            total_files=len(batch_files),
+            total_bytes=batch_bytes,
+            start_percent=0,
+            end_percent=100,
+          )
+          progress_reporter.report(force=True)
+          added_files, batch_missing_files = _zip_route_batch(zip_path, base_name, batch, progress_reporter, temp_dir)
+          total_added_files += added_files
+          missing_files.extend(batch_missing_files)
+          if added_files:
+            zip_paths_to_send.append((zip_path, part_index, total_parts))
+          else:
             try:
-              if os.path.exists(temp_compressed_path):
-                os.remove(temp_compressed_path)
+              os.remove(zip_path)
             except OSError:
               pass
         if missing_files:
           log(f"⚠️ Skipped {len(missing_files)} missing file(s) while zipping {base_name}", "WARN")
-        if added_files == 0:
+        if total_added_files == 0:
           log(f"No files matched requested list for {base_name}", "WARN")
           report_transfer_error(device_id, drive_name, "no files match request", detail="No files matched the requested file filter.")
           continue
-        report_transfer_progress(device_id, drive_name, stage="zipped", detail=f"Archive ready with {added_files} file(s).", clear_progress=True)
-        log(f"📦 Zipped {len(segments)} segment(s) into folder: {base_name} (files={added_files})")
+        split_detail = f" across {total_parts} archive part(s)" if total_parts > 1 else ""
+        report_transfer_progress(device_id, drive_name, stage="zipped", detail=f"Archive ready with {total_added_files} file(s){split_detail}.", clear_progress=True)
+        log(f"📦 Zipped {len(segments)} segment(s) into folder: {base_name} (files={total_added_files}, parts={total_parts}, selected={_human_readable_bytes(total_selected_bytes)})")
       except Exception as e:
         capture_exception(e)
         log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
         report_transfer_error(device_id, drive_name, str(e))
         continue
 
-    report_transfer_progress(
-      device_id,
-      drive_name,
-      stage="wormhole",
-      detail="Starting wormhole send and waiting for a wormhole code.",
-      clear_progress=True,
-    )
+    all_sent = bool(zip_paths_to_send)
+    wormhole_code = None
+    archive_name = None
+    for zip_path, part_number, total_parts in zip_paths_to_send:
+      part_detail = f" for archive part {part_number}/{total_parts}" if total_parts > 1 else ""
+      report_transfer_progress(
+        device_id,
+        drive_name,
+        stage="wormhole",
+        detail=f"Starting wormhole send{part_detail} and waiting for a wormhole code.",
+        clear_progress=True,
+      )
 
-    sent, wormhole_code, archive_name = send_file_wormhole(zip_path, device_id, drive_name, requested_files)
-    if sent:
+      if total_parts > 1:
+        sent, wormhole_code, archive_name = send_file_wormhole(
+          zip_path,
+          device_id,
+          drive_name,
+          requested_files,
+          part_number=part_number,
+          total_parts=total_parts,
+          send_parts=[part for _path, part, _total in zip_paths_to_send],
+        )
+      else:
+        sent, wormhole_code, archive_name = send_file_wormhole(
+          zip_path,
+          device_id,
+          drive_name,
+          requested_files,
+        )
+      try:
+        if os.path.exists(zip_path):
+          os.remove(zip_path)
+          log(f"🧹 Deleted temporary zip: {zip_path}")
+      except Exception as e:
+        capture_exception(e)
+        log(f"⚠️ Failed to delete zip: {e}", "WARN")
+      if not sent:
+        all_sent = False
+        break
+
+    for zip_path, _part_number, _total_parts in zip_paths_to_send:
+      try:
+        if os.path.exists(zip_path):
+          os.remove(zip_path)
+          log(f"🧹 Deleted unsent temporary zip: {zip_path}")
+      except Exception as e:
+        capture_exception(e)
+        log(f"⚠️ Failed to delete zip: {e}", "WARN")
+
+    if all_sent:
       update_drive_transfer(
         device_id,
         drive_name,
@@ -1693,14 +1917,6 @@ def route_sender_step(device_id):
       )
     else:
       report_transfer_error(device_id, drive_name, "wormhole send failed", detail="Wormhole send failed before a download offer was created.")
-
-    try:
-      if os.path.exists(zip_path):
-        os.remove(zip_path)
-        log(f"🧹 Deleted temporary zip: {zip_path}")
-    except Exception as e:
-      capture_exception(e)
-      log(f"⚠️ Failed to delete zip: {e}", "WARN")
 
 def run_route_sender(stop_event=None, device_id=None):
   global _auth_wait_logged
