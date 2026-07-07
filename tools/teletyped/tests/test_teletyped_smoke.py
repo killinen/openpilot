@@ -562,3 +562,71 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
   assert zipped["payload"] == b"raw rlog payload" * 1024
   assert raw_rlog.exists()
   assert updates[-1]["stage"] == "ready"
+
+
+def test_route_sender_step_packs_split_parts_in_numeric_segment_order(
+  tmp_path,
+  monkeypatch: pytest.MonkeyPatch,
+):
+  from openpilot.tools.teletyped import route_sender
+
+  realdata_dir = tmp_path / "realdata"
+  realdata_dir.mkdir()
+  temp_dir = tmp_path / "ziptmp"
+  temp_dir.mkdir()
+  route_base = "2026-04-13--12-00-00"
+  unordered_segment_nums = (0, 1, 10, 2, 100, 3, 11, 20, 12, 22, 21)
+  for segment_num in unordered_segment_nums:
+    segment_dir = realdata_dir / f"{route_base}--{segment_num}"
+    segment_dir.mkdir()
+    (segment_dir / "qlog").write_bytes(f"qlog {segment_num}".encode("ascii"))
+
+  sent_segments: list[str] = []
+  sent_parts: list[int] = []
+
+  def _get(url, headers, timeout):
+    return _StaticResponse(
+      200,
+      [{
+        "drive_name": route_base,
+        "status": "queued",
+        "requested_files": ["qlog"],
+      }],
+    )
+
+  def _post(url, json, headers, timeout):
+    return _StaticResponse(200, {})
+
+  def _send_file_wormhole(zip_path, device_id, transfer_drive_name, requested_files, **kwargs):
+    with ZipFile(zip_path, "r") as zipf:
+      names = zipf.namelist()
+    assert len(names) == 1
+    sent_segments.append(names[0].split("/")[1])
+    sent_parts.append(kwargs["part_number"])
+    return True, "1-test-code", os.path.basename(zip_path)
+
+  monkeypatch.setattr(route_sender, "REALDATA_DIR", str(realdata_dir))
+  monkeypatch.setattr(route_sender, "WORMHOLE_ZIP_TARGET_BYTES", 1)
+  monkeypatch.setattr(route_sender, "_pick_temp_dir", lambda *args: str(temp_dir))
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(route_sender, "http_get", _get)
+  monkeypatch.setattr(route_sender, "http_post", _post)
+  monkeypatch.setattr(route_sender, "send_file_wormhole", _send_file_wormhole)
+
+  route_sender.route_sender_step("DONGLE123")
+
+  assert sent_segments == [
+    f"{route_base}--0",
+    f"{route_base}--1",
+    f"{route_base}--2",
+    f"{route_base}--3",
+    f"{route_base}--10",
+    f"{route_base}--11",
+    f"{route_base}--12",
+    f"{route_base}--20",
+    f"{route_base}--21",
+    f"{route_base}--22",
+    f"{route_base}--100",
+  ]
+  assert sent_parts == list(range(1, len(unordered_segment_nums) + 1))
