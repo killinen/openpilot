@@ -14,6 +14,83 @@ optional arguments:
   --addr ADDR
 ```
 
+## [hrr_can_test.py](hrr_can_test.py)
+
+Interactive Panda test tool for the STM32G474 HRR CAN controller. It sends the brake (`0x2C6`)
+and torque (`0x160`) frames continuously at `100 Hz` by default. Run it with the vehicle safely
+secured and no one near the steering mechanism. The script uses `SAFETY_ALLOUTPUT` while running
+and restores `SAFETY_SILENT` during shutdown.
+
+Connect a Panda, choose the CAN bus with `--bus`, and start the tool from the openpilot checkout:
+
+```bash
+python3 selfdrive/debug/hrr_can_test.py --bus 1
+```
+
+If `--bus` is omitted, the script prompts for bus `0`, `1`, or `2`. The initial state is
+disengaged with zero torque and the brake released. At the `hrr>` prompt:
+
+- `e` engages by enabling both `REL` and `RELE`
+- `x` disengages, sets torque to zero, and disables both relays
+- `<Ncm>` sets torque directly in the range `-1000..1000` Ncm
+- `d <samples>` sets and persists SVEC DLY in the range `0..127`
+- `b 0` or `b 1` sets `BRAKE_PRESSED` to released or pressed
+- `r 1` forces the Panda harness relay and disables firmware forwarding; `r 0` restores both
+- `s` shows the current state
+- `h` shows command help
+- `q` safely shuts down and exits
+
+The `RX` line above the prompt monitors HRR status frames on the selected bus. `device=ONLINE`
+means the script has received an HRR status frame within the last `0.5 s`; `WAITING` changes to
+`OFFLINE` if none arrive. It also displays the reported relay states and angle/torque feedback:
+
+```text
+RX device=ONLINE age=0.012s bus=1 REL=ON RELE=ON
+   SVEC_Delta=+1.0deg Emulated_Torque=+250Ncm
+   OU_Angle=92.4deg IN_Angle=91.4deg
+```
+
+`REL` and `RELE` come from `CANCTR_IOStatus` (`0x631`). `SVEC_Delta`, `Emulated_Torque`,
+`OU_Angle`, and `IN_Angle` come from `HRR_AngleStatus` (`0x632`). Values are shown as `---`
+until their first valid-length status frame is received. The `TX` line separately labels the
+requested states as `REL_Cmd` and `RELE_Cmd`.
+
+For example:
+
+```text
+hrr> e
+hrr> 250
+hrr> b 1
+hrr> x
+hrr> q
+```
+
+Use `--dry-run` to exercise the prompt without opening a Panda or transmitting CAN frames, and
+`--self-test` to verify the known frame encodings and exit:
+
+```bash
+python3 selfdrive/debug/hrr_can_test.py --bus 1 --dry-run
+python3 selfdrive/debug/hrr_can_test.py --self-test
+```
+
+The streaming rate can be changed with `--rate-hz`:
+
+```bash
+python3 selfdrive/debug/hrr_can_test.py --bus 1 --rate-hz 50
+```
+
+Use `--force-harness-relay` to start with the Panda harness relay forced into intercept mode. Like
+the UI's **Force Harness Relay On** option, this keeps CAN0 and CAN2 physically separated and
+disables Panda firmware forwarding while active:
+
+```bash
+python3 selfdrive/debug/hrr_can_test.py --bus 1 --force-harness-relay
+```
+
+Pressing Ctrl-C, sending EOF, or entering `q` performs a safe shutdown: zero torque, relays off,
+`BRAKE_PRESSED=1`, Panda safety set to `SAFETY_SILENT`, and any harness-relay force applied by the
+script cleared with firmware forwarding restored.
+
 ## [send_canctr_delta.py](send_canctr_delta.py)
 
 Sends guarded CANCTR delta-control command `0x231` directly through Panda on bus 1. The script does

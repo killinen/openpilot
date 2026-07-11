@@ -1,0 +1,501 @@
+#!/usr/bin/env python3
+"""Interactive Panda test tool for the STM32G474 HRR CAN controller."""
+
+from __future__ import annotations
+
+import argparse
+import shlex
+import struct
+import sys
+import threading
+import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+  from panda import Panda
+
+
+TORQUE_ADDR = 0x160
+BRAKE_ADDR = 0x2C6
+SVEC_CONFIG_ADDR = 0x603
+ADC_STATUS_ADDR = 0x630
+IO_STATUS_ADDR = 0x631
+ANGLE_STATUS_ADDR = 0x632
+VOLTAGE_STATUS_ADDR = 0x633
+STATE_STATUS_ADDR = 0x634
+HRR_STATUS_ADDRS = {ADC_STATUS_ADDR, IO_STATUS_ADDR, ANGLE_STATUS_ADDR, VOLTAGE_STATUS_ADDR, STATE_STATUS_ADDR}
+
+DEFAULT_RATE_HZ = 100.0
+DEVICE_ONLINE_TIMEOUT_S = 0.5
+MAX_TORQUE_NCM = 1000
+MAX_DLY_SAMPLES = 127
+
+FLAG_REL = 1 << 0
+FLAG_RELE = 1 << 1
+SVEC_CONFIG_CMD_DLY = 1
+SVEC_CONFIG_KEY = 0xA5
+
+# Payloads observed on LS600h bus 1 for the inferred BRAKE_PRESSED state.
+BRAKE_RELEASED_PAYLOAD = bytes.fromhex("99 20 84")
+BRAKE_PRESSED_PAYLOAD = bytes.fromhex("9B 20 86")
+
+
+def crc8_poly07(data: bytes) -> int:
+  crc = 0
+  for value in data:
+    crc ^= value
+    for _ in range(8):
+      crc = ((crc << 1) ^ 0x07) & 0xFF if crc & 0x80 else (crc << 1) & 0xFF
+  return crc
+
+
+def build_torque_frame(torque_ncm: int, engaged: bool, counter: int) -> bytes:
+  if not -MAX_TORQUE_NCM <= torque_ncm <= MAX_TORQUE_NCM:
+    raise ValueError(f"torque must be within +/-{MAX_TORQUE_NCM} Ncm")
+
+  torque_raw = torque_ncm & 0x0FFF
+  complement = torque_raw ^ 0x0FFF
+  flags = FLAG_REL | FLAG_RELE if engaged else 0
+  payload = struct.pack("<HHBB", torque_raw, complement, flags, counter & 0x0F)
+  checksum = crc8_poly07(bytes((TORQUE_ADDR & 0xFF, TORQUE_ADDR >> 8)) + payload)
+  return payload + bytes((checksum,))
+
+
+def build_brake_frame(brake_pressed: bool) -> bytes:
+  return BRAKE_PRESSED_PAYLOAD if brake_pressed else BRAKE_RELEASED_PAYLOAD
+
+
+def build_dly_frame(samples: int) -> bytes:
+  if not 0 <= samples <= MAX_DLY_SAMPLES:
+    raise ValueError(f"DLY must be within 0..{MAX_DLY_SAMPLES} samples")
+
+  payload = bytes((SVEC_CONFIG_CMD_DLY,)) + samples.to_bytes(4, "little") + bytes((SVEC_CONFIG_KEY, 0))
+  checksum = crc8_poly07(bytes((SVEC_CONFIG_ADDR & 0xFF, SVEC_CONFIG_ADDR >> 8)) + payload)
+  return payload + bytes((checksum,))
+
+
+def decode_io_status(payload: bytes) -> tuple[bool, bool]:
+  if len(payload) < 5:
+    raise ValueError(f"expected 5 bytes for CANCTR_IOStatus, got {len(payload)}")
+  flags = payload[4]
+  return bool(flags & FLAG_REL), bool(flags & FLAG_RELE)
+
+
+def decode_angle_status(payload: bytes) -> tuple[float, int, float, float]:
+  if len(payload) < 8:
+    raise ValueError(f"expected 8 bytes for HRR_AngleStatus, got {len(payload)}")
+  svec_delta_raw, emulated_torque, ou_angle_raw, in_angle_raw = struct.unpack_from("<hhHH", payload)
+  return svec_delta_raw * 0.1, emulated_torque, ou_angle_raw * 0.1, in_angle_raw * 0.1
+
+
+class HrrDeviceStatus:
+  def __init__(self) -> None:
+    self.lock = threading.Lock()
+    self.started_at = time.monotonic()
+    self.last_rx_at: float | None = None
+    self.rel: bool | None = None
+    self.rele: bool | None = None
+    self.svec_delta: float | None = None
+    self.emulated_torque: int | None = None
+    self.ou_angle: float | None = None
+    self.in_angle: float | None = None
+
+  def update(self, address: int, payload: bytes) -> bool:
+    if address not in HRR_STATUS_ADDRS:
+      return False
+
+    io_status = None
+    angle_status = None
+    try:
+      if address == IO_STATUS_ADDR:
+        io_status = decode_io_status(payload)
+      elif address == ANGLE_STATUS_ADDR:
+        angle_status = decode_angle_status(payload)
+    except ValueError:
+      # A recognized frame still proves that the HRR is transmitting. Leave the
+      # last successfully decoded values in place when its DLC is unexpected.
+      pass
+
+    with self.lock:
+      self.last_rx_at = time.monotonic()
+      if io_status is not None:
+        self.rel, self.rele = io_status
+      if angle_status is not None:
+        self.svec_delta, self.emulated_torque, self.ou_angle, self.in_angle = angle_status
+    return True
+
+  def format(self, bus: int, dry_run: bool) -> str:
+    now = time.monotonic()
+    with self.lock:
+      last_rx_at = self.last_rx_at
+      rel = self.rel
+      rele = self.rele
+      svec_delta = self.svec_delta
+      emulated_torque = self.emulated_torque
+      ou_angle = self.ou_angle
+      in_angle = self.in_angle
+      started_at = self.started_at
+
+    if dry_run:
+      device = "DRY-RUN"
+      age = "n/a"
+    elif last_rx_at is None:
+      device = "WAITING" if now - started_at <= DEVICE_ONLINE_TIMEOUT_S else "OFFLINE"
+      age = "never"
+    else:
+      rx_age = now - last_rx_at
+      device = "ONLINE" if rx_age <= DEVICE_ONLINE_TIMEOUT_S else "OFFLINE"
+      age = f"{rx_age:.3f}s"
+
+    rel_text = "---" if rel is None else ("ON" if rel else "OFF")
+    rele_text = "---" if rele is None else ("ON" if rele else "OFF")
+    delta_text = "---.-" if svec_delta is None else f"{svec_delta:+.1f}"
+    torque_text = "-----" if emulated_torque is None else f"{emulated_torque:+d}"
+    ou_text = "---.-" if ou_angle is None else f"{ou_angle:.1f}"
+    in_text = "---.-" if in_angle is None else f"{in_angle:.1f}"
+    return "\n".join((
+      f"RX device={device} age={age} bus={bus} REL={rel_text} RELE={rele_text}",
+      f"   SVEC_Delta={delta_text}deg Emulated_Torque={torque_text}Ncm",
+      f"   OU_Angle={ou_text}deg IN_Angle={in_text}deg",
+    ))
+
+
+class StatusDisplay:
+  def __init__(self, initial_message: str) -> None:
+    self.lock = threading.Lock()
+    self.latest_message = initial_message
+    self.prompt_active = False
+    self.use_ansi = sys.stdin.isatty() and sys.stdout.isatty()
+
+  def show_prompt_header(self) -> None:
+    with self.lock:
+      print(self.latest_message)
+
+  def set_prompt_active(self, active: bool) -> None:
+    with self.lock:
+      self.prompt_active = active
+
+  def update(self, message: str) -> None:
+    with self.lock:
+      self.latest_message = message
+      if self.use_ansi and self.prompt_active:
+        lines = message.splitlines()
+        sys.stdout.write(f"\x1b7\x1b[{len(lines)}A")
+        for index, line in enumerate(lines):
+          sys.stdout.write(f"\r\x1b[2K{line}")
+          if index != len(lines) - 1:
+            sys.stdout.write("\x1b[1B")
+        sys.stdout.write("\x1b8")
+        sys.stdout.flush()
+
+
+class CommandState:
+  def __init__(self) -> None:
+    self.lock = threading.Lock()
+    self.engaged = False
+    self.torque_ncm = 0
+    self.brake_pressed = False
+    self.counter = 0
+    self.dly_samples: int | None = None
+
+  def next_frames(self) -> tuple[bytes, bytes]:
+    with self.lock:
+      brake = build_brake_frame(self.brake_pressed)
+      torque = build_torque_frame(self.torque_ncm, self.engaged, self.counter)
+      self.counter = (self.counter + 1) & 0x0F
+      return brake, torque
+
+  def set_engaged(self, engaged: bool) -> None:
+    with self.lock:
+      self.engaged = engaged
+      if not engaged:
+        self.torque_ncm = 0
+
+  def set_torque(self, torque_ncm: int) -> None:
+    if not -MAX_TORQUE_NCM <= torque_ncm <= MAX_TORQUE_NCM:
+      raise ValueError(f"torque must be within +/-{MAX_TORQUE_NCM} Ncm")
+    with self.lock:
+      self.torque_ncm = torque_ncm
+
+  def set_brake(self, brake_pressed: bool) -> None:
+    with self.lock:
+      self.brake_pressed = brake_pressed
+
+  def set_dly(self, samples: int) -> None:
+    if not 0 <= samples <= MAX_DLY_SAMPLES:
+      raise ValueError(f"DLY must be within 0..{MAX_DLY_SAMPLES} samples")
+    with self.lock:
+      self.dly_samples = samples
+
+  def snapshot(self) -> tuple[bool, int, bool, int | None]:
+    with self.lock:
+      return self.engaged, self.torque_ncm, self.brake_pressed, self.dly_samples
+
+
+class HrrCanTest:
+  def __init__(self, panda: Panda | None, bus: int, rate_hz: float, dry_run: bool) -> None:
+    self.panda = panda
+    self.bus = bus
+    self.period = 1.0 / rate_hz
+    self.dry_run = dry_run
+    self.state = CommandState()
+    self.device_status = HrrDeviceStatus()
+    self.status_display = StatusDisplay(self.device_status.format(bus, dry_run))
+    self.stop_event = threading.Event()
+    self.stream_thread: threading.Thread | None = None
+    self.monitor_thread: threading.Thread | None = None
+    self.harness_relay_forced = False
+    self.harness_relay_controlled = False
+
+  def send(self, address: int, payload: bytes) -> None:
+    if self.dry_run:
+      return
+    assert self.panda is not None
+    self.panda.can_send(address, payload, self.bus)
+
+  def send_stream_frames(self) -> None:
+    brake, torque = self.state.next_frames()
+    # Brake goes first so the HRR interlock is fresh before each torque command.
+    self.send(BRAKE_ADDR, brake)
+    self.send(TORQUE_ADDR, torque)
+
+  def set_force_harness_relay(self, enabled: bool) -> None:
+    self.harness_relay_controlled = True
+    if self.panda is not None:
+      # Match the ForceHarnessRelayOn UI behavior: keep CAN0/CAN2 physically
+      # separated and prevent panda firmware from forwarding between them.
+      self.panda.set_force_intercept_relay(enabled)
+      self.panda.set_safety_forwarding_disabled(enabled)
+    self.harness_relay_forced = enabled
+
+  def restore_harness_relay(self) -> None:
+    if not self.harness_relay_controlled:
+      return
+    if self.panda is not None:
+      self.panda.set_force_intercept_relay(False)
+      self.panda.set_safety_forwarding_disabled(False)
+    self.harness_relay_forced = False
+
+  def stream_loop(self) -> None:
+    next_send = time.monotonic()
+    while not self.stop_event.is_set():
+      self.send_stream_frames()
+      next_send += self.period
+      wait = next_send - time.monotonic()
+      if wait < 0:
+        next_send = time.monotonic()
+        continue
+      self.stop_event.wait(wait)
+
+  def monitor_loop(self) -> None:
+    assert self.panda is not None
+    next_display = time.monotonic()
+    while not self.stop_event.is_set():
+      for address, _, payload, rx_bus in self.panda.can_recv():
+        if rx_bus == self.bus:
+          self.device_status.update(address, payload)
+
+      now = time.monotonic()
+      if now >= next_display:
+        self.status_display.update(self.device_status.format(self.bus, self.dry_run))
+        next_display = now + 0.1
+      self.stop_event.wait(0.01)
+
+  def start(self) -> None:
+    if self.panda is not None:
+      self.panda.can_clear(0xFFFF)
+      self.monitor_thread = threading.Thread(target=self.monitor_loop, name="hrr-can-monitor", daemon=True)
+      self.monitor_thread.start()
+    self.stream_thread = threading.Thread(target=self.stream_loop, name="hrr-can-stream", daemon=True)
+    self.stream_thread.start()
+
+  def send_dly(self, samples: int) -> None:
+    payload = build_dly_frame(samples)
+    self.send(SVEC_CONFIG_ADDR, payload)
+    self.state.set_dly(samples)
+    print(f"DLY={samples} samples sent on 0x{SVEC_CONFIG_ADDR:03X}: {payload.hex(' ')}")
+    print("DLY is persisted by the HRR firmware.")
+
+  def safe_shutdown(self) -> None:
+    self.state.set_engaged(False)
+    self.state.set_brake(True)
+    for _ in range(5):
+      self.send_stream_frames()
+      time.sleep(0.01)
+    self.stop_event.set()
+    if self.stream_thread is not None:
+      self.stream_thread.join(timeout=1.0)
+    if self.monitor_thread is not None:
+      self.monitor_thread.join(timeout=1.0)
+
+  def print_state(self) -> None:
+    engaged, torque_ncm, brake_pressed, dly_samples = self.state.snapshot()
+    print(" ".join((
+      f"TX bus={self.bus} engaged={engaged} REL_Cmd={int(engaged)} RELE_Cmd={int(engaged)}",
+      f"torque={torque_ncm:+d} Ncm brake_pressed={brake_pressed}",
+      f"DLY={dly_samples if dly_samples is not None else 'unchanged'} harness_relay={'FORCED' if self.harness_relay_forced else 'AUTO'}",
+    )))
+
+
+def parse_on_off(value: str) -> bool:
+  value = value.lower()
+  if value in {"1", "on", "true", "pressed", "press"}:
+    return True
+  if value in {"0", "off", "false", "released", "release"}:
+    return False
+  raise ValueError("expected on/off, 1/0, pressed/released, or true/false")
+
+
+def print_help() -> None:
+  print("Commands:")
+  print("  e                       engage: REL and RELE on")
+  print("  x                       disengage: torque 0, REL and RELE off")
+  print(f"  <Ncm>                   set torque directly, range +/-{MAX_TORQUE_NCM}")
+  print(f"  d <samples>             set persistent SVEC DLY, range 0..{MAX_DLY_SAMPLES}")
+  print("  b <0|1>                 BRAKE_PRESSED: 0=released, 1=pressed")
+  print("  r <0|1>                 force harness relay and disable forwarding")
+  print("  s                       show current state")
+  print("  h                       show this help")
+  print("  q                       safe shutdown and exit")
+
+
+def choose_bus(configured_bus: int | None) -> int:
+  if configured_bus is not None:
+    return configured_bus
+  while True:
+    value = input("Panda CAN bus [0/1/2]: ").strip()
+    if value in {"0", "1", "2"}:
+      return int(value)
+    print("Enter 0, 1, or 2.")
+
+
+def run_self_test() -> None:
+  assert build_torque_frame(0, False, 0).hex() == "0000ff0f0000fb"
+  assert build_dly_frame(27).hex() == "011b000000a500cd"
+  assert build_brake_frame(False) == bytes.fromhex("99 20 84")
+  assert build_brake_frame(True)[0] & 0x02
+  assert decode_io_status(bytes.fromhex("00 08 ff 07 03")) == (True, True)
+  angle_payload = struct.pack("<hhHH", -40, -250, 1234, 567)
+  assert decode_angle_status(angle_payload) == (-4.0, -250, 123.4, 56.7)
+
+  device_status = HrrDeviceStatus()
+  assert device_status.update(IO_STATUS_ADDR, bytes.fromhex("00 08 ff 07 03"))
+  assert device_status.update(ANGLE_STATUS_ADDR, angle_payload)
+  status_text = device_status.format(1, False)
+  for expected in ("device=ONLINE", "REL=ON", "RELE=ON", "SVEC_Delta=-4.0deg",
+                   "Emulated_Torque=-250Ncm", "OU_Angle=123.4deg", "IN_Angle=56.7deg"):
+    assert expected in status_text
+
+  class FakePanda:
+    def __init__(self) -> None:
+      self.calls: list[tuple[str, bool]] = []
+
+    def set_force_intercept_relay(self, enabled: bool) -> None:
+      self.calls.append(("relay", enabled))
+
+    def set_safety_forwarding_disabled(self, disabled: bool) -> None:
+      self.calls.append(("forwarding_disabled", disabled))
+
+  fake_panda = FakePanda()
+  test = HrrCanTest(fake_panda, 1, DEFAULT_RATE_HZ, False)  # type: ignore[arg-type]
+  test.set_force_harness_relay(True)
+  test.restore_harness_relay()
+  assert fake_panda.calls == [
+    ("relay", True), ("forwarding_disabled", True),
+    ("relay", False), ("forwarding_disabled", False),
+  ]
+  print("Frame self-test passed.")
+
+
+def run_interactive(test: HrrCanTest) -> None:
+  print_help()
+  test.print_state()
+  while True:
+    try:
+      test.status_display.show_prompt_header()
+      test.status_display.set_prompt_active(True)
+      try:
+        tokens = shlex.split(input("hrr> ").strip())
+      finally:
+        test.status_display.set_prompt_active(False)
+      if not tokens:
+        continue
+      command = tokens[0].lower()
+
+      if command in {"q", "quit", "exit"}:
+        return
+      if command in {"h", "help", "?"}:
+        print_help()
+      elif command in {"s", "show", "status"}:
+        test.print_state()
+      elif command in {"e", "engage"} and len(tokens) == 1:
+        test.state.set_engaged(True)
+        test.print_state()
+      elif command in {"x", "disengage"} and len(tokens) == 1:
+        test.state.set_engaged(False)
+        test.print_state()
+      elif command in {"torque", "tq"} and len(tokens) == 2:
+        test.state.set_torque(int(tokens[1], 0))
+        test.print_state()
+      elif command in {"d", "dly"} and len(tokens) == 2:
+        test.send_dly(int(tokens[1], 0))
+      elif command in {"b", "brake", "brake_pressed"} and len(tokens) == 2:
+        test.state.set_brake(parse_on_off(tokens[1]))
+        test.print_state()
+      elif command in {"r", "relay", "harness_relay"} and len(tokens) == 2:
+        test.set_force_harness_relay(parse_on_off(tokens[1]))
+        test.print_state()
+      elif len(tokens) == 1:
+        test.state.set_torque(int(tokens[0], 0))
+        test.print_state()
+      else:
+        print("Unknown or malformed command. Enter 'h'.")
+    except ValueError as error:
+      print(f"Invalid command: {error}")
+
+
+def main() -> None:
+  parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("--bus", type=int, choices=(0, 1, 2), help="Panda CAN bus; prompted when omitted")
+  parser.add_argument("--rate-hz", type=float, default=DEFAULT_RATE_HZ, help="torque and brake streaming rate")
+  parser.add_argument("--force-harness-relay", action="store_true",
+                      help="force the Panda harness relay and disable firmware forwarding while the tool runs")
+  parser.add_argument("--dry-run", action="store_true", help="exercise controls without opening or transmitting through Panda")
+  parser.add_argument("--self-test", action="store_true", help="verify known frame encodings and exit")
+  args = parser.parse_args()
+
+  if args.self_test:
+    run_self_test()
+    return
+  if args.rate_hz <= 0:
+    parser.error("--rate-hz must be greater than zero")
+
+  bus = choose_bus(args.bus)
+  panda = None
+  if not args.dry_run:
+    from panda import Panda
+    panda = Panda()
+  if panda is not None:
+    panda.set_power_save(False)
+    panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+
+  test = HrrCanTest(panda, bus, args.rate_hz, args.dry_run)
+  try:
+    if args.force_harness_relay:
+      test.set_force_harness_relay(True)
+    print(f"Streaming 0x{TORQUE_ADDR:03X} and 0x{BRAKE_ADDR:03X} on Panda bus {bus} at {args.rate_hz:g} Hz.")
+    print("Initial state is disengaged, zero torque, and brake released.")
+    test.start()
+    run_interactive(test)
+  except (KeyboardInterrupt, EOFError):
+    print()
+  finally:
+    print("Safe shutdown: torque=0, relays off, BRAKE_PRESSED=1.")
+    test.safe_shutdown()
+    if panda is not None:
+      panda.set_safety_mode(Panda.SAFETY_SILENT)
+    test.restore_harness_relay()
+
+
+if __name__ == "__main__":
+  main()
