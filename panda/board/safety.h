@@ -86,7 +86,13 @@ bool safety_tx_hook(CANPacket_t *to_send) {
 }
 
 int safety_fwd_hook(int bus_num, int addr) {
-  return ((relay_malfunction || safety_fwd_disabled) ? -1 : current_hooks->fwd(bus_num, addr));
+  int bus_fwd = -1;
+  if (!relay_malfunction) {
+    bus_fwd = safety_fwd_disabled ?
+      ((current_hooks->fwd_disabled != NULL) ? current_hooks->fwd_disabled(bus_num, addr) : -1) :
+      current_hooks->fwd(bus_num, addr);
+  }
+  return bus_fwd;
 }
 
 bool get_longitudinal_allowed(void) {

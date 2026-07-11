@@ -5927,7 +5927,7 @@ This may take up to a minute.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;b&gt;Force the panda harness relay into intercept mode for multi-bus CAN testing.&lt;/b&gt; This keeps CAN0 and CAN2 physically separated, keeps panda CAN awake while offroad, and disables panda firmware forwarding while keeping the active car safety mode. This setting persists until turned off.</source>
+        <source>&lt;b&gt;Force the panda harness relay into intercept mode for multi-bus CAN testing.&lt;/b&gt; This keeps CAN0 and CAN2 physically separated, keeps panda CAN awake while offroad, and disables panda firmware forwarding while keeping the active car safety mode. On LS600h HRR, only the bus-1 0x2C6 brake interlock is forwarded to bus 2. This setting persists until turned off.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

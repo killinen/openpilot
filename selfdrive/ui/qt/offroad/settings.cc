@@ -144,7 +144,8 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
   auto force_harness_relay_setting = new ParamControl("ForceHarnessRelayOn", tr("Force Harness Relay On"),
                                           tr("<b>Force the panda harness relay into intercept mode for multi-bus CAN testing.</b> "
                                              "This keeps CAN0 and CAN2 physically separated, keeps panda CAN awake while offroad, "
-                                             "and disables panda firmware forwarding while keeping the active car safety mode. "
+                                             "and disables panda firmware forwarding while keeping the active car safety mode. On LS600h HRR, "
+                                             "only the bus-1 0x2C6 brake interlock is forwarded to bus 2. "
                                              "This setting persists until turned off."),
                                           "../assets/offroad/icon_network.png",
                                           this);

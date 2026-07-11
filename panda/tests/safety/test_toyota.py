@@ -248,6 +248,21 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     self.assertFalse(self._tx(self._hrr_msg(1, 3)))
     self.assertTrue(self._tx(self._hrr_msg(0, 3, rel=False, rele=False)))
 
+  def test_hrr_brake_bridge(self):
+    self.assertEqual(-1, self.safety.safety_fwd_hook(0, 0x224))
+    self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x223))
+    self.assertEqual(2, self.safety.safety_fwd_hook(1, 0x2C6))
+    self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x2C5))
+
+    self.safety.safety_fwd_disabled = True
+    try:
+      self.assertEqual(-1, self.safety.safety_fwd_hook(0, 0x223))
+      self.assertEqual(-1, self.safety.safety_fwd_hook(2, 0x120))
+      self.assertEqual(2, self.safety.safety_fwd_hook(1, 0x2C6))
+      self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x2C5))
+    finally:
+      self.safety.safety_fwd_disabled = False
+
 
 class TestToyotaSafetyAngle(TestToyotaSafetyBase, common.AngleSteeringSafetyTest):
 

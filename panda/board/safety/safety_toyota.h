@@ -32,6 +32,8 @@ const int TOYOTA_LTA_MAX_MEAS_TORQUE = 1500;
 const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
 const int TOYOTA_HRR_MAX_TORQUE_NCM = 400;  // 4 Nm
 
+#define TOYOTA_HRR_BRAKE_ID 0x2C6
+
 // longitudinal limits
 const LongitudinalLimits TOYOTA_LONG_LIMITS = {
   .max_accel = 2000,   // 2.0 m/s2
@@ -617,7 +619,9 @@ static int toyota_fwd_hook(int bus_num, int addr) {
   int bus_fwd = -1;
 
   if (bus_num == 0) {
-    bus_fwd = 2;
+    // On LS600h HRR, 0x224 is a brake/status frame on bus 0 but a radar slot on bus 2.
+    // Do not raw-forward it; the brake interlock is forwarded from bus 1 below.
+    bus_fwd = (toyota_hrr && (addr == 0x224)) ? -1 : 2;
   }
 
   if (bus_num == 2) {
@@ -636,7 +640,19 @@ static int toyota_fwd_hook(int bus_num, int addr) {
     }
   }
 
+  // 0x2C6 is absent from the LS600h radar bus and carries the HRR brake state
+  // on bus 1. Preserve its ID, payload, and DLC when forwarding it to bus 2.
+  if (toyota_hrr && (bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)) {
+    bus_fwd = 2;
+  }
+
   return bus_fwd;
+}
+
+static int toyota_fwd_disabled_hook(int bus_num, int addr) {
+  // ForceHarnessRelayOn keeps the physical buses isolated for LS600h testing.
+  // The sole exception is the brake interlock needed by the external HRR controller.
+  return (toyota_hrr && (bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)) ? 2 : -1;
 }
 
 const safety_hooks toyota_hooks = {
@@ -644,6 +660,7 @@ const safety_hooks toyota_hooks = {
   .rx = toyota_rx_hook,
   .tx = toyota_tx_hook,
   .fwd = toyota_fwd_hook,
+  .fwd_disabled = toyota_fwd_disabled_hook,
   .get_checksum = toyota_get_checksum,
   .compute_checksum = toyota_compute_checksum,
   .get_counter = toyota_get_counter,

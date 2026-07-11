@@ -153,12 +153,14 @@ typedef safety_config (*safety_hook_init)(uint16_t param);
 typedef void (*rx_hook)(const CANPacket_t *to_push);
 typedef bool (*tx_hook)(const CANPacket_t *to_send);
 typedef int (*fwd_hook)(int bus_num, int addr);
+typedef int (*fwd_disabled_hook)(int bus_num, int addr);
 
 typedef struct {
   safety_hook_init init;
   rx_hook rx;
   tx_hook tx;
   fwd_hook fwd;
+  fwd_disabled_hook fwd_disabled;
   get_checksum_t get_checksum;
   compute_checksum_t compute_checksum;
   get_counter_t get_counter;
