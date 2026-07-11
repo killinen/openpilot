@@ -985,10 +985,10 @@ BO_ 640 LS600H_280: 8 XXX
 CM_ BO_ 640 "Observed continuously on bus 1 at approximately 5.49 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
 
 BO_ 710 LS600H_2C6: 3 XXX
- SG_ LS600H_2C6_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ BRAKE_PRESSED : 1|1@1+ (1,0) [0|1] "" XXX
  SG_ LS600H_2C6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_2C6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 710 "Observed continuously on bus 1 at approximately 5.53 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
+CM_ BO_ 710 "Observed on bus 1. BRAKE_PRESSED at byte0 bit1 correlates with LS600h carState.brakePressed in route 9f2573520aa994fd/00000006--0500d7b8dc; confirm with controlled pedal testing.";
 
 BO_ 810 LS600H_32A: 2 XXX
  SG_ LS600H_32A_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
