@@ -34,6 +34,41 @@ def test_detect_local_port_invalid_env_falls_back(monkeypatch: pytest.MonkeyPatc
   assert helper._detect_local_port() == 22
 
 
+def test_wormhole_sender_reports_redacted_process_output(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  class FailedProcess:
+    stdout = iter([
+      "Connecting to rendezvous server...\n",
+      "Wormhole code is: 7-secret-code\n",
+      "relay connection failed: certificate verify failed\n",
+    ])
+    returncode = 1
+
+    def wait(self) -> None:
+      return None
+
+  captured: list[BaseException] = []
+  monkeypatch.setattr(route_sender, "RETRY_LIMIT", 1)
+  monkeypatch.setattr(route_sender.subprocess, "Popen", lambda *args, **kwargs: FailedProcess())
+  monkeypatch.setattr(route_sender, "capture_exception", captured.append)
+  monkeypatch.setattr(route_sender, "log", lambda *args, **kwargs: None)
+  monkeypatch.setattr(route_sender, "send_wormhole_code", lambda *args, **kwargs: False)
+  monkeypatch.setattr(route_sender.time, "sleep", lambda _seconds: None)
+
+  sent, code, _filename = route_sender.send_file_wormhole(
+    "/tmp/test.zip", "device", "drive", requested_files=[]
+  )
+
+  assert sent is False
+  assert code is None
+  assert len(captured) == 1
+  diagnostic = str(captured[0])
+  assert "certificate verify failed" in diagnostic
+  assert "7-secret-code" not in diagnostic
+  assert "Wormhole code is: <redacted>" in diagnostic
+
+
 def test_get_os_info_prefers_agnos_version_file_for_tici(monkeypatch: pytest.MonkeyPatch):
   from openpilot.tools.teletyped import helper
 
