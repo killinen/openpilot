@@ -1439,6 +1439,7 @@ def send_file_wormhole(
     try:
       wormhole_sent = False
       code = None
+      output_tail: list[str] = []
       zip_path_abs = os.path.abspath(zip_path)
       filename = os.path.basename(zip_path_abs)
 
@@ -1450,7 +1451,13 @@ def send_file_wormhole(
       )
 
       for line in proc.stdout:
-        if "Wormhole code is:" in line:
+        output_line = line.strip()
+        if output_line:
+          # Include the sender's diagnostic in Sentry on failure without
+          # exposing a live, one-time wormhole code.
+          output_tail.append(re.sub(r"(Wormhole code is:\s*)\S+", r"\1<redacted>", output_line))
+          output_tail = output_tail[-40:]
+        if code is None and "Wormhole code is:" in line:
           code = line.split("Wormhole code is:")[1].strip()
           log(f"Wormhole code: {code}")
           report_transfer_progress(
@@ -1479,11 +1486,13 @@ def send_file_wormhole(
             wormhole_sent = True
           else:
             log("⚠️ Wormhole registration skipped (missing auth headers)", "WARN")
-          break
 
       proc.wait()
       if proc.returncode != 0:
-        raise RuntimeError(f"wormhole exited with code {proc.returncode}")
+        diagnostics = "\n".join(output_tail) or "(no output captured)"
+        raise RuntimeError(
+          f"wormhole exited with code {proc.returncode}; last sender output:\n{diagnostics}"
+        )
 
       if wormhole_sent:
         log(f"✅ File sent via wormhole: {zip_path}")
