@@ -114,7 +114,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
     "Acura", "Audi", "Buick", "Cadillac", "Chevrolet", "Chrysler",
     "CUPRA", "Dodge", "Ford", "Genesis", "GMC", "Holden", "Honda",
     "Hyundai", "Jeep", "Kia", "Lexus", "Lincoln", "MAN", "Mazda",
-    "Nissan", "Ram", "SEAT", "Škoda", "Subaru", "Tesla", "Toyota",
+    "Motorhome", "Nissan", "Ram", "SEAT", "Škoda", "Subaru", "Tesla", "Toyota",
     "Volkswagen"
   };
 
