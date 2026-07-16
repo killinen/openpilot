@@ -30,7 +30,7 @@ const SteeringLimits TOYOTA_STEERING_LIMITS = {
 const int TOYOTA_LTA_MAX_ANGLE = 1657;  // EPS only accepts up to 94.9461
 const int TOYOTA_LTA_MAX_MEAS_TORQUE = 1500;
 const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
-const int TOYOTA_HRR_MAX_TORQUE_NCM = 400;  // 4 Nm
+const int TOYOTA_HRR_MAX_TORQUE_NCM = 1000;  // 10 Nm
 
 #define TOYOTA_HRR_BRAKE_ID 0x2C6
 #define TOYOTA_HRR_CRUISE_ID 0x124
