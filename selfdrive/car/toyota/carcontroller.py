@@ -141,16 +141,6 @@ class CarController(CarControllerBase):
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     actuators = CC.actuators
 
-    # Temporary LS600h bring-up mode: publish engagement state without sending control CAN.
-    if self.CP.carFingerprint == CAR.LEXUS_LS600h:
-      new_actuators = actuators.as_builder()
-      new_actuators.steer = 0.0
-      new_actuators.steerOutputCan = 0
-      new_actuators.steeringAngleDeg = 0.0
-      new_actuators.accel = 0.0
-      self.frame += 1
-      return new_actuators, []
-
     stopping = actuators.longControlState == LongCtrlState.stopping
     hud_control = CC.hudControl
     pcm_cancel_cmd = CC.cruiseControl.cancel
@@ -407,14 +397,14 @@ class CarController(CarControllerBase):
 
     else:
       # we can spam can to cancel the system even if we are using lat only control
-      if pcm_cancel_cmd:
+      if pcm_cancel_cmd and not self.use_hrr_steering:
         if self.CP.carFingerprint in UNSUPPORTED_DSU_CAR:
           can_sends.append(toyotacan.create_acc_cancel_command(self.packer))
         else:
           can_sends.append(toyotacan.create_accel_command(self.packer, 0, pcm_cancel_cmd, True, False, lead, CS.acc_type, False, self.distance_button, frogpilot_toggles.reverse_cruise_increase))
 
     # *** hud ui ***
-    if self.CP.carFingerprint != CAR.TOYOTA_PRIUS_V:
+    if self.CP.carFingerprint != CAR.TOYOTA_PRIUS_V and not self.use_hrr_steering:
       # ui mesg is at 1Hz but we send asap if:
       # - there is something to display
       # - there is something to stop displaying

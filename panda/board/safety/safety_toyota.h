@@ -33,6 +33,8 @@ const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
 const int TOYOTA_HRR_MAX_TORQUE_NCM = 400;  // 4 Nm
 
 #define TOYOTA_HRR_BRAKE_ID 0x2C6
+#define TOYOTA_HRR_CRUISE_ID 0x124
+#define TOYOTA_HRR_GAS_ID 0x126
 #define TOYOTA_HRR_TORQUE_ID 0x160
 #define TOYOTA_HRR_TORQUE_BUS 2
 
@@ -93,17 +95,17 @@ const CanMsg TOYOTA_INTERCEPTOR_TX_MSGS[] = {
 };
 
 const CanMsg TOYOTA_HRR_TX_MSGS[] = {
-  TOYOTA_COMMON_TX_MSGS
+  {0x750, 0, 8},  // diagnostics and door lock/unlock
   {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
 
 const CanMsg TOYOTA_HRR_LONG_TX_MSGS[] = {
-  TOYOTA_COMMON_LONG_TX_MSGS
+  {0x750, 0, 8},  // diagnostics and door lock/unlock
   {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
 
 const CanMsg TOYOTA_HRR_INTERCEPTOR_TX_MSGS[] = {
-  TOYOTA_COMMON_LONG_TX_MSGS
+  {0x750, 0, 8},  // diagnostics and door lock/unlock
   {0x200, 0, 6},  // gas interceptor
   {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
@@ -145,6 +147,13 @@ RxCheck toyota_lta_interceptor_rx_checks[] = {
 
 RxCheck toyota_secoc_rx_checks[] = {
   TOYOTA_SECOC_RX_CHECKS
+};
+
+RxCheck toyota_hrr_rx_checks[] = {
+  TOYOTA_COMMON_RX_CHECKS(false)
+  {.msg = {{TOYOTA_HRR_CRUISE_ID, 1, 8, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
+  {.msg = {{TOYOTA_HRR_GAS_ID, 1, 8, .check_checksum = false, .frequency = 10U}, { 0 }, { 0 }}},
+  {.msg = {{TOYOTA_HRR_BRAKE_ID, 1, 3, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
 };
 
 // safety param flags
@@ -234,7 +243,7 @@ static uint8_t toyota_get_counter(const CANPacket_t *to_push) {
   if (addr == 0x201) {
     // Signal: COUNTER_PEDAL
     cnt = GET_BYTE(to_push, 4) & 0x0FU;
-  } else if ((addr == TOYOTA_HRR_TORQUE_ID) && (GET_BUS(to_push) == TOYOTA_HRR_TORQUE_BUS)) {
+  } else if ((addr == TOYOTA_HRR_TORQUE_ID) && ((int)GET_BUS(to_push) == TOYOTA_HRR_TORQUE_BUS)) {
     cnt = GET_BYTE(to_push, 5) & 0x0FU;
   } else {
   }
@@ -304,7 +313,7 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
         brake_pressed = GET_BIT(to_push, 3U);  // BRAKE_MODULE.BRAKE_PRESSED (toyota_rav4_prime_generated.dbc)
       }
     } else {
-      if (addr == 0x1D2) {
+      if ((addr == 0x1D2) && !toyota_hrr) {
         bool cruise_engaged = GET_BIT(to_push, 5U);  // PCM_CRUISE.CRUISE_ACTIVE
         pcm_cruise_check(cruise_engaged);
 
@@ -315,7 +324,7 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
       }
 
       // most cars have brake_pressed on 0x226, corolla and rav4 on 0x224
-      if (((addr == 0x224) && toyota_alt_brake) || ((addr == 0x226) && !toyota_alt_brake)) {
+      if (!toyota_hrr && (((addr == 0x224) && toyota_alt_brake) || ((addr == 0x226) && !toyota_alt_brake))) {
         uint8_t bit = (addr == 0x224) ? 5U : 37U;
         brake_pressed = GET_BIT(to_push, bit);
       }
@@ -349,6 +358,22 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
       stock_ecu_detected = true;  // ACC_CONTROL
     }
     generic_rx_checks(stock_ecu_detected);
+  }
+
+  if (toyota_hrr && (GET_BUS(to_push) == 1U)) {
+    int addr = GET_ADDR(to_push);
+
+    if (addr == TOYOTA_HRR_CRUISE_ID) {
+      pcm_cruise_check(GET_BIT(to_push, 4U));  // LS600H_124.CRUISE_ACTIVE
+    }
+    if (addr == TOYOTA_HRR_GAS_ID) {
+      gas_pressed = GET_BIT(to_push, 30U);  // LS600H_126.GAS_PEDAL_PRESSED
+    }
+    if (addr == TOYOTA_HRR_BRAKE_ID) {
+      brake_pressed = GET_BIT(to_push, 1U);  // LS600H_2C6.BRAKE_PRESSED
+    }
+
+    generic_rx_checks(false);
   }
 }
 
@@ -602,7 +627,9 @@ static safety_config toyota_init(uint16_t param) {
     }
   }
 
-  if (enable_gas_interceptor) {
+  if (toyota_hrr) {
+    SET_RX_CHECKS(toyota_hrr_rx_checks, ret);
+  } else if (enable_gas_interceptor) {
     toyota_lta ? SET_RX_CHECKS(toyota_lta_interceptor_rx_checks, ret) : \
                  SET_RX_CHECKS(toyota_lka_interceptor_rx_checks, ret);
   } else if (toyota_secoc) {

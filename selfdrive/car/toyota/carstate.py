@@ -101,7 +101,7 @@ class CarState(CarStateBase):
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_EPS"] * self.eps_torque_scale
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
 
-    ret.brakePressed = cp.vl["BRAKE_MODULE"]["BRAKE_PRESSED"] != 0
+    ret.brakePressed = cp_body.vl["LS600H_2C6"]["BRAKE_PRESSED"] != 0
     ret.gasPressed = cp_body.vl["LS600H_126"]["GAS_PEDAL_PRESSED"] != 0
 
     body_state = cp_body.vl["BODY_CONTROL_STATE"]
@@ -317,7 +317,6 @@ class CarState(CarStateBase):
       messages = [
         ("KINEMATICS", 80),
         ("SPEED", 40),
-        ("BRAKE_MODULE", 40),
         ("STEER_ANGLE_SENSOR", 80),
         ("STEER_TORQUE_SENSOR", 50),
         ("VSC1S07", 20),
@@ -401,6 +400,7 @@ class CarState(CarStateBase):
         ("LS600H_0B2", 10),
         ("LS600H_124", 5),
         ("LS600H_126", 10),
+        ("LS600H_2C6", 5),
         ("GEAR_PACKET", 0.1),
         ("BODY_CONTROL_STATE", 0.5),
       ]

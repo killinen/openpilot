@@ -17,7 +17,7 @@ TOYOTA_COMMON_LONG_TX_MSGS = [[0x283, 0], [0x2E6, 0], [0x2E7, 0], [0x33E, 0], [0
                               [0x411, 0],  # PCS_HUD
                               [0x750, 0]]  # radar diagnostic address
 GAS_INTERCEPTOR_TX_MSGS = [[0x200, 0]]
-HRR_TX_MSGS = [[0x160, 2]]
+HRR_TX_MSGS = [[0x750, 0], [0x160, 2]]
 
 
 class TestToyotaSafetyBase(common.PandaCarSafetyTest, common.LongitudinalAccelSafetyTest):
@@ -191,7 +191,8 @@ class TestToyotaSafetyTorqueGasInterceptor(TestToyotaSafetyGasInterceptorBase, T
 
 class TestToyotaSafetyHrr(TestToyotaSafetyBase):
 
-  TX_MSGS = TOYOTA_COMMON_TX_MSGS + HRR_TX_MSGS
+  TX_MSGS = HRR_TX_MSGS
+  RELAY_MALFUNCTION_ADDRS = {0: (0x2E4,)}
   MAX_HRR_TORQUE = 400
 
   def setUp(self):
@@ -203,11 +204,65 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
   def test_accel_actuation_limits(self, stock_longitudinal=True):
     super().test_accel_actuation_limits(stock_longitudinal=stock_longitudinal)
 
+  def test_block_aeb(self, stock_longitudinal=True):
+    super().test_block_aeb(stock_longitudinal=stock_longitudinal)
+
+  @staticmethod
+  def _pcm_status_msg(enable):
+    dat = bytearray(8)
+    dat[0] = int(enable) << 4
+    return libpanda_py.make_CANPacket(0x124, 1, dat)
+
+  @staticmethod
+  def _user_gas_msg(gas):
+    dat = bytearray(8)
+    dat[3] = int(bool(gas)) << 6
+    return libpanda_py.make_CANPacket(0x126, 1, dat)
+
+  @staticmethod
+  def _user_brake_msg(brake):
+    dat = bytearray(3)
+    dat[0] = int(bool(brake)) << 1
+    return libpanda_py.make_CANPacket(0x2C6, 1, dat)
+
+  def test_rx_hook(self):
+    self.assertTrue(self._rx(self._pcm_status_msg(True)))
+    self.assertTrue(self.safety.get_controls_allowed())
+    self.assertTrue(self._rx(self._pcm_status_msg(False)))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+    self.safety.set_controls_allowed(True)
+    self.assertTrue(self._rx(self._user_gas_msg(False)))
+    self.assertTrue(self._rx(self._user_gas_msg(True)))
+    self.assertTrue(self.safety.get_gas_pressed_prev())
+    self.assertFalse(self.safety.get_controls_allowed())
+
+    self.safety.set_controls_allowed(True)
+    self.assertTrue(self._rx(self._user_brake_msg(False)))
+    self.assertTrue(self._rx(self._user_brake_msg(True)))
+    self.assertTrue(self.safety.get_brake_pressed_prev())
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_fwd_hook(self):
+    for bus in range(3):
+      for addr in self.SCANNED_ADDRS:
+        if bus == 0:
+          fwd_bus = -1 if addr == 0x224 else 2
+        elif bus == 1:
+          fwd_bus = 2 if addr == 0x2C6 else -1
+        elif bus == 2:
+          fwd_bus = -1 if addr in (0x2E4, 0x412, 0x191) else 0
+        self.assertEqual(fwd_bus, self.safety.safety_fwd_hook(bus, addr), f"{addr=:#x} from {bus=} to {fwd_bus=}")
+
   def test_lka_steer_cmd(self):
     for controls_allowed, torque, steer_req in itertools.product([True, False], [-1, 0, 1], [0, 1]):
       self.safety.set_controls_allowed(controls_allowed)
-      should_tx = torque == 0 and steer_req == 0
-      self.assertEqual(should_tx, self._tx(self._torque_cmd_msg(torque, steer_req)))
+      self.assertFalse(self._tx(self._torque_cmd_msg(torque, steer_req)))
+
+  def test_lta_steer_cmd(self):
+    for controls_allowed, steer_req in itertools.product([True, False], [0, 1]):
+      self.safety.set_controls_allowed(controls_allowed)
+      self.assertFalse(self._tx(self._lta_msg(steer_req, steer_req, 0)))
 
   @staticmethod
   def _hrr_crc(payload: bytes) -> int:
