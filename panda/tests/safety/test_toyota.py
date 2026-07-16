@@ -207,6 +207,10 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
   def test_block_aeb(self, stock_longitudinal=True):
     super().test_block_aeb(stock_longitudinal=stock_longitudinal)
 
+  def _speed_msg(self, speed):
+    values = {"SPEED": speed * 3.6}
+    return self.packer.make_can_msg_panda("SPEED", 0, values)
+
   @staticmethod
   def _pcm_status_msg(enable):
     dat = bytearray(8)
@@ -226,6 +230,11 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     return libpanda_py.make_CANPacket(0x2C6, 1, dat)
 
   def test_rx_hook(self):
+    self.assertTrue(self._rx(self._speed_msg(0)))
+    speed_msg = self._speed_msg(0)
+    speed_msg[0].data[7] ^= 0xFF
+    self.assertFalse(self._rx(speed_msg))
+
     self.assertTrue(self._rx(self._pcm_status_msg(True)))
     self.assertTrue(self.safety.get_controls_allowed())
     self.assertTrue(self._rx(self._pcm_status_msg(False)))
@@ -242,6 +251,16 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     self.assertTrue(self._rx(self._user_brake_msg(True)))
     self.assertTrue(self.safety.get_brake_pressed_prev())
     self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_hrr_rx_checks(self):
+    self.assertFalse(self.safety.safety_config_valid())
+
+    for msg in (self._speed_msg(0), self._torque_meas_msg(0), self._pcm_status_msg(False),
+                self._user_gas_msg(False), self._user_brake_msg(False)):
+      self.assertTrue(self._rx(msg))
+
+    self.safety.safety_tick_current_safety_config()
+    self.assertTrue(self.safety.safety_config_valid())
 
   def test_fwd_hook(self):
     for bus in range(3):

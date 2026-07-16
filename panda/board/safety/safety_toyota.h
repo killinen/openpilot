@@ -150,7 +150,10 @@ RxCheck toyota_secoc_rx_checks[] = {
 };
 
 RxCheck toyota_hrr_rx_checks[] = {
-  TOYOTA_COMMON_RX_CHECKS(false)
+  // LS600h does not send the standard Toyota 0xAA wheel-speed frame. Use its
+  // checked vehicle-speed frame instead, while retaining the common EPS check.
+  {.msg = {{0xB4, 0, 8, .check_checksum = true, .frequency = 40U}, { 0 }, { 0 }}},
+  {.msg = {{0x260, 0, 8, .check_checksum = true, .quality_flag = false, .frequency = 50U}, { 0 }, { 0 }}},
   {.msg = {{TOYOTA_HRR_CRUISE_ID, 1, 8, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
   {.msg = {{TOYOTA_HRR_GAS_ID, 1, 8, .check_checksum = false, .frequency = 10U}, { 0 }, { 0 }}},
   {.msg = {{TOYOTA_HRR_BRAKE_ID, 1, 3, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
@@ -342,6 +345,14 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
       vehicle_moving = speed != 0;
 
       UPDATE_VEHICLE_SPEED(speed / 4.0 * 0.01 / 3.6);
+    }
+
+    // LS600h has no 0xAA wheel-speed frame. SPEED reports unsigned vehicle
+    // speed in 0.01 km/h at bytes 5..6 and carries a Toyota checksum.
+    if (toyota_hrr && (addr == 0xB4)) {
+      int speed = (GET_BYTE(to_push, 5) << 8U) | GET_BYTE(to_push, 6);
+      vehicle_moving = speed != 0;
+      UPDATE_VEHICLE_SPEED(speed * 0.01 / 3.6);
     }
 
     // sample gas interceptor
