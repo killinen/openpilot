@@ -24,7 +24,7 @@ and restores `SAFETY_SILENT` during shutdown.
 Connect a Panda, choose the CAN bus with `--bus`, and start the tool from the openpilot checkout:
 
 ```bash
-python3 selfdrive/debug/hrr_can_test.py --bus 1
+python3 selfdrive/debug/hrr_can_test.py --bus 2
 ```
 
 If `--bus` is omitted, the script prompts for bus `0`, `1`, or `2`. The initial state is
@@ -45,7 +45,7 @@ means the script has received an HRR status frame within the last `0.5 s`; `WAIT
 `OFFLINE` if none arrive. It also displays the reported relay states and angle/torque feedback:
 
 ```text
-RX device=ONLINE age=0.012s bus=1 REL=ON RELE=ON
+RX device=ONLINE age=0.012s bus=2 REL=ON RELE=ON
    SVEC_Delta=+1.0deg Emulated_Torque=+250Ncm
    OU_Angle=92.4deg IN_Angle=91.4deg
 ```
@@ -69,14 +69,14 @@ Use `--dry-run` to exercise the prompt without opening a Panda or transmitting C
 `--self-test` to verify the known frame encodings and exit:
 
 ```bash
-python3 selfdrive/debug/hrr_can_test.py --bus 1 --dry-run
+python3 selfdrive/debug/hrr_can_test.py --bus 2 --dry-run
 python3 selfdrive/debug/hrr_can_test.py --self-test
 ```
 
 The streaming rate can be changed with `--rate-hz`:
 
 ```bash
-python3 selfdrive/debug/hrr_can_test.py --bus 1 --rate-hz 50
+python3 selfdrive/debug/hrr_can_test.py --bus 2 --rate-hz 50
 ```
 
 Use `--force-harness-relay` to start with the Panda harness relay forced into intercept mode. Like
@@ -84,7 +84,7 @@ the UI's **Force Harness Relay On** option, this keeps CAN0 and CAN2 physically 
 disables Panda firmware forwarding while active:
 
 ```bash
-python3 selfdrive/debug/hrr_can_test.py --bus 1 --force-harness-relay
+python3 selfdrive/debug/hrr_can_test.py --bus 2 --force-harness-relay
 ```
 
 Pressing Ctrl-C, sending EOF, or entering `q` performs a safe shutdown: zero torque, relays off,

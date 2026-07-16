@@ -17,7 +17,7 @@ TOYOTA_COMMON_LONG_TX_MSGS = [[0x283, 0], [0x2E6, 0], [0x2E7, 0], [0x33E, 0], [0
                               [0x411, 0],  # PCS_HUD
                               [0x750, 0]]  # radar diagnostic address
 GAS_INTERCEPTOR_TX_MSGS = [[0x200, 0]]
-HRR_TX_MSGS = [[0x232, 1]]
+HRR_TX_MSGS = [[0x160, 2]]
 
 
 class TestToyotaSafetyBase(common.PandaCarSafetyTest, common.LongitudinalAccelSafetyTest):
@@ -212,7 +212,7 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
   @staticmethod
   def _hrr_crc(payload: bytes) -> int:
     crc = 0x00
-    for byte in (0x32, 0x02, *payload):
+    for byte in (0x60, 0x01, *payload):
       crc ^= byte
       for _ in range(8):
         if crc & 0x80:
@@ -229,7 +229,7 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     checksum = self._hrr_crc(payload)
     if not valid_checksum:
       checksum ^= 0xFF
-    return libpanda_py.make_CANPacket(0x232, 1, payload + bytes([checksum]))
+    return libpanda_py.make_CANPacket(0x160, 2, payload + bytes([checksum]))
 
   def test_hrr_safety_check(self):
     self.safety.set_controls_allowed(True)

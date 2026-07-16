@@ -5,8 +5,8 @@ from openpilot.selfdrive.car import make_can_msg
 
 SteerControlType = car.CarParams.SteerControlType
 
-HRR_TORQUE_ADDR = 0x232
-HRR_CAN_BUS = 1
+HRR_TORQUE_ADDR = 0x160
+HRR_CAN_BUS = 2
 HRR_LIMIT_FLAG_STEER_DELTA_UP = 0x01
 HRR_LIMIT_FLAG_STEER_DELTA_DOWN = 0x02
 HRR_LIMIT_FLAG_STEER_MAX = 0x04

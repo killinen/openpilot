@@ -33,6 +33,8 @@ const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
 const int TOYOTA_HRR_MAX_TORQUE_NCM = 400;  // 4 Nm
 
 #define TOYOTA_HRR_BRAKE_ID 0x2C6
+#define TOYOTA_HRR_TORQUE_ID 0x160
+#define TOYOTA_HRR_TORQUE_BUS 2
 
 // longitudinal limits
 const LongitudinalLimits TOYOTA_LONG_LIMITS = {
@@ -92,18 +94,18 @@ const CanMsg TOYOTA_INTERCEPTOR_TX_MSGS[] = {
 
 const CanMsg TOYOTA_HRR_TX_MSGS[] = {
   TOYOTA_COMMON_TX_MSGS
-  {0x232, 1, 7},  // HRR_TorqueCmd
+  {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
 
 const CanMsg TOYOTA_HRR_LONG_TX_MSGS[] = {
   TOYOTA_COMMON_LONG_TX_MSGS
-  {0x232, 1, 7},  // HRR_TorqueCmd
+  {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
 
 const CanMsg TOYOTA_HRR_INTERCEPTOR_TX_MSGS[] = {
   TOYOTA_COMMON_LONG_TX_MSGS
   {0x200, 0, 6},  // gas interceptor
-  {0x232, 1, 7},  // HRR_TorqueCmd
+  {TOYOTA_HRR_TORQUE_ID, TOYOTA_HRR_TORQUE_BUS, 7},  // CANCTR_TorqueCmd
 };
 
 #define TOYOTA_COMMON_RX_CHECKS(lta)                                                                        \
@@ -232,7 +234,7 @@ static uint8_t toyota_get_counter(const CANPacket_t *to_push) {
   if (addr == 0x201) {
     // Signal: COUNTER_PEDAL
     cnt = GET_BYTE(to_push, 4) & 0x0FU;
-  } else if (addr == 0x232) {
+  } else if ((addr == TOYOTA_HRR_TORQUE_ID) && (GET_BUS(to_push) == TOYOTA_HRR_TORQUE_BUS)) {
     cnt = GET_BYTE(to_push, 5) & 0x0FU;
   } else {
   }
@@ -497,10 +499,10 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
     }
   }
 
-  // HRR desired EPS output torque command on 0x232:
+  // HRR desired EPS output torque command on bus 2, 0x160:
   // signed low-12-bit Ncm value in bytes0..1, raw12 ones-complement in bytes2..3, relay flags in byte 4,
   // 4-bit rolling counter in byte 5, CRC-8 in byte 6.
-  if (addr == 0x232) {
+  if ((addr == TOYOTA_HRR_TORQUE_ID) && (bus == TOYOTA_HRR_TORQUE_BUS)) {
     const uint16_t torque_raw12 = toyota_decode_hrr_raw12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
     const uint16_t torque_complement_raw12 = toyota_decode_hrr_raw12_low_word(GET_BYTE(to_send, 2), GET_BYTE(to_send, 3));
     const int16_t torque = toyota_decode_hrr_signed12_low_word(GET_BYTE(to_send, 0), GET_BYTE(to_send, 1));
@@ -510,7 +512,7 @@ static bool toyota_tx_hook(const CANPacket_t *to_send) {
     const uint8_t counter = GET_BYTE(to_send, 5) & 0xFU;
     const uint8_t checksum = GET_BYTE(to_send, 6);
 
-    bool violation = !toyota_hrr || (bus != 1);
+    bool violation = !toyota_hrr;
     const bool complement_valid = ((torque_raw12 ^ 0x0FFFU) == torque_complement_raw12);
     const bool neutral = (torque == 0) && complement_valid && !rel_cmd && !rele_cmd;
     const bool counter_valid = (((toyota_counter_hrr_last + 1U) & 0xFU) == counter);
