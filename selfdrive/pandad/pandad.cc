@@ -51,8 +51,9 @@ ExitHandler do_exit;
 
 enum class IgnitionOverride : int {
   AUTO = 0,
-  ON = 1,
+  CAN_ONLY = 1,
   OFF = 2,
+  FORCED_ON = 3,
 };
 
 constexpr std::array<int, PANDA_CAN_CNT> kDefaultCanSpeeds = {500, 500, 500};
@@ -318,7 +319,18 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
 
     switch (ignition_override) {
-      case IgnitionOverride::ON:
+      case IgnitionOverride::AUTO:
+        // Physical IGN is not reliable for this setup. Determine ignition from
+        // the Panda's CAN-based detection only.
+        health.ignition_line_pkt = 0;
+        break;
+      case IgnitionOverride::CAN_ONLY:
+        // Keep CAN ignition reporting, but ignore the physical IGN line.
+        // This only changes the host-reported health packet; harness status,
+        // including orientation detection, remains reported by the Panda.
+        health.ignition_line_pkt = 0;
+        break;
+      case IgnitionOverride::FORCED_ON:
         health.ignition_line_pkt = 1;
         health.ignition_can_pkt = 0;
         break;
@@ -326,7 +338,6 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
         health.ignition_line_pkt = 0;
         health.ignition_can_pkt = 0;
         break;
-      case IgnitionOverride::AUTO:
       default:
         break;
     }
@@ -489,9 +500,10 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       send_peripheral_state(&pm, peripheral_panda);
     }
 
-    const int ignition_override_value = spoofing_started ? static_cast<int>(IgnitionOverride::ON) : params.getInt("IgnitionOverride");
-    const IgnitionOverride ignition_override =
-      (ignition_override_value == static_cast<int>(IgnitionOverride::ON)) ? IgnitionOverride::ON :
+    const int ignition_override_value = params.getInt("IgnitionOverride");
+    const IgnitionOverride ignition_override = spoofing_started ? IgnitionOverride::FORCED_ON :
+      (ignition_override_value == static_cast<int>(IgnitionOverride::FORCED_ON)) ? IgnitionOverride::FORCED_ON :
+      (ignition_override_value == static_cast<int>(IgnitionOverride::CAN_ONLY)) ? IgnitionOverride::CAN_ONLY :
       (ignition_override_value == static_cast<int>(IgnitionOverride::OFF)) ? IgnitionOverride::OFF :
       IgnitionOverride::AUTO;
 

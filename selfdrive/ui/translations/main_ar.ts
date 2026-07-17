@@ -5874,10 +5874,6 @@ This may take up to a minute.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>&lt;b&gt;Override panda ignition reporting.&lt;/b&gt; AUTO uses the real panda ignition signals. IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. This is intended for debugging or non-standard wiring setups and resets on manager restart.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>10</source>
         <translation type="obsolete">5G {10?}</translation>
     </message>
@@ -5931,6 +5927,10 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>&lt;b&gt;Set the panda CAN2 nominal bitrate.&lt;/b&gt; This applies directly to the panda bus configuration.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Override panda ignition reporting.&lt;/b&gt; AUTO uses CAN-based ignition detection and ignores the physical IGN signal. IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. This is intended for debugging or non-standard wiring setups and resets on manager restart.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

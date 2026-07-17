@@ -103,12 +103,15 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
                                           "../assets/offroad/icon_speed_limit.png",
                                           longi_button_texts);
   std::vector<QString> ignition_override_texts{tr("AUTO"), tr("IGN ON"), tr("IGN OFF")};
+  // Keep IGN OFF at its existing value (2); value 1 remains a legacy CAN-only setting.
+  const std::vector<int> ignition_override_values{0, 3, 2};
   auto ignition_override_setting = new ButtonParamControl("IgnitionOverride", tr("Ignition Override"),
-                                          tr("<b>Override panda ignition reporting.</b> AUTO uses the real panda ignition signals. "
-                                             "IGN ON forces openpilot to treat ignition as on. IGN OFF forces openpilot to treat ignition as off. "
+                                          tr("<b>Override panda ignition reporting.</b> AUTO uses CAN-based ignition detection and ignores the physical IGN signal. "
+                                             "IGN ON forces openpilot to treat ignition as on. "
+                                             "IGN OFF forces openpilot to treat ignition as off. "
                                              "This is intended for debugging or non-standard wiring setups and resets on manager restart."),
                                           "../assets/offroad/icon_warning.png",
-                                          ignition_override_texts, 180);
+                                          ignition_override_texts, ignition_override_values, 180);
   const std::vector<QString> can_speed_texts{tr("100"), tr("125"), tr("250"), tr("500"), tr("1000")};
   const std::vector<int> can_speed_values{100, 125, 250, 500, 1000};
   for (int bus = 0; bus < 3; ++bus) {

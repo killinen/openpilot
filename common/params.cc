@@ -145,7 +145,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"HardwareSerial", PERSISTENT},
     {"HasAcceptedTerms", PERSISTENT},
     {"IMEI", PERSISTENT},
-    {"IgnitionOverride", CLEAR_ON_MANAGER_START},
+    {"IgnitionOverride", PERSISTENT},
     {"InstallDate", PERSISTENT},
     {"IsDriverViewEnabled", CLEAR_ON_ONROAD_TRANSITION},
     {"IsEngaged", PERSISTENT},
