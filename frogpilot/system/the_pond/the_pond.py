@@ -60,8 +60,9 @@ OPENPILOT_UI_TOGGLE_DEFINITIONS = [
     "value_map": {
       "": ("AUTO", "default"),
       "0": ("AUTO", "default"),
-      "1": ("IGN ON", "enabled"),
+      "1": ("AUTO", "default"),
       "2": ("IGN OFF", "disabled"),
+      "3": ("IGN ON", "enabled"),
     },
   },
   {

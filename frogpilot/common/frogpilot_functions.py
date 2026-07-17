@@ -151,8 +151,6 @@ def convert_params(params_cache):
   print("Param conversion completed")
 
 def frogpilot_boot_functions(build_metadata, params_cache):
-  params.put_int("IgnitionOverride", 2)
-
   if params.get_bool("HasAcceptedTerms"):
     params_cache.clear_all()
 
