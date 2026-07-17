@@ -325,6 +325,8 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
   def test_hrr_brake_bridge(self):
     self.assertEqual(-1, self.safety.safety_fwd_hook(0, 0x224))
     self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x223))
+    self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x260))
+    self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x260))
     self.assertEqual(2, self.safety.safety_fwd_hook(1, 0x2C6))
     self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x2C5))
 
@@ -332,6 +334,8 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     try:
       self.assertEqual(-1, self.safety.safety_fwd_hook(0, 0x223))
       self.assertEqual(-1, self.safety.safety_fwd_hook(2, 0x120))
+      self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x260))
+      self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x260))
       self.assertEqual(2, self.safety.safety_fwd_hook(1, 0x2C6))
       self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x2C5))
     finally:

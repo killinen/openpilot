@@ -33,6 +33,7 @@ const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
 const int TOYOTA_HRR_MAX_TORQUE_NCM = 1000;  // 10 Nm
 
 #define TOYOTA_HRR_BRAKE_ID 0x2C6
+#define TOYOTA_HRR_EPS_TORQUE_ID 0x260
 #define TOYOTA_HRR_CRUISE_ID 0x124
 #define TOYOTA_HRR_GAS_ID 0x126
 #define TOYOTA_HRR_TORQUE_ID 0x160
@@ -691,8 +692,10 @@ static int toyota_fwd_hook(int bus_num, int addr) {
 
 static int toyota_fwd_disabled_hook(int bus_num, int addr) {
   // ForceHarnessRelayOn keeps the physical buses isolated for LS600h testing.
-  // The sole exception is the brake interlock needed by the external HRR controller.
-  return (toyota_hrr && (bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)) ? 2 : -1;
+  // The HRR brake interlock and EPS torque frame remain bridged while the
+  // physical buses are isolated.
+  return (toyota_hrr && (((bus_num == 0) && (addr == TOYOTA_HRR_EPS_TORQUE_ID)) ||
+                         ((bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)))) ? 2 : -1;
 }
 
 const safety_hooks toyota_hooks = {
