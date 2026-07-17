@@ -1373,10 +1373,12 @@ BO_ 1588 HRR_StateStatus: 8 STM32G474_HRR
  SG_ SVEC_Guard_Enabled : 11|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ SVEC_Guard_Angles_Valid : 12|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ CANCTR_Enabled : 13|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ Angle_Error : 16|16@1+ (0.1,0) [0|90] "deg" CAN_Master
+ SG_ Torque_Frame_Fresh : 14|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Torque_Interlock : 15|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Angle_Delta : 16|16@1- (0.1,0) [-90|90] "deg" CAN_Master
  SG_ Brake_Frame_Age : 32|16@1+ (1,0) [0|65534] "ms" CAN_Master
  SG_ Torque_Frame_Age : 48|16@1+ (1,0) [0|65534] "ms" CAN_Master
-CM_ BO_ 1588 "HRR safety and measurement state. Brake_Frame_Age is 65535 when no brake frame has been seen; Torque_Frame_Age is 65535 when no valid torque frame has been accepted. Angle_Error is the shortest modulo-180 difference between OU_Angle and IN_Angle and is valid only when both angle-valid bits are set.";
+CM_ BO_ 1588 "HRR safety and measurement state. Brake_Frame_Age is 65535 when no brake frame has been seen; Torque_Frame_Age is 65535 when no valid torque frame has been accepted. Angle_Delta is the signed shortest modulo-180 OU_Angle minus IN_Angle difference and is valid only when both angle-valid bits are set.";
 
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;

@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 TORQUE_ADDR = 0x160
 BRAKE_ADDR = 0x2C6
+STEER_TORQUE_SENSOR_ADDR = 0x260
+STEER_TORQUE_SENSOR_BUS = 0
 SVEC_CONFIG_ADDR = 0x603
 ADC_STATUS_ADDR = 0x630
 IO_STATUS_ADDR = 0x631
@@ -29,10 +31,13 @@ DEFAULT_RATE_HZ = 100.0
 DEVICE_ONLINE_TIMEOUT_S = 0.5
 MAX_TORQUE_NCM = 1000
 MAX_DLY_SAMPLES = 127
+ANGLE_OFFSET_SCALE = 10
 
 FLAG_REL = 1 << 0
 FLAG_RELE = 1 << 1
 SVEC_CONFIG_CMD_DLY = 1
+SVEC_CONFIG_CMD_PHASEMATCH = 2
+SVEC_CONFIG_CMD_ANGLE_OFFSET = 3
 SVEC_CONFIG_KEY = 0xA5
 
 # Payloads observed on LS600h bus 1 for the inferred BRAKE_PRESSED state.
@@ -65,13 +70,22 @@ def build_brake_frame(brake_pressed: bool) -> bytes:
   return BRAKE_PRESSED_PAYLOAD if brake_pressed else BRAKE_RELEASED_PAYLOAD
 
 
+def build_svec_config_frame(command: int, value: int, *, signed: bool = False) -> bytes:
+  """Build a keyed, one-shot persistent SVEC configuration command."""
+  payload = bytes((command,)) + value.to_bytes(4, "little", signed=signed) + bytes((SVEC_CONFIG_KEY, 0))
+  checksum = crc8_poly07(bytes((SVEC_CONFIG_ADDR & 0xFF, SVEC_CONFIG_ADDR >> 8)) + payload)
+  return payload + bytes((checksum,))
+
+
 def build_dly_frame(samples: int) -> bytes:
   if not 0 <= samples <= MAX_DLY_SAMPLES:
     raise ValueError(f"DLY must be within 0..{MAX_DLY_SAMPLES} samples")
 
-  payload = bytes((SVEC_CONFIG_CMD_DLY,)) + samples.to_bytes(4, "little") + bytes((SVEC_CONFIG_KEY, 0))
-  checksum = crc8_poly07(bytes((SVEC_CONFIG_ADDR & 0xFF, SVEC_CONFIG_ADDR >> 8)) + payload)
-  return payload + bytes((checksum,))
+  return build_svec_config_frame(SVEC_CONFIG_CMD_DLY, samples)
+
+
+def build_angle_offset_frame(offset_tenths_deg: int) -> bytes:
+  return build_svec_config_frame(SVEC_CONFIG_CMD_ANGLE_OFFSET, offset_tenths_deg, signed=True)
 
 
 def decode_io_status(payload: bytes) -> tuple[bool, bool]:
@@ -88,6 +102,23 @@ def decode_angle_status(payload: bytes) -> tuple[float, int, float, float]:
   return svec_delta_raw * 0.1, emulated_torque, ou_angle_raw * 0.1, in_angle_raw * 0.1
 
 
+def decode_state_status(payload: bytes) -> float:
+  if len(payload) < 4:
+    raise ValueError(f"expected 4 bytes for HRR_StateStatus, got {len(payload)}")
+  return int.from_bytes(payload[2:4], "little", signed=True) * 0.1
+
+
+def decode_steer_torque_sensor(payload: bytes) -> tuple[int, int]:
+  """Decode driver and EPS torque from Toyota/Lexus STEER_TORQUE_SENSOR (0x260)."""
+  if len(payload) < 7:
+    raise ValueError(f"expected at least 7 bytes for STEER_TORQUE_SENSOR, got {len(payload)}")
+  # These signed 16-bit Motorola fields start at DBC bits 15 and 47. In byte
+  # order they occupy bytes 1..2 and 5..6 respectively; bytes 0 and 4 carry
+  # preceding fields, so treating the fields as bytes 0..1 and 4..5 yields
+  # values such as -30465 and +255 from otherwise sane torque feedback.
+  return int.from_bytes(payload[1:3], "big", signed=True), int.from_bytes(payload[5:7], "big", signed=True)
+
+
 class HrrDeviceStatus:
   def __init__(self) -> None:
     self.lock = threading.Lock()
@@ -99,6 +130,7 @@ class HrrDeviceStatus:
     self.emulated_torque: int | None = None
     self.ou_angle: float | None = None
     self.in_angle: float | None = None
+    self.angle_delta: float | None = None
 
   def update(self, address: int, payload: bytes) -> bool:
     if address not in HRR_STATUS_ADDRS:
@@ -106,11 +138,14 @@ class HrrDeviceStatus:
 
     io_status = None
     angle_status = None
+    angle_delta = None
     try:
       if address == IO_STATUS_ADDR:
         io_status = decode_io_status(payload)
       elif address == ANGLE_STATUS_ADDR:
         angle_status = decode_angle_status(payload)
+      elif address == STATE_STATUS_ADDR:
+        angle_delta = decode_state_status(payload)
     except ValueError:
       # A recognized frame still proves that the HRR is transmitting. Leave the
       # last successfully decoded values in place when its DLC is unexpected.
@@ -122,6 +157,8 @@ class HrrDeviceStatus:
         self.rel, self.rele = io_status
       if angle_status is not None:
         self.svec_delta, self.emulated_torque, self.ou_angle, self.in_angle = angle_status
+      if angle_delta is not None:
+        self.angle_delta = angle_delta
     return True
 
   def format(self, bus: int, dry_run: bool) -> str:
@@ -134,6 +171,7 @@ class HrrDeviceStatus:
       emulated_torque = self.emulated_torque
       ou_angle = self.ou_angle
       in_angle = self.in_angle
+      angle_delta = self.angle_delta
       started_at = self.started_at
 
     if dry_run:
@@ -153,11 +191,39 @@ class HrrDeviceStatus:
     torque_text = "-----" if emulated_torque is None else f"{emulated_torque:+d}"
     ou_text = "---.-" if ou_angle is None else f"{ou_angle:.1f}"
     in_text = "---.-" if in_angle is None else f"{in_angle:.1f}"
+    angle_delta_text = "---.-" if angle_delta is None else f"{angle_delta:+.1f}"
     return "\n".join((
       f"RX device={device} age={age} bus={bus} REL={rel_text} RELE={rele_text}",
       f"   SVEC_Delta={delta_text}deg Emulated_Torque={torque_text}Ncm",
       f"   OU_Angle={ou_text}deg IN_Angle={in_text}deg",
+      f"   Angle_Delta={angle_delta_text}deg",
     ))
+
+
+class SteeringTorqueStatus:
+  def __init__(self) -> None:
+    self.lock = threading.Lock()
+    self.driver_torque: int | None = None
+    self.eps_torque: int | None = None
+
+  def update(self, payload: bytes) -> bool:
+    try:
+      driver_torque, eps_torque = decode_steer_torque_sensor(payload)
+    except ValueError:
+      return False
+
+    with self.lock:
+      self.driver_torque = driver_torque
+      self.eps_torque = eps_torque
+    return True
+
+  def format(self) -> str:
+    with self.lock:
+      driver_torque = self.driver_torque
+      eps_torque = self.eps_torque
+    driver_text = "-----" if driver_torque is None else f"{driver_torque:+d}"
+    eps_text = "-----" if eps_torque is None else f"{eps_torque:+d}"
+    return f"CAN0 0x{STEER_TORQUE_SENSOR_ADDR:03X} Driver_Torque={driver_text} EPS_Torque={eps_text}"
 
 
 class StatusDisplay:
@@ -197,6 +263,7 @@ class CommandState:
     self.brake_pressed = False
     self.counter = 0
     self.dly_samples: int | None = None
+    self.angle_offset_tenths_deg: int | None = None
 
   def next_frames(self) -> tuple[bytes, bytes]:
     with self.lock:
@@ -227,9 +294,13 @@ class CommandState:
     with self.lock:
       self.dly_samples = samples
 
-  def snapshot(self) -> tuple[bool, int, bool, int | None]:
+  def set_angle_offset(self, offset_tenths_deg: int) -> None:
     with self.lock:
-      return self.engaged, self.torque_ncm, self.brake_pressed, self.dly_samples
+      self.angle_offset_tenths_deg = offset_tenths_deg
+
+  def snapshot(self) -> tuple[bool, int, bool, int | None, int | None]:
+    with self.lock:
+      return self.engaged, self.torque_ncm, self.brake_pressed, self.dly_samples, self.angle_offset_tenths_deg
 
 
 class HrrCanTest:
@@ -240,12 +311,19 @@ class HrrCanTest:
     self.dry_run = dry_run
     self.state = CommandState()
     self.device_status = HrrDeviceStatus()
-    self.status_display = StatusDisplay(self.device_status.format(bus, dry_run))
+    self.steering_torque_status = SteeringTorqueStatus()
+    self.status_display = StatusDisplay(self.format_status())
     self.stop_event = threading.Event()
     self.stream_thread: threading.Thread | None = None
     self.monitor_thread: threading.Thread | None = None
     self.harness_relay_forced = False
     self.harness_relay_controlled = False
+
+  def format_status(self) -> str:
+    return "\n".join((
+      self.device_status.format(self.bus, self.dry_run),
+      self.steering_torque_status.format(),
+    ))
 
   def send(self, address: int, payload: bytes) -> None:
     if self.dry_run:
@@ -294,10 +372,12 @@ class HrrCanTest:
       for address, _, payload, rx_bus in self.panda.can_recv():
         if rx_bus == self.bus:
           self.device_status.update(address, payload)
+        if rx_bus == STEER_TORQUE_SENSOR_BUS and address == STEER_TORQUE_SENSOR_ADDR:
+          self.steering_torque_status.update(payload)
 
       now = time.monotonic()
       if now >= next_display:
-        self.status_display.update(self.device_status.format(self.bus, self.dry_run))
+        self.status_display.update(self.format_status())
         next_display = now + 0.1
       self.stop_event.wait(0.01)
 
@@ -316,6 +396,16 @@ class HrrCanTest:
     print(f"DLY={samples} samples sent on 0x{SVEC_CONFIG_ADDR:03X}: {payload.hex(' ')}")
     print("DLY is persisted by the HRR firmware.")
 
+  def send_angle_offset(self, offset_tenths_deg: int) -> None:
+    payload = build_angle_offset_frame(offset_tenths_deg)
+    self.send(SVEC_CONFIG_ADDR, payload)
+    self.state.set_angle_offset(offset_tenths_deg)
+    print(
+      f"ANGLE_OFFSET={offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg sent on "
+      + f"0x{SVEC_CONFIG_ADDR:03X}: {payload.hex(' ')}"
+    )
+    print("ANGLE_OFFSET is persisted by the HRR firmware.")
+
   def safe_shutdown(self) -> None:
     self.state.set_engaged(False)
     self.state.set_brake(True)
@@ -329,11 +419,18 @@ class HrrCanTest:
       self.monitor_thread.join(timeout=1.0)
 
   def print_state(self) -> None:
-    engaged, torque_ncm, brake_pressed, dly_samples = self.state.snapshot()
+    engaged, torque_ncm, brake_pressed, dly_samples, angle_offset_tenths_deg = self.state.snapshot()
+    # The HRR's periodic status frames do not include persisted configuration.
+    # Keep track of commands sent by this process, but do not imply that an
+    # unknown value means the firmware is using a default or has not been set.
+    dly_text = "unknown (not reported)" if dly_samples is None else f"{dly_samples} samples"
+    angle_offset_text = ("unknown (not reported)" if angle_offset_tenths_deg is None
+                         else f"{angle_offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg")
     print(" ".join((
       f"TX bus={self.bus} engaged={engaged} REL_Cmd={int(engaged)} RELE_Cmd={int(engaged)}",
       f"torque={torque_ncm:+d} Ncm brake_pressed={brake_pressed}",
-      f"DLY={dly_samples if dly_samples is not None else 'unchanged'} harness_relay={'FORCED' if self.harness_relay_forced else 'AUTO'}",
+      f"DLY={dly_text} ANGLE_OFFSET={angle_offset_text}",
+      f"harness_relay={'FORCED' if self.harness_relay_forced else 'AUTO'}",
     )))
 
 
@@ -352,6 +449,7 @@ def print_help() -> None:
   print("  x                       disengage: torque 0, REL and RELE off")
   print(f"  <Ncm>                   set torque directly, range +/-{MAX_TORQUE_NCM}")
   print(f"  d <samples>             set persistent SVEC DLY, range 0..{MAX_DLY_SAMPLES}")
+  print("  a <tenths-deg>          set persistent SVEC ANGLE_OFFSET in tenths of a degree")
   print("  b <0|1>                 BRAKE_PRESSED: 0=released, 1=pressed")
   print("  r <0|1>                 force harness relay and disable forwarding")
   print("  s                       show current state")
@@ -372,19 +470,29 @@ def choose_bus(configured_bus: int | None) -> int:
 def run_self_test() -> None:
   assert build_torque_frame(0, False, 0).hex() == "0000ff0f0000fb"
   assert build_dly_frame(27).hex() == "011b000000a500cd"
+  assert build_angle_offset_frame(-45).hex() == "03d3ffffffa50062"
   assert build_brake_frame(False) == bytes.fromhex("99 20 84")
   assert build_brake_frame(True)[0] & 0x02
   assert decode_io_status(bytes.fromhex("00 08 ff 07 03")) == (True, True)
   angle_payload = struct.pack("<hhHH", -40, -250, 1234, 567)
   assert decode_angle_status(angle_payload) == (-4.0, -250, 123.4, 56.7)
+  assert decode_state_status(bytes.fromhex("00 00 d3 ff 00 00 00 00")) == -4.5
+  assert decode_steer_torque_sensor(bytes.fromhex("00 ff 06 00 00 fe d4 00")) == (-250, -300)
 
   device_status = HrrDeviceStatus()
   assert device_status.update(IO_STATUS_ADDR, bytes.fromhex("00 08 ff 07 03"))
   assert device_status.update(ANGLE_STATUS_ADDR, angle_payload)
+  assert device_status.update(STATE_STATUS_ADDR, bytes.fromhex("00 00 2d 00 00 00 00 00"))
   status_text = device_status.format(1, False)
   for expected in ("device=ONLINE", "REL=ON", "RELE=ON", "SVEC_Delta=-4.0deg",
                    "Emulated_Torque=-250Ncm", "OU_Angle=123.4deg", "IN_Angle=56.7deg"):
     assert expected in status_text
+  assert "Angle_Delta=+4.5deg" in status_text
+
+  steering_torque_status = SteeringTorqueStatus()
+  assert steering_torque_status.update(bytes.fromhex("00 00 fa 00 00 ff 06 00"))
+  assert "Driver_Torque=+250" in steering_torque_status.format()
+  assert "EPS_Torque=-250" in steering_torque_status.format()
 
   class FakePanda:
     def __init__(self) -> None:
@@ -439,6 +547,8 @@ def run_interactive(test: HrrCanTest) -> None:
         test.print_state()
       elif command in {"d", "dly"} and len(tokens) == 2:
         test.send_dly(int(tokens[1], 0))
+      elif command in {"a", "angle_offset"} and len(tokens) == 2:
+        test.send_angle_offset(int(tokens[1], 0))
       elif command in {"b", "brake", "brake_pressed"} and len(tokens) == 2:
         test.state.set_brake(parse_on_off(tokens[1]))
         test.print_state()

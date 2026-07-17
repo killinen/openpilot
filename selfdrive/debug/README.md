@@ -33,7 +33,10 @@ disengaged with zero torque and the brake released. At the `hrr>` prompt:
 - `e` engages by enabling both `REL` and `RELE`
 - `x` disengages, sets torque to zero, and disables both relays
 - `<Ncm>` sets torque directly in the range `-1000..1000` Ncm
-- `d <samples>` sets and persists SVEC DLY in the range `0..127`
+- `d <samples>` sets and persists SVEC DLY in the range `0..127`; subsequent `s` output shows
+  that value for the current session
+- `a <tenths-deg>` sets and persists SVEC `ANGLE_OFFSET` in tenths of a degree; for example,
+  `a -45` sets `-4.5 deg`
 - `b 0` or `b 1` sets `BRAKE_PRESSED` to released or pressed
 - `r 1` forces the Panda harness relay and disables firmware forwarding; `r 0` restores both
 - `s` shows the current state
@@ -53,7 +56,10 @@ RX device=ONLINE age=0.012s bus=2 REL=ON RELE=ON
 `REL` and `RELE` come from `CANCTR_IOStatus` (`0x631`). `SVEC_Delta`, `Emulated_Torque`,
 `OU_Angle`, and `IN_Angle` come from `HRR_AngleStatus` (`0x632`). Values are shown as `---`
 until their first valid-length status frame is received. The `TX` line separately labels the
-requested states as `REL_Cmd` and `RELE_Cmd`.
+requested states as `REL_Cmd` and `RELE_Cmd`. The HRR does not report its persisted DLY or
+`ANGLE_OFFSET` values in any current status frame, so the `TX` line shows each as `unknown (not
+reported)` until this tool sends the corresponding command; afterward it shows the value sent
+during the current session.
 
 For example:
 
