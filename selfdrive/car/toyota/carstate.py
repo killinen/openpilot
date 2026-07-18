@@ -99,7 +99,9 @@ class CarState(CarStateBase):
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_EPS"] * self.eps_torque_scale
-    ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD
+    # The HRR supplies an emulated torque value, not reliable driver-applied torque.
+    # Keep it logged for analysis but do not use it to freeze lateral control.
+    ret.steeringPressed = False
 
     ret.brakePressed = cp_body.vl["LS600H_2C6"]["BRAKE_PRESSED"] != 0
     ret.gasPressed = cp_body.vl["LS600H_126"]["GAS_PEDAL_PRESSED"] != 0
