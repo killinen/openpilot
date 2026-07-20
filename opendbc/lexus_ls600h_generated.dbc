@@ -984,11 +984,12 @@ BO_ 640 LS600H_280: 8 XXX
  SG_ LS600H_280_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
 CM_ BO_ 640 "Observed continuously on bus 1 at approximately 5.49 Hz in route 9f2573520aa994fd/00000004--52b0dd2646; layout not yet identified.";
 
-BO_ 710 LS600H_2C6: 3 XXX
- SG_ BRAKE_PRESSED : 1|1@1+ (1,0) [0|1] "" XXX
+BO_ 710 LS600H_2C6: 3 CAN_Master
+ SG_ BRAKE_PRESSED : 1|1@1+ (1,0) [0|1] "" STM32G474_HRR
  SG_ LS600H_2C6_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
  SG_ LS600H_2C6_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 710 "Observed on bus 1. BRAKE_PRESSED at byte0 bit1 correlates with LS600h carState.brakePressed in route 9f2573520aa994fd/00000006--0500d7b8dc; confirm with controlled pedal testing.";
+CM_ BO_ 710 "Brake interlock input watched by HRR CANCTR. Panda forwards the unchanged LS600h bus 1 0x2C6 frame to bus 2 because this ID was absent from the supplied Radar bus capture. BRAKE_PRESSED is byte0 bit1. A missing or stale frame, or a fresh frame with BRAKE_PRESSED=1, sets SVEC DELTA to 0 and drives REL and RELE off; torque and relay commands are ignored until a fresh not-pressed frame arrives.";
+CM_ SG_ 710 BRAKE_PRESSED "When 1 in a fresh 0x2C6 frame, HRR CANCTR disengages torque output and opens REL/RELE. Missing or stale 0x2C6 also keeps the interlock active.";
 
 BO_ 810 LS600H_32A: 2 XXX
  SG_ LS600H_32A_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
@@ -1320,18 +1321,18 @@ BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ OP_OutTq_Limited : 37|1@1+ (1,0) [0|1] "" STM32G474_HRR
  SG_ Torque_Counter : 40|4@1+ (1,0) [0|15] "" STM32G474_HRR
  SG_ Torque_Checksum : 48|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. In this HRR firmware CANCTR maps +-1000 Ncm to +-4.0 degrees of SVEC DELTA and clips outside that range.";
-CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR scales 1000 Ncm to 4.0 degrees of SVEC DELTA.";
+CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. In this HRR firmware CANCTR maps +1000 Ncm to +10.0 degrees and -1000 Ncm to -10.0 degrees of SVEC DELTA, clipping outside +-1000 Ncm. Missing or stale commands activate the 250 ms torque interlock, reset SVEC delta, and open REL/RELE.";
+CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR applies same-sign scaling: +1000 Ncm produces +10.0 degrees of SVEC DELTA.";
 CM_ SG_ 352 Torque_Demand_Complement "12-bit ones-complement redundancy for Torque_Demand, encoded as Torque_Demand raw12 XOR 0x0FFF.";
 CM_ SG_ 352 Torque_Counter "4-bit rolling counter carried in byte5 bits0..3.";
 CM_ SG_ 352 Torque_Checksum "8-bit CRC over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
 
 BO_ 1584 CANCTR_AdcStatus: 8 STM32G474_HRR
- SG_ OUSN_Raw : 0|16@1+ (1,0) [0|4095] "code" CAN_Master
- SG_ OUCS_Raw : 16|16@1+ (1,0) [0|4095] "code" CAN_Master
- SG_ INCS_Raw : 32|16@1+ (1,0) [0|4095] "code" CAN_Master
- SG_ INSN_Raw : 48|16@1+ (1,0) [0|4095] "code" CAN_Master
-CM_ BO_ 1584 "Raw 12-bit conversion codes: OUSN=PB15, OUCS=PB13, INCS=PA1, INSN=PA2.";
+ SG_ INSN_Raw : 0|16@1+ (1,0) [0|4095] "code" CAN_Master
+ SG_ INCS_Raw : 16|16@1+ (1,0) [0|4095] "code" CAN_Master
+ SG_ OUCS_Raw : 32|16@1+ (1,0) [0|4095] "code" CAN_Master
+ SG_ OUSN_Raw : 48|16@1+ (1,0) [0|4095] "code" CAN_Master
+CM_ BO_ 1584 "Raw 12-bit conversion codes: INSN=PB15, INCS=PB13, OUCS=PA1, OUSN=PA2.";
 
 BO_ 1585 CANCTR_IOStatus: 5 STM32G474_HRR
  SG_ DAC1_Code : 0|16@1+ (1,0) [0|4095] "code" CAN_Master
@@ -1349,13 +1350,13 @@ BO_ 1586 HRR_AngleStatus: 8 STM32G474_HRR
  SG_ Emulated_Torque : 16|16@1- (1,0) [-1000|1000] "Ncm" CAN_Master
  SG_ OU_Angle : 32|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
  SG_ IN_Angle : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
-CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the applied resolver-vector rotation. Emulated_Torque is its equivalent torque using 1000 Ncm per 4.0 degrees. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
+CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the applied resolver-vector rotation. Emulated_Torque is its equivalent torque using 1000 Ncm per 10.0 degrees. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
 
 BO_ 1587 CANCTR_VoltageStatus: 8 STM32G474_HRR
- SG_ OUSN : 0|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
- SG_ OUCS : 16|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
- SG_ INCS : 32|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
- SG_ INSN : 48|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
+ SG_ INSN : 0|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
+ SG_ INCS : 16|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
+ SG_ OUCS : 32|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
+ SG_ OUSN : 48|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
 CM_ BO_ 1587 "Signed resolver signal voltages relative to TQG after op-amp scaling, sent in millivolts and scaled here to volts.";
 
 BO_ 1588 HRR_StateStatus: 8 STM32G474_HRR
@@ -1397,6 +1398,7 @@ VAL_ 1538 SaveToNVM 0 "No" 1 "Save";
 VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ";
 VAL_ 352 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 352 RELE_Cmd 0 "OFF" 1 "ON";
+VAL_ 710 BRAKE_PRESSED 0 "NOT_PRESSED" 1 "PRESSED";
 VAL_ 1585 REL_State 0 "OFF" 1 "ON";
 VAL_ 1585 RELE_State 0 "OFF" 1 "ON";
 VAL_ 1585 RC_Minus 0 "LOW" 1 "HIGH";
@@ -1415,6 +1417,8 @@ VAL_ 1588 Mirror_Running 0 "STOPPED" 1 "RUNNING";
 VAL_ 1588 SVEC_Guard_Enabled 0 "DISABLED" 1 "ENABLED";
 VAL_ 1588 SVEC_Guard_Angles_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1588 CANCTR_Enabled 0 "DISABLED" 1 "ENABLED";
+VAL_ 1588 Torque_Frame_Fresh 0 "STALE" 1 "FRESH";
+VAL_ 1588 Torque_Interlock 0 "CLEAR" 1 "ACTIVE";
 
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";
