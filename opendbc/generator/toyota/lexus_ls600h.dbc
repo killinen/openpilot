@@ -23,7 +23,7 @@ BO_ 37 STEER_ANGLE_SENSOR: 8 XXX
  SG_ STEER_ANGLE : 3|12@0- (1.5,0) [-500|500] "deg" XXX
  SG_ STEER_FRACTION : 39|4@0- (0.1,0) [-0.7|0.7] "deg" XXX
  SG_ STEER_RATE : 35|12@0- (1,0) [-2000|2000] "deg/s" XXX
-CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route.";
+CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route. HRR uses STEER_ANGLE plus STEER_FRACTION only to choose the absolute 180-degree sector for true-angle measurement; the combination has exact 0.1-degree resolution. Fraction raw 0x8 and references outside +-900 degrees are rejected. STEER_RATE scaling remains provisional and is not used by HRR for angle integration.";
 
 BO_ 40 LS600H_STEER_028: 8 XXX
  SG_ STEER_INSHAFT_RAW : 2|12@0- (1,0) [-2048|2047] "" XXX
@@ -1305,8 +1305,8 @@ BO_ 1539 CANCTR_SvecConfigCmd: 8 CAN_Master
  SG_ Config_Key : 40|8@1+ (1,0) [165|165] "" STM32G474_HRR
  SG_ Config_Reserved : 48|8@1+ (1,0) [0|0] "" STM32G474_HRR
  SG_ Config_Checksum : 56|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ SG_ 1539 Config_Value "Raw u32 transport. Interpret commands 3, 10, and 11..19 as signed two's-complement int32; commands 11..19 use Q20 scaling, while command 10 uses 0.1 degree units.";
-CM_ BO_ 1539 "HRR configuration and event command. Commands 1..3 preserve the legacy SVEC settings. Command 4 starts a safe calibration session with a nonzero u32 token; command 5 finishes using that same token; command 6 aborts using that token or value zero for forced recovery; command 7 selects legacy (0) or calibrated (1) angles. Command 10 sets the runtime IN shaft-angle reference from Config_Value interpreted as signed two's-complement 0.1 degree units. Commands 11..18 stage signed row-major IN then OU 2x2 matrix coefficients in Q20; command 19 stages signed phase-per-steer Q20; command 20 packs sample_count in bits0..15, RMS error tenths in bits16..23, and max error tenths in bits24..31. Config_Key must be 0xA5, Config_Reserved zero, and checksum CRC-8/poly-0x07 over ID low, ID high, bytes0..6.";
+CM_ SG_ 1539 Config_Value "Raw u32 transport. Interpret commands 3, 10, and 11..19 as signed two's-complement int32; command 10 is 0.01 degree/bit and commands 11..19 use Q20 scaling.";
+CM_ BO_ 1539 "One-shot HRR configuration. Commands 1..3 preserve the legacy persistent SVEC settings. Command 4 starts a safe calibration session with a nonzero u32 token; command 5 finishes using that same token; command 6 aborts using that token or value zero for forced recovery; command 7 selects legacy (0) or calibrated (1) angles. Command 10 supplies a non-persistent manual signed steering reference in 0.01 degrees. Commands 11..18 stage signed row-major IN then OU 2x2 matrix coefficients in Q20; command 19 stages signed phase-per-steer Q20; command 20 packs sample_count in bits0..15, RMS error tenths in bits16..23, and max error tenths in bits24..31. Config_Key must be 0xA5, Config_Reserved zero, and checksum CRC-8/poly-0x07 over ID low, ID high, bytes0..6.";
 
 BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ Torque_Demand : 0|12@1- (1,0) [-2048|2047] "Ncm" STM32G474_HRR
@@ -1395,18 +1395,17 @@ BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
  SG_ Calibration_RMS_Error : 56|8@1+ (0.1,0) [0|25.5] "deg" CAN_Master
 CM_ BO_ 1589 "Resolver calibration protocol v2 status. Staged mask bits 0..7 correspond to commands 11..18, bit8 to command 19, and bit9 to command 20. A complete fit requires mask 0x03FF, at least 100 samples, RMS error <=1.5 degrees, and maximum error <=5.0 degrees. Failure reasons: 0 none, 1 unsafe, 2 session, 3 incomplete, 4 coefficient, 5 fit, 6 NVM, 7 timeout.";
 
-BO_ 1590 HRR_INShaftAngleStatus: 8 STM32G474_HRR
- SG_ IN_Shaft_Angle : 0|32@1- (0.1,0) [-214748364.8|214748364.7] "deg" CAN_Master
- SG_ IN_Shaft_Rate : 32|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" CAN_Master
- SG_ IN_Shaft_Angle_Valid : 48|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ IN_Shaft_Initialized : 49|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ IN_Resolver_Angle_Valid : 50|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ Calibration_Applied : 51|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ Legacy_Angle_Source : 52|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ External_Reference_Set : 53|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ Wrap_Ambiguous : 54|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ IN_Shaft_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
-CM_ BO_ 1590 "Unwrapped IN (steering-column side) resolver shaft phase and filtered rate. Firmware chooses the shortest modulo-180 step between measurements. At boot IN_Shaft_Angle starts in the observed 0..179.9 degree sector; command 10 can anchor it to a known signed angle. A measurement gap over 100 ms, an exactly ambiguous 90-degree step, or an inferred rate over 3000 deg/s latches Wrap_Ambiguous and clears IN_Shaft_Angle_Valid until command 10 supplies a new reference or firmware restarts.";
+BO_ 1590 HRR_TrueAngleStatus: 8 STM32G474_HRR
+ SG_ True_Steering_Angle : 0|32@1- (0.01,0) [-21474836.48|21474836.47] "deg" CAN_Master
+ SG_ True_Steering_Rate : 32|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" CAN_Master
+ SG_ True_Angle_Valid : 48|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Initialized : 49|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Resolver_Valid : 50|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Calibrated : 51|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Reference_Fresh : 52|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Wrap_Ambiguous : 53|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ True_Angle_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
+CM_ BO_ 1590 "High-resolution absolute steering measurement from the CAL2-corrected IN resolver vector. Angle is valid only after a fresh, consistent 0x25 reference anchors the modulo-180 sector. Invalid gap, delta, or derived rate clears initialization; a fresh reference permits automatic re-anchoring. Legacy or disabled calibration never sets True_Angle_Valid.";
 
 BO_ 1591 HRR_ResolverVectorStatus: 8 STM32G474_HRR
  SG_ IN_Cos_RMS : 0|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
@@ -1432,7 +1431,7 @@ VAL_ 1537 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 SaveToNVM 0 "No" 1 "Save";
-VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 10 "IN_SHAFT_ANGLE_SET" 11 "CAL_IN_M00_Q20" 12 "CAL_IN_M01_Q20" 13 "CAL_IN_M10_Q20" 14 "CAL_IN_M11_Q20" 15 "CAL_OU_M00_Q20" 16 "CAL_OU_M01_Q20" 17 "CAL_OU_M10_Q20" 18 "CAL_OU_M11_Q20" 19 "CAL_PHASE_PER_STEER_Q20" 20 "CAL_FIT_METRICS";
+VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 10 "TRUE_ANGLE_REFERENCE" 11 "CAL_IN_M00_Q20" 12 "CAL_IN_M01_Q20" 13 "CAL_IN_M10_Q20" 14 "CAL_IN_M11_Q20" 15 "CAL_OU_M00_Q20" 16 "CAL_OU_M01_Q20" 17 "CAL_OU_M10_Q20" 18 "CAL_OU_M11_Q20" 19 "CAL_PHASE_PER_STEER_Q20" 20 "CAL_FIT_METRICS";
 VAL_ 352 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 352 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 710 BRAKE_PRESSED 0 "NOT_PRESSED" 1 "PRESSED";
@@ -1465,13 +1464,5 @@ VAL_ 1589 IN_Vector_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 OU_Vector_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 Legacy_Angles_Active 0 "CALIBRATED" 1 "LEGACY";
 VAL_ 1589 Calibration_Failure_Reason 0 "NONE" 1 "UNSAFE" 2 "SESSION" 3 "INCOMPLETE" 4 "COEFFICIENT" 5 "FIT" 6 "NVM" 7 "TIMEOUT";
-VAL_ 1590 IN_Shaft_Angle_Valid 0 "INVALID" 1 "VALID";
-VAL_ 1590 IN_Shaft_Initialized 0 "UNINITIALIZED" 1 "INITIALIZED";
-VAL_ 1590 IN_Resolver_Angle_Valid 0 "INVALID" 1 "VALID";
-VAL_ 1590 Calibration_Applied 0 "LEGACY" 1 "CALIBRATED";
-VAL_ 1590 Legacy_Angle_Source 0 "CALIBRATED" 1 "LEGACY";
-VAL_ 1590 External_Reference_Set 0 "BOOT_SECTOR" 1 "EXTERNAL_REFERENCE";
-VAL_ 1590 Wrap_Ambiguous 0 "CLEAR" 1 "AMBIGUOUS";
-
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";
