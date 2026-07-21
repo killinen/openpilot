@@ -1395,6 +1395,19 @@ BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
  SG_ OU_Angle_Span : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
 CM_ BO_ 1589 "Live resolver calibration status. A successful finish requires at least 100 paired valid samples and at least 150.0 degrees of observed legacy-angle span on both IN and OU. Failed or invalid calibration automatically selects legacy angle output. IN_Angle_Span and OU_Angle_Span report candidate spans while running or after failure, otherwise the stored spans.";
 
+BO_ 1590 HRR_INShaftAngleStatus: 8 STM32G474_HRR
+ SG_ IN_Shaft_Angle : 0|32@1- (0.1,0) [-214748364.8|214748364.7] "deg" CAN_Master
+ SG_ IN_Shaft_Rate : 32|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" CAN_Master
+ SG_ IN_Shaft_Angle_Valid : 48|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ IN_Shaft_Initialized : 49|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ IN_Resolver_Angle_Valid : 50|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Applied : 51|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Legacy_Angle_Source : 52|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ External_Reference_Set : 53|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Wrap_Ambiguous : 54|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ IN_Shaft_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
+CM_ BO_ 1590 "Unwrapped IN resolver shaft phase and filtered rate. Firmware chooses shortest modulo-180 steps; command 10 anchors a signed reference. Invalid/ambiguous wraps clear validity until re-anchored.";
+
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;
 BA_ "GenMsgCycleTime" BO_ 1585 100;
@@ -1402,6 +1415,7 @@ BA_ "GenMsgCycleTime" BO_ 1586 100;
 BA_ "GenMsgCycleTime" BO_ 1587 100;
 BA_ "GenMsgCycleTime" BO_ 1588 100;
 BA_ "GenMsgCycleTime" BO_ 1589 100;
+BA_ "GenMsgCycleTime" BO_ 1590 100;
 
 VAL_ 1536 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1536 RELE_Cmd 0 "OFF" 1 "ON";
@@ -1410,7 +1424,7 @@ VAL_ 1537 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 SaveToNVM 0 "No" 1 "Save";
-VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE";
+VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 10 "IN_SHAFT_ANGLE_SET";
 VAL_ 352 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 352 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 710 BRAKE_PRESSED 0 "NOT_PRESSED" 1 "PRESSED";
@@ -1441,6 +1455,13 @@ VAL_ 1589 Calibration_Failed 0 "OK" 1 "FAILED";
 VAL_ 1589 IN_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 OU_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 Legacy_Angles_Active 0 "CALIBRATED" 1 "LEGACY";
+VAL_ 1590 IN_Shaft_Angle_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1590 IN_Shaft_Initialized 0 "UNINITIALIZED" 1 "INITIALIZED";
+VAL_ 1590 IN_Resolver_Angle_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1590 Calibration_Applied 0 "LEGACY" 1 "CALIBRATED";
+VAL_ 1590 Legacy_Angle_Source 0 "CALIBRATED" 1 "LEGACY";
+VAL_ 1590 External_Reference_Set 0 "BOOT_SECTOR" 1 "EXTERNAL_REFERENCE";
+VAL_ 1590 Wrap_Ambiguous 0 "CLEAR" 1 "AMBIGUOUS";
 
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";
