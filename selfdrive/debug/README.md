@@ -99,19 +99,25 @@ script cleared with firmware forwarding restored.
 
 ## [hrr_angle_calibrate.py](hrr_angle_calibrate.py)
 
-Guided electrical calibration for the HRR `IN_Angle` and `OU_Angle` resolver estimators. The
-vehicle must be secured and HRR torque output disengaged. The tool starts a temporary firmware
-calibration, displays the live paired-sample count and observed resolver spans from `0x635`, and
-asks the operator to sweep the steering slowly from full left to full right and back.
+Guided electrical and steering-reference calibration for the HRR `IN_Angle` and `OU_Angle`
+resolver estimators. The vehicle must be stationary and secured, with the brake held, HRR relays
+open, and torque output interlocked. The tool combines `STEER_ANGLE` and `STEER_FRACTION` from
+Toyota `0x25`, pairs that reference with the HRR's per-window signed RMS/covariance resolver
+vectors on `0x637`, and asks the operator to sweep slowly center -> left lock -> right lock ->
+center.
 
 ```bash
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2
 ```
 
-Press Enter once the display reports `READY`. Firmware accepts and persists the calibration only
-after at least 100 paired valid measurements and 150.0 degrees of legacy-angle coverage on both
-resolver pairs. If validation or flash saving fails, firmware automatically uses the previous
-legacy uncalibrated values.
+Press Enter once the display reports `READY`. The script robustly fits the resolver/steering ratio
+and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan2()`. Readiness
+requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
+coverage, and no more than 1.5 degrees RMS or 5.0 degrees maximum steering-equivalent residual.
+The firmware stages the fit under a calibration session and commits the complete coefficient set
+to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
+the previous committed calibration intact. With no valid enabled calibration, the original raw
+modulo-180 estimator remains active.
 
 The stored mode can be selected explicitly without repeating the sweep:
 
@@ -120,9 +126,9 @@ python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --legacy
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --calibrated
 ```
 
-`--calibrated` is rejected by firmware when no valid calibration is stored. Ctrl-C aborts the
-temporary sweep without replacing an existing calibration. Protocol-only checks do not require a
-Panda:
+`--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
+confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
+Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:
 
 ```bash
 python3 selfdrive/debug/hrr_angle_calibrate.py --self-test
