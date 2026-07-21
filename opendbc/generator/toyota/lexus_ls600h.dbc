@@ -1300,12 +1300,13 @@ CM_ BO_ 1538 "Shared midpoint command matching EPSREFSET. Midpoint_InputVoltage 
 CM_ SG_ 1538 SaveToNVM "When set, the midpoint value is saved to internal flash.";
 
 BO_ 1539 CANCTR_SvecConfigCmd: 8 CAN_Master
- SG_ Config_Command : 0|8@1+ (1,0) [1|10] "" STM32G474_HRR
+ SG_ Config_Command : 0|8@1+ (1,0) [1|20] "" STM32G474_HRR
  SG_ Config_Value : 8|32@1+ (1,0) [0|4294967295] "" STM32G474_HRR
  SG_ Config_Key : 40|8@1+ (1,0) [165|165] "" STM32G474_HRR
  SG_ Config_Reserved : 48|8@1+ (1,0) [0|0] "" STM32G474_HRR
  SG_ Config_Checksum : 56|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ BO_ 1539 "HRR configuration and event command. Commands 1..3 configure SVEC delay, phase match, and angle offset. Commands 4, 5, and 6 start, finish/save, and abort live resolver calibration with Config_Value=0. Command 7 selects legacy angles with value 0 or calibrated angles with value 1. Command 10 sets the runtime IN shaft-angle reference from Config_Value interpreted as signed two's-complement 0.1 degree units. Config_Key must be 0xA5, Config_Reserved must be zero, and Config_Checksum is CRC-8/poly-0x07 over ID low byte, ID high byte, and bytes 0..6.";
+CM_ SG_ 1539 Config_Value "Raw u32 transport. Interpret commands 3, 10, and 11..19 as signed two's-complement int32; commands 11..19 use Q20 scaling, while command 10 uses 0.1 degree units.";
+CM_ BO_ 1539 "HRR configuration and event command. Commands 1..3 preserve the legacy SVEC settings. Command 4 starts a safe calibration session with a nonzero u32 token; command 5 finishes using that same token; command 6 aborts using that token or value zero for forced recovery; command 7 selects legacy (0) or calibrated (1) angles. Command 10 sets the runtime IN shaft-angle reference from Config_Value interpreted as signed two's-complement 0.1 degree units. Commands 11..18 stage signed row-major IN then OU 2x2 matrix coefficients in Q20; command 19 stages signed phase-per-steer Q20; command 20 packs sample_count in bits0..15, RMS error tenths in bits16..23, and max error tenths in bits24..31. Config_Key must be 0xA5, Config_Reserved zero, and checksum CRC-8/poly-0x07 over ID low, ID high, bytes0..6.";
 
 BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ Torque_Demand : 0|12@1- (1,0) [-2048|2047] "Ncm" STM32G474_HRR
@@ -1318,8 +1319,8 @@ BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ OP_OutTq_Limited : 37|1@1+ (1,0) [0|1] "" STM32G474_HRR
  SG_ Torque_Counter : 40|4@1+ (1,0) [0|15] "" STM32G474_HRR
  SG_ Torque_Checksum : 48|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. In this HRR firmware CANCTR maps +1000 Ncm to +10.0 degrees and -1000 Ncm to -10.0 degrees of SVEC DELTA, clipping outside +-1000 Ncm. Missing or stale commands activate the 250 ms torque interlock, reset SVEC delta, and open REL/RELE.";
-CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR applies same-sign scaling: +1000 Ncm produces +10.0 degrees of SVEC DELTA.";
+CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. In this HRR firmware CANCTR maps +1000 Ncm to -10.0 degrees and -1000 Ncm to +10.0 degrees of SVEC DELTA, clipping outside +-1000 Ncm. Missing or stale commands activate the 250 ms torque interlock, reset SVEC delta, and open REL/RELE.";
+CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR applies inverse-sign scaling: +1000 Ncm produces -10.0 degrees of SVEC DELTA.";
 CM_ SG_ 352 Torque_Demand_Complement "12-bit ones-complement redundancy for Torque_Demand, encoded as Torque_Demand raw12 XOR 0x0FFF.";
 CM_ SG_ 352 Torque_Counter "4-bit rolling counter carried in byte5 bits0..3.";
 CM_ SG_ 352 Torque_Checksum "8-bit CRC over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
@@ -1347,7 +1348,7 @@ BO_ 1586 HRR_AngleStatus: 8 STM32G474_HRR
  SG_ Emulated_Torque : 16|16@1- (1,0) [-1000|1000] "Ncm" CAN_Master
  SG_ OU_Angle : 32|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
  SG_ IN_Angle : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
-CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the applied resolver-vector rotation. Emulated_Torque is its equivalent torque using 1000 Ncm per 10.0 degrees. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
+CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the resolver-vector rotation reported in the CANCTR torque-command sign convention, opposite its applied rotation. Emulated_Torque is its equivalent torque using 1000 Ncm per 10.0 degrees. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
 
 BO_ 1587 CANCTR_VoltageStatus: 8 STM32G474_HRR
  SG_ INSN : 0|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master
@@ -1383,14 +1384,16 @@ BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
  SG_ Calibration_Valid : 1|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ Calibration_Enabled : 2|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ Calibration_Failed : 3|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ IN_Angle_Raw_Valid : 4|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ OU_Angle_Raw_Valid : 5|1@1+ (1,0) [0|1] "" CAN_Master
- SG_ Legacy_Angles_Active : 6|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Params_Complete : 4|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ IN_Vector_Valid : 5|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ OU_Vector_Valid : 6|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Legacy_Angles_Active : 7|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ Calibration_Version : 8|8@1+ (1,0) [0|255] "" CAN_Master
  SG_ Calibration_Samples : 16|16@1+ (1,0) [0|65535] "samples" CAN_Master
- SG_ IN_Angle_Span : 32|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
- SG_ OU_Angle_Span : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
-CM_ BO_ 1589 "Live resolver calibration status. A successful finish requires at least 100 paired valid samples and at least 150.0 degrees of observed legacy-angle span on both IN and OU. Failed or invalid calibration automatically selects legacy angle output. IN_Angle_Span and OU_Angle_Span report candidate spans while running or after failure, otherwise the stored spans.";
+ SG_ Calibration_Staged_Mask : 32|16@1+ (1,0) [0|1023] "" CAN_Master
+ SG_ Calibration_Failure_Reason : 48|8@1+ (1,0) [0|7] "" CAN_Master
+ SG_ Calibration_RMS_Error : 56|8@1+ (0.1,0) [0|25.5] "deg" CAN_Master
+CM_ BO_ 1589 "Resolver calibration protocol v2 status. Staged mask bits 0..7 correspond to commands 11..18, bit8 to command 19, and bit9 to command 20. A complete fit requires mask 0x03FF, at least 100 samples, RMS error <=1.5 degrees, and maximum error <=5.0 degrees. Failure reasons: 0 none, 1 unsafe, 2 session, 3 incomplete, 4 coefficient, 5 fit, 6 NVM, 7 timeout.";
 
 BO_ 1590 HRR_INShaftAngleStatus: 8 STM32G474_HRR
  SG_ IN_Shaft_Angle : 0|32@1- (0.1,0) [-214748364.8|214748364.7] "deg" CAN_Master
@@ -1405,6 +1408,13 @@ BO_ 1590 HRR_INShaftAngleStatus: 8 STM32G474_HRR
  SG_ IN_Shaft_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
 CM_ BO_ 1590 "Unwrapped IN (steering-column side) resolver shaft phase and filtered rate. Firmware chooses the shortest modulo-180 step between measurements. At boot IN_Shaft_Angle starts in the observed 0..179.9 degree sector; command 10 can anchor it to a known signed angle. A measurement gap over 100 ms, an exactly ambiguous 90-degree step, or an inferred rate over 3000 deg/s latches Wrap_Ambiguous and clears IN_Shaft_Angle_Valid until command 10 supplies a new reference or firmware restarts.";
 
+BO_ 1591 HRR_ResolverVectorStatus: 8 STM32G474_HRR
+ SG_ IN_Cos_RMS : 0|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
+ SG_ IN_Sin_Signed_RMS : 16|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
+ SG_ OU_Cos_RMS : 32|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
+ SG_ OU_Sin_Signed_RMS : 48|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
+CM_ BO_ 1591 "Uncalibrated signed RMS/covariance vectors used before atan2. Cos RMS is nonnegative; the sine RMS sign is selected from centered sine/cosine covariance. Host calibration fits 2x2 Q20 matrices to these values.";
+
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;
 BA_ "GenMsgCycleTime" BO_ 1585 100;
@@ -1413,6 +1423,7 @@ BA_ "GenMsgCycleTime" BO_ 1587 100;
 BA_ "GenMsgCycleTime" BO_ 1588 100;
 BA_ "GenMsgCycleTime" BO_ 1589 100;
 BA_ "GenMsgCycleTime" BO_ 1590 100;
+BA_ "GenMsgCycleTime" BO_ 1591 100;
 
 VAL_ 1536 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1536 RELE_Cmd 0 "OFF" 1 "ON";
@@ -1421,7 +1432,7 @@ VAL_ 1537 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 SaveToNVM 0 "No" 1 "Save";
-VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 10 "IN_SHAFT_ANGLE_SET";
+VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 10 "IN_SHAFT_ANGLE_SET" 11 "CAL_IN_M00_Q20" 12 "CAL_IN_M01_Q20" 13 "CAL_IN_M10_Q20" 14 "CAL_IN_M11_Q20" 15 "CAL_OU_M00_Q20" 16 "CAL_OU_M01_Q20" 17 "CAL_OU_M10_Q20" 18 "CAL_OU_M11_Q20" 19 "CAL_PHASE_PER_STEER_Q20" 20 "CAL_FIT_METRICS";
 VAL_ 352 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 352 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 710 BRAKE_PRESSED 0 "NOT_PRESSED" 1 "PRESSED";
@@ -1449,9 +1460,11 @@ VAL_ 1589 Calibration_Running 0 "IDLE" 1 "RUNNING";
 VAL_ 1589 Calibration_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 Calibration_Enabled 0 "DISABLED" 1 "ENABLED";
 VAL_ 1589 Calibration_Failed 0 "OK" 1 "FAILED";
-VAL_ 1589 IN_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
-VAL_ 1589 OU_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1589 Calibration_Params_Complete 0 "INCOMPLETE" 1 "COMPLETE";
+VAL_ 1589 IN_Vector_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1589 OU_Vector_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 Legacy_Angles_Active 0 "CALIBRATED" 1 "LEGACY";
+VAL_ 1589 Calibration_Failure_Reason 0 "NONE" 1 "UNSAFE" 2 "SESSION" 3 "INCOMPLETE" 4 "COEFFICIENT" 5 "FIT" 6 "NVM" 7 "TIMEOUT";
 VAL_ 1590 IN_Shaft_Angle_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1590 IN_Shaft_Initialized 0 "UNINITIALIZED" 1 "INITIALIZED";
 VAL_ 1590 IN_Resolver_Angle_Valid 0 "INVALID" 1 "VALID";
