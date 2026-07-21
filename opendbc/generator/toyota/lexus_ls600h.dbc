@@ -1300,12 +1300,12 @@ CM_ BO_ 1538 "Shared midpoint command matching EPSREFSET. Midpoint_InputVoltage 
 CM_ SG_ 1538 SaveToNVM "When set, the midpoint value is saved to internal flash.";
 
 BO_ 1539 CANCTR_SvecConfigCmd: 8 CAN_Master
- SG_ Config_Command : 0|8@1+ (1,0) [1|2] "" STM32G474_HRR
+ SG_ Config_Command : 0|8@1+ (1,0) [1|7] "" STM32G474_HRR
  SG_ Config_Value : 8|32@1+ (1,0) [0|4294967295] "" STM32G474_HRR
  SG_ Config_Key : 40|8@1+ (1,0) [165|165] "" STM32G474_HRR
  SG_ Config_Reserved : 48|8@1+ (1,0) [0|0] "" STM32G474_HRR
  SG_ Config_Checksum : 56|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ BO_ 1539 "One-shot persistent SVEC delay configuration. Command 1 interprets Config_Value as extra delay samples (0..127); command 2 interprets it as the PHASEMATCH target frequency in Hz. Config_Key must be 0xA5, Config_Reserved must be zero, and Config_Checksum is CRC-8/poly-0x07 over ID low byte, ID high byte, and bytes 0..6. Every accepted command is journaled to internal flash and restored at boot.";
+CM_ BO_ 1539 "One-shot persistent HRR configuration. Commands 1..3 configure SVEC delay, phase match, and angle offset. Commands 4, 5, and 6 start, finish/save, and abort live resolver calibration with Config_Value=0. Command 7 selects legacy angles with value 0 or calibrated angles with value 1. Config_Key must be 0xA5, Config_Reserved must be zero, and Config_Checksum is CRC-8/poly-0x07 over ID low byte, ID high byte, and bytes 0..6.";
 
 BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ Torque_Demand : 0|12@1- (1,0) [-2048|2047] "Ncm" STM32G474_HRR
@@ -1378,12 +1378,27 @@ BO_ 1588 HRR_StateStatus: 8 STM32G474_HRR
  SG_ Torque_Frame_Age : 48|16@1+ (1,0) [0|65534] "ms" CAN_Master
 CM_ BO_ 1588 "HRR safety and measurement state. Brake_Frame_Age is 65535 when no brake frame has been seen; Torque_Frame_Age is 65535 when no valid torque frame has been accepted. Angle_Delta is the signed shortest modulo-180 OU_Angle minus IN_Angle difference and is valid only when both angle-valid bits are set.";
 
+BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
+ SG_ Calibration_Running : 0|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Valid : 1|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Enabled : 2|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Failed : 3|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ IN_Angle_Raw_Valid : 4|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ OU_Angle_Raw_Valid : 5|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Legacy_Angles_Active : 6|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Calibration_Version : 8|8@1+ (1,0) [0|255] "" CAN_Master
+ SG_ Calibration_Samples : 16|16@1+ (1,0) [0|65535] "samples" CAN_Master
+ SG_ IN_Angle_Span : 32|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
+ SG_ OU_Angle_Span : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
+CM_ BO_ 1589 "Live resolver calibration status. A successful finish requires at least 100 paired valid samples and at least 150.0 degrees of observed legacy-angle span on both IN and OU. Failed or invalid calibration automatically selects legacy angle output. IN_Angle_Span and OU_Angle_Span report candidate spans while running or after failure, otherwise the stored spans.";
+
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;
 BA_ "GenMsgCycleTime" BO_ 1585 100;
 BA_ "GenMsgCycleTime" BO_ 1586 100;
 BA_ "GenMsgCycleTime" BO_ 1587 100;
 BA_ "GenMsgCycleTime" BO_ 1588 100;
+BA_ "GenMsgCycleTime" BO_ 1589 100;
 
 VAL_ 1536 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1536 RELE_Cmd 0 "OFF" 1 "ON";
@@ -1392,7 +1407,7 @@ VAL_ 1537 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 1538 SaveToNVM 0 "No" 1 "Save";
-VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ";
+VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE";
 VAL_ 352 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 352 RELE_Cmd 0 "OFF" 1 "ON";
 VAL_ 710 BRAKE_PRESSED 0 "NOT_PRESSED" 1 "PRESSED";
@@ -1416,6 +1431,13 @@ VAL_ 1588 SVEC_Guard_Angles_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1588 CANCTR_Enabled 0 "DISABLED" 1 "ENABLED";
 VAL_ 1588 Torque_Frame_Fresh 0 "STALE" 1 "FRESH";
 VAL_ 1588 Torque_Interlock 0 "CLEAR" 1 "ACTIVE";
+VAL_ 1589 Calibration_Running 0 "IDLE" 1 "RUNNING";
+VAL_ 1589 Calibration_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1589 Calibration_Enabled 0 "DISABLED" 1 "ENABLED";
+VAL_ 1589 Calibration_Failed 0 "OK" 1 "FAILED";
+VAL_ 1589 IN_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1589 OU_Angle_Raw_Valid 0 "INVALID" 1 "VALID";
+VAL_ 1589 Legacy_Angles_Active 0 "CALIBRATED" 1 "LEGACY";
 
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";

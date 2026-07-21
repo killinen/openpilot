@@ -97,6 +97,38 @@ Pressing Ctrl-C, sending EOF, or entering `q` performs a safe shutdown: zero tor
 `BRAKE_PRESSED=1`, Panda safety set to `SAFETY_SILENT`, and any harness-relay force applied by the
 script cleared with firmware forwarding restored.
 
+## [hrr_angle_calibrate.py](hrr_angle_calibrate.py)
+
+Guided electrical calibration for the HRR `IN_Angle` and `OU_Angle` resolver estimators. The
+vehicle must be secured and HRR torque output disengaged. The tool starts a temporary firmware
+calibration, displays the live paired-sample count and observed resolver spans from `0x635`, and
+asks the operator to sweep the steering slowly from full left to full right and back.
+
+```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2
+```
+
+Press Enter once the display reports `READY`. Firmware accepts and persists the calibration only
+after at least 100 paired valid measurements and 150.0 degrees of legacy-angle coverage on both
+resolver pairs. If validation or flash saving fails, firmware automatically uses the previous
+legacy uncalibrated values.
+
+The stored mode can be selected explicitly without repeating the sweep:
+
+```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --legacy
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --calibrated
+```
+
+`--calibrated` is rejected by firmware when no valid calibration is stored. Ctrl-C aborts the
+temporary sweep without replacing an existing calibration. Protocol-only checks do not require a
+Panda:
+
+```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --self-test
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --dry-run --yes
+```
+
 ## [hrr_can_test_logged.py](hrr_can_test_logged.py)
 
 Logged version of `hrr_can_test.py` with the same HRR controls and safe-shutdown behavior. In
