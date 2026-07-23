@@ -147,14 +147,16 @@ class CalibrationStatus:
     if len(payload) != 8:
       raise ValueError(f"expected 8-byte 0x{CAL_STATUS_ADDR:03X}, got {len(payload)}")
     flags, version, samples, staged_mask, reason, rms = struct.unpack("<BBHHBB", payload)
-    return cls(*(bool(flags & (1 << bit)) for bit in range(8)), version, samples,
+    return cls(bool(flags & (1 << 0)), bool(flags & (1 << 1)), bool(flags & (1 << 2)),
+               bool(flags & (1 << 3)), bool(flags & (1 << 4)), bool(flags & (1 << 5)),
+               bool(flags & (1 << 6)), bool(flags & (1 << 7)), version, samples,
                staged_mask, reason, rms * 0.1)
 
   def format(self) -> str:
     mode = "LEGACY" if self.legacy_active else "CALIBRATED"
     reason = FAILURE_REASONS.get(self.failure_reason, f"unknown({self.failure_reason})")
-    return (f"v{self.version} state={'RUNNING' if self.running else 'IDLE'} mode={mode} "
-            f"valid={int(self.valid)} staged=0x{self.staged_mask:03x} samples={self.samples} "
+    return (f"v{self.version} state={'RUNNING' if self.running else 'IDLE'} mode={mode} " +
+            f"valid={int(self.valid)} staged=0x{self.staged_mask:03x} samples={self.samples} " +
             f"rms={self.rms_error_deg:.1f}deg reason={reason}")
 
 
@@ -206,10 +208,10 @@ class CalibrationFit:
             self.rms_error_deg <= MAX_FIT_RMS_DEG and self.max_error_deg <= MAX_FIT_ERROR_DEG)
 
   def format(self) -> str:
-    return (f"n={self.samples} ref_span={self.reference_span_deg:.0f}/{MIN_REFERENCE_SPAN_DEG:.0f}deg "
-            f"phase_span={self.phase_span_deg:.0f}/{MIN_PHASE_SPAN_DEG:.0f}deg "
-            f"travel=+{self.positive_travel_deg:.0f}/-{self.negative_travel_deg:.0f}deg "
-            f"bins={self.occupied_bins}/18 ratio={self.phase_per_steer:+.6f} "
+    return (f"n={self.samples} ref_span={self.reference_span_deg:.0f}/{MIN_REFERENCE_SPAN_DEG:.0f}deg " +
+            f"phase_span={self.phase_span_deg:.0f}/{MIN_PHASE_SPAN_DEG:.0f}deg " +
+            f"travel=+{self.positive_travel_deg:.0f}/-{self.negative_travel_deg:.0f}deg " +
+            f"bins={self.occupied_bins}/18 ratio={self.phase_per_steer:+.6f} " +
             f"rms/max={self.rms_error_deg:.2f}/{self.max_error_deg:.2f}deg")
 
 
@@ -339,7 +341,7 @@ def fit_calibration(samples: list[CalibrationSample]) -> CalibrationFit:
   references = [samples[i].reference_deg for i in indices]
   phases = [samples[i].unwrapped_phase_deg for i in indices]
   positive = negative = 0.0
-  for previous, current in zip(references, references[1:]):
+  for previous, current in zip(references, references[1:], strict=False):
     delta = current - previous
     if delta > 0:
       positive += delta
@@ -562,7 +564,7 @@ def run_self_test() -> None:
 
   synthetic: list[CalibrationSample] = []
   unwrapped = 0.0
-  previous = None
+  previous: float | None = None
   references = ([-540.0 + index * 4.5 for index in range(241)] +
                 [540.0 - index * 4.5 for index in range(1, 241)])
   for index, reference in enumerate(references):
@@ -635,10 +637,10 @@ def main() -> None:
         raise SystemExit(1)
     elif not run_guided(session, args.timeout, args.yes):
       raise SystemExit(1)
-  except (KeyboardInterrupt, EOFError):
+  except (KeyboardInterrupt, EOFError) as error:
     print("\nCalibration aborted; the previous committed calibration remains unchanged.")
     session.send_command(CMD_CAL_ABORT, 0)
-    raise SystemExit(130)
+    raise SystemExit(130) from error
   finally:
     if panda is not None:
       panda.set_safety_mode(Panda.SAFETY_SILENT)
