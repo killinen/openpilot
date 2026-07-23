@@ -104,7 +104,8 @@ resolver estimators. The vehicle must be stationary and secured, with the brake 
 open, and torque output interlocked. The tool uses the validated coarse `STEER_ANGLE` from
 LS600h `0x25` (1.5-degree resolution), pairs that reference with the HRR's per-window signed RMS/covariance resolver
 vectors on `0x637`, and asks the operator to sweep slowly center -> left lock -> right lock ->
-center.
+center. Keep the sweep below approximately 30 degrees/second so consecutive 10 Hz projective
+resolver vectors cannot cross the ambiguous 90-degree modulo-180 half-period.
 
 ```bash
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2
@@ -114,6 +115,9 @@ Press Enter once the display reports `READY`. The script robustly fits the resol
 and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan2()`. Readiness
 requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
 coverage, and no more than 1.5 degrees RMS or 5.0 degrees maximum steering-equivalent residual.
+The LS600h resolver completes one 360-degree electrical revolution per 22.5 degrees of shaft
+rotation, so the fitted signed phase-per-steer magnitude must be near 16. The RMS/covariance
+vectors are projective modulo 180 degrees; continuous unwrapping retains the 16:1 relationship.
 The firmware stages the fit under a calibration session and commits the complete coefficient set
 to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
 the previous committed calibration intact. With no valid enabled calibration, the original raw

@@ -39,8 +39,13 @@ MIN_SAMPLES = 100
 MIN_REFERENCE_SPAN_DEG = 360.0
 MIN_PHASE_SPAN_DEG = 270.0
 MIN_DIRECTION_TRAVEL_DEG = 120.0
-MAX_SAMPLE_RATE_DEG_S = 60.0
-MAX_RESOLVER_PHASE_RATE_DEG_S = 360.0
+MAX_REFERENCE_RATE_DEG_S = 50.0
+RESOLVER_REVOLUTION_DEG = 360.0
+SHAFT_DEG_PER_RESOLVER_REVOLUTION = 22.5
+NOMINAL_PHASE_PER_STEER = RESOLVER_REVOLUTION_DEG / SHAFT_DEG_PER_RESOLVER_REVOLUTION
+MIN_PHASE_PER_STEER = 12.0
+MAX_PHASE_PER_STEER = 20.0
+MAX_RESOLVER_PHASE_RATE_DEG_S = MAX_REFERENCE_RATE_DEG_S * NOMINAL_PHASE_PER_STEER
 MAX_FIT_RMS_DEG = 1.5
 MAX_FIT_ERROR_DEG = 5.0
 REFERENCE_TIMEOUT_S = 0.10
@@ -248,7 +253,7 @@ def robust_phase_ratio(samples: list[CalibrationSample]) -> tuple[float, list[in
     indices = filtered
   slope, _ = linear_fit([samples[i].reference_deg for i in indices],
                         [samples[i].unwrapped_phase_deg for i in indices])
-  if not 0.20 <= abs(slope) <= 5.0:
+  if not MIN_PHASE_PER_STEER <= abs(slope) <= MAX_PHASE_PER_STEER:
     raise ValueError(f"implausible resolver/steering ratio {slope:+.6f}")
   return slope, indices
 
@@ -397,7 +402,7 @@ class HrrCalibrationSession:
     if self.previous_reference is not None and self.previous_sample_at is not None:
       elapsed = now - self.previous_sample_at
       if (elapsed <= 0 or
-          abs(self.reference.angle_deg - self.previous_reference) / elapsed > MAX_SAMPLE_RATE_DEG_S or
+          abs(self.reference.angle_deg - self.previous_reference) / elapsed > MAX_REFERENCE_RATE_DEG_S or
           abs(phase_delta) / elapsed > MAX_RESOLVER_PHASE_RATE_DEG_S):
         return
     self.unwrapped_phase = candidate_unwrapped
@@ -565,10 +570,10 @@ def run_self_test() -> None:
   synthetic: list[CalibrationSample] = []
   unwrapped = 0.0
   previous: float | None = None
-  references = ([-540.0 + index * 4.5 for index in range(241)] +
-                [540.0 - index * 4.5 for index in range(1, 241)])
+  references = ([-540.0 + index * 1.5 for index in range(721)] +
+                [540.0 - index * 1.5 for index in range(1, 721)])
   for index, reference in enumerate(references):
-    target = -0.5 * reference
+    target = -NOMINAL_PHASE_PER_STEER * reference
     raw = (target + 17.0) % 180.0
     if previous is None:
       unwrapped = raw
@@ -582,7 +587,7 @@ def run_self_test() -> None:
                                        cos_raw, sin_raw, cos_raw, sin_raw))
   fit = fit_calibration(synthetic)
   assert fit.ready, fit.format()
-  assert abs(fit.phase_per_steer + 0.5) < 0.01
+  assert abs(fit.phase_per_steer + NOMINAL_PHASE_PER_STEER) < 0.01
   assert fit.rms_error_deg < 0.2
   print("HRR v2 resolver/0x25 calibration self-test passed.")
 
