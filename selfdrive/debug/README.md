@@ -101,8 +101,8 @@ script cleared with firmware forwarding restored.
 
 Guided electrical and steering-reference calibration for the HRR `IN_Angle` and `OU_Angle`
 resolver estimators. The vehicle must be stationary and secured, with the brake held, HRR relays
-open, and torque output interlocked. The tool combines `STEER_ANGLE` and `STEER_FRACTION` from
-Toyota `0x25`, pairs that reference with the HRR's per-window signed RMS/covariance resolver
+open, and torque output interlocked. The tool uses the validated coarse `STEER_ANGLE` from
+LS600h `0x25` (1.5-degree resolution), pairs that reference with the HRR's per-window signed RMS/covariance resolver
 vectors on `0x637`, and asks the operator to sweep slowly center -> left lock -> right lock ->
 center.
 

@@ -24,9 +24,16 @@ CM_ BO_ 36 "Observed continuously on bus 2 at approximately 80 Hz in the source 
 
 BO_ 37 STEER_ANGLE_SENSOR: 8 XXX
  SG_ STEER_ANGLE : 3|12@0- (1.5,0) [-500|500] "deg" XXX
- SG_ STEER_FRACTION : 39|4@0- (0.1,0) [-0.7|0.7] "deg" XXX
- SG_ STEER_RATE : 35|12@0- (1,0) [-2000|2000] "deg/s" XXX
-CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route. HRR uses STEER_ANGLE plus STEER_FRACTION only to choose the absolute 180-degree sector for true-angle measurement; the combination has exact 0.1-degree resolution. Fraction raw 0x8 and references outside +-900 degrees are rejected. STEER_RATE scaling remains provisional and is not used by HRR for angle integration.";
+ SG_ STEER_STATUS_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ STEER_STATUS_3 : 24|8@1+ (1,0) [0|255] "" XXX
+ SG_ STEER_AUX_RAW_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ STEER_AUX_RAW_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ STEER_AUX_RAW_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
+CM_ BO_ 37 "Observed continuously on bus 2 at approximately 80 Hz in the source route. Only STEER_ANGLE is validated for LS600h. In stationary steering route 0000002a--d4f3b01cd9, bytes 4 and 5 are identical in every frame, disproving the conventional Toyota STEER_FRACTION/STEER_RATE packing. Their meaning and byte 6 remain unknown.";
+CM_ SG_ 37 STEER_AUX_RAW_4 "Steering-related raw byte; exactly equals STEER_AUX_RAW_5 in the stationary steering capture.";
+CM_ SG_ 37 STEER_AUX_RAW_5 "Steering-related raw byte; exactly equals STEER_AUX_RAW_4 in the stationary steering capture.";
+CM_ SG_ 37 CHECKSUM "Toyota checksum: (0x25 + 8 + sum(byte0..byte6)) & 0xff.";
 
 BO_ 40 LS600H_STEER_028: 8 XXX
  SG_ STEER_INSHAFT_RAW : 2|12@0- (1,0) [-2048|2047] "" XXX

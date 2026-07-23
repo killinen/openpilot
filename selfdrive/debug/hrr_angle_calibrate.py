@@ -93,19 +93,13 @@ def shortest_mod180_delta(value: float, previous: float) -> float:
 @dataclass(frozen=True)
 class SteerReference:
   angle_deg: float
-  reported_rate_deg_s: int
 
   @classmethod
   def decode(cls, payload: bytes) -> SteerReference:
     if len(payload) != 8:
       raise ValueError(f"expected 8-byte 0x{STEER_ANGLE_ADDR:03X}, got {len(payload)}")
     coarse = sign_extend(((payload[0] & 0x0F) << 8) | payload[1], 12)
-    fraction_raw = payload[4] >> 4
-    if fraction_raw == 0x8:
-      raise ValueError("invalid STEER_FRACTION sentinel")
-    fraction = sign_extend(fraction_raw, 4)
-    rate = sign_extend(((payload[4] & 0x0F) << 8) | payload[5], 12)
-    return cls((coarse * 15 + fraction) * 0.1, rate)
+    return cls(coarse * 1.5)
 
 
 @dataclass(frozen=True)
@@ -553,14 +547,11 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
 
 def run_self_test() -> None:
   steer = SteerReference.decode(bytes((0x00, 0x0A, 0, 0, 0xD0, 0, 0, 0)))
-  assert math.isclose(steer.angle_deg, 14.7)
+  assert math.isclose(steer.angle_deg, 15.0)
   steer = SteerReference.decode(bytes((0x0F, 0xF6, 0, 0, 0x30, 0, 0, 0)))
-  assert math.isclose(steer.angle_deg, -14.7)
-  try:
-    SteerReference.decode(bytes((0, 0, 0, 0, 0x80, 0, 0, 0)))
-    raise AssertionError("fraction sentinel was accepted")
-  except ValueError:
-    pass
+  assert math.isclose(steer.angle_deg, -15.0)
+  steer = SteerReference.decode(bytes((0, 0, 0, 0, 0x80, 0, 0, 0)))
+  assert math.isclose(steer.angle_deg, 0.0)
   assert shortest_mod180_delta(1.0, 179.0) == 2.0
   assert shortest_mod180_delta(179.0, 1.0) == -2.0
   for command, value in ((CMD_CAL_START, 0x12345678), (CMD_CAL_FINISH_SAVE, 0x12345678),

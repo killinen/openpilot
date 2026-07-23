@@ -1,4 +1,5 @@
 import copy
+from collections import deque
 
 from cereal import car, custom
 from openpilot.common.conversions import Conversions as CV
@@ -12,6 +13,9 @@ from openpilot.selfdrive.car.toyota.values import ToyotaFlags, ToyotaFrogPilotFl
                                                   TSS2_CAR, RADAR_ACC_CAR, EPS_SCALE, UNSUPPORTED_DSU_CAR, SECOC_CAR
 
 SteerControlType = car.CarParams.SteerControlType
+
+LS600H_STEERING_RATE_WINDOW_NS = int(0.25 * 1e9)
+LS600H_STEERING_RATE_RESET_NS = int(0.5 * 1e9)
 
 # These steering fault definitions seem to be common across LKA (torque) and LTA (angle):
 # - high steer rate fault: goes to 21 or 25 for 1 frame, then 9 for 2 seconds
@@ -59,6 +63,13 @@ class CarState(CarStateBase):
     self.accurate_steer_angle_seen = False
     self.angle_offset = FirstOrderFilter(None, 60.0, DT_CTRL, initialized=False)
 
+    # 0x25 on LS600h has only a verified 1.5-degree coarse angle. Derive a
+    # telemetry rate over a long enough interval to avoid one-frame 120 deg/s
+    # quantization spikes at the 80 Hz message rate.
+    self.ls600h_steering_history = deque()
+    self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
+    self.ls600h_last_steering_ts = 0
+
     self.prev_distance_button = 0
     self.distance_button = 0
 
@@ -93,8 +104,29 @@ class CarState(CarStateBase):
     ret.vEgoCluster = cp.vl["SPEED"]["SPEED"] * CV.KPH_TO_MS
     ret.standstill = abs(ret.vEgoRaw) < 1e-3
 
-    ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"] + cp.vl["STEER_ANGLE_SENSOR"]["STEER_FRACTION"]
-    ret.steeringRateDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_RATE"]
+    # LS600h 0x25 only has a verified 12-bit coarse angle. Its bytes 4 and 5
+    # are identical in the stationary steering capture, so they are not the
+    # conventional Toyota fraction/rate packing.
+    ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
+    steering_ts = cp.ts_nanos["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
+    if steering_ts > self.ls600h_last_steering_ts:
+      if self.ls600h_last_steering_ts and steering_ts - self.ls600h_last_steering_ts > LS600H_STEERING_RATE_RESET_NS:
+        self.ls600h_steering_history.clear()
+        self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
+
+      self.ls600h_steering_history.append((steering_ts, ret.steeringAngleDeg))
+      cutoff = steering_ts - LS600H_STEERING_RATE_WINDOW_NS
+      while len(self.ls600h_steering_history) > 1 and self.ls600h_steering_history[1][0] <= cutoff:
+        self.ls600h_steering_history.popleft()
+
+      if len(self.ls600h_steering_history) > 1 and self.ls600h_steering_history[0][0] <= cutoff:
+        start_ts, start_angle = self.ls600h_steering_history[0]
+        raw_rate = (ret.steeringAngleDeg - start_angle) / ((steering_ts - start_ts) * 1e-9)
+      else:
+        raw_rate = 0.0
+      self.ls600h_steering_rate.update(raw_rate)
+      self.ls600h_last_steering_ts = steering_ts
+    ret.steeringRateDeg = self.ls600h_steering_rate.x
     ret.yawRate = cp.vl["KINEMATICS"]["YAW_RATE"]
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
