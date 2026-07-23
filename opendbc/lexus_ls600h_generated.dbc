@@ -37,12 +37,12 @@ CM_ SG_ 37 CHECKSUM "Toyota checksum: (0x25 + 8 + sum(byte0..byte6)) & 0xff.";
 
 BO_ 40 LS600H_STEER_028: 8 XXX
  SG_ STEER_INSHAFT_RAW : 3|12@0- (3.25,0) [-6656|6652.75] "deg" XXX
- SG_ STEER_TORSION_BAR_RAW : 23|12@0- (1,0) [-2048|2047] "" XXX
+ SG_ STEER_RATE_EPS_RAW : 23|12@0- (1,0) [-2048|2047] "" XXX
  SG_ STEER_OUTSHAFT_RAW : 39|12@0- (3.25,0) [-6656|6652.75] "deg" XXX
  SG_ CHECKSUM : 63|8@0+ (1,0) [0|255] "" XXX
 CM_ BO_ 40 "Observed continuously on bus 2 at approximately 80 Hz in the source route. Tentative EPS/steering-related frame; signal names are not 100% confirmed.";
 CM_ SG_ 40 STEER_INSHAFT_RAW "Tentative input shaft resolver. In stationary steering route 9f2573520aa994fd/0000002a--d4f3b01cd9, corrected Motorola start bit 3 tracks 0x25 STEER_ANGLE with a full-route fit of 3.25314 deg/count and -10.80 deg offset. Uses the common 3.25 deg/count factor selected for the two shaft channels. Naming is based on the hypothesis that this channel is before the torsion bar; needs more confirmation.";
-CM_ SG_ 40 STEER_TORSION_BAR_RAW "Tentative torsion-bar/torque-related raw channel. It does not track absolute steering angle in route 9f2573520aa994fd/00000008--797fae1937. Exact physical meaning is not confirmed.";
+CM_ SG_ 40 STEER_RATE_EPS_RAW "Tentative EPS steering-rate channel. In stationary steering route 9f2573520aa994fd/0000002a--d4f3b01cd9, it has negligible correlation with absolute 0x25 STEER_ANGLE and strong correlation (r = 0.71 to 0.90) with its 100 ms smoothed derivative. The estimated scale varies from about 6 to 10 deg/s per count, so it remains unscaled pending a controlled rate calibration.";
 CM_ SG_ 40 STEER_OUTSHAFT_RAW "Tentative output shaft resolver. In stationary steering route 9f2573520aa994fd/0000002a--d4f3b01cd9, it tracks 0x25 STEER_ANGLE with a full-route fit of 3.16874 deg/count and -11.03 deg offset. Uses the common 3.25 deg/count factor selected for the two shaft channels.";
 CM_ SG_ 40 CHECKSUM "Observed checksum formula: (sum(byte0..byte6) + 0x30) & 0xff.";
 
