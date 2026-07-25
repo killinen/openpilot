@@ -18,11 +18,14 @@ if TYPE_CHECKING:
 
 
 CONFIG_ADDR = 0x603
+BRAKE_ADDR = 0x2C6
 STEER_ANGLE_ADDR = 0x25
 STATE_STATUS_ADDR = 0x634
 CAL_STATUS_ADDR = 0x635
 VECTOR_STATUS_ADDR = 0x637
 CONFIG_KEY = 0xA5
+BRAKE_PRESSED_PAYLOAD = bytes.fromhex("9B 20 86")
+BRAKE_STREAM_PERIOD_S = 0.01
 
 CMD_CAL_START = 4
 CMD_CAL_FINISH_SAVE = 5
@@ -359,9 +362,10 @@ def fit_calibration(samples: list[CalibrationSample]) -> CalibrationFit:
 
 
 class HrrCalibrationSession:
-  def __init__(self, panda: Panda | None, bus: int, dry_run: bool) -> None:
+  def __init__(self, panda: Panda | None, bus: int, reference_buses: tuple[int, ...], dry_run: bool) -> None:
     self.panda = panda
     self.bus = bus
+    self.reference_buses = reference_buses
     self.dry_run = dry_run
     self.calibration: CalibrationStatus | None = None
     self.safety: SafetyStatus | None = None
@@ -375,6 +379,8 @@ class HrrCalibrationSession:
     self.unwrapped_phase = 0.0
     self.previous_reference: float | None = None
     self.previous_sample_at: float | None = None
+    self.brake_streaming = False
+    self.next_brake_at: float | None = None
 
   def send_command(self, command: int, value: int = 0) -> bytes:
     payload = build_config_frame(command, value)
@@ -383,6 +389,25 @@ class HrrCalibrationSession:
       assert self.panda is not None
       self.panda.can_send(CONFIG_ADDR, payload, self.bus)
     return payload
+
+  def start_brake_stream(self) -> None:
+    """Supply the HRR-local brake input required by the current firmware."""
+    if self.dry_run:
+      return
+    self.brake_streaming = True
+    self.next_brake_at = time.monotonic()
+    print(f"TX 0x{BRAKE_ADDR:03X}: pressed brake at {1 / BRAKE_STREAM_PERIOD_S:.0f} Hz on bus {self.bus}")
+
+  def stop_brake_stream(self) -> None:
+    self.brake_streaming = False
+    self.next_brake_at = None
+
+  def service_brake_stream(self, now: float) -> None:
+    if not self.brake_streaming or self.next_brake_at is None or now < self.next_brake_at:
+      return
+    assert self.panda is not None
+    self.panda.can_send(BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, self.bus)
+    self.next_brake_at = now + BRAKE_STREAM_PERIOD_S
 
   def _collect_vector(self, vector: ResolverVector, now: float) -> None:
     if self.reference is None or self.reference_at is None or now - self.reference_at > REFERENCE_TIMEOUT_S:
@@ -416,14 +441,18 @@ class HrrCalibrationSession:
     if self.dry_run:
       return
     assert self.panda is not None
+    self.service_brake_stream(time.monotonic())
     for address, _, payload, rx_bus in self.panda.can_recv():
-      if rx_bus != self.bus:
-        continue
       now = time.monotonic()
       try:
-        if address == STEER_ANGLE_ADDR:
+        # Panda reports the source bus to the host, even when the frame is
+        # being forwarded physically to CAN2. 0x025 must therefore be read
+        # from its vehicle-side source bus rather than the HRR bus.
+        if address == STEER_ANGLE_ADDR and rx_bus in self.reference_buses:
           self.reference = SteerReference.decode(payload)
           self.reference_at = now
+        elif rx_bus != self.bus:
+          continue
         elif address == STATE_STATUS_ADDR:
           self.safety = SafetyStatus.decode(payload)
           self.safety_at = now
@@ -454,6 +483,59 @@ class HrrCalibrationSession:
             now - self.safety_at <= STATUS_TIMEOUT_S and self.reference is not None and
             self.reference_at is not None and now - self.reference_at <= REFERENCE_TIMEOUT_S and
             self.vector is not None)
+
+  def readiness_errors(self) -> list[str]:
+    """Describe every condition that currently prevents a calibration start."""
+    now = time.monotonic()
+    errors = []
+    if self.calibration is None:
+      errors.append("no valid 8-byte HRR calibration status (0x635)")
+    else:
+      if self.calibration.version != CAL_PROTOCOL_VERSION:
+        errors.append(f"0x635 protocol v{self.calibration.version}, expected v{CAL_PROTOCOL_VERSION}")
+      if self.status_at is None or now - self.status_at > STATUS_TIMEOUT_S:
+        errors.append(f"0x635 stale (> {STATUS_TIMEOUT_S:.2f}s)")
+
+    if self.safety is None:
+      errors.append("no valid 8-byte HRR safety status (0x634)")
+    else:
+      if self.safety_at is None or now - self.safety_at > STATUS_TIMEOUT_S:
+        errors.append(f"0x634 stale (> {STATUS_TIMEOUT_S:.2f}s)")
+      unsafe = []
+      if self.safety.rel:
+        unsafe.append("REL closed")
+      if self.safety.rele:
+        unsafe.append("RELE closed")
+      if not self.safety.brake_fresh:
+        unsafe.append("brake frame not fresh")
+      if not self.safety.brake_pressed:
+        unsafe.append("brake not pressed")
+      if not self.safety.brake_interlock:
+        unsafe.append("brake interlock off")
+      if not self.safety.torque_interlock:
+        unsafe.append("torque interlock off")
+      if unsafe:
+        errors.append("0x634 unsafe: " + ", ".join(unsafe))
+
+    if self.reference is None:
+      buses = "/".join(str(bus) for bus in self.reference_buses)
+      errors.append(f"no valid 8-byte steering reference (0x025) on bus {buses}")
+    elif self.reference_at is None or now - self.reference_at > REFERENCE_TIMEOUT_S:
+      errors.append(f"0x025 stale (> {REFERENCE_TIMEOUT_S:.2f}s)")
+
+    if self.vector is None:
+      errors.append("no valid 8-byte resolver vector (0x637)")
+    return errors
+
+  def wait_for_live_ready(self, timeout: float) -> bool:
+    """Receive fresh CAN after an interactive pause before judging readiness."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+      self.poll()
+      if self.live_ready():
+        return True
+      time.sleep(0.01)
+    return self.live_ready()
 
 
 def choose_bus(configured_bus: int | None) -> int:
@@ -486,8 +568,12 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
     session.send_command(CMD_CAL_START, 0x12345678)
     print("Dry run: start frame generated; no samples were collected.")
     return True
-  if not session.live_ready():
-    print("ERROR: need fresh HRR v2 status, safe interlocks, resolver vector, and CAN 0x25 reference.", file=sys.stderr)
+  session.start_brake_stream()
+  # input() stops CAN polling, while 0x025 is intentionally required to be no
+  # more than 100 ms old. Refresh every input after the operator confirms.
+  if not session.wait_for_live_ready(1.0):
+    details = "; ".join(session.readiness_errors())
+    print(f"ERROR: calibration preconditions not met: {details}.", file=sys.stderr)
     return False
 
   token = secrets.randbits(32) or 1
@@ -561,6 +647,7 @@ def run_self_test() -> None:
   assert math.isclose(steer.angle_deg, 0.0)
   assert shortest_mod180_delta(1.0, 179.0) == 2.0
   assert shortest_mod180_delta(179.0, 1.0) == -2.0
+  assert len(BRAKE_PRESSED_PAYLOAD) == 3
   for command, value in ((CMD_CAL_START, 0x12345678), (CMD_CAL_FINISH_SAVE, 0x12345678),
                          (CMD_CAL_ABORT, 0), (CMD_CAL_MODE, 1), (CMD_MATRIX_FIRST, -12345)):
     frame = build_config_frame(command, value)
@@ -594,7 +681,9 @@ def run_self_test() -> None:
 
 def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  parser.add_argument("--bus", type=int, choices=(0, 1, 2), help="Panda CAN bus; prompted when omitted")
+  parser.add_argument("--bus", type=int, choices=(0, 1, 2), help="HRR Panda CAN bus; prompted when omitted")
+  parser.add_argument("--reference-bus", type=int, choices=(0, 1, 2), action="append",
+                      help="source bus for steering reference 0x025; repeat as needed (default: 0 and 1)")
   parser.add_argument("--timeout", type=float, default=300.0, help="maximum guided sweep duration")
   parser.add_argument("--yes", action="store_true", help="skip the initial safety confirmation")
   parser.add_argument("--legacy", action="store_true", help="persist legacy uncalibrated output and exit")
@@ -612,13 +701,14 @@ def main() -> None:
     parser.error("--legacy, --calibrated, and --abort are mutually exclusive")
 
   bus = choose_bus(args.bus)
+  reference_buses = tuple(args.reference_bus) if args.reference_bus is not None else (0, 1)
   panda = None
   if not args.dry_run:
     from panda import Panda
     panda = Panda()
     panda.set_power_save(False)
     panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
-  session = HrrCalibrationSession(panda, bus, args.dry_run)
+  session = HrrCalibrationSession(panda, bus, reference_buses, args.dry_run)
   try:
     if not args.dry_run:
       status = session.wait_for(lambda item: item.version == CAL_PROTOCOL_VERSION, 3.0)
@@ -647,6 +737,7 @@ def main() -> None:
     session.send_command(CMD_CAL_ABORT, 0)
     raise SystemExit(130) from error
   finally:
+    session.stop_brake_stream()
     if panda is not None:
       panda.set_safety_mode(Panda.SAFETY_SILENT)
 

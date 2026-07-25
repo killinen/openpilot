@@ -111,6 +111,14 @@ resolver vectors cannot cross the ambiguous 90-degree modulo-180 half-period.
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2
 ```
 
+`--bus 2` is the HRR command/status bus. Panda reports received frames with their original source
+bus, so the script reads `0x025` from vehicle buses 0 and 1 by default rather than expecting it
+to appear as a receive frame on bus 2. Override that selection when needed, for example:
+
+```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --reference-bus 0
+```
+
 Press Enter once the display reports `READY`. The script robustly fits the resolver/steering ratio
 and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan2()`. Readiness
 requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
@@ -122,6 +130,14 @@ The firmware stages the fit under a calibration session and commits the complete
 to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
 the previous committed calibration intact. With no valid enabled calibration, the original raw
 modulo-180 estimator remains active.
+
+The script reads the steering reference directly from its vehicle-side receive bus and does **not**
+bridge CAN0 and CAN2. To satisfy the current HRR firmware's local safety protocol, after the
+operator confirms the prompt it transmits the fixed pressed-brake `0x2C6` frame directly on HRR
+bus 2 at 100 Hz for the duration of the calibration session. This is a synthetic HRR-local
+interlock input, not a measurement of the physical pedal; the operator must still secure the
+vehicle and hold the brake. Transmit stops on exit and the firmware's brake freshness timeout
+then returns the HRR to its safe state.
 
 The stored mode can be selected explicitly without repeating the sweep:
 
