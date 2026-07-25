@@ -124,8 +124,9 @@ and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan
 requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
 coverage, and no more than 1.5 degrees RMS or 5.0 degrees maximum steering-equivalent residual.
 The LS600h resolver completes one 360-degree electrical revolution per 22.5 degrees of shaft
-rotation, so the fitted signed phase-per-steer magnitude must be near 16. The RMS/covariance
-vectors are projective modulo 180 degrees; continuous unwrapping retains the 16:1 relationship.
+rotation. The RMS/covariance vectors are projective modulo 180 degrees, so their unwrapped phase
+advances only 180 degrees per electrical revolution; the fitted signed phase-per-steer magnitude
+must therefore be near 8.
 The firmware stages the fit under a calibration session and commits the complete coefficient set
 to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
 the previous committed calibration intact. With no valid enabled calibration, the original raw
