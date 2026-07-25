@@ -10,6 +10,7 @@ import secrets
 import select
 import struct
 import sys
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -57,6 +58,9 @@ REFERENCE_TIMEOUT_S = 0.10
 STATUS_TIMEOUT_S = 0.75
 VECTOR_MIN_MAGNITUDE = 4.0
 VECTOR_MATRIX_INPUT_SCALE = 1024.0
+REFERENCE_DELAY_MIN_S = -0.20
+REFERENCE_DELAY_MAX_S = 0.40
+REFERENCE_DELAY_STEP_S = 0.01
 
 FAILURE_REASONS = {
   0: "none",
@@ -197,6 +201,12 @@ class CalibrationSample:
 
 
 @dataclass(frozen=True)
+class TimedReference:
+  timestamp: float
+  angle_deg: float
+
+
+@dataclass(frozen=True)
 class CalibrationFit:
   matrices: tuple[float, ...]
   phase_per_steer: float
@@ -208,6 +218,7 @@ class CalibrationFit:
   positive_travel_deg: float
   negative_travel_deg: float
   occupied_bins: int
+  reference_delay_s: float
 
   @property
   def ready(self) -> bool:
@@ -222,6 +233,7 @@ class CalibrationFit:
             f"phase_span={self.phase_span_deg:.0f}/{MIN_PHASE_SPAN_DEG:.0f}deg " +
             f"travel=+{self.positive_travel_deg:.0f}/-{self.negative_travel_deg:.0f}deg " +
             f"bins={self.occupied_bins}/18 ratio={self.phase_per_steer:+.6f} " +
+            f"lag={self.reference_delay_s:+.2f}s " +
             f"rms/max={self.rms_error_deg:.2f}/{self.max_error_deg:.2f}deg")
 
 
@@ -329,7 +341,7 @@ def solve_matrix(samples: list[CalibrationSample], indices: list[int], ratio: fl
   return matrix, current
 
 
-def fit_calibration(samples: list[CalibrationSample]) -> CalibrationFit:
+def fit_calibration_aligned(samples: list[CalibrationSample], reference_delay_s: float = 0.0) -> CalibrationFit:
   if len(samples) < MIN_SAMPLES:
     raise ValueError(f"need at least {MIN_SAMPLES} samples")
   ratio, indices = robust_phase_ratio(samples)
@@ -360,7 +372,89 @@ def fit_calibration(samples: list[CalibrationSample]) -> CalibrationFit:
   return CalibrationFit(in_matrix + ou_matrix, ratio, len(indices),
                         math.sqrt(sum(error * error for error in errors) / len(errors)), max(errors),
                         max(references) - min(references), max(phases) - min(phases),
-                        positive, negative, len(bins))
+                        positive, negative, len(bins), reference_delay_s)
+
+
+def align_samples(samples: list[CalibrationSample], references: list[TimedReference],
+                  delay_s: float) -> list[CalibrationSample]:
+  """Interpolate 0x025 at the time represented by each windowed 0x637 vector."""
+  if len(references) < 2:
+    return []
+  aligned = []
+  reference_index = 0
+  for sample in samples:
+    target_time = sample.timestamp - delay_s
+    while (reference_index + 1 < len(references) and
+           references[reference_index + 1].timestamp <= target_time):
+      reference_index += 1
+    if reference_index + 1 >= len(references):
+      break
+    before = references[reference_index]
+    after = references[reference_index + 1]
+    if target_time < before.timestamp:
+      continue
+    elapsed = after.timestamp - before.timestamp
+    if elapsed <= 0.0:
+      continue
+    fraction = (target_time - before.timestamp) / elapsed
+    reference_deg = before.angle_deg + fraction * (after.angle_deg - before.angle_deg)
+    aligned.append(CalibrationSample(sample.timestamp, reference_deg,
+                                     sample.raw_phase_deg, sample.unwrapped_phase_deg,
+                                     sample.in_cos, sample.in_sin, sample.ou_cos, sample.ou_sin))
+  return aligned
+
+
+def fit_calibration(samples: list[CalibrationSample],
+                    references: list[TimedReference] | None = None) -> CalibrationFit:
+  if references is None:
+    return fit_calibration_aligned(samples)
+  if len(samples) < MIN_SAMPLES:
+    raise ValueError(f"need at least {MIN_SAMPLES} samples")
+
+  scored_delays: list[tuple[float, float]] = []
+  delay_steps = round((REFERENCE_DELAY_MAX_S - REFERENCE_DELAY_MIN_S) / REFERENCE_DELAY_STEP_S)
+  for step in range(delay_steps + 1):
+    delay_s = REFERENCE_DELAY_MIN_S + step * REFERENCE_DELAY_STEP_S
+    aligned = align_samples(samples, references, delay_s)
+    if len(aligned) < MIN_SAMPLES:
+      continue
+    try:
+      ratio, indices = robust_phase_ratio(aligned)
+      slope, intercept = linear_fit([aligned[index].reference_deg for index in indices],
+                                    [aligned[index].unwrapped_phase_deg for index in indices])
+    except ValueError:
+      continue
+    residual_rms = math.sqrt(sum(
+      (aligned[index].unwrapped_phase_deg -
+       (slope * aligned[index].reference_deg + intercept)) ** 2
+      for index in indices) / len(indices)) / abs(ratio)
+    scored_delays.append((residual_rms, delay_s))
+  if not scored_delays:
+    # Preserve the most useful error message when no lag produces a plausible ratio.
+    return fit_calibration_aligned(samples)
+
+  # The raw phase score cheaply locates the timing valley. Run the more
+  # expensive two-matrix fit only around that valley so CAN polling remains
+  # responsive on the comma.
+  _, coarse_delay = min(scored_delays)
+  best: CalibrationFit | None = None
+  best_score = math.inf
+  for _, delay_s in scored_delays:
+    if abs(delay_s - coarse_delay) > 3.0 * REFERENCE_DELAY_STEP_S:
+      continue
+    aligned = align_samples(samples, references, delay_s)
+    try:
+      candidate = fit_calibration_aligned(aligned, delay_s)
+    except ValueError:
+      continue
+    candidate_score = max(candidate.rms_error_deg / MAX_FIT_RMS_DEG,
+                          candidate.max_error_deg / MAX_FIT_ERROR_DEG)
+    if candidate_score < best_score:
+      best = candidate
+      best_score = candidate_score
+  if best is None:
+    return fit_calibration_aligned(samples)
+  return best
 
 
 class HrrCalibrationSession:
@@ -377,12 +471,13 @@ class HrrCalibrationSession:
     self.status_at: float | None = None
     self.safety_at: float | None = None
     self.samples: list[CalibrationSample] = []
+    self.reference_history: list[TimedReference] = []
     self.previous_phase: float | None = None
     self.unwrapped_phase = 0.0
     self.previous_reference: float | None = None
     self.previous_sample_at: float | None = None
-    self.brake_streaming = False
-    self.next_brake_at: float | None = None
+    self.brake_stop_event = threading.Event()
+    self.brake_thread: threading.Thread | None = None
 
   def send_command(self, command: int, value: int = 0) -> bytes:
     payload = build_config_frame(command, value)
@@ -396,20 +491,28 @@ class HrrCalibrationSession:
     """Supply the HRR-local brake input required by the current firmware."""
     if self.dry_run:
       return
-    self.brake_streaming = True
-    self.next_brake_at = time.monotonic()
+    self.brake_stop_event.clear()
+    self.brake_thread = threading.Thread(target=self.brake_stream_loop, name="hrr-brake-stream", daemon=True)
+    self.brake_thread.start()
     print(f"TX 0x{BRAKE_ADDR:03X}: pressed brake at {1 / BRAKE_STREAM_PERIOD_S:.0f} Hz on bus {self.bus}")
 
   def stop_brake_stream(self) -> None:
-    self.brake_streaming = False
-    self.next_brake_at = None
+    self.brake_stop_event.set()
+    if self.brake_thread is not None:
+      self.brake_thread.join(timeout=1.0)
+      self.brake_thread = None
 
-  def service_brake_stream(self, now: float) -> None:
-    if not self.brake_streaming or self.next_brake_at is None or now < self.next_brake_at:
-      return
+  def brake_stream_loop(self) -> None:
     assert self.panda is not None
-    self.panda.can_send(BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, self.bus)
-    self.next_brake_at = now + BRAKE_STREAM_PERIOD_S
+    next_send = time.monotonic()
+    while not self.brake_stop_event.is_set():
+      self.panda.can_send(BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, self.bus)
+      next_send += BRAKE_STREAM_PERIOD_S
+      wait = next_send - time.monotonic()
+      if wait < 0.0:
+        next_send = time.monotonic()
+        continue
+      self.brake_stop_event.wait(wait)
 
   def _collect_vector(self, vector: ResolverVector, now: float) -> None:
     if self.reference is None or self.reference_at is None or now - self.reference_at > REFERENCE_TIMEOUT_S:
@@ -443,7 +546,6 @@ class HrrCalibrationSession:
     if self.dry_run:
       return
     assert self.panda is not None
-    self.service_brake_stream(time.monotonic())
     for address, _, payload, rx_bus in self.panda.can_recv():
       now = time.monotonic()
       try:
@@ -453,6 +555,7 @@ class HrrCalibrationSession:
         if address == STEER_ANGLE_ADDR and rx_bus in self.reference_buses:
           self.reference = SteerReference.decode(payload)
           self.reference_at = now
+          self.reference_history.append(TimedReference(now, self.reference.angle_deg))
         elif rx_bus != self.bus:
           continue
         elif address == STATE_STATUS_ADDR:
@@ -594,7 +697,7 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
     now = time.monotonic()
     if now >= next_print:
       try:
-        latest_fit = fit_calibration(session.samples)
+        latest_fit = fit_calibration(session.samples, session.reference_history)
         text = latest_fit.format()
         state = "READY" if latest_fit.ready else "SWEEP"
       except ValueError as error:
@@ -678,6 +781,44 @@ def run_self_test() -> None:
   assert fit.ready, fit.format()
   assert abs(fit.phase_per_steer + NOMINAL_PHASE_PER_STEER) < 0.01
   assert fit.rms_error_deg < 0.2
+
+  # Irregular motion with a windowed-vector delay must align automatically;
+  # requiring the operator to maintain constant speed is neither realistic nor
+  # necessary when both streams have timestamps.
+  imposed_delay_s = 0.14
+
+  def trajectory(timestamp: float) -> float:
+    return (500.0 * math.sin(2.0 * math.pi * timestamp / 120.0) +
+            35.0 * math.sin(2.0 * math.pi * timestamp / 17.0))
+
+  timed_references = [
+    TimedReference(index * 0.02, round(trajectory(index * 0.02) / 1.5) * 1.5)
+    for index in range(12051)
+  ]
+  delayed_samples: list[CalibrationSample] = []
+  unwrapped = 0.0
+  delayed_previous: float | None = None
+  for index in range(10, 2400):
+    timestamp = index * 0.1
+    reference = trajectory(timestamp - imposed_delay_s)
+    target = -NOMINAL_PHASE_PER_STEER * reference
+    raw = (target + 17.0) % 180.0
+    if delayed_previous is None:
+      unwrapped = raw
+    else:
+      unwrapped += shortest_mod180_delta(raw, delayed_previous)
+    delayed_previous = raw
+    angle = math.radians((raw + 90.0) % 180.0 - 90.0)
+    cos_raw = round(1000.0 * math.cos(angle) + 120.0 * math.sin(angle))
+    sin_raw = round(760.0 * math.sin(angle))
+    current_reference = round(trajectory(timestamp) / 1.5) * 1.5
+    delayed_samples.append(CalibrationSample(timestamp, current_reference, raw, unwrapped,
+                                             cos_raw, sin_raw, cos_raw, sin_raw))
+  unaligned_fit = fit_calibration(delayed_samples)
+  aligned_fit = fit_calibration(delayed_samples, timed_references)
+  assert abs(aligned_fit.reference_delay_s - imposed_delay_s) <= 1.5 * REFERENCE_DELAY_STEP_S, aligned_fit.format()
+  assert aligned_fit.rms_error_deg < unaligned_fit.rms_error_deg * 0.25
+  assert aligned_fit.ready, aligned_fit.format()
   print("HRR v2 resolver/0x25 calibration self-test passed.")
 
 
@@ -685,7 +826,7 @@ def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   parser.add_argument("--bus", type=int, choices=(0, 1, 2), help="HRR Panda CAN bus; prompted when omitted")
   parser.add_argument("--reference-bus", type=int, choices=(0, 1, 2), action="append",
-                      help="source bus for steering reference 0x025; repeat as needed (default: 0 and 1)")
+                      help="source bus for steering reference 0x025; repeat as needed (default: 1)")
   parser.add_argument("--timeout", type=float, default=300.0, help="maximum guided sweep duration")
   parser.add_argument("--yes", action="store_true", help="skip the initial safety confirmation")
   parser.add_argument("--legacy", action="store_true", help="persist legacy uncalibrated output and exit")
@@ -703,7 +844,7 @@ def main() -> None:
     parser.error("--legacy, --calibrated, and --abort are mutually exclusive")
 
   bus = choose_bus(args.bus)
-  reference_buses = tuple(args.reference_bus) if args.reference_bus is not None else (0, 1)
+  reference_buses = tuple(args.reference_bus) if args.reference_bus is not None else (1,)
   panda = None
   if not args.dry_run:
     from panda import Panda

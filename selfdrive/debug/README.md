@@ -112,17 +112,22 @@ python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2
 ```
 
 `--bus 2` is the HRR command/status bus. Panda reports received frames with their original source
-bus, so the script reads `0x025` from vehicle buses 0 and 1 by default rather than expecting it
-to appear as a receive frame on bus 2. Override that selection when needed, for example:
+bus, so the script reads `0x025` from vehicle bus 1 by default rather than expecting it to appear
+as a receive frame on bus 2. Override that selection when needed, for example:
 
 ```bash
-python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --reference-bus 0
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --reference-bus 1
 ```
 
 Press Enter once the display reports `READY`. The script robustly fits the resolver/steering ratio
 and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan2()`. Readiness
 requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
 coverage, and no more than 1.5 degrees RMS or 5.0 degrees maximum steering-equivalent residual.
+The operator does not need to hold a constant speed. The fitter retains timestamped `0x025`
+history, interpolates it at each `0x637` vector time, and automatically searches a bounded
+`-0.20..+0.40 s` reference delay to compensate CAN transport and resolver-window latency. The
+live result reports the selected delay as `lag=...s`; natural speed variation and direction
+reversals give the fitter the information needed to distinguish timing delay from phase offset.
 The LS600h resolver completes one 360-degree electrical revolution per 22.5 degrees of shaft
 rotation. The RMS/covariance vectors are projective modulo 180 degrees, so their unwrapped phase
 advances only 180 degrees per electrical revolution; the fitted signed phase-per-steer magnitude
