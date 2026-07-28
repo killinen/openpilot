@@ -103,8 +103,9 @@ Guided electrical and steering-reference calibration for the HRR `IN_Angle` and 
 resolver estimators. The vehicle must be stationary and secured, with the brake held, HRR relays
 open, and torque output interlocked. The tool uses the validated coarse `STEER_ANGLE` from
 LS600h `0x25` (1.5-degree resolution), pairs that reference with the HRR's per-window signed RMS/covariance resolver
-vectors on `0x637`, and asks the operator to sweep slowly center -> left lock -> right lock ->
-center. Keep the sweep below approximately 30 degrees/second so consecutive 10 Hz projective
+vectors on `0x637`, and asks the operator to sweep slowly center -> left -> right -> center,
+covering at least 360 degrees between the leftmost and rightmost readings. Mechanical locks are
+not required. Keep the sweep below approximately 30 degrees/second so consecutive 10 Hz projective
 resolver vectors cannot cross the ambiguous 90-degree modulo-180 half-period.
 
 ```bash
@@ -123,8 +124,17 @@ Press Enter once the display reports `READY`. The script robustly fits the resol
 and independent 2x2 IN/OU gain, skew, and phase-correction matrices before `atan2()`. Readiness
 requires both sweep directions, at least 100 accepted samples, broad steering and resolver-phase
 coverage, and no more than 1.5 degrees RMS or 5.0 degrees maximum steering-equivalent residual.
-The operator does not need to hold a constant speed. The fitter retains timestamped `0x025`
-history, interpolates it at each `0x637` vector time, and automatically searches a bounded
+IN and OU measure opposite sides of the steering torsion bar, so a two-pass fit first estimates
+both corrections, rejects samples whose corrected OU-IN relationship is more than 1.5 degrees
+from its unloaded baseline, and refits on the retained samples. Coverage is checked again after
+that filtering. Pause briefly and relax steering effort at several angles across both directions;
+the operator does not need to hold a constant speed or reach the mechanical locks. The live
+`low_torsion=accepted/total` count shows how many samples remain. `IN=RMS/max` is the primary
+firmware acceptance metric because calibrated true angle is derived from IN; `OU=RMS/max` and
+`torsion=RMS/max` remain visible as separate diagnostics instead of treating real torsion-bar
+deflection as resolver calibration error.
+
+The fitter retains timestamped `0x025` history, interpolates it at each `0x637` vector time, and automatically searches a bounded
 `-0.20..+0.40 s` reference delay to compensate CAN transport and resolver-window latency. The
 live result reports the selected delay as `lag=...s`; natural speed variation and direction
 reversals give the fitter the information needed to distinguish timing delay from phase offset.
@@ -157,6 +167,9 @@ python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --calibrated
 ```
 
 `--status` is read-only and prints the latest decoded `0x635` state and failure reason.
+It also prints decoded `0x634` relay, raw-angle validity, mirror/CANCTR, brake age,
+and torque-interlock details. The same details are captured automatically when
+firmware aborts an active calibration.
 `--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
 confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
 Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:

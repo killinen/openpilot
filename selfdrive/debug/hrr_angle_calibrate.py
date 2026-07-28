@@ -55,6 +55,10 @@ MAX_PHASE_PER_STEER = 10.0
 MAX_RESOLVER_PHASE_RATE_DEG_S = MAX_REFERENCE_RATE_DEG_S * NOMINAL_PHASE_PER_STEER
 MAX_FIT_RMS_DEG = 1.5
 MAX_FIT_ERROR_DEG = 5.0
+# IN and OU observe opposite sides of the steering torsion bar.  Fit only
+# samples where their corrected angles are close to the unloaded relationship;
+# otherwise steering effort is incorrectly learned as resolver non-linearity.
+MAX_TORSION_DEVIATION_DEG = 1.5
 REFERENCE_TIMEOUT_S = 0.10
 STATUS_TIMEOUT_S = 0.75
 VECTOR_MIN_MAGNITUDE = 4.0
@@ -121,10 +125,22 @@ class SteerReference:
 class SafetyStatus:
   rel: bool
   rele: bool
+  ou_angle_valid: bool
+  in_angle_valid: bool
+  brake_seen: bool
   brake_fresh: bool
   brake_pressed: bool
   brake_interlock: bool
+  torque_seen: bool
+  centers_valid: bool
+  mirror_running: bool
+  guard_enabled: bool
+  guard_angles_valid: bool
+  canctr_enabled: bool
+  torque_fresh: bool
   torque_interlock: bool
+  brake_age_ms: int
+  torque_age_ms: int
 
   @classmethod
   def decode(cls, payload: bytes) -> SafetyStatus:
@@ -132,13 +148,29 @@ class SafetyStatus:
       raise ValueError(f"expected 8-byte 0x{STATE_STATUS_ADDR:03X}, got {len(payload)}")
     flags = int.from_bytes(payload[:2], "little")
     return cls(bool(flags & (1 << 0)), bool(flags & (1 << 1)),
-               bool(flags & (1 << 5)), bool(flags & (1 << 6)),
-               bool(flags & (1 << 7)), bool(flags & (1 << 15)))
+               bool(flags & (1 << 2)), bool(flags & (1 << 3)),
+               bool(flags & (1 << 4)), bool(flags & (1 << 5)),
+               bool(flags & (1 << 6)), bool(flags & (1 << 7)),
+               bool(flags & (1 << 8)), bool(flags & (1 << 9)),
+               bool(flags & (1 << 10)), bool(flags & (1 << 11)),
+               bool(flags & (1 << 12)), bool(flags & (1 << 13)),
+               bool(flags & (1 << 14)), bool(flags & (1 << 15)),
+               int.from_bytes(payload[4:6], "little"),
+               int.from_bytes(payload[6:8], "little"))
 
   @property
   def calibration_safe(self) -> bool:
-    return (not self.rel and not self.rele and self.brake_fresh and self.brake_pressed and
-            self.brake_interlock and self.torque_interlock)
+    return (not self.rel and not self.rele and self.ou_angle_valid and self.in_angle_valid and
+            self.brake_fresh and self.brake_pressed and self.brake_interlock and
+            self.mirror_running and self.canctr_enabled and self.torque_interlock)
+
+  def format(self) -> str:
+    return (f"relay={int(self.rel)}/{int(self.rele)} raw={int(self.in_angle_valid)}/{int(self.ou_angle_valid)} " +
+            f"mirror={int(self.mirror_running)} canctr={int(self.canctr_enabled)} " +
+            f"brake=seen:{int(self.brake_seen)},fresh:{int(self.brake_fresh)},pressed:{int(self.brake_pressed)}," +
+            f"interlock:{int(self.brake_interlock)},age:{self.brake_age_ms}ms " +
+            f"torque=seen:{int(self.torque_seen)},fresh:{int(self.torque_fresh)}," +
+            f"interlock:{int(self.torque_interlock)},age:{self.torque_age_ms}ms")
 
 
 @dataclass(frozen=True)
@@ -171,7 +203,8 @@ class CalibrationStatus:
     mode = "LEGACY" if self.legacy_active else "CALIBRATED"
     reason = FAILURE_REASONS.get(self.failure_reason, f"unknown({self.failure_reason})")
     return (f"v{self.version} state={'RUNNING' if self.running else 'IDLE'} mode={mode} " +
-            f"valid={int(self.valid)} staged=0x{self.staged_mask:03x} samples={self.samples} " +
+            f"valid={int(self.valid)} raw={int(self.in_raw_valid)}/{int(self.ou_raw_valid)} " +
+            f"staged=0x{self.staged_mask:03x} samples={self.samples} " +
             f"rms={self.rms_error_deg:.1f}deg reason={reason}")
 
 
@@ -212,8 +245,13 @@ class CalibrationFit:
   matrices: tuple[float, ...]
   phase_per_steer: float
   samples: int
+  total_samples: int
   rms_error_deg: float
   max_error_deg: float
+  ou_rms_error_deg: float
+  ou_max_error_deg: float
+  torsion_rms_deg: float
+  torsion_max_deg: float
   reference_span_deg: float
   phase_span_deg: float
   positive_travel_deg: float
@@ -230,12 +268,15 @@ class CalibrationFit:
             self.rms_error_deg <= MAX_FIT_RMS_DEG and self.max_error_deg <= MAX_FIT_ERROR_DEG)
 
   def format(self) -> str:
-    return (f"n={self.samples} ref_span={self.reference_span_deg:.0f}/{MIN_REFERENCE_SPAN_DEG:.0f}deg " +
+    return (f"low_torsion={self.samples}/{self.total_samples} " +
+            f"ref_span={self.reference_span_deg:.0f}/{MIN_REFERENCE_SPAN_DEG:.0f}deg " +
             f"phase_span={self.phase_span_deg:.0f}/{MIN_PHASE_SPAN_DEG:.0f}deg " +
             f"travel=+{self.positive_travel_deg:.0f}/-{self.negative_travel_deg:.0f}deg " +
             f"bins={self.occupied_bins}/18 ratio={self.phase_per_steer:+.6f} " +
             f"lag={self.reference_delay_s:+.2f}s " +
-            f"rms/max={self.rms_error_deg:.2f}/{self.max_error_deg:.2f}deg")
+            f"IN={self.rms_error_deg:.2f}/{self.max_error_deg:.2f}deg " +
+            f"OU={self.ou_rms_error_deg:.2f}/{self.ou_max_error_deg:.2f}deg " +
+            f"torsion={self.torsion_rms_deg:.2f}/{self.torsion_max_deg:.2f}deg")
 
 
 def vector_phase_deg(cos_value: int | float, sin_value: int | float) -> float:
@@ -342,27 +383,73 @@ def solve_matrix(samples: list[CalibrationSample], indices: list[int], ratio: fl
   return matrix, current
 
 
+def corrected_phase(sample: CalibrationSample, matrix: tuple[float, float, float, float],
+                    pair: str) -> float:
+  cos_raw = sample.in_cos if pair == "in" else sample.ou_cos
+  sin_raw = sample.in_sin if pair == "in" else sample.ou_sin
+  return vector_phase_deg(matrix[0] * cos_raw + matrix[1] * sin_raw,
+                          matrix[2] * cos_raw + matrix[3] * sin_raw)
+
+
+def median(values: list[float]) -> float:
+  ordered = sorted(values)
+  middle = len(ordered) // 2
+  if len(ordered) % 2:
+    return ordered[middle]
+  return 0.5 * (ordered[middle - 1] + ordered[middle])
+
+
 def fit_calibration_aligned(samples: list[CalibrationSample], reference_delay_s: float = 0.0) -> CalibrationFit:
   if len(samples) < MIN_SAMPLES:
     raise ValueError(f"need at least {MIN_SAMPLES} samples")
-  ratio, indices = robust_phase_ratio(samples)
-  in_matrix, indices = solve_matrix(samples, indices, ratio, "in")
-  ou_matrix, indices = solve_matrix(samples, indices, ratio, "ou")
-  errors = []
+
+  # First obtain approximate electrical corrections from all robust samples.
+  # Their relative corrected phase reveals steering torque without assuming
+  # that the operator can maintain a constant sweep speed.
+  preliminary_ratio, preliminary_indices = robust_phase_ratio(samples)
+  preliminary_in, preliminary_indices = solve_matrix(samples, preliminary_indices,
+                                                      preliminary_ratio, "in")
+  preliminary_ou, preliminary_indices = solve_matrix(samples, preliminary_indices,
+                                                      preliminary_ratio, "ou")
+  torsions = [
+    shortest_mod180_delta(corrected_phase(samples[index], preliminary_ou, "ou"),
+                          corrected_phase(samples[index], preliminary_in, "in")) /
+    abs(preliminary_ratio)
+    for index in preliminary_indices
+  ]
+  torsion_baseline = median(torsions)
+  low_torsion_indices = [
+    index for index, torsion in zip(preliminary_indices, torsions, strict=True)
+    if abs(torsion - torsion_baseline) <= MAX_TORSION_DEVIATION_DEG
+  ]
+  if len(low_torsion_indices) < MIN_SAMPLES:
+    raise ValueError(
+      f"need at least {MIN_SAMPLES} low-torsion samples " +
+      f"({len(low_torsion_indices)}/{len(samples)} within " +
+      f"{MAX_TORSION_DEVIATION_DEG:.1f}deg); pause and relax hand torque at more wheel angles"
+    )
+
+  # Refit everything using only the unloaded relationship. Coverage and fit
+  # quality below are deliberately evaluated on this retained subset.
+  filtered_samples = [samples[index] for index in low_torsion_indices]
+  ratio, indices = robust_phase_ratio(filtered_samples)
+  in_matrix, indices = solve_matrix(filtered_samples, indices, ratio, "in")
+  ou_matrix, indices = solve_matrix(filtered_samples, indices, ratio, "ou")
+  in_errors: list[float] = []
+  ou_errors: list[float] = []
+  final_torsions: list[float] = []
   bins = set()
   for index in indices:
-    sample = samples[index]
+    sample = filtered_samples[index]
     target = (ratio * sample.reference_deg) % 180.0
-    pair_errors = []
-    for matrix, cos_raw, sin_raw in ((in_matrix, sample.in_cos, sample.in_sin),
-                                     (ou_matrix, sample.ou_cos, sample.ou_sin)):
-      measured = vector_phase_deg(matrix[0] * cos_raw + matrix[1] * sin_raw,
-                                  matrix[2] * cos_raw + matrix[3] * sin_raw)
-      pair_errors.append(abs(shortest_mod180_delta(measured, target)) / abs(ratio))
-    errors.append(max(pair_errors))
+    in_phase = corrected_phase(sample, in_matrix, "in")
+    ou_phase = corrected_phase(sample, ou_matrix, "ou")
+    in_errors.append(abs(shortest_mod180_delta(in_phase, target)) / abs(ratio))
+    ou_errors.append(abs(shortest_mod180_delta(ou_phase, target)) / abs(ratio))
+    final_torsions.append(shortest_mod180_delta(ou_phase, in_phase) / abs(ratio))
     bins.add(int(target // 10.0) % 18)
-  references = [samples[i].reference_deg for i in indices]
-  phases = [samples[i].unwrapped_phase_deg for i in indices]
+  references = [filtered_samples[i].reference_deg for i in indices]
+  phases = [filtered_samples[i].unwrapped_phase_deg for i in indices]
   positive = negative = 0.0
   for previous, current in zip(references, references[1:], strict=False):
     delta = current - previous
@@ -370,8 +457,13 @@ def fit_calibration_aligned(samples: list[CalibrationSample], reference_delay_s:
       positive += delta
     else:
       negative -= delta
-  return CalibrationFit(in_matrix + ou_matrix, ratio, len(indices),
-                        math.sqrt(sum(error * error for error in errors) / len(errors)), max(errors),
+  torsion_center = median(final_torsions)
+  torsion_deviations = [abs(value - torsion_center) for value in final_torsions]
+  return CalibrationFit(in_matrix + ou_matrix, ratio, len(indices), len(samples),
+                        math.sqrt(sum(error * error for error in in_errors) / len(in_errors)), max(in_errors),
+                        math.sqrt(sum(error * error for error in ou_errors) / len(ou_errors)), max(ou_errors),
+                        math.sqrt(sum(error * error for error in torsion_deviations) /
+                                  len(torsion_deviations)), max(torsion_deviations),
                         max(references) - min(references), max(phases) - min(phases),
                         positive, negative, len(bins), reference_delay_s)
 
@@ -556,7 +648,8 @@ class HrrCalibrationSession:
       self.brake_stop_event.wait(wait)
 
   def _collect_vector(self, vector: ResolverVector, now: float) -> None:
-    if self.reference is None or self.reference_at is None or now - self.reference_at > REFERENCE_TIMEOUT_S:
+    if (self.calibration is None or not self.calibration.in_raw_valid or not self.calibration.ou_raw_valid or
+        self.reference is None or self.reference_at is None or now - self.reference_at > REFERENCE_TIMEOUT_S):
       return
     try:
       phase = vector_phase_deg(vector.in_cos, vector.in_sin)
@@ -624,6 +717,7 @@ class HrrCalibrationSession:
   def live_ready(self) -> bool:
     now = time.monotonic()
     return (self.calibration is not None and self.calibration.version == CAL_PROTOCOL_VERSION and
+            self.calibration.in_raw_valid and self.calibration.ou_raw_valid and
             self.status_at is not None and now - self.status_at <= STATUS_TIMEOUT_S and
             self.safety is not None and self.safety.calibration_safe and self.safety_at is not None and
             now - self.safety_at <= STATUS_TIMEOUT_S and self.reference is not None and
@@ -641,6 +735,10 @@ class HrrCalibrationSession:
         errors.append(f"0x635 protocol v{self.calibration.version}, expected v{CAL_PROTOCOL_VERSION}")
       if self.status_at is None or now - self.status_at > STATUS_TIMEOUT_S:
         errors.append(f"0x635 stale (> {STATUS_TIMEOUT_S:.2f}s)")
+      if not self.calibration.in_raw_valid:
+        errors.append("0x635 IN resolver vector invalid")
+      if not self.calibration.ou_raw_valid:
+        errors.append("0x635 OU resolver vector invalid")
 
     if self.safety is None:
       errors.append("no valid 8-byte HRR safety status (0x634)")
@@ -652,14 +750,22 @@ class HrrCalibrationSession:
         unsafe.append("REL closed")
       if self.safety.rele:
         unsafe.append("RELE closed")
+      if not self.safety.in_angle_valid:
+        unsafe.append("IN angle invalid")
+      if not self.safety.ou_angle_valid:
+        unsafe.append("OU angle invalid")
+      if not self.safety.mirror_running:
+        unsafe.append("resolver mirror stopped")
+      if not self.safety.canctr_enabled:
+        unsafe.append("CANCTR disabled")
       if not self.safety.brake_fresh:
-        unsafe.append("brake frame not fresh")
+        unsafe.append(f"brake frame not fresh (age {self.safety.brake_age_ms}ms)")
       if not self.safety.brake_pressed:
         unsafe.append("brake not pressed")
       if not self.safety.brake_interlock:
         unsafe.append("brake interlock off")
       if not self.safety.torque_interlock:
-        unsafe.append("torque interlock off")
+        unsafe.append(f"torque interlock off (fresh={int(self.safety.torque_fresh)}, age={self.safety.torque_age_ms}ms)")
       if unsafe:
         errors.append("0x634 unsafe: " + ", ".join(unsafe))
 
@@ -707,7 +813,9 @@ def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> None:
 
 def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool) -> bool:
   print("\nSecure the stationary vehicle. HRR relays must be open and torque output interlocked.")
-  print("Hold the brake and move the wheel manually and slowly: center -> left lock -> right lock -> center.")
+  print("Hold the brake and move the wheel manually and slowly: center -> left -> right -> center.")
+  print("Cover at least 360 degrees from the leftmost to rightmost reading; mechanical locks are not required.")
+  print("Pause briefly and relax steering effort at several angles in both directions; constant speed is not required.")
   if not assume_yes:
     input("Press Enter when ready, or Ctrl-C to cancel: ")
   if session.dry_run:
@@ -761,7 +869,8 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
       print(f"\r{state} steer={ref}deg {text}    ", end="", flush=True)
       next_print = now + 0.5
     if session.calibration is not None and not session.calibration.running:
-      print(f"\nERROR: firmware aborted calibration: {session.calibration.format()}", file=sys.stderr)
+      safety = "no 0x634 status" if session.safety is None else session.safety.format()
+      print(f"\nERROR: firmware aborted calibration: {session.calibration.format()}; safety: {safety}", file=sys.stderr)
       return False
     if sys.stdin.isatty():
       readable, _, _ = select.select([sys.stdin], [], [], 0)
@@ -809,6 +918,10 @@ def run_self_test() -> None:
   assert math.isclose(steer.angle_deg, -15.0)
   steer = SteerReference.decode(bytes((0, 0, 0, 0, 0x80, 0, 0, 0)))
   assert math.isclose(steer.angle_deg, 0.0)
+  safe_flags = sum(1 << bit for bit in (2, 3, 4, 5, 6, 7, 9, 10, 13, 15))
+  safety = SafetyStatus.decode(safe_flags.to_bytes(2, "little") + b"\x00\x00\x0c\x00\xff\xff")
+  assert safety.calibration_safe
+  assert safety.brake_age_ms == 12 and safety.torque_age_ms == 0xFFFF
   assert shortest_mod180_delta(1.0, 179.0) == 2.0
   assert shortest_mod180_delta(179.0, 1.0) == -2.0
   assert len(BRAKE_PRESSED_PAYLOAD) == 3
@@ -840,6 +953,28 @@ def run_self_test() -> None:
   assert fit.ready, fit.format()
   assert abs(fit.phase_per_steer + NOMINAL_PHASE_PER_STEER) < 0.01
   assert fit.rms_error_deg < 0.2
+
+  # Simulate steering effort twisting OU relative to IN in either direction.
+  # Periodic relaxed samples span the complete sweep and must be selected for
+  # the final fit instead of teaching the torsion-bar deflection to the matrix.
+  torsion_samples: list[CalibrationSample] = []
+  for index, sample in enumerate(synthetic):
+    if (index * 73) % 101 < 34:
+      torsion_deg = 0.0
+    else:
+      torsion_deg = 4.0 if index < len(synthetic) // 2 else -4.0
+    ou_raw = (sample.raw_phase_deg + abs(NOMINAL_PHASE_PER_STEER) * torsion_deg) % 180.0
+    ou_angle = math.radians((ou_raw + 90.0) % 180.0 - 90.0)
+    ou_cos = round(1000.0 * math.cos(ou_angle) + 120.0 * math.sin(ou_angle))
+    ou_sin = round(760.0 * math.sin(ou_angle))
+    torsion_samples.append(CalibrationSample(
+      sample.timestamp, sample.reference_deg, sample.raw_phase_deg, sample.unwrapped_phase_deg,
+      sample.in_cos, sample.in_sin, ou_cos, ou_sin,
+    ))
+  torsion_fit = fit_calibration(torsion_samples)
+  assert torsion_fit.ready, torsion_fit.format()
+  assert MIN_SAMPLES <= torsion_fit.samples < torsion_fit.total_samples * 0.5, torsion_fit.format()
+  assert torsion_fit.rms_error_deg < 0.2, torsion_fit.format()
 
   # Irregular motion with a windowed-vector delay must align automatically;
   # requiring the operator to maintain constant speed is neither realistic nor
@@ -932,6 +1067,8 @@ def main() -> None:
         print("ERROR: no HRR calibration status available.", file=sys.stderr)
         raise SystemExit(1)
       print(session.calibration.format())
+      if session.safety is not None:
+        print(session.safety.format())
     elif args.legacy or args.calibrated:
       wanted_enabled = args.calibrated
       session.send_command(CMD_CAL_MODE, int(wanted_enabled))
