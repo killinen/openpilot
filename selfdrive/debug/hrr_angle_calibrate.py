@@ -773,17 +773,20 @@ def choose_bus(configured_bus: int | None) -> int:
     print("Enter 0, 1, or 2.")
 
 
-def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> CalibrationStatus | None:
-  rms_tenths = min(255, round(fit.rms_error_deg * 10.0))
-  max_tenths = min(255, round(fit.max_error_deg * 10.0))
-  metrics = min(0xFFFF, fit.samples) | (rms_tenths << 16) | (max_tenths << 24)
-  commands = [
-    *[(command, round(coefficient * (1 << MATRIX_Q)))
-      for command, coefficient in enumerate(fit.matrices, start=CMD_MATRIX_FIRST)],
-    (CMD_PHASE_PER_STEER, round(fit.phase_per_steer * (1 << MATRIX_Q))),
-    (CMD_FIT_METRICS, metrics),
-  ]
-  for command, value in commands:
+def parse_replay_values(text: str) -> tuple[int, ...]:
+  try:
+    parsed = tuple(int(part.strip(), 0) for part in text.split(","))
+  except ValueError as error:
+    raise argparse.ArgumentTypeError("replay values must be comma-separated decimal or 0x-prefixed integers") from error
+  if len(parsed) != CMD_FIT_METRICS - CMD_MATRIX_FIRST + 1:
+    raise argparse.ArgumentTypeError("replay requires exactly 10 values for commands 11 through 20")
+  if any(value < -(1 << 31) or value > 0xFFFFFFFF for value in parsed):
+    raise argparse.ArgumentTypeError("each replay value must fit signed or unsigned 32 bits")
+  return tuple(value & 0xFFFFFFFF for value in parsed)
+
+
+def upload_values(session: HrrCalibrationSession, values: tuple[int, ...]) -> CalibrationStatus | None:
+  for command, value in enumerate(values, start=CMD_MATRIX_FIRST):
     staged_bit = 1 << (command - CMD_MATRIX_FIRST)
     for _ in range(STAGE_MAX_ATTEMPTS):
       session.send_command(command, value)
@@ -802,6 +805,87 @@ def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> Calibrati
   return session.calibration
 
 
+def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> CalibrationStatus | None:
+  rms_tenths = min(255, round(fit.rms_error_deg * 10.0))
+  max_tenths = min(255, round(fit.max_error_deg * 10.0))
+  metrics = min(0xFFFF, fit.samples) | (rms_tenths << 16) | (max_tenths << 24)
+  values = tuple(round(coefficient * (1 << MATRIX_Q)) & 0xFFFFFFFF for coefficient in fit.matrices)
+  values += (round(fit.phase_per_steer * (1 << MATRIX_Q)) & 0xFFFFFFFF, metrics)
+  return upload_values(session, values)
+
+
+def finish_staged_calibration(session: HrrCalibrationSession, token: int,
+                              staged: CalibrationStatus | None) -> bool:
+  if staged is None or not staged.running or not staged.parameters_complete:
+    if staged is None:
+      detail = "no 0x635 status received during upload"
+    else:
+      missing = [
+        str(command) for command in range(CMD_MATRIX_FIRST, CMD_FIT_METRICS + 1)
+        if not staged.staged_mask & (1 << (command - CMD_MATRIX_FIRST))
+      ]
+      missing_text = "none" if not missing else ",".join(missing)
+      detail = f"{staged.format()} missing_commands={missing_text}"
+    print(f"ERROR: HRR did not accept the complete coefficient set: {detail}", file=sys.stderr)
+    if staged is None or staged.running:
+      session.send_command(CMD_CAL_ABORT, token)
+    return False
+
+  session.send_command(CMD_CAL_FINISH_SAVE, token)
+  finished = session.wait_for(lambda status: not status.running, 5.0)
+  if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
+    if finished is not None:
+      detail = finished.format()
+      if (not finished.valid and not finished.failed and finished.staged_mask == 0 and
+          finished.samples == 0 and finished.failure_reason == 0):
+        detail += " (firmware likely reset during flash commit)"
+    elif session.calibration is not None:
+      detail = f"timeout waiting for IDLE; last status: {session.calibration.format()}"
+    else:
+      detail = "no 0x635 status received after save command"
+    print(f"ERROR: calibration was not committed: {detail}", file=sys.stderr)
+    return False
+  print(f"Calibration committed atomically: {finished.format()}")
+  return True
+
+
+def start_calibration_session(session: HrrCalibrationSession) -> int | None:
+  if not session.wait_for_live_ready(1.0):
+    details = "; ".join(session.readiness_errors())
+    print(f"ERROR: calibration preconditions not met: {details}.", file=sys.stderr)
+    return None
+  token = secrets.randbits(32) or 1
+  session.send_command(CMD_CAL_START, token)
+  started = session.wait_for(lambda status: status.running, 2.0)
+  if started is None:
+    detail = "no 0x635 status" if session.calibration is None else session.calibration.format()
+    safety = "no 0x634 status" if session.safety is None else session.safety.format()
+    print(f"ERROR: HRR rejected calibration start: {detail}; safety: {safety}", file=sys.stderr)
+    return None
+  return token
+
+
+def run_replay(session: HrrCalibrationSession, values: tuple[int, ...], assume_yes: bool) -> bool:
+  print("\nSecure the stationary vehicle. HRR relays must be open and torque output interlocked.")
+  print("Replay will stage the captured fit below and immediately test its atomic flash commit:")
+  for command, value in enumerate(values, start=CMD_MATRIX_FIRST):
+    print(f"  command {command}: 0x{value:08x}")
+  if not assume_yes:
+    input("Press Enter to commit this captured fit, or Ctrl-C to cancel: ")
+  if session.dry_run:
+    token = 0x12345678
+    session.send_command(CMD_CAL_START, token)
+    for command, value in enumerate(values, start=CMD_MATRIX_FIRST):
+      session.send_command(command, value)
+    session.send_command(CMD_CAL_FINISH_SAVE, token)
+    print("Dry run: replay frames generated; nothing was committed.")
+    return True
+  session_token = start_calibration_session(session)
+  if session_token is None:
+    return False
+  return finish_staged_calibration(session, session_token, upload_values(session, values))
+
+
 def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool) -> bool:
   print("\nSecure the stationary vehicle. HRR relays must be open and torque output interlocked.")
   print("Move the wheel manually and slowly: center -> left -> right -> center.")
@@ -815,18 +899,8 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
     return True
   # input() stops CAN polling, while 0x025 is intentionally required to be no
   # more than 100 ms old. Refresh every input after the operator confirms.
-  if not session.wait_for_live_ready(1.0):
-    details = "; ".join(session.readiness_errors())
-    print(f"ERROR: calibration preconditions not met: {details}.", file=sys.stderr)
-    return False
-
-  token = secrets.randbits(32) or 1
-  session.send_command(CMD_CAL_START, token)
-  started = session.wait_for(lambda status: status.running, 2.0)
-  if started is None:
-    detail = "no 0x635 status" if session.calibration is None else session.calibration.format()
-    safety = "no 0x634 status" if session.safety is None else session.safety.format()
-    print(f"ERROR: HRR rejected calibration start: {detail}; safety: {safety}", file=sys.stderr)
+  token = start_calibration_session(session)
+  if token is None:
     return False
 
   print("\nSweep slowly. Press Enter only after READY is shown.")
@@ -882,34 +956,7 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
 
   assert latest_fit is not None
   print(f"\nFit: {latest_fit.format()}")
-  staged = upload_fit(session, latest_fit)
-  if staged is None or not staged.running or not staged.parameters_complete:
-    if staged is None:
-      detail = "no 0x635 status received during upload"
-    else:
-      missing = [
-        str(command) for command in range(CMD_MATRIX_FIRST, CMD_FIT_METRICS + 1)
-        if not staged.staged_mask & (1 << (command - CMD_MATRIX_FIRST))
-      ]
-      missing_text = "none" if not missing else ",".join(missing)
-      detail = f"{staged.format()} missing_commands={missing_text}"
-    print(f"ERROR: HRR did not accept the complete coefficient set: {detail}", file=sys.stderr)
-    if staged is None or staged.running:
-      session.send_command(CMD_CAL_ABORT, token)
-    return False
-  session.send_command(CMD_CAL_FINISH_SAVE, token)
-  finished = session.wait_for(lambda status: not status.running, 5.0)
-  if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
-    if finished is not None:
-      detail = finished.format()
-    elif session.calibration is not None:
-      detail = f"timeout waiting for IDLE; last status: {session.calibration.format()}"
-    else:
-      detail = "no 0x635 status received after save command"
-    print(f"ERROR: calibration was not committed: {detail}", file=sys.stderr)
-    return False
-  print(f"Calibration committed atomically: {finished.format()}")
-  return True
+  return finish_staged_calibration(session, token, upload_fit(session, latest_fit))
 
 
 def run_self_test() -> None:
@@ -926,6 +973,11 @@ def run_self_test() -> None:
   assert safety.brake_age_ms == 12 and safety.torque_age_ms == 0xFFFF
   invalid_in = CalibrationStatus.decode(b"\x08\x02\x00\x00\x00\x00\x13\x00")
   assert invalid_in.failure_reason == 19 and "IN resolver vector invalid" in invalid_in.format()
+  replay_values = parse_replay_values(
+    "0x000ca38d,0xffe50ea1,0x0019b855,0x000d4bf7,0x000fbd21," +
+    "0xffe7d4f4,0x0017ad5f,0x001145ef,0xff78412d,0x220b05b5"
+  )
+  assert len(replay_values) == 10 and replay_values[-1] == 0x220B05B5
   assert shortest_mod180_delta(1.0, 179.0) == 2.0
   assert shortest_mod180_delta(179.0, 1.0) == -2.0
   for command, value in ((CMD_CAL_START, 0x12345678), (CMD_CAL_FINISH_SAVE, 0x12345678),
@@ -1066,6 +1118,8 @@ def main() -> None:
   parser.add_argument("--calibrated", action="store_true", help="select the last valid calibration and exit")
   parser.add_argument("--abort", action="store_true", help="force-abort an active calibration and exit")
   parser.add_argument("--status", action="store_true", help="print current HRR calibration status without changing it")
+  parser.add_argument("--replay-values", type=parse_replay_values, metavar="V11,...,V20",
+                      help="skip the sweep and commit ten captured 32-bit values for commands 11 through 20")
   parser.add_argument("--dry-run", action="store_true", help="print command frames without opening Panda")
   parser.add_argument("--self-test", action="store_true", help="verify decoding, fitting, and frame encoding")
   args = parser.parse_args()
@@ -1074,8 +1128,8 @@ def main() -> None:
     return
   if args.timeout <= 0:
     parser.error("--timeout must be greater than zero")
-  if sum((args.legacy, args.calibrated, args.abort, args.status)) > 1:
-    parser.error("--legacy, --calibrated, --abort, and --status are mutually exclusive")
+  if sum((args.legacy, args.calibrated, args.abort, args.status, args.replay_values is not None)) > 1:
+    parser.error("--legacy, --calibrated, --abort, --status, and --replay-values are mutually exclusive")
 
   bus = choose_bus(args.bus)
   reference_buses = tuple(args.reference_bus) if args.reference_bus is not None else (1,)
@@ -1092,7 +1146,10 @@ def main() -> None:
       if status is None:
         print(f"ERROR: no HRR calibration-v{CAL_PROTOCOL_VERSION} status on bus {bus}.", file=sys.stderr)
         raise SystemExit(2)
-    if args.status:
+    if args.replay_values is not None:
+      if not run_replay(session, args.replay_values, args.yes):
+        raise SystemExit(1)
+    elif args.status:
       if session.calibration is None:
         print("ERROR: no HRR calibration status available.", file=sys.stderr)
         raise SystemExit(1)

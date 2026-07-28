@@ -152,6 +152,21 @@ The firmware stages the fit under a calibration session and commits the complete
 to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
 the previous committed calibration intact. With no valid enabled calibration, the original raw
 modulo-180 estimator remains active.
+An all-zero, reason-none calibration status immediately after the save command is reported as a
+probable firmware reset during flash commit rather than as an ordinary coefficient rejection.
+
+Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
+`0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed
+little-endian word converted to a decimal or `0x`-prefixed integer:
+
+```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --reference-bus 0 \
+  --replay-values 0xV11,0xV12,0xV13,0xV14,0xV15,0xV16,0xV17,0xV18,0xV19,0xV20
+```
+
+Replay still starts a fresh guarded calibration session, verifies live safety/vector/reference
+inputs, acknowledges and retries every staged value, and requires confirmation before issuing
+the atomic flash-commit command.
 
 The script reads the steering reference directly from its vehicle-side receive bus and does **not**
 bridge CAN0 and CAN2. It does not transmit or require a synthetic brake frame. Calibration
