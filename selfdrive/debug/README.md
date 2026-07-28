@@ -141,6 +141,9 @@ reversals give the fitter the information needed to distinguish timing delay fro
 Matrix fitting runs on immutable snapshots in a background worker while the main loop continues
 draining Panda CAN. This prevents fit computation from queueing frames and assigning stale
 `0x025`/`0x637` traffic misleadingly recent host timestamps.
+During upload, the script waits for the corresponding `0x635` staged-mask acknowledgement after
+each coefficient and retries an unacknowledged frame. A firmware abort is reported before any
+host cleanup command can clear its latched failure reason.
 The LS600h resolver completes one 360-degree electrical revolution per 22.5 degrees of shaft
 rotation. The RMS/covariance vectors are projective modulo 180 degrees, so their unwrapped phase
 advances only 180 degrees per electrical revolution; the fitted signed phase-per-steer magnitude

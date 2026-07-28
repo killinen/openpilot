@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from dataclasses import dataclass
 import math
 import queue
@@ -63,6 +64,8 @@ VECTOR_MATRIX_INPUT_SCALE = 1024.0
 REFERENCE_DELAY_MIN_S = -0.20
 REFERENCE_DELAY_MAX_S = 0.40
 REFERENCE_DELAY_STEP_S = 0.01
+STAGE_ACK_TIMEOUT_S = 0.5
+STAGE_MAX_ATTEMPTS = 3
 
 FAILURE_REASONS = {
   0: "none",
@@ -770,15 +773,33 @@ def choose_bus(configured_bus: int | None) -> int:
     print("Enter 0, 1, or 2.")
 
 
-def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> None:
-  for command, coefficient in enumerate(fit.matrices, start=CMD_MATRIX_FIRST):
-    session.send_command(command, round(coefficient * (1 << MATRIX_Q)))
-    time.sleep(0.02)
-  session.send_command(CMD_PHASE_PER_STEER, round(fit.phase_per_steer * (1 << MATRIX_Q)))
+def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> CalibrationStatus | None:
   rms_tenths = min(255, round(fit.rms_error_deg * 10.0))
   max_tenths = min(255, round(fit.max_error_deg * 10.0))
   metrics = min(0xFFFF, fit.samples) | (rms_tenths << 16) | (max_tenths << 24)
-  session.send_command(CMD_FIT_METRICS, metrics)
+  commands = [
+    *[(command, round(coefficient * (1 << MATRIX_Q)))
+      for command, coefficient in enumerate(fit.matrices, start=CMD_MATRIX_FIRST)],
+    (CMD_PHASE_PER_STEER, round(fit.phase_per_steer * (1 << MATRIX_Q))),
+    (CMD_FIT_METRICS, metrics),
+  ]
+  for command, value in commands:
+    staged_bit = 1 << (command - CMD_MATRIX_FIRST)
+    for _ in range(STAGE_MAX_ATTEMPTS):
+      session.send_command(command, value)
+      status = session.wait_for(
+        lambda item, bit=staged_bit: not item.running or bool(item.staged_mask & bit),
+        STAGE_ACK_TIMEOUT_S,
+      )
+      if status is None:
+        continue
+      if not status.running or status.staged_mask & staged_bit:
+        break
+    else:
+      return session.calibration
+    if status is not None and not status.running:
+      return status
+  return session.calibration
 
 
 def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool) -> bool:
@@ -861,11 +882,20 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
 
   assert latest_fit is not None
   print(f"\nFit: {latest_fit.format()}")
-  upload_fit(session, latest_fit)
-  staged = session.wait_for(lambda status: status.running and status.parameters_complete, 2.0)
-  if staged is None:
-    print("ERROR: HRR did not accept the complete coefficient set.", file=sys.stderr)
-    session.send_command(CMD_CAL_ABORT, token)
+  staged = upload_fit(session, latest_fit)
+  if staged is None or not staged.running or not staged.parameters_complete:
+    if staged is None:
+      detail = "no 0x635 status received during upload"
+    else:
+      missing = [
+        str(command) for command in range(CMD_MATRIX_FIRST, CMD_FIT_METRICS + 1)
+        if not staged.staged_mask & (1 << (command - CMD_MATRIX_FIRST))
+      ]
+      missing_text = "none" if not missing else ",".join(missing)
+      detail = f"{staged.format()} missing_commands={missing_text}"
+    print(f"ERROR: HRR did not accept the complete coefficient set: {detail}", file=sys.stderr)
+    if staged is None or staged.running:
+      session.send_command(CMD_CAL_ABORT, token)
     return False
   session.send_command(CMD_CAL_FINISH_SAVE, token)
   finished = session.wait_for(lambda status: not status.running, 5.0)
@@ -926,6 +956,33 @@ def run_self_test() -> None:
   assert fit.ready, fit.format()
   assert abs(fit.phase_per_steer + NOMINAL_PHASE_PER_STEER) < 0.01
   assert fit.rms_error_deg < 0.2
+
+  class FakeUploadSession(HrrCalibrationSession):
+    def __init__(self) -> None:
+      self.staged_mask = 0
+      self.attempts: dict[int, int] = {}
+      self.calibration: CalibrationStatus | None = None
+
+    def send_command(self, command: int, value: int = 0) -> bytes:
+      self.attempts[command] = self.attempts.get(command, 0) + 1
+      # Simulate one dropped coefficient frame; an identical retry is valid.
+      if command != CMD_MATRIX_FIRST + 1 or self.attempts[command] > 1:
+        self.staged_mask |= 1 << (command - CMD_MATRIX_FIRST)
+      return build_config_frame(command, value)
+
+    def wait_for(self, predicate: Callable[[CalibrationStatus], bool], timeout: float,
+                 collect: bool = False) -> CalibrationStatus | None:
+      del timeout, collect
+      flags = (1 << 0) | ((1 << 4) if self.staged_mask == 0x03FF else 0)
+      status = CalibrationStatus.decode(struct.pack("<BBHHBB", flags, CAL_PROTOCOL_VERSION,
+                                                    0, self.staged_mask, 0, 0))
+      self.calibration = status
+      return status if predicate(status) else None
+
+  fake_upload = FakeUploadSession()
+  staged = upload_fit(fake_upload, fit)
+  assert staged is not None and staged.parameters_complete
+  assert fake_upload.attempts[CMD_MATRIX_FIRST + 1] == 2
 
   # Simulate steering effort twisting OU relative to IN in either direction.
   # Periodic relaxed samples span the complete sweep and must be selected for
