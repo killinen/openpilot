@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import math
+import queue
 import secrets
 import select
 import struct
@@ -457,6 +458,46 @@ def fit_calibration(samples: list[CalibrationSample],
   return best
 
 
+@dataclass(frozen=True)
+class FitWorkerResult:
+  fit: CalibrationFit | None
+  error: str | None
+  collected_samples: int
+
+
+class CalibrationFitWorker:
+  """Fit immutable snapshots without interrupting live CAN reception."""
+
+  def __init__(self) -> None:
+    self.thread: threading.Thread | None = None
+    self.results: queue.SimpleQueue[FitWorkerResult] = queue.SimpleQueue()
+
+  def busy(self) -> bool:
+    return self.thread is not None and self.thread.is_alive()
+
+  def start(self, samples: list[CalibrationSample], references: list[TimedReference]) -> None:
+    if self.busy():
+      return
+
+    def run() -> None:
+      try:
+        fit = fit_calibration(samples, references)
+        self.results.put(FitWorkerResult(fit, None, len(samples)))
+      except ValueError as error:
+        self.results.put(FitWorkerResult(None, str(error), len(samples)))
+
+    self.thread = threading.Thread(target=run, name="hrr-calibration-fit", daemon=True)
+    self.thread.start()
+
+  def take_latest(self) -> FitWorkerResult | None:
+    latest = None
+    while True:
+      try:
+        latest = self.results.get_nowait()
+      except queue.Empty:
+        return latest
+
+
 class HrrCalibrationSession:
   def __init__(self, panda: Panda | None, bus: int, reference_buses: tuple[int, ...], dry_run: bool) -> None:
     self.panda = panda
@@ -690,18 +731,31 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
 
   print("\nSweep slowly. Press Enter only after READY is shown.")
   deadline = time.monotonic() + timeout
+  fit_worker = CalibrationFitWorker()
+  latest_result: FitWorkerResult | None = None
+  next_fit = 0.0
   next_print = 0.0
   latest_fit: CalibrationFit | None = None
   while time.monotonic() < deadline:
     session.poll(collect=True)
     now = time.monotonic()
+    completed_result = fit_worker.take_latest()
+    if completed_result is not None:
+      latest_result = completed_result
+      latest_fit = completed_result.fit
+    if now >= next_fit and not fit_worker.busy():
+      fit_worker.start(list(session.samples), list(session.reference_history))
+      next_fit = now + 0.5
     if now >= next_print:
-      try:
-        latest_fit = fit_calibration(session.samples, session.reference_history)
+      if latest_result is None:
+        text = f"n={len(session.samples)} (fitting)"
+        state = "SWEEP"
+      elif latest_result.fit is not None:
+        latest_fit = latest_result.fit
         text = latest_fit.format()
         state = "READY" if latest_fit.ready else "SWEEP"
-      except ValueError as error:
-        text = f"n={len(session.samples)} ({error})"
+      else:
+        text = f"n={latest_result.collected_samples} ({latest_result.error})"
         state = "SWEEP"
       ref = "---.-" if session.reference is None else f"{session.reference.angle_deg:+.1f}"
       print(f"\r{state} steer={ref}deg {text}    ", end="", flush=True)
@@ -824,6 +878,15 @@ def run_self_test() -> None:
   assert abs(aligned_fit.reference_delay_s - imposed_delay_s) <= 1.5 * REFERENCE_DELAY_STEP_S, aligned_fit.format()
   assert aligned_fit.rms_error_deg < unaligned_fit.rms_error_deg * 0.25
   assert aligned_fit.ready, aligned_fit.format()
+
+  worker = CalibrationFitWorker()
+  worker.start(delayed_samples, timed_references)
+  worker_deadline = time.monotonic() + 5.0
+  while worker.busy() and time.monotonic() < worker_deadline:
+    time.sleep(0.01)
+  worker_result = worker.take_latest()
+  assert worker_result is not None and worker_result.fit is not None
+  assert worker_result.fit.ready, worker_result.fit.format()
   print("HRR v2 resolver/0x25 calibration self-test passed.")
 
 
