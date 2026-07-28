@@ -155,8 +155,9 @@ bridge CAN0 and CAN2. To satisfy the current HRR firmware's local safety protoco
 operator confirms the prompt it transmits the fixed pressed-brake `0x2C6` frame directly on HRR
 bus 2 at 100 Hz for the duration of the calibration session. This is a synthetic HRR-local
 interlock input, not a measurement of the physical pedal; the operator must still secure the
-vehicle and hold the brake. Transmit stops on exit and the firmware's brake freshness timeout
-then returns the HRR to its safe state.
+vehicle and hold the brake. Brake transmission and CAN reception are serialized in the main
+polling loop so Panda is never accessed concurrently by a sender thread. Transmit stops on exit
+and the firmware's brake freshness timeout then returns the HRR to its safe state.
 
 The stored mode can be selected explicitly without repeating the sweep:
 
@@ -169,7 +170,8 @@ python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --calibrated
 `--status` is read-only and prints the latest decoded `0x635` state and failure reason.
 It also prints decoded `0x634` relay, raw-angle validity, mirror/CANCTR, brake age,
 and torque-interlock details. The same details are captured automatically when
-firmware aborts an active calibration.
+firmware aborts an active calibration. Firmware reports the specific failed hard
+interlock rather than only a generic unsafe-state reason.
 `--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
 confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
 Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:
