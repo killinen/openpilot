@@ -100,8 +100,8 @@ script cleared with firmware forwarding restored.
 ## [hrr_angle_calibrate.py](hrr_angle_calibrate.py)
 
 Guided electrical and steering-reference calibration for the HRR `IN_Angle` and `OU_Angle`
-resolver estimators. The vehicle must be stationary and secured, with the brake held, HRR relays
-open, and torque output interlocked. The tool uses the validated coarse `STEER_ANGLE` from
+resolver estimators. The vehicle must be stationary and secured, with HRR relays open and torque
+output interlocked. The tool uses the validated coarse `STEER_ANGLE` from
 LS600h `0x25` (1.5-degree resolution), pairs that reference with the HRR's per-window signed RMS/covariance resolver
 vectors on `0x637`, and asks the operator to sweep slowly center -> left -> right -> center,
 covering at least 360 degrees between the leftmost and rightmost readings. Mechanical locks are
@@ -151,13 +151,10 @@ the previous committed calibration intact. With no valid enabled calibration, th
 modulo-180 estimator remains active.
 
 The script reads the steering reference directly from its vehicle-side receive bus and does **not**
-bridge CAN0 and CAN2. To satisfy the current HRR firmware's local safety protocol, after the
-operator confirms the prompt it transmits the fixed pressed-brake `0x2C6` frame directly on HRR
-bus 2 at 100 Hz for the duration of the calibration session. This is a synthetic HRR-local
-interlock input, not a measurement of the physical pedal; the operator must still secure the
-vehicle and hold the brake. Brake transmission and CAN reception are serialized in the main
-polling loop so Panda is never accessed concurrently by a sender thread. Transmit stops on exit
-and the firmware's brake freshness timeout then returns the HRR to its safe state.
+bridge CAN0 and CAN2. It does not transmit or require a synthetic brake frame. Calibration
+firmware independently forces zero SVEC delta, rejects torque/relay/test output commands, checks
+both relay feedbacks open and requires the torque interlock. Normal CANCTR operation retains its
+brake-frame interlock unchanged.
 
 The stored mode can be selected explicitly without repeating the sweep:
 

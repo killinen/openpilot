@@ -1403,7 +1403,7 @@ BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
  SG_ Calibration_Staged_Mask : 32|16@1+ (1,0) [0|1023] "" CAN_Master
  SG_ Calibration_Failure_Reason : 48|8@1+ (1,0) [0|20] "" CAN_Master
  SG_ Calibration_RMS_Error : 56|8@1+ (0.1,0) [0|25.5] "deg" CAN_Master
-CM_ BO_ 1589 "Resolver calibration protocol v2 status. Staged mask bits 0..7 correspond to commands 11..18, bit8 to command 19, and bit9 to command 20. A complete fit requires mask 0x03FF, at least 100 samples, RMS error <=1.5 degrees, and maximum error <=5.0 degrees. Failure reasons: 0 none, 1 generic unsafe, 2 session, 3 incomplete, 4 coefficient, 5 fit, 6 NVM, 7 timeout, 8..20 specific failed safety precondition.";
+CM_ BO_ 1589 "Resolver calibration protocol v2 status. Staged mask bits 0..7 correspond to commands 11..18, bit8 to command 19, and bit9 to command 20. A complete fit requires mask 0x03FF, at least 100 samples, RMS error <=1.5 degrees, and maximum error <=5.0 degrees. Failure reasons: 0 none, 1 generic unsafe, 2 session, 3 incomplete, 4 coefficient, 5 fit, 6 NVM, 7 timeout, 8..14 and 19..20 specific failed safety precondition.";
 
 BO_ 1590 HRR_TrueAngleStatus: 8 STM32G474_HRR
  SG_ True_Steering_Angle : 0|32@1- (0.01,0) [-21474836.48|21474836.47] "deg" CAN_Master
@@ -1473,6 +1473,6 @@ VAL_ 1589 Calibration_Params_Complete 0 "INCOMPLETE" 1 "COMPLETE";
 VAL_ 1589 IN_Vector_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 OU_Vector_Valid 0 "INVALID" 1 "VALID";
 VAL_ 1589 Legacy_Angles_Active 0 "CALIBRATED" 1 "LEGACY";
-VAL_ 1589 Calibration_Failure_Reason 0 "NONE" 1 "UNSAFE" 2 "SESSION" 3 "INCOMPLETE" 4 "COEFFICIENT" 5 "FIT" 6 "NVM" 7 "TIMEOUT" 8 "CANCTR_DISABLED" 9 "TEST_MODE" 10 "MIRROR_STOPPED" 11 "SVEC_DELTA" 12 "RELAY_COMMAND" 13 "RELAY_FEEDBACK" 14 "TORQUE_INTERLOCK" 15 "BRAKE_UNSEEN" 16 "BRAKE_STALE" 17 "BRAKE_RELEASED" 18 "BRAKE_INTERLOCK" 19 "IN_VECTOR" 20 "OU_VECTOR";
+VAL_ 1589 Calibration_Failure_Reason 0 "NONE" 1 "UNSAFE" 2 "SESSION" 3 "INCOMPLETE" 4 "COEFFICIENT" 5 "FIT" 6 "NVM" 7 "TIMEOUT" 8 "CANCTR_DISABLED" 9 "TEST_MODE" 10 "MIRROR_STOPPED" 11 "SVEC_DELTA" 12 "RELAY_COMMAND" 13 "RELAY_FEEDBACK" 14 "TORQUE_INTERLOCK" 19 "IN_VECTOR" 20 "OU_VECTOR";
 VAL_ 956 GEAR 0 "D" 1 "S" 8 "N" 16 "R" 32 "P";
 VAL_ 1616 TURN_SIGNALS 0 "OFF" 1 "LEFT" 2 "RIGHT";

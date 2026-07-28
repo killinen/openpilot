@@ -13,21 +13,18 @@ import struct
 import sys
 import threading
 import time
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
   from panda import Panda
 
 
 CONFIG_ADDR = 0x603
-BRAKE_ADDR = 0x2C6
 STEER_ANGLE_ADDR = 0x25
 STATE_STATUS_ADDR = 0x634
 CAL_STATUS_ADDR = 0x635
 VECTOR_STATUS_ADDR = 0x637
 CONFIG_KEY = 0xA5
-BRAKE_PRESSED_PAYLOAD = bytes.fromhex("9B 20 86")
-BRAKE_STREAM_PERIOD_S = 0.01
 
 CMD_CAL_START = 4
 CMD_CAL_FINISH_SAVE = 5
@@ -83,10 +80,6 @@ FAILURE_REASONS = {
   12: "relay command active",
   13: "relay feedback active",
   14: "torque interlock inactive",
-  15: "brake frame unseen",
-  16: "brake frame stale",
-  17: "brake released",
-  18: "brake interlock inactive",
   19: "IN resolver vector invalid",
   20: "OU resolver vector invalid",
 }
@@ -174,7 +167,6 @@ class SafetyStatus:
   @property
   def calibration_safe(self) -> bool:
     return (not self.rel and not self.rele and self.ou_angle_valid and self.in_angle_valid and
-            self.brake_fresh and self.brake_pressed and self.brake_interlock and
             self.mirror_running and self.canctr_enabled and self.torque_interlock)
 
   def format(self) -> str:
@@ -622,47 +614,14 @@ class HrrCalibrationSession:
     self.unwrapped_phase = 0.0
     self.previous_reference: float | None = None
     self.previous_sample_at: float | None = None
-    self.brake_streaming = False
-    self.next_brake_send_at = 0.0
-    self.last_brake_send_at: float | None = None
-    self.max_brake_send_gap_s = 0.0
 
   def send_command(self, command: int, value: int = 0) -> bytes:
     payload = build_config_frame(command, value)
     print(f"TX 0x{CONFIG_ADDR:03X}: {payload.hex(' ')}")
     if not self.dry_run:
       assert self.panda is not None
-      self.send_brake_if_due()
       self.panda.can_send(CONFIG_ADDR, payload, self.bus)
     return payload
-
-  def start_brake_stream(self) -> None:
-    """Supply the HRR-local brake input required by the current firmware."""
-    if self.dry_run:
-      return
-    self.brake_streaming = True
-    self.next_brake_send_at = 0.0
-    self.last_brake_send_at = None
-    self.max_brake_send_gap_s = 0.0
-    self.send_brake_if_due()
-    print(f"TX 0x{BRAKE_ADDR:03X}: pressed brake at {1 / BRAKE_STREAM_PERIOD_S:.0f} Hz on bus {self.bus}")
-
-  def stop_brake_stream(self) -> None:
-    self.brake_streaming = False
-
-  def send_brake_if_due(self) -> None:
-    """Serialize brake TX with all other Panda access in the polling thread."""
-    if self.dry_run or not self.brake_streaming:
-      return
-    assert self.panda is not None
-    now = time.monotonic()
-    if now < self.next_brake_send_at:
-      return
-    if self.last_brake_send_at is not None:
-      self.max_brake_send_gap_s = max(self.max_brake_send_gap_s, now - self.last_brake_send_at)
-    self.panda.can_send(BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, self.bus)
-    self.last_brake_send_at = now
-    self.next_brake_send_at = now + BRAKE_STREAM_PERIOD_S
 
   def _collect_vector(self, vector: ResolverVector, now: float) -> None:
     if (self.calibration is None or not self.calibration.in_raw_valid or not self.calibration.ou_raw_valid or
@@ -697,7 +656,6 @@ class HrrCalibrationSession:
     if self.dry_run:
       return
     assert self.panda is not None
-    self.send_brake_if_due()
     for address, _, payload, rx_bus in self.panda.can_recv():
       now = time.monotonic()
       try:
@@ -776,12 +734,6 @@ class HrrCalibrationSession:
         unsafe.append("resolver mirror stopped")
       if not self.safety.canctr_enabled:
         unsafe.append("CANCTR disabled")
-      if not self.safety.brake_fresh:
-        unsafe.append(f"brake frame not fresh (age {self.safety.brake_age_ms}ms)")
-      if not self.safety.brake_pressed:
-        unsafe.append("brake not pressed")
-      if not self.safety.brake_interlock:
-        unsafe.append("brake interlock off")
       if not self.safety.torque_interlock:
         unsafe.append(f"torque interlock off (fresh={int(self.safety.torque_fresh)}, age={self.safety.torque_age_ms}ms)")
       if unsafe:
@@ -831,7 +783,7 @@ def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> None:
 
 def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool) -> bool:
   print("\nSecure the stationary vehicle. HRR relays must be open and torque output interlocked.")
-  print("Hold the brake and move the wheel manually and slowly: center -> left -> right -> center.")
+  print("Move the wheel manually and slowly: center -> left -> right -> center.")
   print("Cover at least 360 degrees from the leftmost to rightmost reading; mechanical locks are not required.")
   print("Pause briefly and relax steering effort at several angles in both directions; constant speed is not required.")
   if not assume_yes:
@@ -840,7 +792,6 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
     session.send_command(CMD_CAL_START, 0x12345678)
     print("Dry run: start frame generated; no samples were collected.")
     return True
-  session.start_brake_stream()
   # input() stops CAN polling, while 0x025 is intentionally required to be no
   # more than 100 ms old. Refresh every input after the operator confirms.
   if not session.wait_for_live_ready(1.0):
@@ -890,9 +841,7 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
       next_print = now + 0.5
     if session.calibration is not None and not session.calibration.running:
       safety = "no 0x634 status" if session.safety is None else session.safety.format()
-      brake_gap = session.max_brake_send_gap_s * 1000.0
-      print(f"\nERROR: firmware aborted calibration: {session.calibration.format()}; safety: {safety}; " +
-            f"host brake max_gap={brake_gap:.0f}ms", file=sys.stderr)
+      print(f"\nERROR: firmware aborted calibration: {session.calibration.format()}; safety: {safety}", file=sys.stderr)
       return False
     if sys.stdin.isatty():
       readable, _, _ = select.select([sys.stdin], [], [], 0)
@@ -940,43 +889,20 @@ def run_self_test() -> None:
   assert math.isclose(steer.angle_deg, -15.0)
   steer = SteerReference.decode(bytes((0, 0, 0, 0, 0x80, 0, 0, 0)))
   assert math.isclose(steer.angle_deg, 0.0)
-  safe_flags = sum(1 << bit for bit in (2, 3, 4, 5, 6, 7, 9, 10, 13, 15))
+  # Calibration safety deliberately does not depend on brake status bits 4..7.
+  safe_flags = sum(1 << bit for bit in (2, 3, 9, 10, 13, 15))
   safety = SafetyStatus.decode(safe_flags.to_bytes(2, "little") + b"\x00\x00\x0c\x00\xff\xff")
   assert safety.calibration_safe
   assert safety.brake_age_ms == 12 and safety.torque_age_ms == 0xFFFF
-  stale_brake = CalibrationStatus.decode(b"\x08\x02\x00\x00\x00\x00\x10\x00")
-  assert stale_brake.failure_reason == 16 and "brake frame stale" in stale_brake.format()
+  invalid_in = CalibrationStatus.decode(b"\x08\x02\x00\x00\x00\x00\x13\x00")
+  assert invalid_in.failure_reason == 19 and "IN resolver vector invalid" in invalid_in.format()
   assert shortest_mod180_delta(1.0, 179.0) == 2.0
   assert shortest_mod180_delta(179.0, 1.0) == -2.0
-  assert len(BRAKE_PRESSED_PAYLOAD) == 3
   for command, value in ((CMD_CAL_START, 0x12345678), (CMD_CAL_FINISH_SAVE, 0x12345678),
                          (CMD_CAL_ABORT, 0), (CMD_CAL_MODE, 1), (CMD_MATRIX_FIRST, -12345)):
     frame = build_config_frame(command, value)
     assert len(frame) == 8
     assert crc8_poly07(bytes((CONFIG_ADDR & 0xFF, CONFIG_ADDR >> 8)) + frame[:7]) == frame[7]
-
-  class FakePanda:
-    def __init__(self) -> None:
-      self.sent: list[tuple[int, bytes, int]] = []
-
-    def can_send(self, address: int, payload: bytes, bus: int) -> None:
-      self.sent.append((address, payload, bus))
-
-    def can_recv(self) -> list[tuple[int, int, bytes, int]]:
-      return []
-
-  fake_panda = FakePanda()
-  brake_session = HrrCalibrationSession(cast("Panda", fake_panda), 2, (0,), False)
-  brake_session.start_brake_stream()
-  assert fake_panda.sent == [(BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, 2)]
-  brake_session.next_brake_send_at = 0.0
-  brake_session.poll()
-  assert fake_panda.sent[-1] == (BRAKE_ADDR, BRAKE_PRESSED_PAYLOAD, 2)
-  assert len(fake_panda.sent) == 2
-  brake_session.stop_brake_stream()
-  brake_session.next_brake_send_at = 0.0
-  brake_session.poll()
-  assert len(fake_panda.sent) == 2
 
   synthetic: list[CalibrationSample] = []
   unwrapped = 0.0
@@ -1139,7 +1065,6 @@ def main() -> None:
     session.send_command(CMD_CAL_ABORT, 0)
     raise SystemExit(130) from error
   finally:
-    session.stop_brake_stream()
     if panda is not None:
       panda.set_safety_mode(Panda.SAFETY_SILENT)
 
