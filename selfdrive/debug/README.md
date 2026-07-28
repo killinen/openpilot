@@ -148,10 +148,12 @@ then returns the HRR to its safe state.
 The stored mode can be selected explicitly without repeating the sweep:
 
 ```bash
+python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --status
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --legacy
 python3 selfdrive/debug/hrr_angle_calibrate.py --bus 2 --calibrated
 ```
 
+`--status` is read-only and prints the latest decoded `0x635` state and failure reason.
 `--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
 confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
 Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:

@@ -736,7 +736,12 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
   session.send_command(CMD_CAL_FINISH_SAVE, token)
   finished = session.wait_for(lambda status: not status.running, 5.0)
   if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
-    detail = "no final status" if finished is None else finished.format()
+    if finished is not None:
+      detail = finished.format()
+    elif session.calibration is not None:
+      detail = f"timeout waiting for IDLE; last status: {session.calibration.format()}"
+    else:
+      detail = "no 0x635 status received after save command"
     print(f"ERROR: calibration was not committed: {detail}", file=sys.stderr)
     return False
   print(f"Calibration committed atomically: {finished.format()}")
@@ -832,6 +837,7 @@ def main() -> None:
   parser.add_argument("--legacy", action="store_true", help="persist legacy uncalibrated output and exit")
   parser.add_argument("--calibrated", action="store_true", help="select the last valid calibration and exit")
   parser.add_argument("--abort", action="store_true", help="force-abort an active calibration and exit")
+  parser.add_argument("--status", action="store_true", help="print current HRR calibration status without changing it")
   parser.add_argument("--dry-run", action="store_true", help="print command frames without opening Panda")
   parser.add_argument("--self-test", action="store_true", help="verify decoding, fitting, and frame encoding")
   args = parser.parse_args()
@@ -840,8 +846,8 @@ def main() -> None:
     return
   if args.timeout <= 0:
     parser.error("--timeout must be greater than zero")
-  if sum((args.legacy, args.calibrated, args.abort)) > 1:
-    parser.error("--legacy, --calibrated, and --abort are mutually exclusive")
+  if sum((args.legacy, args.calibrated, args.abort, args.status)) > 1:
+    parser.error("--legacy, --calibrated, --abort, and --status are mutually exclusive")
 
   bus = choose_bus(args.bus)
   reference_buses = tuple(args.reference_bus) if args.reference_bus is not None else (1,)
@@ -858,14 +864,20 @@ def main() -> None:
       if status is None:
         print(f"ERROR: no HRR calibration-v{CAL_PROTOCOL_VERSION} status on bus {bus}.", file=sys.stderr)
         raise SystemExit(2)
-    if args.legacy or args.calibrated:
+    if args.status:
+      if session.calibration is None:
+        print("ERROR: no HRR calibration status available.", file=sys.stderr)
+        raise SystemExit(1)
+      print(session.calibration.format())
+    elif args.legacy or args.calibrated:
       wanted_enabled = args.calibrated
       session.send_command(CMD_CAL_MODE, int(wanted_enabled))
       if not args.dry_run:
         result = session.wait_for(lambda item: item.enabled == wanted_enabled and
                                   item.legacy_active != wanted_enabled, 3.0)
         if result is None:
-          print("ERROR: HRR did not confirm the requested calibration mode.", file=sys.stderr)
+          detail = "no 0x635 status" if session.calibration is None else session.calibration.format()
+          print(f"ERROR: HRR did not confirm the requested calibration mode; last status: {detail}", file=sys.stderr)
           raise SystemExit(1)
         print(result.format())
     elif args.abort:
