@@ -149,13 +149,16 @@ rotation. The RMS/covariance vectors are projective modulo 180 degrees, so their
 advances only 180 degrees per electrical revolution; the fitted signed phase-per-steer magnitude
 must therefore be near 8.
 The firmware stages the fit under a calibration session and commits the complete coefficient set
-to an A/B flash snapshot only after validating it. A failed or interrupted recalibration leaves
-the previous committed calibration intact. With no valid enabled calibration, the original raw
+as an atomic record in the two-page CAL2 flash journal only after validating it. Interrupted
+records are skipped, and reclamation is unnecessary until the journal is full. A failed or
+interrupted recalibration leaves the previous committed calibration intact. With no valid enabled calibration, the original raw
 modulo-180 estimator remains active.
 An all-zero, reason-none calibration status immediately after the save command is reported as a
 probable firmware reset during flash commit rather than as an ordinary coefficient rejection.
 Reset breadcrumbs distinguish destination-page scanning from the physical
-SRAM-resident erase operation.
+SRAM-resident erase operation. Firmware also retains the exact snapshot
+doubleword being programmed and separates brownout/low-power resets from
+watchdog/fault resets.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed

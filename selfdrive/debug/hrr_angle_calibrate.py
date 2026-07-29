@@ -91,6 +91,14 @@ FAILURE_REASONS = {
   24: "firmware reset during flash commit-marker programming",
   25: "firmware reset during final flash validation",
   26: "firmware reset while scanning the destination flash page",
+  27: "brownout/low-power reset during calibration flash operation",
+  31: "watchdog/fault reset programming flash snapshot offset 0x08",
+  32: "watchdog/fault reset programming flash snapshot offset 0x10",
+  33: "watchdog/fault reset programming flash snapshot offset 0x18",
+  34: "watchdog/fault reset programming flash snapshot offset 0x20",
+  35: "watchdog/fault reset programming flash snapshot offset 0x28",
+  36: "watchdog/fault reset programming flash snapshot offset 0x30",
+  37: "watchdog/fault reset programming flash snapshot offset 0x38",
 }
 
 
