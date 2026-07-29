@@ -858,7 +858,9 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
     return False
 
   session.send_command(CMD_CAL_FINISH_SAVE, token)
-  finished = session.wait_for(lambda status: not status.running, 5.0)
+  # CAL2 temporarily uses the firmware's maximum (~8 s) IWDG interval so a
+  # slow flash pulse can finish; wait beyond that recovery deadline.
+  finished = session.wait_for(lambda status: not status.running, 12.0)
   if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
     if finished is not None:
       detail = finished.format()
