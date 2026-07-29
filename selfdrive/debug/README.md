@@ -206,6 +206,9 @@ It also prints decoded `0x634` relay, raw-angle validity, mirror/CANCTR, brake a
 and torque-interlock details. The same details are captured automatically when
 firmware aborts an active calibration. Firmware reports the specific failed hard
 interlock rather than only a generic unsafe-state reason.
+If the HRR resets during the redundant final flash validation, the replay accepts
+the result only when reboot recovery reports a valid, enabled calibrated snapshot
+whose sample count and RMS identity match the just-staged fit.
 `--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
 confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
 Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:

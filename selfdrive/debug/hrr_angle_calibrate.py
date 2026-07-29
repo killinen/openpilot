@@ -71,6 +71,7 @@ CAL2_RESUME_MAX_ATTEMPTS = 6
 COMMIT_FAILED = 0
 COMMIT_COMPLETE = 1
 COMMIT_RESUME = 2
+FLASH_VALIDATE_RESET_REASON = 25
 
 FAILURE_REASONS = {
   0: "none",
@@ -850,6 +851,16 @@ def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> Calibrati
   return upload_values(session, fit_values(fit))
 
 
+def committed_after_validation_reset(finished: CalibrationStatus | None,
+                                     staged: CalibrationStatus | None) -> bool:
+  return (finished is not None and staged is not None and
+          finished.failure_reason == FLASH_VALIDATE_RESET_REASON and
+          finished.valid and finished.enabled and not finished.legacy_active and
+          finished.parameters_complete and
+          finished.samples == staged.samples and
+          finished.rms_error_deg == staged.rms_error_deg)
+
+
 def finish_staged_calibration(session: HrrCalibrationSession, token: int,
                               staged: CalibrationStatus | None) -> int:
   if staged is None or not staged.running or not staged.parameters_complete:
@@ -874,6 +885,9 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
   if finished is not None and finished.failure_reason == 75:
     print("CAL2 body progress saved; continuing with another guarded replay session.")
     return COMMIT_RESUME
+  if committed_after_validation_reset(finished, staged):
+    print(f"Calibration committed atomically and recovered after final validation reset: {finished.format()}")
+    return COMMIT_COMPLETE
   if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
     if finished is not None:
       detail = finished.format()
@@ -1095,6 +1109,17 @@ def run_self_test() -> None:
   staged = upload_fit(fake_upload, fit)
   assert staged is not None and staged.parameters_complete
   assert fake_upload.attempts[CMD_MATRIX_FIRST + 1] == 2
+  recovered_flags = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4)
+  recovered = CalibrationStatus.decode(struct.pack(
+    "<BBHHBB", recovered_flags, CAL_PROTOCOL_VERSION, staged.samples,
+    staged.staged_mask, FLASH_VALIDATE_RESET_REASON, round(staged.rms_error_deg * 10.0),
+  ))
+  assert committed_after_validation_reset(recovered, staged)
+  mismatched = CalibrationStatus.decode(struct.pack(
+    "<BBHHBB", recovered_flags, CAL_PROTOCOL_VERSION, staged.samples + 1,
+    staged.staged_mask, FLASH_VALIDATE_RESET_REASON, round(staged.rms_error_deg * 10.0),
+  ))
+  assert not committed_after_validation_reset(mismatched, staged)
 
   # Simulate steering effort twisting OU relative to IN in either direction.
   # Periodic relaxed samples span the complete sweep and must be selected for
