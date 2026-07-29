@@ -68,6 +68,7 @@ STAGE_ACK_TIMEOUT_S = 0.5
 STAGE_MAX_ATTEMPTS = 8
 START_MAX_ATTEMPTS = 5
 CAL2_RESUME_MAX_ATTEMPTS = 6
+FLASH_SAVE_TIMEOUT_S = 36.0
 COMMIT_FAILED = 0
 COMMIT_COMPLETE = 1
 COMMIT_RESUME = 2
@@ -89,6 +90,10 @@ FAILURE_REASONS = {
   12: "relay command active",
   13: "relay feedback active",
   14: "torque interlock inactive",
+  15: "watchdog reset while configuring physical flash erase",
+  16: "watchdog reset while waiting for physical flash erase",
+  17: "watchdog reset after physical flash erase completed",
+  18: "watchdog reset while returning from physical flash erase",
   19: "IN resolver vector invalid",
   20: "OU resolver vector invalid",
   21: "firmware reset during physical SRAM flash erase",
@@ -879,9 +884,9 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
     return COMMIT_FAILED
 
   session.send_command(CMD_CAL_FINISH_SAVE, token)
-  # CAL2 temporarily uses the firmware's maximum (~8 s) IWDG interval so a
+  # CAL2 temporarily uses the firmware's maximum (~32 s) IWDG interval so a
   # slow flash pulse can finish; wait beyond that recovery deadline.
-  finished = session.wait_for(lambda status: not status.running, 12.0)
+  finished = session.wait_for(lambda status: not status.running, FLASH_SAVE_TIMEOUT_S)
   if finished is not None and finished.failure_reason == 75:
     print("CAL2 body progress saved; continuing with another guarded replay session.")
     return COMMIT_RESUME
