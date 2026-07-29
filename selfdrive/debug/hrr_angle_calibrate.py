@@ -85,11 +85,12 @@ FAILURE_REASONS = {
   14: "torque interlock inactive",
   19: "IN resolver vector invalid",
   20: "OU resolver vector invalid",
-  21: "firmware reset during flash erase",
+  21: "firmware reset during physical SRAM flash erase",
   22: "firmware reset during flash body programming",
   23: "firmware reset during flash verification",
   24: "firmware reset during flash commit-marker programming",
   25: "firmware reset during final flash validation",
+  26: "firmware reset while scanning the destination flash page",
 }
 
 

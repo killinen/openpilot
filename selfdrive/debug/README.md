@@ -154,6 +154,8 @@ the previous committed calibration intact. With no valid enabled calibration, th
 modulo-180 estimator remains active.
 An all-zero, reason-none calibration status immediately after the save command is reported as a
 probable firmware reset during flash commit rather than as an ordinary coefficient rejection.
+Reset breadcrumbs distinguish destination-page scanning from the physical
+SRAM-resident erase operation.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed
