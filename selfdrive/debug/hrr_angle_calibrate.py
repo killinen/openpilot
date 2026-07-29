@@ -93,6 +93,11 @@ FAILURE_REASONS = {
   26: "firmware reset while scanning the destination flash page",
   27: "brownout/low-power reset during calibration flash operation",
   28: "non-watchdog/non-power reset during calibration flash operation",
+  70: "NMI during calibration flash operation; watchdog recovery reset",
+  71: "HardFault during calibration flash operation; watchdog recovery reset",
+  72: "MemManage fault during calibration flash operation; watchdog recovery reset",
+  73: "BusFault during calibration flash operation; watchdog recovery reset",
+  74: "UsageFault during calibration flash operation; watchdog recovery reset",
 }
 for phase_base, phase_name in ((31, "issuing flash data"),
                                (41, "waiting for flash busy"),

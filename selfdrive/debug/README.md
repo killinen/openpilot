@@ -158,7 +158,9 @@ probable firmware reset during flash commit rather than as an ordinary coefficie
 Reset breadcrumbs distinguish destination-page scanning from the physical
 SRAM-resident erase operation. Firmware also retains the exact snapshot
 doubleword and writer phase, and separates brownout/low-power, watchdog, and
-other reset sources.
+other reset sources. The SRAM busy loop refreshes IWDG directly, while retained
+exception markers distinguish NMI, HardFault, MemManage, BusFault, and
+UsageFault recovery resets.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed
