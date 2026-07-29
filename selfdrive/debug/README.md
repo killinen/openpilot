@@ -167,6 +167,12 @@ capacity instead of assuming the 512 KiB CE layout.
 During CAL2 save, firmware temporarily uses the maximum IWDG reload (roughly
 eight seconds) and the host waits twelve seconds for either commit completion
 or watchdog recovery.
+Each transaction writes at most two missing snapshot-body doublewords. Status
+reason `75` indicates durable partial progress; the calibrator automatically
+starts another guarded session, retransmits the captured values, and resumes
+the same uncommitted journal record until its commit marker can be written.
+START and coefficient acknowledgements are retried to tolerate dropped CAN
+frames.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed

@@ -65,7 +65,12 @@ REFERENCE_DELAY_MIN_S = -0.20
 REFERENCE_DELAY_MAX_S = 0.40
 REFERENCE_DELAY_STEP_S = 0.01
 STAGE_ACK_TIMEOUT_S = 0.5
-STAGE_MAX_ATTEMPTS = 3
+STAGE_MAX_ATTEMPTS = 8
+START_MAX_ATTEMPTS = 5
+CAL2_RESUME_MAX_ATTEMPTS = 6
+COMMIT_FAILED = 0
+COMMIT_COMPLETE = 1
+COMMIT_RESUME = 2
 
 FAILURE_REASONS = {
   0: "none",
@@ -98,6 +103,7 @@ FAILURE_REASONS = {
   72: "MemManage fault during calibration flash operation; watchdog recovery reset",
   73: "BusFault during calibration flash operation; watchdog recovery reset",
   74: "UsageFault during calibration flash operation; watchdog recovery reset",
+  75: "CAL2 body partially saved; replay required to continue atomic commit",
 }
 for phase_base, phase_name in ((31, "issuing flash data"),
                                (41, "waiting for flash busy"),
@@ -831,17 +837,21 @@ def upload_values(session: HrrCalibrationSession, values: tuple[int, ...]) -> Ca
   return session.calibration
 
 
-def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> CalibrationStatus | None:
+def fit_values(fit: CalibrationFit) -> tuple[int, ...]:
   rms_tenths = min(255, round(fit.rms_error_deg * 10.0))
   max_tenths = min(255, round(fit.max_error_deg * 10.0))
   metrics = min(0xFFFF, fit.samples) | (rms_tenths << 16) | (max_tenths << 24)
   values = tuple(round(coefficient * (1 << MATRIX_Q)) & 0xFFFFFFFF for coefficient in fit.matrices)
   values += (round(fit.phase_per_steer * (1 << MATRIX_Q)) & 0xFFFFFFFF, metrics)
-  return upload_values(session, values)
+  return values
+
+
+def upload_fit(session: HrrCalibrationSession, fit: CalibrationFit) -> CalibrationStatus | None:
+  return upload_values(session, fit_values(fit))
 
 
 def finish_staged_calibration(session: HrrCalibrationSession, token: int,
-                              staged: CalibrationStatus | None) -> bool:
+                              staged: CalibrationStatus | None) -> int:
   if staged is None or not staged.running or not staged.parameters_complete:
     if staged is None:
       detail = "no 0x635 status received during upload"
@@ -855,12 +865,15 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
     print(f"ERROR: HRR did not accept the complete coefficient set: {detail}", file=sys.stderr)
     if staged is None or staged.running:
       session.send_command(CMD_CAL_ABORT, token)
-    return False
+    return COMMIT_FAILED
 
   session.send_command(CMD_CAL_FINISH_SAVE, token)
   # CAL2 temporarily uses the firmware's maximum (~8 s) IWDG interval so a
   # slow flash pulse can finish; wait beyond that recovery deadline.
   finished = session.wait_for(lambda status: not status.running, 12.0)
+  if finished is not None and finished.failure_reason == 75:
+    print("CAL2 body progress saved; continuing with another guarded replay session.")
+    return COMMIT_RESUME
   if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
     if finished is not None:
       detail = finished.format()
@@ -872,9 +885,9 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
     else:
       detail = "no 0x635 status received after save command"
     print(f"ERROR: calibration was not committed: {detail}", file=sys.stderr)
-    return False
+    return COMMIT_FAILED
   print(f"Calibration committed atomically: {finished.format()}")
-  return True
+  return COMMIT_COMPLETE
 
 
 def start_calibration_session(session: HrrCalibrationSession) -> int | None:
@@ -883,14 +896,33 @@ def start_calibration_session(session: HrrCalibrationSession) -> int | None:
     print(f"ERROR: calibration preconditions not met: {details}.", file=sys.stderr)
     return None
   token = secrets.randbits(32) or 1
-  session.send_command(CMD_CAL_START, token)
-  started = session.wait_for(lambda status: status.running, 2.0)
-  if started is None:
-    detail = "no 0x635 status" if session.calibration is None else session.calibration.format()
-    safety = "no 0x634 status" if session.safety is None else session.safety.format()
-    print(f"ERROR: HRR rejected calibration start: {detail}; safety: {safety}", file=sys.stderr)
-    return None
-  return token
+  for _ in range(START_MAX_ATTEMPTS):
+    session.send_command(CMD_CAL_START, token)
+    started = session.wait_for(lambda status: status.running, 0.6)
+    if started is not None and started.running:
+      return token
+  detail = "no 0x635 status" if session.calibration is None else session.calibration.format()
+  safety = "no 0x634 status" if session.safety is None else session.safety.format()
+  print(f"ERROR: HRR rejected calibration start: {detail}; safety: {safety}", file=sys.stderr)
+  return None
+
+
+def commit_values(session: HrrCalibrationSession, values: tuple[int, ...],
+                  initial_token: int | None = None) -> bool:
+  token = initial_token
+  for _ in range(CAL2_RESUME_MAX_ATTEMPTS):
+    if token is None:
+      token = start_calibration_session(session)
+      if token is None:
+        return False
+    result = finish_staged_calibration(session, token, upload_values(session, values))
+    if result == COMMIT_COMPLETE:
+      return True
+    if result == COMMIT_FAILED:
+      return False
+    token = None
+  print("ERROR: CAL2 save did not complete within the resume-attempt limit.", file=sys.stderr)
+  return False
 
 
 def run_replay(session: HrrCalibrationSession, values: tuple[int, ...], assume_yes: bool) -> bool:
@@ -908,10 +940,7 @@ def run_replay(session: HrrCalibrationSession, values: tuple[int, ...], assume_y
     session.send_command(CMD_CAL_FINISH_SAVE, token)
     print("Dry run: replay frames generated; nothing was committed.")
     return True
-  session_token = start_calibration_session(session)
-  if session_token is None:
-    return False
-  return finish_staged_calibration(session, session_token, upload_values(session, values))
+  return commit_values(session, values)
 
 
 def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool) -> bool:
@@ -984,7 +1013,7 @@ def run_guided(session: HrrCalibrationSession, timeout: float, assume_yes: bool)
 
   assert latest_fit is not None
   print(f"\nFit: {latest_fit.format()}")
-  return finish_staged_calibration(session, token, upload_fit(session, latest_fit))
+  return commit_values(session, fit_values(latest_fit), token)
 
 
 def run_self_test() -> None:
