@@ -692,9 +692,10 @@ static int toyota_fwd_hook(int bus_num, int addr) {
 
 static int toyota_fwd_disabled_hook(int bus_num, int addr) {
   // ForceHarnessRelayOn keeps the physical buses isolated for LS600h testing.
-  // The HRR brake interlock and EPS torque frame remain bridged while the
-  // physical buses are isolated.
+  // Preserve the HRR steering reference, brake interlock, and EPS torque
+  // frame while the physical buses are isolated.
   return (toyota_hrr && (((bus_num == 0) && (addr == TOYOTA_HRR_EPS_TORQUE_ID)) ||
+                         ((bus_num == 0) && (addr == 0x25)) ||
                          ((bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)))) ? 2 : -1;
 }
 

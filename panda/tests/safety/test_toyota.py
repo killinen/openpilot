@@ -335,6 +335,7 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
       self.assertEqual(-1, self.safety.safety_fwd_hook(0, 0x223))
       self.assertEqual(-1, self.safety.safety_fwd_hook(2, 0x120))
       self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x260))
+      self.assertEqual(2, self.safety.safety_fwd_hook(0, 0x25))
       self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x260))
       self.assertEqual(2, self.safety.safety_fwd_hook(1, 0x2C6))
       self.assertEqual(-1, self.safety.safety_fwd_hook(1, 0x2C5))
