@@ -209,6 +209,10 @@ interlock rather than only a generic unsafe-state reason.
 If the HRR resets during the redundant final flash validation, the replay accepts
 the result only when reboot recovery reports a valid, enabled calibrated snapshot
 whose sample count and RMS identity match the just-staged fit.
+Replay aborts a stale RUNNING session before START. START and FINISH are
+retry-safe with matching firmware; FINISH is retransmitted only while fresh
+RUNNING status proves the firmware main loop is alive, avoiding queued retries
+while flash work intentionally pauses status transmission.
 `--calibrated` is rejected when no valid snapshot exists, and both mode commands wait for firmware
 confirmation. Ctrl-C aborts the temporary session, preserves the previous calibration, restores
 Panda to `SAFETY_SILENT`, and exits nonzero. Protocol-only checks do not require a Panda:

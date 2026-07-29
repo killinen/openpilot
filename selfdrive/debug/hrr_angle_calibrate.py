@@ -883,10 +883,32 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
       session.send_command(CMD_CAL_ABORT, token)
     return COMMIT_FAILED
 
+  finish_started = time.monotonic()
+  last_tx_status_at = session.status_at
   session.send_command(CMD_CAL_FINISH_SAVE, token)
   # CAL2 temporarily uses the firmware's maximum (~32 s) IWDG interval so a
   # slow flash pulse can finish; wait beyond that recovery deadline.
-  finished = session.wait_for(lambda status: not status.running, FLASH_SAVE_TIMEOUT_S)
+  deadline = finish_started + FLASH_SAVE_TIMEOUT_S
+  next_retry = finish_started + STAGE_ACK_TIMEOUT_S
+  finished: CalibrationStatus | None = None
+  while time.monotonic() < deadline:
+    session.poll()
+    if (session.calibration is not None and session.status_at is not None and
+        session.status_at >= finish_started and not session.calibration.running):
+      finished = session.calibration
+      break
+    now = time.monotonic()
+    if now >= next_retry:
+      # A fresh RUNNING report proves the main loop is alive and the previous
+      # FINISH was not entering flash. Retry only then, avoiding a queued flood
+      # while flash execution intentionally pauses status transmission.
+      if (session.calibration is not None and session.calibration.running and
+          session.status_at is not None and
+          (last_tx_status_at is None or session.status_at > last_tx_status_at)):
+        last_tx_status_at = session.status_at
+        session.send_command(CMD_CAL_FINISH_SAVE, token)
+      next_retry = now + STAGE_ACK_TIMEOUT_S
+    time.sleep(0.01)
   if finished is not None and finished.failure_reason == 75:
     print("CAL2 body progress saved; continuing with another guarded replay session.")
     return COMMIT_RESUME
@@ -914,6 +936,13 @@ def start_calibration_session(session: HrrCalibrationSession) -> int | None:
     details = "; ".join(session.readiness_errors())
     print(f"ERROR: calibration preconditions not met: {details}.", file=sys.stderr)
     return None
+  if session.calibration is not None and session.calibration.running:
+    print("Aborting stale HRR calibration session before START.")
+    session.send_command(CMD_CAL_ABORT, 0)
+    stopped = session.wait_for(lambda status: not status.running, 1.0)
+    if stopped is None:
+      print("ERROR: stale HRR calibration session did not abort.", file=sys.stderr)
+      return None
   token = secrets.randbits(32) or 1
   for _ in range(START_MAX_ATTEMPTS):
     session.send_command(CMD_CAL_START, token)
