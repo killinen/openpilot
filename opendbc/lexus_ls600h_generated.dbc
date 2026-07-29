@@ -1406,7 +1406,8 @@ BO_ 1589 HRR_AngleCalibrationStatus: 8 STM32G474_HRR
 CM_ BO_ 1589 "Resolver calibration protocol v2 status. Staged mask bits 0..7 correspond to commands 11..18, bit8 to command 19, and bit9 to command 20. A complete fit requires mask 0x03FF, at least 100 samples, RMS error <=1.5 degrees, and maximum error <=5.0 degrees. Failure reasons: 0 none, 1 generic unsafe, 2 session, 3 incomplete, 4 coefficient, 5 fit, 6 NVM, 7 timeout, 8..14 and 19..20 specific failed safety precondition, 21..25 retained flash-reset step.";
 
 BO_ 1590 HRR_TrueAngleStatus: 8 STM32G474_HRR
- SG_ True_Steering_Angle : 0|32@1- (0.01,0) [-21474836.48|21474836.47] "deg" CAN_Master
+ SG_ True_Steering_Angle : 0|24@1- (0.01,0) [-83886.08|83886.07] "deg" CAN_Master
+ SG_ SVEC_DLY : 24|8@1+ (1,0) [0|127] "samples" CAN_Master
  SG_ True_Steering_Rate : 32|16@1- (0.1,0) [-3276.8|3276.7] "deg/s" CAN_Master
  SG_ True_Angle_Valid : 48|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ True_Angle_Initialized : 49|1@1+ (1,0) [0|1] "" CAN_Master
@@ -1415,7 +1416,7 @@ BO_ 1590 HRR_TrueAngleStatus: 8 STM32G474_HRR
  SG_ True_Angle_Reference_Fresh : 52|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ True_Angle_Wrap_Ambiguous : 53|1@1+ (1,0) [0|1] "" CAN_Master
  SG_ True_Angle_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
-CM_ BO_ 1590 "High-resolution absolute steering measurement from the CAL2-corrected IN resolver vector. Angle is valid only after a fresh, consistent 0x25 reference anchors the modulo-180 sector. Invalid gap, delta, or derived rate clears initialization; a fresh reference permits automatic re-anchoring. Legacy or disabled calibration never sets True_Angle_Valid.";
+CM_ BO_ 1590 "High-resolution absolute steering measurement from the CAL2-corrected IN resolver vector plus the active persistent SVEC DLY sample count. Angle is valid only after a fresh, consistent 0x25 reference anchors the modulo-180 sector. Invalid gap, delta, or derived rate clears initialization; a fresh reference permits automatic re-anchoring. Legacy or disabled calibration never sets True_Angle_Valid.";
 
 BO_ 1591 HRR_ResolverVectorStatus: 8 STM32G474_HRR
  SG_ IN_Cos_RMS : 0|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master

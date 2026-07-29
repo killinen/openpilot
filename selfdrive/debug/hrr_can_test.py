@@ -25,7 +25,15 @@ IO_STATUS_ADDR = 0x631
 ANGLE_STATUS_ADDR = 0x632
 VOLTAGE_STATUS_ADDR = 0x633
 STATE_STATUS_ADDR = 0x634
-HRR_STATUS_ADDRS = {ADC_STATUS_ADDR, IO_STATUS_ADDR, ANGLE_STATUS_ADDR, VOLTAGE_STATUS_ADDR, STATE_STATUS_ADDR}
+TRUE_ANGLE_STATUS_ADDR = 0x636
+HRR_STATUS_ADDRS = {
+  ADC_STATUS_ADDR,
+  IO_STATUS_ADDR,
+  ANGLE_STATUS_ADDR,
+  VOLTAGE_STATUS_ADDR,
+  STATE_STATUS_ADDR,
+  TRUE_ANGLE_STATUS_ADDR,
+}
 
 DEFAULT_RATE_HZ = 100.0
 DEVICE_ONLINE_TIMEOUT_S = 0.5
@@ -108,6 +116,16 @@ def decode_state_status(payload: bytes) -> float:
   return int.from_bytes(payload[2:4], "little", signed=True) * 0.1
 
 
+def decode_true_angle_status(payload: bytes) -> tuple[float, int, bool]:
+  if len(payload) < 8:
+    raise ValueError(f"expected 8 bytes for HRR_TrueAngleStatus, got {len(payload)}")
+  angle = int.from_bytes(payload[0:3], "little", signed=True) * 0.01
+  dly_samples = payload[3]
+  if dly_samples > MAX_DLY_SAMPLES:
+    raise ValueError(f"invalid reported DLY value {dly_samples}")
+  return angle, dly_samples, bool(payload[6] & 0x01)
+
+
 def decode_steer_torque_sensor(payload: bytes) -> tuple[int, int]:
   """Decode driver and EPS torque from Toyota/Lexus STEER_TORQUE_SENSOR (0x260)."""
   if len(payload) < 7:
@@ -131,6 +149,9 @@ class HrrDeviceStatus:
     self.ou_angle: float | None = None
     self.in_angle: float | None = None
     self.angle_delta: float | None = None
+    self.true_steering_angle: float | None = None
+    self.true_angle_valid: bool | None = None
+    self.dly_samples: int | None = None
 
   def update(self, address: int, payload: bytes) -> bool:
     if address not in HRR_STATUS_ADDRS:
@@ -139,6 +160,7 @@ class HrrDeviceStatus:
     io_status = None
     angle_status = None
     angle_delta = None
+    true_angle_status = None
     try:
       if address == IO_STATUS_ADDR:
         io_status = decode_io_status(payload)
@@ -146,6 +168,8 @@ class HrrDeviceStatus:
         angle_status = decode_angle_status(payload)
       elif address == STATE_STATUS_ADDR:
         angle_delta = decode_state_status(payload)
+      elif address == TRUE_ANGLE_STATUS_ADDR:
+        true_angle_status = decode_true_angle_status(payload)
     except ValueError:
       # A recognized frame still proves that the HRR is transmitting. Leave the
       # last successfully decoded values in place when its DLC is unexpected.
@@ -159,7 +183,13 @@ class HrrDeviceStatus:
         self.svec_delta, self.emulated_torque, self.ou_angle, self.in_angle = angle_status
       if angle_delta is not None:
         self.angle_delta = angle_delta
+      if true_angle_status is not None:
+        self.true_steering_angle, self.dly_samples, self.true_angle_valid = true_angle_status
     return True
+
+  def reported_dly_samples(self) -> int | None:
+    with self.lock:
+      return self.dly_samples
 
   def format(self, bus: int, dry_run: bool) -> str:
     now = time.monotonic()
@@ -172,6 +202,9 @@ class HrrDeviceStatus:
       ou_angle = self.ou_angle
       in_angle = self.in_angle
       angle_delta = self.angle_delta
+      true_steering_angle = self.true_steering_angle
+      true_angle_valid = self.true_angle_valid
+      dly_samples = self.dly_samples
       started_at = self.started_at
 
     if dry_run:
@@ -192,11 +225,15 @@ class HrrDeviceStatus:
     ou_text = "---.-" if ou_angle is None else f"{ou_angle:.1f}"
     in_text = "---.-" if in_angle is None else f"{in_angle:.1f}"
     angle_delta_text = "---.-" if angle_delta is None else f"{angle_delta:+.1f}"
+    true_angle_text = "--------" if true_steering_angle is None else f"{true_steering_angle:+.2f}"
+    true_angle_valid_text = "---" if true_angle_valid is None else str(true_angle_valid)
+    dly_text = "---" if dly_samples is None else str(dly_samples)
     return "\n".join((
       f"RX device={device} age={age} bus={bus} REL={rel_text} RELE={rele_text}",
       f"   SVEC_Delta={delta_text}deg Emulated_Torque={torque_text}Ncm",
       f"   OU_Angle={ou_text}deg IN_Angle={in_text}deg",
       f"   Angle_Delta={angle_delta_text}deg",
+      f"   True_Steering_Angle={true_angle_text}deg valid={true_angle_valid_text} DLY={dly_text} samples",
     ))
 
 
@@ -420,10 +457,13 @@ class HrrCanTest:
 
   def print_state(self) -> None:
     engaged, torque_ncm, brake_pressed, dly_samples, angle_offset_tenths_deg = self.state.snapshot()
-    # The HRR's periodic status frames do not include persisted configuration.
-    # Keep track of commands sent by this process, but do not imply that an
-    # unknown value means the firmware is using a default or has not been set.
-    dly_text = "unknown (not reported)" if dly_samples is None else f"{dly_samples} samples"
+    reported_dly_samples = self.device_status.reported_dly_samples()
+    if reported_dly_samples is not None:
+      dly_samples = reported_dly_samples
+    # ANGLE_OFFSET is not reported. Keep track of commands sent by this process,
+    # but do not imply that an unknown value means the firmware is using a
+    # default or has not been set.
+    dly_text = "waiting for 0x636" if dly_samples is None else f"{dly_samples} samples"
     angle_offset_text = ("unknown (not reported)" if angle_offset_tenths_deg is None
                          else f"{angle_offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg")
     print(" ".join((
@@ -477,15 +517,26 @@ def run_self_test() -> None:
   angle_payload = struct.pack("<hhHH", -40, -250, 1234, 567)
   assert decode_angle_status(angle_payload) == (-4.0, -250, 123.4, 56.7)
   assert decode_state_status(bytes.fromhex("00 00 d3 ff 00 00 00 00")) == -4.5
+  true_angle_payload = (
+    (-12345 & 0xFFFFFF).to_bytes(3, "little")
+    + bytes((42,))
+    + struct.pack("<hBB", 123, 0x1F, 7)
+  )
+  true_angle, reported_dly, true_angle_valid = decode_true_angle_status(true_angle_payload)
+  assert abs(true_angle - (-123.45)) < 1e-9
+  assert reported_dly == 42
+  assert true_angle_valid
   assert decode_steer_torque_sensor(bytes.fromhex("00 ff 06 00 00 fe d4 00")) == (-250, -300)
 
   device_status = HrrDeviceStatus()
   assert device_status.update(IO_STATUS_ADDR, bytes.fromhex("00 08 ff 07 03"))
   assert device_status.update(ANGLE_STATUS_ADDR, angle_payload)
   assert device_status.update(STATE_STATUS_ADDR, bytes.fromhex("00 00 2d 00 00 00 00 00"))
+  assert device_status.update(TRUE_ANGLE_STATUS_ADDR, true_angle_payload)
   status_text = device_status.format(1, False)
   for expected in ("device=ONLINE", "REL=ON", "RELE=ON", "SVEC_Delta=-4.0deg",
-                   "Emulated_Torque=-250Ncm", "OU_Angle=123.4deg", "IN_Angle=56.7deg"):
+                   "Emulated_Torque=-250Ncm", "OU_Angle=123.4deg", "IN_Angle=56.7deg",
+                   "True_Steering_Angle=-123.45deg", "valid=True", "DLY=42 samples"):
     assert expected in status_text
   assert "Angle_Delta=+4.5deg" in status_text
 
