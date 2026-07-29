@@ -912,7 +912,7 @@ def finish_staged_calibration(session: HrrCalibrationSession, token: int,
   if finished is not None and finished.failure_reason == 75:
     print("CAL2 body progress saved; continuing with another guarded replay session.")
     return COMMIT_RESUME
-  if committed_after_validation_reset(finished, staged):
+  if finished is not None and committed_after_validation_reset(finished, staged):
     print(f"Calibration committed atomically and recovered after final validation reset: {finished.format()}")
     return COMMIT_COMPLETE
   if finished is None or not finished.valid or not finished.enabled or finished.legacy_active or finished.failed:
