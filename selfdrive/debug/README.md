@@ -157,8 +157,8 @@ An all-zero, reason-none calibration status immediately after the save command i
 probable firmware reset during flash commit rather than as an ordinary coefficient rejection.
 Reset breadcrumbs distinguish destination-page scanning from the physical
 SRAM-resident erase operation. Firmware also retains the exact snapshot
-doubleword being programmed and separates brownout/low-power resets from
-watchdog/fault resets.
+doubleword and writer phase, and separates brownout/low-power, watchdog, and
+other reset sources.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed

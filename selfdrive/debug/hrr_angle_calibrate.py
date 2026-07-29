@@ -92,14 +92,16 @@ FAILURE_REASONS = {
   25: "firmware reset during final flash validation",
   26: "firmware reset while scanning the destination flash page",
   27: "brownout/low-power reset during calibration flash operation",
-  31: "watchdog/fault reset programming flash snapshot offset 0x08",
-  32: "watchdog/fault reset programming flash snapshot offset 0x10",
-  33: "watchdog/fault reset programming flash snapshot offset 0x18",
-  34: "watchdog/fault reset programming flash snapshot offset 0x20",
-  35: "watchdog/fault reset programming flash snapshot offset 0x28",
-  36: "watchdog/fault reset programming flash snapshot offset 0x30",
-  37: "watchdog/fault reset programming flash snapshot offset 0x38",
+  28: "non-watchdog/non-power reset during calibration flash operation",
 }
+for phase_base, phase_name in ((31, "issuing flash data"),
+                               (41, "waiting for flash busy"),
+                               (51, "after flash busy cleared"),
+                               (61, "before entering SRAM writer")):
+  for index in range(7):
+    FAILURE_REASONS[phase_base + index] = (
+      f"watchdog reset {phase_name} at snapshot offset 0x{8 * (index + 1):02X}"
+    )
 
 
 def crc8_poly07(data: bytes) -> int:
