@@ -4,6 +4,7 @@ from cereal import car
 from panda import Panda
 
 from openpilot.selfdrive.car.toyota.carcontroller import CarController
+from openpilot.selfdrive.car.toyota.carstate import LS600H_HRR_STATUS_MAX_AGE_FRAMES, ls600h_hrr_steering_valid
 from openpilot.selfdrive.car.toyota.values import CAR, DBC, ToyotaFlags
 
 
@@ -46,6 +47,25 @@ def test_ls600h_params_enable_hrr_steering_with_stock_longitudinal():
   assert not CP.safetyConfigs[0].safetyParam & Panda.FLAG_TOYOTA_ALT_BRAKE
   assert CP.pcmCruise
   assert not CP.openpilotLongitudinalControl
+
+
+def test_ls600h_hrr_true_angle_status_requirements():
+  status = {
+    "True_Angle_Valid": 1,
+    "True_Angle_Initialized": 1,
+    "True_Angle_Resolver_Valid": 1,
+    "True_Angle_Calibrated": 1,
+    "True_Angle_Wrap_Ambiguous": 0,
+  }
+  assert ls600h_hrr_steering_valid(status, LS600H_HRR_STATUS_MAX_AGE_FRAMES)
+
+  for signal in ("True_Angle_Valid", "True_Angle_Initialized",
+                 "True_Angle_Resolver_Valid", "True_Angle_Calibrated"):
+    invalid_status = status | {signal: 0}
+    assert not ls600h_hrr_steering_valid(invalid_status, 0)
+
+  assert not ls600h_hrr_steering_valid(status | {"True_Angle_Wrap_Ambiguous": 1}, 0)
+  assert not ls600h_hrr_steering_valid(status, LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1)
 
 
 def test_ls600h_controller_sends_hrr_torque():

@@ -16,6 +16,7 @@ SteerControlType = car.CarParams.SteerControlType
 
 LS600H_STEERING_RATE_WINDOW_NS = int(0.25 * 1e9)
 LS600H_STEERING_RATE_RESET_NS = int(0.5 * 1e9)
+LS600H_HRR_STATUS_MAX_AGE_FRAMES = round(0.25 / DT_CTRL)
 
 # These steering fault definitions seem to be common across LKA (torque) and LTA (angle):
 # - high steer rate fault: goes to 21 or 25 for 1 frame, then 9 for 2 seconds
@@ -27,6 +28,17 @@ TEMP_STEER_FAULTS = (0, 9, 11, 21, 25)
 # - lka/lta msg drop out: 3 (recoverable)
 # - prolonged high driver torque: 17 (permanent)
 PERM_STEER_FAULTS = (3, 17)
+
+
+def ls600h_hrr_steering_valid(status, age_frames):
+  return bool(
+    age_frames <= LS600H_HRR_STATUS_MAX_AGE_FRAMES
+    and status["True_Angle_Valid"]
+    and status["True_Angle_Initialized"]
+    and status["True_Angle_Resolver_Valid"]
+    and status["True_Angle_Calibrated"]
+    and not status["True_Angle_Wrap_Ambiguous"]
+  )
 
 
 # Traffic signals for Speed Limit Controller - Credit goes to the DragonPilot team!
@@ -69,6 +81,7 @@ class CarState(CarStateBase):
     self.ls600h_steering_history = deque()
     self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
     self.ls600h_last_steering_ts = 0
+    self.ls600h_hrr_status_age_frames = LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1
 
     self.prev_distance_button = 0
     self.distance_button = 0
@@ -88,7 +101,7 @@ class CarState(CarStateBase):
     self.angle_offset_zss = 0
     self.zorro_steer_value = 0
 
-  def update_ls600h(self, cp, cp_body):
+  def update_ls600h(self, cp, cp_body, cp_hrr):
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
 
@@ -107,26 +120,38 @@ class CarState(CarStateBase):
     # LS600h 0x25 only has a verified 12-bit coarse angle. Its bytes 4 and 5
     # are identical in the stationary steering capture, so they are not the
     # conventional Toyota fraction/rate packing.
-    ret.steeringAngleDeg = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
+    fallback_steering_angle = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
     steering_ts = cp.ts_nanos["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
     if steering_ts > self.ls600h_last_steering_ts:
       if self.ls600h_last_steering_ts and steering_ts - self.ls600h_last_steering_ts > LS600H_STEERING_RATE_RESET_NS:
         self.ls600h_steering_history.clear()
         self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
 
-      self.ls600h_steering_history.append((steering_ts, ret.steeringAngleDeg))
+      self.ls600h_steering_history.append((steering_ts, fallback_steering_angle))
       cutoff = steering_ts - LS600H_STEERING_RATE_WINDOW_NS
       while len(self.ls600h_steering_history) > 1 and self.ls600h_steering_history[1][0] <= cutoff:
         self.ls600h_steering_history.popleft()
 
       if len(self.ls600h_steering_history) > 1 and self.ls600h_steering_history[0][0] <= cutoff:
         start_ts, start_angle = self.ls600h_steering_history[0]
-        raw_rate = (ret.steeringAngleDeg - start_angle) / ((steering_ts - start_ts) * 1e-9)
+        raw_rate = (fallback_steering_angle - start_angle) / ((steering_ts - start_ts) * 1e-9)
       else:
         raw_rate = 0.0
       self.ls600h_steering_rate.update(raw_rate)
       self.ls600h_last_steering_ts = steering_ts
+
+    ret.steeringAngleDeg = fallback_steering_angle
     ret.steeringRateDeg = self.ls600h_steering_rate.x
+    if cp_hrr is not None:
+      hrr_status = cp_hrr.vl["HRR_TrueAngleStatus"]
+      if cp_hrr.vl_all["HRR_TrueAngleStatus"]["True_Angle_Counter"]:
+        self.ls600h_hrr_status_age_frames = 0
+      else:
+        self.ls600h_hrr_status_age_frames += 1
+
+      if ls600h_hrr_steering_valid(hrr_status, self.ls600h_hrr_status_age_frames):
+        ret.steeringAngleDeg = hrr_status["True_Steering_Angle"]
+        ret.steeringRateDeg = hrr_status["True_Steering_Rate"]
     ret.yawRate = cp.vl["KINEMATICS"]["YAW_RATE"]
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
@@ -163,9 +188,9 @@ class CarState(CarStateBase):
 
     return ret, fp_ret
 
-  def update(self, cp, cp_cam, CC, frogpilot_toggles):
+  def update(self, cp, cp_cam, CC, frogpilot_toggles, cp_hrr=None):
     if self.CP.carFingerprint == CAR.LEXUS_LS600h:
-      return self.update_ls600h(cp, cp_cam)
+      return self.update_ls600h(cp, cp_cam, cp_hrr)
 
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
@@ -465,3 +490,12 @@ class CarState(CarStateBase):
         ]
 
     return CANParser(DBC[CP.carFingerprint]["pt"], messages, 2)
+
+  @staticmethod
+  def get_body_can_parser(CP):
+    if CP.carFingerprint == CAR.LEXUS_LS600h:
+      # HRR is optional for state estimation: frequency 0 prevents a missing
+      # controller from invalidating the vehicle CAN parsers. CarState applies
+      # its own freshness and status-flag checks before using this measurement.
+      return CANParser(DBC[CP.carFingerprint]["pt"], [("HRR_TrueAngleStatus", 0)], 2)
+    return None
