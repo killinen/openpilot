@@ -215,6 +215,8 @@ class CalibrationStatus:
   version: int
   samples: int
   staged_mask: int
+  flash_size_kib: int
+  dual_bank: bool
   failure_reason: int
   rms_error_deg: float
 
@@ -222,16 +224,19 @@ class CalibrationStatus:
   def decode(cls, payload: bytes) -> CalibrationStatus:
     if len(payload) != 8:
       raise ValueError(f"expected 8-byte 0x{CAL_STATUS_ADDR:03X}, got {len(payload)}")
-    flags, version, samples, staged_mask, reason, rms = struct.unpack("<BBHHBB", payload)
+    flags, version, samples, raw_staged, reason, rms = struct.unpack("<BBHHBB", payload)
+    staged_mask = raw_staged & 0x03FF
+    flash_size_kib = ((raw_staged >> 10) & 0x1F) * 32
     return cls(bool(flags & (1 << 0)), bool(flags & (1 << 1)), bool(flags & (1 << 2)),
                bool(flags & (1 << 3)), bool(flags & (1 << 4)), bool(flags & (1 << 5)),
                bool(flags & (1 << 6)), bool(flags & (1 << 7)), version, samples,
-               staged_mask, reason, rms * 0.1)
+               staged_mask, flash_size_kib, bool(raw_staged & (1 << 15)), reason, rms * 0.1)
 
   def format(self) -> str:
     mode = "LEGACY" if self.legacy_active else "CALIBRATED"
     reason = FAILURE_REASONS.get(self.failure_reason, f"unknown({self.failure_reason})")
-    return (f"v{self.version} state={'RUNNING' if self.running else 'IDLE'} mode={mode} " +
+    flash = f" flash={self.flash_size_kib}KiB,dbank={int(self.dual_bank)}" if self.flash_size_kib else ""
+    return (f"v{self.version}{flash} state={'RUNNING' if self.running else 'IDLE'} mode={mode} " +
             f"valid={int(self.valid)} raw={int(self.in_raw_valid)}/{int(self.ou_raw_valid)} " +
             f"staged=0x{self.staged_mask:03x} samples={self.samples} " +
             f"rms={self.rms_error_deg:.1f}deg reason={reason}")
@@ -994,6 +999,9 @@ def run_self_test() -> None:
   assert safety.brake_age_ms == 12 and safety.torque_age_ms == 0xFFFF
   invalid_in = CalibrationStatus.decode(b"\x08\x02\x00\x00\x00\x00\x13\x00")
   assert invalid_in.failure_reason == 19 and "IN resolver vector invalid" in invalid_in.format()
+  geometry = CalibrationStatus.decode(struct.pack("<BBHHBB", 0x10, 2, 100,
+                                                   0x03FF | (16 << 10) | (1 << 15), 0, 10))
+  assert geometry.staged_mask == 0x03FF and geometry.flash_size_kib == 512 and geometry.dual_bank
   replay_values = parse_replay_values(
     "0x000ca38d,0xffe50ea1,0x0019b855,0x000d4bf7,0x000fbd21," +
     "0xffe7d4f4,0x0017ad5f,0x001145ef,0xff78412d,0x220b05b5"

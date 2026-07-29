@@ -161,6 +161,9 @@ doubleword and writer phase, and separates brownout/low-power, watchdog, and
 other reset sources. The SRAM busy loop refreshes IWDG directly, while retained
 exception markers distinguish NMI, HardFault, MemManage, BusFault, and
 UsageFault recovery resets.
+The decoded `0x635` status also reports the MCU factory flash capacity and
+DBANK option, and firmware derives its reserved NVM addresses from that actual
+capacity instead of assuming the 512 KiB CE layout.
 
 Once a sweep has produced a `READY` fit, its ten transmitted values from commands `0x0B` through
 `0x14` can be replayed without repeating the sweep. Supply each four-byte value as the displayed
