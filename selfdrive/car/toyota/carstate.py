@@ -160,6 +160,9 @@ class CarState(CarStateBase):
     # Keep it logged for analysis but do not use it to freeze lateral control.
     ret.steeringPressed = False
 
+    ret.leftBlinker = cp.vl["STEERING_LEVERS"]["TURN_SIGNALS"] == 1
+    ret.rightBlinker = cp.vl["STEERING_LEVERS"]["TURN_SIGNALS"] == 2
+
     ret.brakePressed = cp_body.vl["LS600H_2C6"]["BRAKE_PRESSED"] != 0
     ret.gasPressed = cp_body.vl["LS600H_126"]["GAS_PEDAL_PRESSED"] != 0
 
@@ -378,6 +381,7 @@ class CarState(CarStateBase):
         ("SPEED", 40),
         ("STEER_ANGLE_SENSOR", 80),
         ("STEER_TORQUE_SENSOR", 50),
+        ("STEERING_LEVERS", 0.15),
         ("VSC1S07", 20),
       ]
       return CANParser(DBC[CP.carFingerprint]["pt"], messages, 0)
