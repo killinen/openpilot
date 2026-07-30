@@ -1000,6 +1000,14 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.LOW, VisualAlert.none, AudibleAlert.none, 0.2, creation_delay=0.5),
   },
 
+  EventName.hrrEcuHighTemp: {
+    ET.WARNING: Alert(
+      "HRR ECU High Temperature",
+      "Above 85 °C",
+      AlertStatus.userPrompt, AlertSize.mid,
+      Priority.MID, VisualAlert.none, AudibleAlert.warningSoft, 0.2),
+  },
+
   EventName.reverseGear: {
     ET.PERMANENT: Alert(
       "Reverse\nGear",

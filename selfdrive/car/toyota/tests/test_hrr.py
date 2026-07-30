@@ -4,7 +4,8 @@ from cereal import car
 from panda import Panda
 
 from openpilot.selfdrive.car.toyota.carcontroller import CarController
-from openpilot.selfdrive.car.toyota.carstate import LS600H_HRR_STATUS_MAX_AGE_FRAMES, ls600h_hrr_steering_valid
+from openpilot.selfdrive.car.toyota.carstate import (LS600H_HRR_STATUS_MAX_AGE_FRAMES, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES,
+                                                      ls600h_hrr_ecu_overtemperature, ls600h_hrr_steering_valid)
 from openpilot.selfdrive.car.toyota.values import CAR, DBC, ToyotaFlags
 
 
@@ -66,6 +67,14 @@ def test_ls600h_hrr_true_angle_status_requirements():
 
   assert not ls600h_hrr_steering_valid(status | {"True_Angle_Wrap_Ambiguous": 1}, 0)
   assert not ls600h_hrr_steering_valid(status, LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1)
+
+
+def test_ls600h_hrr_ecu_high_temperature_warning_requirements():
+  status = {"MCU_Temperature": 86, "MCU_Temperature_Valid": 1}
+  assert ls600h_hrr_ecu_overtemperature(status, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES)
+  assert not ls600h_hrr_ecu_overtemperature(status | {"MCU_Temperature": 85}, 0)
+  assert not ls600h_hrr_ecu_overtemperature(status | {"MCU_Temperature_Valid": 0}, 0)
+  assert not ls600h_hrr_ecu_overtemperature(status, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES + 1)
 
 
 def test_ls600h_controller_sends_hrr_torque():

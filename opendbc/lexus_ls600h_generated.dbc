@@ -1425,6 +1425,12 @@ BO_ 1591 HRR_ResolverVectorStatus: 8 STM32G474_HRR
  SG_ OU_Sin_Signed_RMS : 48|16@1- (1,0) [-32768|32767] "code_rms" CAN_Master
 CM_ BO_ 1591 "Uncalibrated signed RMS/covariance vectors used before atan2. Cos RMS is nonnegative; the sine RMS sign is selected from centered sine/cosine covariance. Host calibration fits 2x2 Q20 matrices to these values.";
 
+BO_ 1592 HRR_TemperatureStatus: 4 STM32G474_HRR
+ SG_ MCU_Temperature : 0|16@1- (1,0) [-32768|32767] "degC" CAN_Master
+ SG_ MCU_Temperature_Valid : 16|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Temperature_Counter : 24|8@1+ (1,0) [0|255] "" CAN_Master
+CM_ BO_ 1592 "STM32 internal temperature sensor measurement. Sent at 1 Hz; consumers must require MCU_Temperature_Valid and a fresh Temperature_Counter.";
+
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;
 BA_ "GenMsgCycleTime" BO_ 1585 100;
@@ -1434,6 +1440,7 @@ BA_ "GenMsgCycleTime" BO_ 1588 100;
 BA_ "GenMsgCycleTime" BO_ 1589 100;
 BA_ "GenMsgCycleTime" BO_ 1590 100;
 BA_ "GenMsgCycleTime" BO_ 1591 100;
+BA_ "GenMsgCycleTime" BO_ 1592 1000;
 
 VAL_ 1536 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 1536 RELE_Cmd 0 "OFF" 1 "ON";

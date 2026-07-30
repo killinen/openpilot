@@ -17,6 +17,8 @@ SteerControlType = car.CarParams.SteerControlType
 LS600H_STEERING_RATE_WINDOW_NS = int(0.25 * 1e9)
 LS600H_STEERING_RATE_RESET_NS = int(0.5 * 1e9)
 LS600H_HRR_STATUS_MAX_AGE_FRAMES = round(0.25 / DT_CTRL)
+LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES = round(2.5 / DT_CTRL)
+LS600H_HRR_ECU_HIGH_TEMPERATURE_C = 85
 
 # These steering fault definitions seem to be common across LKA (torque) and LTA (angle):
 # - high steer rate fault: goes to 21 or 25 for 1 frame, then 9 for 2 seconds
@@ -38,6 +40,14 @@ def ls600h_hrr_steering_valid(status, age_frames):
     and status["True_Angle_Resolver_Valid"]
     and status["True_Angle_Calibrated"]
     and not status["True_Angle_Wrap_Ambiguous"]
+  )
+
+
+def ls600h_hrr_ecu_overtemperature(status, age_frames):
+  return bool(
+    age_frames <= LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES
+    and status["MCU_Temperature_Valid"]
+    and status["MCU_Temperature"] > LS600H_HRR_ECU_HIGH_TEMPERATURE_C
   )
 
 
@@ -82,6 +92,8 @@ class CarState(CarStateBase):
     self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
     self.ls600h_last_steering_ts = 0
     self.ls600h_hrr_status_age_frames = LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1
+    self.ls600h_hrr_temperature_age_frames = LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES + 1
+    self.ls600h_hrr_ecu_overtemperature = False
 
     self.prev_distance_button = 0
     self.distance_button = 0
@@ -152,6 +164,14 @@ class CarState(CarStateBase):
       if ls600h_hrr_steering_valid(hrr_status, self.ls600h_hrr_status_age_frames):
         ret.steeringAngleDeg = hrr_status["True_Steering_Angle"]
         ret.steeringRateDeg = hrr_status["True_Steering_Rate"]
+
+      hrr_temperature_status = cp_hrr.vl["HRR_TemperatureStatus"]
+      if cp_hrr.vl_all["HRR_TemperatureStatus"]["Temperature_Counter"]:
+        self.ls600h_hrr_temperature_age_frames = 0
+      else:
+        self.ls600h_hrr_temperature_age_frames += 1
+      self.ls600h_hrr_ecu_overtemperature = ls600h_hrr_ecu_overtemperature(
+        hrr_temperature_status, self.ls600h_hrr_temperature_age_frames)
     ret.yawRate = cp.vl["KINEMATICS"]["YAW_RATE"]
 
     ret.steeringTorque = cp.vl["STEER_TORQUE_SENSOR"]["STEER_TORQUE_DRIVER"]
@@ -501,5 +521,8 @@ class CarState(CarStateBase):
       # HRR is optional for state estimation: frequency 0 prevents a missing
       # controller from invalidating the vehicle CAN parsers. CarState applies
       # its own freshness and status-flag checks before using this measurement.
-      return CANParser(DBC[CP.carFingerprint]["pt"], [("HRR_TrueAngleStatus", 0)], 2)
+      return CANParser(DBC[CP.carFingerprint]["pt"], [
+        ("HRR_TrueAngleStatus", 0),
+        ("HRR_TemperatureStatus", 0),
+      ], 2)
     return None
