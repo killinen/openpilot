@@ -40,12 +40,14 @@ DEVICE_ONLINE_TIMEOUT_S = 0.5
 MAX_TORQUE_NCM = 1000
 MAX_DLY_SAMPLES = 127
 ANGLE_OFFSET_SCALE = 10
+SVEC_ZERO_OFFSET_MAX_TENTHS_DEG = 135
 
 FLAG_REL = 1 << 0
 FLAG_RELE = 1 << 1
 SVEC_CONFIG_CMD_DLY = 1
 SVEC_CONFIG_CMD_PHASEMATCH = 2
 SVEC_CONFIG_CMD_ANGLE_OFFSET = 3
+SVEC_CONFIG_CMD_ZERO_OFFSET = 8
 SVEC_CONFIG_KEY = 0xA5
 
 # Payloads observed on LS600h bus 1 for the inferred BRAKE_PRESSED state.
@@ -94,6 +96,14 @@ def build_dly_frame(samples: int) -> bytes:
 
 def build_angle_offset_frame(offset_tenths_deg: int) -> bytes:
   return build_svec_config_frame(SVEC_CONFIG_CMD_ANGLE_OFFSET, offset_tenths_deg, signed=True)
+
+
+def build_svec_zero_offset_frame(offset_tenths_deg: int) -> bytes:
+  if not -SVEC_ZERO_OFFSET_MAX_TENTHS_DEG <= offset_tenths_deg <= SVEC_ZERO_OFFSET_MAX_TENTHS_DEG:
+    raise ValueError(
+      f"SVEC_ZERO_OFFSET must be within +/-{SVEC_ZERO_OFFSET_MAX_TENTHS_DEG} tenths of a degree"
+    )
+  return build_svec_config_frame(SVEC_CONFIG_CMD_ZERO_OFFSET, offset_tenths_deg, signed=True)
 
 
 def decode_io_status(payload: bytes) -> tuple[bool, bool]:
@@ -301,6 +311,7 @@ class CommandState:
     self.counter = 0
     self.dly_samples: int | None = None
     self.angle_offset_tenths_deg: int | None = None
+    self.svec_zero_offset_tenths_deg: int | None = None
 
   def next_frames(self) -> tuple[bytes, bytes]:
     with self.lock:
@@ -335,9 +346,18 @@ class CommandState:
     with self.lock:
       self.angle_offset_tenths_deg = offset_tenths_deg
 
-  def snapshot(self) -> tuple[bool, int, bool, int | None, int | None]:
+  def set_svec_zero_offset(self, offset_tenths_deg: int) -> None:
+    if not -SVEC_ZERO_OFFSET_MAX_TENTHS_DEG <= offset_tenths_deg <= SVEC_ZERO_OFFSET_MAX_TENTHS_DEG:
+      raise ValueError(
+        f"SVEC_ZERO_OFFSET must be within +/-{SVEC_ZERO_OFFSET_MAX_TENTHS_DEG} tenths of a degree"
+      )
     with self.lock:
-      return self.engaged, self.torque_ncm, self.brake_pressed, self.dly_samples, self.angle_offset_tenths_deg
+      self.svec_zero_offset_tenths_deg = offset_tenths_deg
+
+  def snapshot(self) -> tuple[bool, int, bool, int | None, int | None, int | None]:
+    with self.lock:
+      return (self.engaged, self.torque_ncm, self.brake_pressed, self.dly_samples,
+              self.angle_offset_tenths_deg, self.svec_zero_offset_tenths_deg)
 
 
 class HrrCanTest:
@@ -443,6 +463,16 @@ class HrrCanTest:
     )
     print("ANGLE_OFFSET is persisted by the HRR firmware.")
 
+  def send_svec_zero_offset(self, offset_tenths_deg: int) -> None:
+    payload = build_svec_zero_offset_frame(offset_tenths_deg)
+    self.send(SVEC_CONFIG_ADDR, payload)
+    self.state.set_svec_zero_offset(offset_tenths_deg)
+    print(
+      f"SVEC_ZERO_OFFSET={offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg sent on "
+      + f"0x{SVEC_CONFIG_ADDR:03X}: {payload.hex(' ')}"
+    )
+    print("SVEC_ZERO_OFFSET is persisted by the HRR firmware.")
+
   def safe_shutdown(self) -> None:
     self.state.set_engaged(False)
     self.state.set_brake(True)
@@ -456,20 +486,22 @@ class HrrCanTest:
       self.monitor_thread.join(timeout=1.0)
 
   def print_state(self) -> None:
-    engaged, torque_ncm, brake_pressed, dly_samples, angle_offset_tenths_deg = self.state.snapshot()
+    (engaged, torque_ncm, brake_pressed, dly_samples, angle_offset_tenths_deg,
+     svec_zero_offset_tenths_deg) = self.state.snapshot()
     reported_dly_samples = self.device_status.reported_dly_samples()
     if reported_dly_samples is not None:
       dly_samples = reported_dly_samples
-    # ANGLE_OFFSET is not reported. Keep track of commands sent by this process,
-    # but do not imply that an unknown value means the firmware is using a
-    # default or has not been set.
+    # The two offsets are not reported. Keep track of commands sent by this
+    # process, but do not imply that unknown means unset or at its default.
     dly_text = "waiting for 0x636" if dly_samples is None else f"{dly_samples} samples"
     angle_offset_text = ("unknown (not reported)" if angle_offset_tenths_deg is None
                          else f"{angle_offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg")
+    svec_zero_offset_text = ("unknown (not reported)" if svec_zero_offset_tenths_deg is None
+                             else f"{svec_zero_offset_tenths_deg / ANGLE_OFFSET_SCALE:+.1f} deg")
     print(" ".join((
       f"TX bus={self.bus} engaged={engaged} REL_Cmd={int(engaged)} RELE_Cmd={int(engaged)}",
       f"torque={torque_ncm:+d} Ncm brake_pressed={brake_pressed}",
-      f"DLY={dly_text} ANGLE_OFFSET={angle_offset_text}",
+      f"DLY={dly_text} ANGLE_OFFSET={angle_offset_text} SVEC_ZERO_OFFSET={svec_zero_offset_text}",
       f"harness_relay={'FORCED' if self.harness_relay_forced else 'AUTO'}",
     )))
 
@@ -489,12 +521,17 @@ def print_help() -> None:
   print("  x                       disengage: torque 0, REL and RELE off")
   print(f"  <Ncm>                   set torque directly, range +/-{MAX_TORQUE_NCM}")
   print(f"  d <samples>             set persistent SVEC DLY, range 0..{MAX_DLY_SAMPLES}")
-  print("  a <tenths-deg>          set persistent SVEC ANGLE_OFFSET in tenths of a degree")
+  print("  a <tenths-deg>          set persistent OU-IN diagnostic/guard ANGLE_OFFSET")
+  print("                            (does not change SVEC output or Driver_Torque)")
+  print(f"  z <tenths-deg>          set persistent SVEC_ZERO_OFFSET, range +/-{SVEC_ZERO_OFFSET_MAX_TENTHS_DEG}")
+  print("                            (actuation bias added only while REL and RELE are on)")
   print("  b <0|1>                 BRAKE_PRESSED: 0=released, 1=pressed")
   print("  r <0|1>                 force harness relay and disable forwarding")
   print("  s                       show current state")
   print("  h                       show this help")
   print("  q                       safe shutdown and exit")
+  print("ANGLE_OFFSET corrects only reported Angle_Delta and the optional SVEC guard.")
+  print("SVEC_ZERO_OFFSET shifts the center of the full +/-13.5 deg torque span; effective range is up to +/-27.0 deg.")
 
 
 def choose_bus(configured_bus: int | None) -> int:
@@ -511,6 +548,14 @@ def run_self_test() -> None:
   assert build_torque_frame(0, False, 0).hex() == "0000ff0f0000fb"
   assert build_dly_frame(27).hex() == "011b000000a500cd"
   assert build_angle_offset_frame(-45).hex() == "03d3ffffffa50062"
+  assert build_svec_zero_offset_frame(-15).hex() == "08f1ffffffa50087"
+  for invalid_zero_offset in (-136, 136):
+    try:
+      build_svec_zero_offset_frame(invalid_zero_offset)
+    except ValueError:
+      pass
+    else:
+      raise AssertionError("out-of-range SVEC_ZERO_OFFSET was accepted")
   assert build_brake_frame(False) == bytes.fromhex("99 20 84")
   assert build_brake_frame(True)[0] & 0x02
   assert decode_io_status(bytes.fromhex("00 08 ff 07 03")) == (True, True)
@@ -600,6 +645,8 @@ def run_interactive(test: HrrCanTest) -> None:
         test.send_dly(int(tokens[1], 0))
       elif command in {"a", "angle_offset"} and len(tokens) == 2:
         test.send_angle_offset(int(tokens[1], 0))
+      elif command in {"z", "zero_offset", "svec_zero_offset"} and len(tokens) == 2:
+        test.send_svec_zero_offset(int(tokens[1], 0))
       elif command in {"b", "brake", "brake_pressed"} and len(tokens) == 2:
         test.state.set_brake(parse_on_off(tokens[1]))
         test.print_state()

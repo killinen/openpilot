@@ -33,10 +33,16 @@ disengaged with zero torque and the brake released. At the `hrr>` prompt:
 - `e` engages by enabling both `REL` and `RELE`
 - `x` disengages, sets torque to zero, and disables both relays
 - `<Ncm>` sets torque directly in the range `-1000..1000` Ncm
-- `d <samples>` sets and persists SVEC DLY in the range `0..127`; subsequent `s` output shows
-  that value for the current session
-- `a <tenths-deg>` sets and persists SVEC `ANGLE_OFFSET` in tenths of a degree; for example,
-  `a -45` sets `-4.5 deg`
+- `d <samples>` sets and persists SVEC DLY in the range `0..127`; `0x636` reports the active
+  value
+- `a <tenths-deg>` sets and persists `ANGLE_OFFSET` in tenths of a degree. It corrects only
+  the reported `OU_Angle - IN_Angle` diagnostic and the optional SVEC guard; it does not rotate
+  the SVEC output or change `Driver_Torque`. For example, `a -45` sets `-4.5 deg`.
+- `z <tenths-deg>` sets and persists `SVEC_ZERO_OFFSET` in tenths of a degree, in the reported
+  torque-command sign convention. While both relays are commanded on, firmware adds this bias
+  to the torque-derived SVEC delta. It shifts the center without reducing the full
+  `-13.5..+13.5 deg` requested torque span, so the effective rotation can reach `+/-27.0 deg`.
+  Use it to align zero requested torque with zero measured `Driver_Torque`.
 - `b 0` or `b 1` sets `BRAKE_PRESSED` to released or pressed
 - `r 1` forces the Panda harness relay and disables firmware forwarding; `r 0` restores both
 - `s` shows the current state
@@ -56,10 +62,10 @@ RX device=ONLINE age=0.012s bus=2 REL=ON RELE=ON
 `REL` and `RELE` come from `CANCTR_IOStatus` (`0x631`). `SVEC_Delta`, `Emulated_Torque`,
 `OU_Angle`, and `IN_Angle` come from `HRR_AngleStatus` (`0x632`). Values are shown as `---`
 until their first valid-length status frame is received. The `TX` line separately labels the
-requested states as `REL_Cmd` and `RELE_Cmd`. The HRR does not report its persisted DLY or
-`ANGLE_OFFSET` values in any current status frame, so the `TX` line shows each as `unknown (not
-reported)` until this tool sends the corresponding command; afterward it shows the value sent
-during the current session.
+requested states as `REL_Cmd` and `RELE_Cmd`. The HRR reports persisted DLY in `0x636`, but does
+not report `ANGLE_OFFSET` or `SVEC_ZERO_OFFSET` in any current status frame. The `TX` line shows
+either offset as `unknown (not reported)` until this tool sends the corresponding command;
+afterward it shows the value sent during the current session.
 
 For example:
 
