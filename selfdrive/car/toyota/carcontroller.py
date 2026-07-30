@@ -44,8 +44,8 @@ MAX_LTA_ANGLE = 94.9461  # deg
 MAX_LTA_DRIVER_TORQUE_ALLOWANCE = 150  # slightly above steering pressed allows some resistance when changing lanes
 
 TOYOTA_HRR_MAX_TORQUE_NCM = 1000.0  # 10 Nm
-TOYOTA_HRR_DELTA_UP = 7.2
-TOYOTA_HRR_DELTA_DOWN = 7.2
+TOYOTA_HRR_DELTA_UP = 10.2
+TOYOTA_HRR_DELTA_DOWN = 12.2
 TOYOTA_HRR_ALPHA = 1.0
 
 # Lock / unlock door commands - Credit goes to AlexandreSato!
