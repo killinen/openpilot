@@ -5021,6 +5021,11 @@ Developer - こだわりのある上級者向けの高度にカスタマイズ�
         <source>Device temperature too high. System cooling down before starting. Current internal component temperature: %1</source>
         <translation type="gpt-5-generated">デバイスの温度が高すぎます。起動前にシステムを冷却しています。現在の内部コンポーネント温度: %1</translation>
     </message>
+    <message>
+        <source>HRR firmware update
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OffroadHome</name>
@@ -5626,6 +5631,26 @@ This may take up to a minute.</source>
     <message>
         <source>This is a complete factory reset and cannot be undone. Are you absolutely sure you want to continue?</source>
         <translation type="gpt-5-generated">これは完全な工場出荷時リセットであり、元に戻すことはできません。本当に続行してもよろしいですか？</translation>
+    </message>
+    <message>
+        <source>HRR Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download the latest signed HRR firmware for the next ignition cycle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>checking for signed firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>firmware staged for next ignition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>download latest signed firmware</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

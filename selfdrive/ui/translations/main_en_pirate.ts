@@ -5017,6 +5017,11 @@ Developer - Highly customizable riggin’s fer seasoned enthusiasts</translation
         <source>openpilot detected a change in the device's mounting position. Ensure the device is fully seated in the mount and the mount is firmly secured to the windshield.</source>
         <translation type="gpt-5-generated">Arr! openpilot spied a change in the device’s mountin’ spot. Make sure the device be snug in the mount, an’ the mount be lashed tight to the windshield.</translation>
     </message>
+    <message>
+        <source>HRR firmware update
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OffroadHome</name>
@@ -5625,6 +5630,26 @@ This may take up to a minute, arr.</translation>
     <message>
         <source>This is a complete factory reset and cannot be undone. Are you absolutely sure you want to continue?</source>
         <translation type="gpt-5-generated">This be a full factory reset an’ can ne’er be undone. Be ye absolutely sure ye wish t’ press on?</translation>
+    </message>
+    <message>
+        <source>HRR Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download the latest signed HRR firmware for the next ignition cycle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>checking for signed firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>firmware staged for next ignition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>download latest signed firmware</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

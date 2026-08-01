@@ -5024,6 +5024,11 @@ Desenvolvedor - Configurações altamente personalizáveis para entusiastas expe
         <source>Device temperature too high. System cooling down before starting. Current internal component temperature: %1</source>
         <translation>Temperatura do dispositivo muito alta. O sistema está sendo resfriado antes de iniciar. A temperatura atual do componente interno é: %1</translation>
     </message>
+    <message>
+        <source>HRR firmware update
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OffroadHome</name>
@@ -5632,6 +5637,26 @@ Isso pode levar até um minuto.</translation>
     <message>
         <source>This is a complete factory reset and cannot be undone. Are you absolutely sure you want to continue?</source>
         <translation type="gpt-5-generated">Esta é uma redefinição completa de fábrica e não pode ser desfeita. Você tem absoluta certeza de que deseja continuar?</translation>
+    </message>
+    <message>
+        <source>HRR Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download the latest signed HRR firmware for the next ignition cycle.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>checking for signed firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>firmware staged for next ignition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>download latest signed firmware</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

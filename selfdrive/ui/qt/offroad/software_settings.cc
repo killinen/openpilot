@@ -48,6 +48,17 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
   });
   addItem(downloadBtn);
 
+  // HRR firmware is staged separately from the openpilot update. This asks
+  // hrrUpdater to check GitHub now, rather than waiting for its background poll.
+  hrrDownloadBtn = new ButtonControl(tr("HRR Firmware"), tr("DOWNLOAD"),
+                                     tr("Download the latest signed HRR firmware for the next ignition cycle."));
+  connect(hrrDownloadBtn, &ButtonControl::clicked, [=]() {
+    hrrDownloadBtn->setEnabled(false);
+    params.put("HrrUpdateStatus", "Checking for signed HRR firmware…");
+    params.putBool("HrrUpdateDownloadRequest", true);
+  });
+  addItem(hrrDownloadBtn);
+
   // install update btn
   installBtn = new ButtonControl(tr("Install Update"), tr("INSTALL"));
   connect(installBtn, &ButtonControl::clicked, [=]() {
@@ -155,6 +166,9 @@ void SoftwarePanel::updateLabels() {
   fs_watch->addParam("UpdateFailedCount");
   fs_watch->addParam("UpdaterState");
   fs_watch->addParam("UpdateAvailable");
+  fs_watch->addParam("HrrUpdateDownloadRequest");
+  fs_watch->addParam("HrrUpdatePending");
+  fs_watch->addParam("HrrUpdateStatus");
 
   if (!isVisible()) {
     frogpilot_scene.downloading_update = false;
@@ -166,6 +180,7 @@ void SoftwarePanel::updateLabels() {
 
   onroadLbl->setVisible(is_onroad && !parked);
   downloadBtn->setVisible(!is_onroad || parked);
+  hrrDownloadBtn->setVisible(!is_onroad || parked);
 
   // download update
   QString updater_state = QString::fromStdString(params.get("UpdaterState"));
@@ -194,6 +209,20 @@ void SoftwarePanel::updateLabels() {
     downloadBtn->setEnabled(true);
   }
   targetBranchBtn->setValue(QString::fromStdString(params.get("UpdaterTargetBranch")));
+
+  bool hrr_checking = params.getBool("HrrUpdateDownloadRequest");
+  bool hrr_pending = params.getBool("HrrUpdatePending");
+  QString hrr_status = QString::fromStdString(params.get("HrrUpdateStatus"));
+  if (hrr_checking) {
+    hrrDownloadBtn->setEnabled(false);
+    hrrDownloadBtn->setValue(tr("checking for signed firmware"));
+  } else if (hrr_pending) {
+    hrrDownloadBtn->setEnabled(false);
+    hrrDownloadBtn->setValue(hrr_status.isEmpty() ? tr("firmware staged for next ignition") : hrr_status);
+  } else {
+    hrrDownloadBtn->setEnabled(true);
+    hrrDownloadBtn->setValue(hrr_status.isEmpty() ? tr("download latest signed firmware") : hrr_status);
+  }
 
   // current + new versions
   versionLbl->setText(QString::fromStdString(params.get("UpdaterCurrentDescription")));

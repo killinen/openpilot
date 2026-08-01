@@ -50,6 +50,7 @@ THERMAL_BANDS = OrderedDict({
 
 # Override to highest thermal band when offroad and above this temp
 OFFROAD_DANGER_TEMP = 75
+HRR_PREFLIGHT_HOLD_TIMEOUT = 20.0
 
 prev_offroad_states: dict[str, tuple[bool, str | None]] = {}
 
@@ -195,6 +196,8 @@ def hardware_thread(end_event, hw_queue) -> None:
   all_temp_filter = FirstOrderFilter(0., TEMP_TAU, DT_HW, initialized=False)
   offroad_temp_filter = FirstOrderFilter(0., TEMP_TAU, DT_HW, initialized=False)
   should_start_prev = False
+  ignition_prev = False
+  hrr_hold_started: float | None = None
   in_car = False
   engaged_prev = False
 
@@ -340,6 +343,56 @@ def hardware_thread(end_event, hw_queue) -> None:
             pass
 
     # Handle offroad/onroad transition
+    ignition_active = onroad_conditions["ignition"]
+    hrr_pending = params.get_bool("HrrUpdatePending")
+    hrr_in_progress = params.get_bool("HrrUpdateInProgress")
+    hrr_startup_hold = params.get_bool("HrrUpdateStartupHold")
+
+    # HRR is powered by ignition. If a complete signed A/B candidate was
+    # prefetched while parked, hold the driving processes OFFROAD briefly on
+    # the ignition rising edge so hrrUpdater can discover HRR and decide whether
+    # the staged release is actually newer and compatible.
+    if ignition_active and not ignition_prev and hrr_pending and not hrr_in_progress:
+      params.put_bool("HrrUpdateStartupHold", True)
+      params.put("HrrUpdateStatus", "Checking staged firmware against the ignition-powered HRR…")
+      hrr_startup_hold = True
+      hrr_hold_started = time.monotonic()
+    elif not ignition_active and hrr_startup_hold and not hrr_in_progress:
+      params.put_bool("HrrUpdateStartupHold", False)
+      hrr_startup_hold = False
+      hrr_hold_started = None
+
+    if hrr_startup_hold and not hrr_in_progress:
+      if hrr_hold_started is None:
+        hrr_hold_started = time.monotonic()
+      elif time.monotonic() - hrr_hold_started > HRR_PREFLIGHT_HOLD_TIMEOUT:
+        params.put_bool("HrrUpdateStartupHold", False)
+        params.put("HrrUpdateStatus", "HRR preflight timed out; firmware was not changed.")
+        hrr_startup_hold = False
+
+    # This deadline is renewed after every durable updater operation. It is a
+    # final guard against a dead updater process, not a normal cancellation
+    # path. Bootloader 1.1.1 independently resets to the confirmed slot after
+    # host inactivity before this deadline is allowed to release startup.
+    if hrr_in_progress:
+      try:
+        hrr_deadline = int(params.get("HrrUpdateDeadline", encoding="utf8") or "0")
+      except ValueError:
+        hrr_deadline = 0
+      if not hrr_deadline:
+        hrr_deadline = int(time.time()) + 600
+        params.put("HrrUpdateDeadline", str(hrr_deadline))
+      if hrr_deadline and time.time() > hrr_deadline:
+        cloudlog.event("HRR update deadline expired", error=True)
+        params.put_bool("HrrUpdateInProgress", False)
+        params.put_bool("HrrUpdateStartupHold", False)
+        params.put_bool("HrrUpdaterRequested", False)
+        params.put_bool("HrrUpdatePending", False)
+        params.remove("HrrUpdateDeadline")
+        params.put("HrrUpdateStatus", "Updater stopped responding; HRR reverted to its confirmed firmware.")
+        hrr_in_progress = False
+        hrr_startup_hold = False
+
     should_start = all(onroad_conditions.values())
     if started_ts is None:
       should_start = should_start and all(startup_conditions.values())
@@ -347,6 +400,13 @@ def hardware_thread(end_event, hw_queue) -> None:
     # Handle force offroad/onroad
     should_start |= frogpilot_toggles.force_onroad
     should_start &= not frogpilot_toggles.force_offroad
+    should_start &= not (hrr_in_progress or hrr_startup_hold)
+
+    hrr_alert = hrr_in_progress or hrr_startup_hold or (hrr_pending and not ignition_active)
+    hrr_status = params.get("HrrUpdateStatus", encoding="utf8")
+    if hrr_alert and not hrr_status:
+      hrr_status = "Signed firmware is downloaded and ready for the next ignition cycle."
+    set_offroad_alert_if_changed("Offroad_HrrFirmwareUpdate", hrr_alert, extra_text=hrr_status)
 
     if should_start != should_start_prev or (count == 0):
       params.put_bool("IsEngaged", False)
@@ -463,6 +523,7 @@ def hardware_thread(end_event, hw_queue) -> None:
 
     count += 1
     should_start_prev = should_start
+    ignition_prev = ignition_active
 
     # Update FrogPilot variables
     if sm['frogpilotPlan'].togglesUpdated:

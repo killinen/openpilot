@@ -29,6 +29,11 @@ Quick start: `bash <(curl -fsSL openpilot.comma.ai)`
 
 </div>
 
+HRR signed firmware updater
+------
+
+This fork includes a signed A/B updater for ignition-powered HRR: both slots are prefetched while parked, then a bounded ignition-on pre-ONROAD hold installs the inactive slot through the normal cereal/`pandad`/Panda path. See [`tools/hrr_updater/README.md`](tools/hrr_updater/README.md) for operation and [`docs/OPENPILOT_UPDATER_INTEGRATION.md`](docs/OPENPILOT_UPDATER_INTEGRATION.md) for the Panda safety, UI, startup, and failure-recovery integration.
+
 <table>
   <tr>
     <td><a href="https://youtu.be/NmBfgOanCyk" title="Video By Greer Viau"><img src="https://github.com/commaai/openpilot/assets/8762862/2f7112ae-f748-4f39-b617-fabd689c3772"></a></td>

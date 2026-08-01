@@ -617,6 +617,7 @@ struct CarParams {
     volkswagenMqbEvo @29;
     chryslerCusw @30;
     psa @31;
+    hrrUpdater @32;  # OFFROAD-only HRR application/bootloader requests on Panda bus 2
   }
 
   enum SteerControlType {

@@ -274,7 +274,8 @@ void can_recv_thread(std::vector<Panda *> pandas) {
   }
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override, bool force_harness_relay) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override,
+                                      bool force_harness_relay, Params &params) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -337,6 +338,20 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     pandaStates.push_back(health);
   }
 
+  const bool hrr_update_requested = params.getBool("HrrUpdaterRequested");
+  const bool hrr_update_in_progress = params.getBool("HrrUpdateInProgress");
+  const bool hrr_startup_hold = params.getBool("HrrUpdateStartupHold");
+  // HRR is ignition powered. hardwared creates a bounded startup hold before
+  // card/controlsd start, allowing the already-staged candidate to be installed
+  // while ignition is present but openpilot is still OFFROAD.
+  const bool hrr_initial_lease_safe = !params.getBool("IsOnroad") && !params.getBool("IsEngaged") &&
+                                      (!ignition_local || hrr_startup_hold);
+  // Once flashing has started, retain the narrow safety mode. hardwared keeps
+  // the driving stack OFFROAD until the updater observes a runnable image, with
+  // a renewable deadline as a final process-crash guard.
+  const bool hrr_update_active = hrr_update_in_progress || (hrr_update_requested && hrr_initial_lease_safe);
+  bool hrr_update_ready = hrr_update_active;
+
   for (uint32_t i = 0; i < pandas_cnt; i++) {
     auto panda = pandas[i];
     const auto &health = pandaStates[i];
@@ -346,14 +361,22 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
-    bool power_save_desired = !ignition_local && !force_harness_relay;
+    bool power_save_desired = !ignition_local && !force_harness_relay && !hrr_update_active;
     if (health.power_save_enabled_pkt != power_save_desired) {
       panda->set_power_saving(power_save_desired);
     }
 
-    // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
-    if (!force_harness_relay && !ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
-      panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
+    const bool is_hrr_panda = (i == 0U);
+    const auto desired_offroad_safety = (hrr_update_active && is_hrr_panda) ?
+      cereal::CarParams::SafetyModel::HRR_UPDATER : cereal::CarParams::SafetyModel::NO_OUTPUT;
+    const bool force_offroad_safety = !force_harness_relay && (!ignition_local || hrr_update_active ||
+      (health.safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::HRR_UPDATER)));
+    if (force_offroad_safety && (health.safety_mode_pkt != (uint8_t)desired_offroad_safety)) {
+      panda->set_safety_model(desired_offroad_safety);
+    }
+    if (is_hrr_panda) {
+      hrr_update_ready &= !power_save_desired &&
+        (health.safety_mode_pkt == (uint8_t)cereal::CarParams::SafetyModel::HRR_UPDATER);
     }
 
     if (!panda->comms_healthy()) {
@@ -432,6 +455,10 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
   }
 
+  if (params.getBool("HrrUpdaterReady") != hrr_update_ready) {
+    params.putBool("HrrUpdaterReady", hrr_update_ready);
+  }
+
   pm->send("pandaStates", msg);
   return ignition_local;
 }
@@ -507,7 +534,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       force_harness_relay_applied = force_harness_relay;
     }
 
-    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, force_harness_relay);
+    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, force_harness_relay, params);
 
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");
