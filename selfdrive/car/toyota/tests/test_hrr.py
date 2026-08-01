@@ -3,6 +3,9 @@ from types import SimpleNamespace
 from cereal import car
 from panda import Panda
 
+from opendbc.can.packer import CANPacker
+from opendbc.can.parser import CANParser
+from opendbc.can.tests.test_packer_parser import can_list_to_can_capnp
 from openpilot.selfdrive.car.toyota.carcontroller import CarController
 from openpilot.selfdrive.car.toyota.carstate import (LS600H_HRR_STATUS_MAX_AGE_FRAMES, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES,
                                                       ls600h_hrr_ecu_overtemperature, ls600h_hrr_steering_valid)
@@ -67,6 +70,19 @@ def test_ls600h_hrr_true_angle_status_requirements():
 
   assert not ls600h_hrr_steering_valid(status | {"True_Angle_Wrap_Ambiguous": 1}, 0)
   assert not ls600h_hrr_steering_valid(status, LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1)
+
+
+def test_ls600h_hrr_true_angle_dbc_layout():
+  parser = CANParser(DBC[CAR.LEXUS_LS600h]["pt"], [("HRR_TrueAngleStatus", 0)], 0)
+  packer = CANPacker(DBC[CAR.LEXUS_LS600h]["pt"])
+  msg = packer.make_can_msg("HRR_TrueAngleStatus", 0, {
+    "True_Steering_Angle": -3.08,
+    "DLY_Samples": 42,
+  })
+  parser.update_strings([can_list_to_can_capnp([msg])])
+
+  assert parser.vl["HRR_TrueAngleStatus"]["True_Steering_Angle"] == -3.08
+  assert parser.vl["HRR_TrueAngleStatus"]["DLY_Samples"] == 42
 
 
 def test_ls600h_hrr_ecu_high_temperature_warning_requirements():
