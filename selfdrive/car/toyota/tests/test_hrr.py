@@ -74,7 +74,10 @@ def test_ls600h_hrr_true_angle_status_requirements():
 
 
 def test_ls600h_hrr_true_angle_dbc_layout():
-  parser = CANParser(DBC[CAR.LEXUS_LS600h]["pt"], [("HRR_TrueAngleStatus", 0)], 0)
+  parser = CANParser(DBC[CAR.LEXUS_LS600h]["pt"], [
+    ("HRR_TrueAngleStatus", 0),
+    ("HRR_PerformanceStatus", 0),
+  ], 0)
   packer = CANPacker(DBC[CAR.LEXUS_LS600h]["pt"])
   msg = packer.make_can_msg("HRR_TrueAngleStatus", 0, {
     "True_Steering_Angle": -3.08,

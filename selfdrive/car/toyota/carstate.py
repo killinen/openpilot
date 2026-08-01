@@ -190,8 +190,8 @@ class CarState(CarStateBase):
           ret.steeringAngleDeg = self.ls600h_last_valid_hrr_angle
           ret.steeringRateDeg = 0.0
 
-      hrr_temperature_status = cp_hrr.vl["HRR_TemperatureStatus"]
-      if cp_hrr.vl_all["HRR_TemperatureStatus"]["Temperature_Counter"]:
+      hrr_temperature_status = cp_hrr.vl["HRR_PerformanceStatus"]
+      if cp_hrr.vl_all["HRR_PerformanceStatus"]["Temperature_Counter"]:
         self.ls600h_hrr_temperature_age_frames = 0
       else:
         self.ls600h_hrr_temperature_age_frames += 1
@@ -548,6 +548,6 @@ class CarState(CarStateBase):
       # its own freshness and status-flag checks before using this measurement.
       return CANParser(DBC[CP.carFingerprint]["pt"], [
         ("HRR_TrueAngleStatus", 0),
-        ("HRR_TemperatureStatus", 0),
+        ("HRR_PerformanceStatus", 0),
       ], 2)
     return None
