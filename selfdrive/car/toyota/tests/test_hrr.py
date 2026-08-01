@@ -8,7 +8,8 @@ from opendbc.can.parser import CANParser
 from opendbc.can.tests.test_packer_parser import can_list_to_can_capnp
 from openpilot.selfdrive.car.toyota.carcontroller import CarController
 from openpilot.selfdrive.car.toyota.carstate import (LS600H_HRR_STATUS_MAX_AGE_FRAMES, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES,
-                                                      ls600h_hrr_ecu_overtemperature, ls600h_hrr_steering_valid)
+                                                      LS600H_HRR_WRAP_HOLD_MAX_FRAMES, ls600h_hrr_ecu_overtemperature,
+                                                      ls600h_hrr_steering_valid, ls600h_hrr_wrap_holdover_valid)
 from openpilot.selfdrive.car.toyota.values import CAR, DBC, ToyotaFlags
 
 
@@ -83,6 +84,20 @@ def test_ls600h_hrr_true_angle_dbc_layout():
 
   assert parser.vl["HRR_TrueAngleStatus"]["True_Steering_Angle"] == -3.08
   assert parser.vl["HRR_TrueAngleStatus"]["DLY_Samples"] == 42
+
+
+def test_ls600h_hrr_wrap_holdover_requirements():
+  wrap_ambiguous = {
+    "True_Angle_Resolver_Valid": 1,
+    "True_Angle_Calibrated": 1,
+    "True_Angle_Wrap_Ambiguous": 1,
+  }
+  assert ls600h_hrr_wrap_holdover_valid(wrap_ambiguous, 0, LS600H_HRR_WRAP_HOLD_MAX_FRAMES)
+  assert not ls600h_hrr_wrap_holdover_valid(wrap_ambiguous, 1, 1)
+  assert not ls600h_hrr_wrap_holdover_valid(wrap_ambiguous, 0, LS600H_HRR_WRAP_HOLD_MAX_FRAMES + 1)
+  assert not ls600h_hrr_wrap_holdover_valid(wrap_ambiguous | {"True_Angle_Resolver_Valid": 0}, 0, 1)
+  assert not ls600h_hrr_wrap_holdover_valid(wrap_ambiguous | {"True_Angle_Calibrated": 0}, 0, 1)
+  assert not ls600h_hrr_wrap_holdover_valid(wrap_ambiguous | {"True_Angle_Wrap_Ambiguous": 0}, 0, 1)
 
 
 def test_ls600h_hrr_ecu_high_temperature_warning_requirements():
