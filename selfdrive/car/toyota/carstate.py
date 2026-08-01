@@ -17,6 +17,7 @@ SteerControlType = car.CarParams.SteerControlType
 LS600H_STEERING_RATE_WINDOW_NS = int(0.25 * 1e9)
 LS600H_STEERING_RATE_RESET_NS = int(0.5 * 1e9)
 LS600H_HRR_STATUS_MAX_AGE_FRAMES = round(0.25 / DT_CTRL)
+LS600H_HRR_WRAP_HOLD_MAX_FRAMES = 3
 LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES = round(2.5 / DT_CTRL)
 LS600H_HRR_ECU_HIGH_TEMPERATURE_C = 85
 
@@ -40,6 +41,19 @@ def ls600h_hrr_steering_valid(status, age_frames):
     and status["True_Angle_Resolver_Valid"]
     and status["True_Angle_Calibrated"]
     and not status["True_Angle_Wrap_Ambiguous"]
+  )
+
+
+def ls600h_hrr_wrap_holdover_valid(status, status_age_frames, last_valid_age_frames):
+  # The HRR clears Initialized and Valid along with Wrap_Ambiguous. Preserve a
+  # recent measurement only for this transient condition; any other fault, a
+  # stale HRR status, or a sustained ambiguity uses the OEM sensor instead.
+  return bool(
+    status_age_frames == 0
+    and last_valid_age_frames <= LS600H_HRR_WRAP_HOLD_MAX_FRAMES
+    and status["True_Angle_Resolver_Valid"]
+    and status["True_Angle_Calibrated"]
+    and status["True_Angle_Wrap_Ambiguous"]
   )
 
 
@@ -92,6 +106,8 @@ class CarState(CarStateBase):
     self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
     self.ls600h_last_steering_ts = 0
     self.ls600h_hrr_status_age_frames = LS600H_HRR_STATUS_MAX_AGE_FRAMES + 1
+    self.ls600h_hrr_last_valid_age_frames = LS600H_HRR_WRAP_HOLD_MAX_FRAMES + 1
+    self.ls600h_last_valid_hrr_angle = None
     self.ls600h_hrr_temperature_age_frames = LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES + 1
     self.ls600h_hrr_ecu_overtemperature = False
 
@@ -164,6 +180,15 @@ class CarState(CarStateBase):
       if ls600h_hrr_steering_valid(hrr_status, self.ls600h_hrr_status_age_frames):
         ret.steeringAngleDeg = hrr_status["True_Steering_Angle"]
         ret.steeringRateDeg = hrr_status["True_Steering_Rate"]
+        self.ls600h_last_valid_hrr_angle = ret.steeringAngleDeg
+        self.ls600h_hrr_last_valid_age_frames = 0
+      else:
+        self.ls600h_hrr_last_valid_age_frames += 1
+        if (self.ls600h_last_valid_hrr_angle is not None and
+            ls600h_hrr_wrap_holdover_valid(hrr_status, self.ls600h_hrr_status_age_frames,
+                                            self.ls600h_hrr_last_valid_age_frames)):
+          ret.steeringAngleDeg = self.ls600h_last_valid_hrr_angle
+          ret.steeringRateDeg = 0.0
 
       hrr_temperature_status = cp_hrr.vl["HRR_TemperatureStatus"]
       if cp_hrr.vl_all["HRR_TemperatureStatus"]["Temperature_Counter"]:
