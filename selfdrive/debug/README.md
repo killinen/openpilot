@@ -33,16 +33,17 @@ disengaged with zero torque and the brake released. At the `hrr>` prompt:
 - `e` engages by enabling both `REL` and `RELE`
 - `x` disengages, sets torque to zero, and disables both relays
 - `<Ncm>` sets torque directly in the range `-1000..1000` Ncm
-- `d <samples>` sets and persists SVEC DLY in the range `0..127`; `0x636` reports the active
-  value
-- `a <tenths-deg>` sets and persists `ANGLE_OFFSET` in tenths of a degree. It corrects only
+- `d <samples>` sets active SVEC DLY in the range `0..127`; `0x636` and `0x639` report the value
+- `a <tenths-deg>` sets active `ANGLE_OFFSET` in tenths of a degree. It corrects only
   the reported `OU_Angle - IN_Angle` diagnostic and the optional SVEC guard; it does not rotate
   the SVEC output or change `Driver_Torque`. For example, `a -45` sets `-4.5 deg`.
-- `z <tenths-deg>` sets and persists `SVEC_ZERO_OFFSET` in tenths of a degree, in the reported
+- `z <tenths-deg>` sets active `SVEC_ZERO_OFFSET` in tenths of a degree, in the reported
   torque-command sign convention. While both relays are commanded on, firmware adds this bias
   to the torque-derived SVEC delta. It shifts the center without reducing the full
   `-13.5..+13.5 deg` requested torque span, so the effective rotation can reach `+/-27.0 deg`.
   Use it to align zero requested torque with zero measured `Driver_Torque`.
+- `w` persists the current DLY, `ANGLE_OFFSET`, and `SVEC_ZERO_OFFSET` together. The setting
+  commands themselves are deliberately transient so calibration sweeps do not wear flash.
 - `b 0` or `b 1` sets `BRAKE_PRESSED` to released or pressed
 - `r 1` forces the Panda harness relay and disables firmware forwarding; `r 0` restores both
 - `s` shows the current state
@@ -62,10 +63,8 @@ RX device=ONLINE age=0.012s bus=2 REL=ON RELE=ON
 `REL` and `RELE` come from `CANCTR_IOStatus` (`0x631`). `SVEC_Delta`, `Emulated_Torque`,
 `OU_Angle`, and `IN_Angle` come from `HRR_AngleStatus` (`0x632`). Values are shown as `---`
 until their first valid-length status frame is received. The `TX` line separately labels the
-requested states as `REL_Cmd` and `RELE_Cmd`. The HRR reports persisted DLY in `0x636`, but does
-not report `ANGLE_OFFSET` or `SVEC_ZERO_OFFSET` in any current status frame. The `TX` line shows
-either offset as `unknown (not reported)` until this tool sends the corresponding command;
-afterward it shows the value sent during the current session.
+requested states as `REL_Cmd` and `RELE_Cmd`. `HRR_ConfigStatus` (`0x639`) reports all three
+active settings, whether they differ from flash, and whether the last apply/save command succeeded.
 
 For example:
 
@@ -102,6 +101,54 @@ python3 selfdrive/debug/hrr_can_test.py --bus 2 --force-harness-relay
 Pressing Ctrl-C, sending EOF, or entering `q` performs a safe shutdown: zero torque, relays off,
 `BRAKE_PRESSED=1`, Panda safety set to `SAFETY_SILENT`, and any harness-relay force applied by the
 script cleared with firmware forwarding restored.
+
+## [hrr_torque_calibrate.py](hrr_torque_calibrate.py)
+
+Guided stationary calibration of HRR `DLY` and `SVEC_ZERO_OFFSET` using Toyota/Lexus
+`STEER_TORQUE_SENSOR` (`0x260`) Driver_Torque. It requires HRR firmware that reports
+`HRR_ConfigStatus` (`0x639`) and supports transient commands 1..3/8 plus explicit save command 9.
+
+```bash
+python3 selfdrive/debug/hrr_torque_calibrate.py --bus 2 --torque-bus 0
+```
+
+The script reads the current DLY from HRR, prompts for the maximum sweep offset, and tests every
+DLY in the clipped `current-offset..current+offset` range. Because DLY and zero offset can both
+move stationary torque, it does not optimize them as independent sequential sweeps. For every DLY
+candidate it probes the local zero-offset response, fits the zero-torque crossing, verifies that
+crossing and its adjacent 0.1-degree values, then scores the pair from residual trimmed mean and
+robust standard deviation. The best three pairs receive longer validation windows.
+
+The tool then prompts for a small symmetric validation torque (`100 Ncm` by default; enter `0`
+to disable). Each finalist runs the counterbalanced sequence
+`+T -> 0 -> -T -> 0 -> -T -> 0 -> +T -> 0`. Loaded torque is not optimized toward zero:
+the report instead compares signed response gain, positive/negative magnitude asymmetry, loaded
+midpoint error, repeatability, loaded noise, and return-to-zero RMS. Counterbalancing separates
+polarity-dependent behavior from slow mechanical or thermal drift. The final table ranks the
+combined zero and loaded metrics and warns when the response is weak or lopsided, return-to-zero
+is poor, repeatability is poor, or the selected value lies on a search boundary.
+
+Each setting is applied with the resolver relays open, then measured while engaged at zero or the
+chosen low validation torque. The default `600 Ncm` absolute Driver_Torque limit immediately aborts the run. Panda harness
+intercept is forced and firmware forwarding disabled by default so real forwarded brake traffic
+cannot fight the synthetic released-brake interlock stream; use `--no-force-harness-relay` only
+when the bus topology is already isolated.
+
+No sweep point writes flash. At the end the script displays the recommended coupled pair and asks
+before sending the single save command. Declining, Ctrl-C, or an error restores the original active
+DLY/zero pair; the already-persisted settings remain untouched. Protocol/optimizer checks need no
+Panda:
+
+```bash
+python3 selfdrive/debug/hrr_torque_calibrate.py --self-test
+```
+
+The load can also be supplied non-interactively. Choose a value known not to rotate the steering
+wheel on the secured vehicle:
+
+```bash
+python3 selfdrive/debug/hrr_torque_calibrate.py --dly-offset 10 --validation-torque 100
+```
 
 ## [hrr_angle_calibrate.py](hrr_angle_calibrate.py)
 

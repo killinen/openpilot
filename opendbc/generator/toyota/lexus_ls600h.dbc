@@ -1292,7 +1292,7 @@ BO_ 1539 CANCTR_SvecConfigCmd: 8 CAN_Master
  SG_ Config_Reserved : 48|8@1+ (1,0) [0|0] "" STM32G474_HRR
  SG_ Config_Checksum : 56|8@1+ (1,0) [0|255] "" STM32G474_HRR
 CM_ SG_ 1539 Config_Value "Raw u32 transport. Interpret commands 3, 8, 10, and 11..19 as signed two's-complement int32; commands 3 and 8 use 0.1 degree/bit, command 10 uses 0.01 degree/bit, and commands 11..19 use Q20 scaling.";
-CM_ BO_ 1539 "One-shot HRR configuration. Commands 1..3 and 8 preserve the persistent SVEC settings. Command 4 starts a safe calibration session with a nonzero u32 token; command 5 finishes using that same token; command 6 aborts using that token or value zero for forced recovery; command 7 selects legacy (0) or calibrated (1) angles. Command 8 sets signed SVEC_ZERO_OFFSET in 0.1 degrees. Command 10 supplies a non-persistent manual signed steering reference in 0.01 degrees. Commands 11..18 stage signed row-major IN then OU 2x2 matrix coefficients in Q20; command 19 stages signed phase-per-steer Q20; command 20 packs sample_count in bits0..15, RMS error tenths in bits16..23, and max error tenths in bits24..31. Config_Key must be 0xA5, Config_Reserved zero, and checksum CRC-8/poly-0x07 over ID low, ID high, bytes0..6.";
+CM_ BO_ 1539 "One-shot HRR configuration. Commands 1..3 and 8 apply active SVEC settings without writing flash; command 9 appends one CRC-protected record containing the current DLY, ANGLE_OFFSET, and SVEC_ZERO_OFFSET. Command 4 starts a safe calibration session with a nonzero u32 token; command 5 finishes using that same token; command 6 aborts using that token or value zero for forced recovery; command 7 selects legacy (0) or calibrated (1) angles. Command 8 sets signed SVEC_ZERO_OFFSET in 0.1 degrees. Command 10 supplies a non-persistent manual signed steering reference in 0.01 degrees. Commands 11..18 stage signed row-major IN then OU 2x2 matrix coefficients in Q20; command 19 stages signed phase-per-steer Q20; command 20 packs sample_count in bits0..15, RMS error tenths in bits16..23, and max error tenths in bits24..31. Config_Key must be 0xA5, Config_Reserved zero, and checksum CRC-8/poly-0x07 over ID low, ID high, bytes0..6.";
 
 BO_ 1540 CANCTR_TestIoCmd: 8 CAN_Master
  SG_ Test_Command : 0|8@1+ (1,0) [0|4] "" STM32G474_HRR
@@ -1428,6 +1428,17 @@ BO_ 1592 HRR_PerformanceStatus: 8 STM32G474_HRR
  SG_ Mirror_Busy_Count : 56|8@1+ (1,0) [0|255] "events" CAN_Master
 CM_ BO_ 1592 "STM32 temperature and live-mirror performance status, sent at 1 Hz. Bytes 0..3 preserve the former temperature layout. Peak_Mirror_Cycles and sticky event/fault metrics reset when the live mirror starts. The 170 MHz, 640 us mirror deadline is 108800 cycles; consumers must require Cycle_Counter_Valid before using timing.";
 
+BO_ 1593 HRR_ConfigStatus: 8 STM32G474_HRR
+ SG_ DLY_Samples : 0|8@1+ (1,0) [0|127] "samples" CAN_Master
+ SG_ SVEC_ZERO_OFFSET : 8|16@1- (0.1,0) [-13.5|13.5] "deg" CAN_Master
+ SG_ ANGLE_OFFSET : 24|16@1- (0.1,0) [-90|90] "deg" CAN_Master
+ SG_ Settings_Dirty : 40|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Last_Command_Applied : 41|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Last_Save_Succeeded : 42|1@1+ (1,0) [0|1] "" CAN_Master
+ SG_ Last_Config_Command : 48|8@1+ (1,0) [0|255] "" CAN_Master
+ SG_ Config_Counter : 56|8@1+ (1,0) [0|255] "" CAN_Master
+CM_ BO_ 1593 "Active SVEC settings and acknowledgement for keyed 0x603 commands. Settings_Dirty means the active DLY or offsets differ from the last successfully loaded/saved values. Config_Counter increments for each valid keyed command; Last_Command_Applied reports whether that command was accepted, and Last_Save_Succeeded is set only after command 9 successfully commits the packed current settings record.";
+
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_ "GenMsgCycleTime" BO_ 1584 100;
 BA_ "GenMsgCycleTime" BO_ 1585 100;
@@ -1438,8 +1449,9 @@ BA_ "GenMsgCycleTime" BO_ 1589 100;
 BA_ "GenMsgCycleTime" BO_ 1590 10;
 BA_ "GenMsgCycleTime" BO_ 1591 100;
 BA_ "GenMsgCycleTime" BO_ 1592 1000;
+BA_ "GenMsgCycleTime" BO_ 1593 100;
 
-VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 8 "SVEC_ZERO_OFFSET_TENTHS" 10 "TRUE_ANGLE_REFERENCE" 11 "CAL_IN_M00_Q20" 12 "CAL_IN_M01_Q20" 13 "CAL_IN_M10_Q20" 14 "CAL_IN_M11_Q20" 15 "CAL_OU_M00_Q20" 16 "CAL_OU_M01_Q20" 17 "CAL_OU_M10_Q20" 18 "CAL_OU_M11_Q20" 19 "CAL_PHASE_PER_STEER_Q20" 20 "CAL_FIT_METRICS";
+VAL_ 1539 Config_Command 1 "DLY_SAMPLES" 2 "PHASEMATCH_HZ" 3 "ANGLE_OFFSET_TENTHS" 4 "RESOLVER_CAL_START" 5 "RESOLVER_CAL_FINISH_SAVE" 6 "RESOLVER_CAL_ABORT" 7 "RESOLVER_CAL_MODE" 8 "SVEC_ZERO_OFFSET_TENTHS" 9 "SVEC_SAVE_CURRENT" 10 "TRUE_ANGLE_REFERENCE" 11 "CAL_IN_M00_Q20" 12 "CAL_IN_M01_Q20" 13 "CAL_IN_M10_Q20" 14 "CAL_IN_M11_Q20" 15 "CAL_OU_M00_Q20" 16 "CAL_OU_M01_Q20" 17 "CAL_OU_M10_Q20" 18 "CAL_OU_M11_Q20" 19 "CAL_PHASE_PER_STEER_Q20" 20 "CAL_FIT_METRICS";
 VAL_ 1540 Test_Command 0 "SAFE_EXIT" 1 "DIGITAL" 2 "DAC_PA4" 3 "DAC_PA5" 4 "DAC_BOTH";
 VAL_ 1540 REL_Test 0 "OFF" 1 "ON";
 VAL_ 1540 RELE_Test 0 "OFF" 1 "ON";
