@@ -24,6 +24,7 @@ CONFIG_ACK_TIMEOUT_S = 0.75
 CONFIG_MAX_ATTEMPTS = 5
 STATUS_START_TIMEOUT_S = 3.0
 RELAY_ACK_TIMEOUT_S = 0.75
+NATIVE_BASELINE_TIME_S = 5.0
 
 
 @dataclass(frozen=True)
@@ -179,21 +180,20 @@ def loaded_response_reference(results: list[CalibrationResult]) -> float:
   return statistics.median(responses) if responses else 0.0
 
 
-def center_out_values(center: int, low: int, high: int) -> list[int]:
-  values = [center]
-  for distance in range(1, max(center - low, high - center) + 1):
-    if center - distance >= low:
-      values.append(center - distance)
-    if center + distance <= high:
-      values.append(center + distance)
-  return values
+def dly_sweep_groups(center: int, low: int, high: int) -> tuple[list[int], list[int], list[int]]:
+  center_group = [center]
+  low_group = list(range(center - 1, low - 1, -1))
+  high_group = list(range(center + 1, high + 1))
+  return center_group, low_group, high_group
 
 
 def fit_zero_root(points: list[Measurement], low: int, high: int) -> int:
   if len(points) < 2:
     return max(low, min(high, points[0].zero_offset if points else 0))
-  xs = [float(point.zero_offset) for point in points]
-  ys = [point.mean for point in points]
+  best_bias = min(points, key=lambda point: abs(point.mean))
+  fit_points = sorted(points, key=lambda point: abs(point.zero_offset - best_bias.zero_offset))[:min(3, len(points))]
+  xs = [float(point.zero_offset) for point in fit_points]
+  ys = [point.mean for point in fit_points]
   x_mean = statistics.mean(xs)
   y_mean = statistics.mean(ys)
   denominator = sum((x - x_mean) ** 2 for x in xs)
@@ -201,7 +201,7 @@ def fit_zero_root(points: list[Measurement], low: int, high: int) -> int:
     return round(x_mean)
   slope = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys, strict=True)) / denominator
   if abs(slope) < 0.2:
-    return min(points, key=lambda point: abs(point.mean)).zero_offset
+    return min(fit_points, key=lambda point: abs(point.mean)).zero_offset
   return max(low, min(high, round(x_mean - y_mean / slope)))
 
 
@@ -217,8 +217,6 @@ def summarize_samples(phase: str, dly: int, zero_offset: int, command_torque: in
   std = statistics.pstdev(trimmed)
   mad = statistics.median(abs(value - median) for value in trimmed)
   robust_std = 1.4826 * mad
-  # Static bias and noise both matter. The robust spread prevents a few CAN or
-  # mechanical transients from dominating, while std remains visible to the operator.
   score = math.hypot(mean, noise_weight * robust_std)
   return Measurement(phase, dly, zero_offset, command_torque, len(trimmed), mean, median, std,
                      robust_std, max(abs(value) for value in values), score)
@@ -241,6 +239,8 @@ class CalibrationSession:
     self.requested_torque = 0
     self.brake_pressed = False
     self.counter = 0
+    self.rx_frames = 0
+    self.rx_frames_by_bus = [0, 0, 0]
     self.stop_event = threading.Event()
     self.safety_event = threading.Event()
     self.monitor_thread = threading.Thread(target=self._monitor_loop, name="hrr-cal-monitor", daemon=True)
@@ -255,6 +255,10 @@ class CalibrationSession:
     while not self.stop_event.is_set():
       for address, _, payload, rx_bus in self.panda.can_recv():
         now = time.monotonic()
+        with self.lock:
+          self.rx_frames += 1
+          if 0 <= rx_bus < len(self.rx_frames_by_bus):
+            self.rx_frames_by_bus[rx_bus] += 1
         if rx_bus == self.bus and address == hrr.CONFIG_STATUS_ADDR:
           try:
             config = ConfigStatus.decode(payload)
@@ -324,16 +328,31 @@ class CalibrationSession:
       self.requested_torque = torque_ncm
 
   def wait_initial_status(self) -> ConfigStatus:
-    deadline = time.monotonic() + STATUS_START_TIMEOUT_S
-    with self.lock:
-      while self.config is None and time.monotonic() < deadline:
-        self.lock.wait(deadline - time.monotonic())
-      if self.config is None:
-        raise RuntimeError("no HRR_ConfigStatus (0x639); flash firmware with transient-settings support")
-      return self.config
+    while True:
+      deadline = time.monotonic() + STATUS_START_TIMEOUT_S
+      with self.lock:
+        start_frames = self.rx_frames
+        start_by_bus = tuple(self.rx_frames_by_bus)
+        while self.config is None and time.monotonic() < deadline:
+          self.lock.wait(max(0.0, deadline - time.monotonic()))
+        if self.config is not None:
+          return self.config
+        seen_frames = self.rx_frames - start_frames
+        seen_by_bus = tuple(current - start for current, start in zip(self.rx_frames_by_bus, start_by_bus, strict=True))
+      print("\nNo HRR configuration status received yet.")
+      if seen_frames == 0:
+        print("No CAN bus traffic was received during the startup window.")
+        print("If the vehicle ignition is OFF, leave the calibration running and turn ignition ON now.")
+      else:
+        bus_text = ", ".join(f"bus {index}: {count}" for index, count in enumerate(seen_by_bus) if count)
+        print(f"CAN traffic is present ({seen_frames} frames; {bus_text}), but HRR_ConfigStatus (0x639) was not seen.")
+        print("Check that the HRR is powered and connected to the selected HRR bus.")
+      print("The forced harness/intercept relay remains active while waiting.")
+      response = input("Turn ignition ON/check connections, then press Enter to retry; type ABORT to stop: ").strip().upper()
+      if response == "ABORT":
+        raise RuntimeError("startup aborted while waiting for CAN/HRR traffic")
 
-  def _send_config_and_wait(self, command: int, value: int, *, signed: bool,
-                            predicate) -> ConfigStatus:
+  def _send_config_and_wait(self, command: int, value: int, *, signed: bool, predicate) -> ConfigStatus:
     for _ in range(CONFIG_MAX_ATTEMPTS):
       with self.lock:
         before = None if self.config is None else self.config.counter
@@ -343,8 +362,8 @@ class CalibrationSession:
       with self.lock:
         while time.monotonic() < deadline:
           status = self.config
-          if (status is not None and status.counter != before and
-              status.last_command == command and status.applied and predicate(status)):
+          if (status is not None and status.counter != before and status.last_command == command and
+              status.applied and predicate(status)):
             return status
           self.lock.wait(max(0.0, deadline - time.monotonic()))
     raise RuntimeError(f"HRR did not acknowledge config command {command} value {value}")
@@ -354,8 +373,7 @@ class CalibrationSession:
     with self.lock:
       current = self.config
     if current is None or current.dly != dly:
-      self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_DLY, dly, signed=False,
-                                 predicate=lambda status: status.dly == dly)
+      self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_DLY, dly, signed=False, predicate=lambda status: status.dly == dly)
     with self.lock:
       current = self.config
     if current is None or current.zero_offset != zero_offset:
@@ -405,26 +423,90 @@ class CalibrationSession:
     self.monitor_thread.join(timeout=1.0)
 
 
+def measure_native_driver_torque(session: CalibrationSession, original: ConfigStatus, args, phase: str) -> Measurement:
+  session.set_engaged(False)
+  session.set_requested_torque(0)
+  settle_deadline = time.monotonic() + args.settle_time
+  while time.monotonic() < settle_deadline:
+    time.sleep(min(0.05, max(0.0, settle_deadline - time.monotonic())))
+  started = time.monotonic()
+  deadline = started + NATIVE_BASELINE_TIME_S
+  while time.monotonic() < deadline:
+    time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+  ended = time.monotonic()
+  with session.lock:
+    samples = [sample for sample in session.samples if started <= sample.timestamp <= ended]
+  minimum_samples = max(5, round(NATIVE_BASELINE_TIME_S * 20.0))
+  if len(samples) < minimum_samples:
+    raise RuntimeError(f"only {len(samples)} native torque samples in {NATIVE_BASELINE_TIME_S:g}s; "
+                       + f"expected at least {minimum_samples}")
+  measurement = summarize_samples(phase, original.dly, original.zero_offset, 0, samples, args.noise_weight)
+  print(f"  mean={measurement.mean:+7.2f} median={measurement.median:+7.2f} "
+        + f"std={measurement.std:6.2f} robust_std={measurement.robust_std:6.2f} N={measurement.samples}")
+  return measurement
+
+
+def print_native_comparison(before: Measurement, after: Measurement, winner: CalibrationResult) -> None:
+  native_std = statistics.mean((before.std, after.std))
+  native_robust = statistics.mean((before.robust_std, after.robust_std))
+  best = winner.zero
+  print("\nNative Driver_Torque noise reference (HRR resolver relays OFF):")
+  print(f"  before: std={before.std:.2f} robust_std={before.robust_std:.2f} Ncm")
+  print(f"  after:  std={after.std:.2f} robust_std={after.robust_std:.2f} Ncm")
+  print(f"  ref:    std={native_std:.2f} robust_std={native_robust:.2f} Ncm")
+  print(f"  best HRR DLY={best.dly}: std={best.std:.2f} robust_std={best.robust_std:.2f} Ncm")
+  if native_robust > 0.0:
+    print(f"  HRR/native robust-noise ratio: {best.robust_std / native_robust:.2f}x")
+  elif native_std > 0.0:
+    print(f"  HRR/native std-noise ratio: {best.std / native_std:.2f}x (native robust_std quantized to zero)")
+  else:
+    print("  HRR/native noise ratio: unavailable because the native reference measured zero spread.")
+  drift = abs(after.mean - before.mean)
+  drift_noise = math.hypot(after.std, before.std)
+  if drift > max(5.0, drift_noise):
+    print(f"  NOTE: native mean shifted by {after.mean - before.mean:+.2f} Ncm during calibration; "
+          + "compare noise more strongly than absolute mean.")
+
+
 def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
                    phase: str) -> tuple[Measurement, list[Measurement]]:
   low = -args.zero_limit
   high = args.zero_limit
   seed = max(low, min(high, seed))
-  offsets = [seed, max(low, seed - args.zero_probe), min(high, seed + args.zero_probe)]
   measurements: dict[int, Measurement] = {}
 
   def evaluate(offset: int) -> Measurement:
+    offset = max(low, min(high, offset))
     if offset not in measurements:
       measurements[offset] = session.measure(phase, dly, offset, 0, args.settle_time,
                                              args.sample_time, args.noise_weight)
     return measurements[offset]
 
-  for offset in dict.fromkeys(offsets):
+  for offset in dict.fromkeys((seed, seed - args.zero_probe, seed + args.zero_probe)):
     evaluate(offset)
-  root = fit_zero_root(list(measurements.values()), low, high)
-  for offset in (root, max(low, root - 1), min(high, root + 1)):
-    evaluate(offset)
+  previous_count = -1
+  for _ in range(args.zero_iterations):
+    best_bias = min(measurements.values(), key=lambda point: (abs(point.mean), point.robust_std, point.std))
+    if abs(best_bias.mean) <= args.zero_mean_tolerance:
+      break
+    root = fit_zero_root(list(measurements.values()), low, high)
+    for offset in (root, root - 1, root + 1):
+      evaluate(offset)
+    if len(measurements) == previous_count:
+      nearest = sorted(measurements.values(), key=lambda point: abs(point.mean))[:2]
+      if len(nearest) == 2 and nearest[0].zero_offset != nearest[1].zero_offset:
+        dx = nearest[1].zero_offset - nearest[0].zero_offset
+        dy = nearest[1].mean - nearest[0].mean
+        if abs(dy) >= 0.2:
+          estimate = round(nearest[0].zero_offset - nearest[0].mean * dx / dy)
+          evaluate(estimate)
+          evaluate(estimate - 1)
+          evaluate(estimate + 1)
+    previous_count = len(measurements)
   best = min(measurements.values(), key=lambda point: (point.score, abs(point.mean), point.std))
+  if abs(best.mean) > args.zero_mean_tolerance:
+    print(f"  NOTE: zero fit residual {best.mean:+.2f} Ncm exceeds "
+          + f"{args.zero_mean_tolerance:.1f} Ncm tolerance after {args.zero_iterations} iterations")
   return best, list(measurements.values())
 
 
@@ -449,11 +531,24 @@ def validate_loaded(session: CalibrationSession, zero: Measurement, args) -> tup
   return loaded, measurements
 
 
+def print_profile_summary(best_by_dly: list[Measurement]) -> None:
+  print("\nProfile summary (each DLY with its independently fitted zero):")
+  print(" DLY zero |    mean  median    std robust |  score")
+  print(" --- ---- | ------- ------- ------ ------ | ------")
+  for point in sorted(best_by_dly, key=lambda item: item.dly):
+    print(f" {point.dly:3d} {point.zero_offset:+4d} | {point.mean:+7.2f} {point.median:+7.2f} "
+          + f"{point.std:6.2f} {point.robust_std:6.2f} | {point.score:6.2f}")
+
+
 def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
                   dly_low: int, dly_high: int, zero_limit: int) -> None:
   response_reference = loaded_response_reference(results)
   ranked = sorted(results, key=lambda result: result.selection_score(response_reference))
   if ranked[0].loaded is None:
+    print("\nFinal zero-load ranking (lower score is better):")
+    for rank, result in enumerate(ranked, 1):
+      print(f" {rank:2d}. {result.zero.format()}")
+    print("  NOTE: loaded validation was disabled; recommendation is based only on stationary zero-command torque.")
     return
   print("\nFinalist ranking (lower score is better):")
   print(" rk DLY zero | zero_mean zero_sd |    +T     -T   gain | even  asym% return repeat noise rdev | score")
@@ -468,7 +563,6 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
           + f"{loaded.repeatability:6.1f} {loaded.loaded_noise:5.1f} "
           + f"{abs(abs(loaded.odd_response) - response_reference):4.1f} | "
           + f"{result.selection_score(response_reference):5.1f}")
-
   winner = ranked[0]
   loaded = winner.loaded
   assert loaded is not None
@@ -490,31 +584,50 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
     cautions.append("best DLY is at the sweep boundary; repeat with a wider DLY offset")
   if abs(winner.zero.zero_offset) == zero_limit:
     cautions.append("best zero offset is at the configured search boundary")
-  if cautions:
-    print("  CAUTION: " + "; ".join(cautions) + ".")
-  else:
-    print("  PASS: centered, symmetric, repeatable, and stable after both torque directions.")
+  print("  CAUTION: " + "; ".join(cautions) + "." if cautions else
+        "  PASS: centered, symmetric, repeatable, and stable after both torque directions.")
   if winner.zero.dly != original.dly:
     print(f"  DLY moves {winner.zero.dly - original.dly:+d} samples from the original value {original.dly}.")
 
 
-def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_offset: int,
-                    args) -> tuple[CalibrationResult, list[Measurement]]:
-  dly_low = max(0, original.dly - dly_offset)
-  dly_high = min(hrr.MAX_DLY_SAMPLES, original.dly + dly_offset)
-  dly_values = center_out_values(original.dly, dly_low, dly_high)
-  print(f"\nProfiling DLY {dly_low}..{dly_high}; each DLY gets its own fitted zero offset.")
+def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_start: int,
+                    dly_offset: int, args) -> tuple[CalibrationResult, list[Measurement]]:
+  print(f"\nNative Driver_Torque baseline before sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
+  native_before = measure_native_driver_torque(session, original, args, "native_before")
+  dly_low = max(0, dly_start - dly_offset)
+  dly_high = min(hrr.MAX_DLY_SAMPLES, dly_start + dly_offset)
+  center_group, low_group, high_group = dly_sweep_groups(dly_start, dly_low, dly_high)
+  dly_values = center_group + low_group + high_group
+  print(f"\nProfiling DLY {dly_low}..{dly_high} around start {dly_start}; "
+        + "each DLY gets its own converged zero offset.")
+  print("Sweep order keeps separate low/high zero seeds to avoid cross-seeding opposite sides.")
   all_measurements: list[Measurement] = []
   best_by_dly: list[Measurement] = []
-  zero_seed = 0
-  for index, dly in enumerate(dly_values, 1):
-    print(f"\n[{index}/{len(dly_values)}] DLY={dly}")
-    best, measurements = calibrate_zero(session, dly, zero_seed, args, "profile")
+  print(f"\n[1/{len(dly_values)}] DLY={dly_start} (center)")
+  center_best, measurements = calibrate_zero(session, dly_start, original.zero_offset, args, "profile")
+  all_measurements.extend(measurements)
+  best_by_dly.append(center_best)
+  print(f"  best for DLY {dly_start}: {center_best.format()}")
+  index = 2
+  low_seed = center_best.zero_offset
+  for dly in low_group:
+    print(f"\n[{index}/{len(dly_values)}] DLY={dly} (low side, seed={low_seed:+d})")
+    best, measurements = calibrate_zero(session, dly, low_seed, args, "profile")
     all_measurements.extend(measurements)
     best_by_dly.append(best)
-    zero_seed = best.zero_offset
+    low_seed = best.zero_offset
     print(f"  best for DLY {dly}: {best.format()}")
-
+    index += 1
+  high_seed = center_best.zero_offset
+  for dly in high_group:
+    print(f"\n[{index}/{len(dly_values)}] DLY={dly} (high side, seed={high_seed:+d})")
+    best, measurements = calibrate_zero(session, dly, high_seed, args, "profile")
+    all_measurements.extend(measurements)
+    best_by_dly.append(best)
+    high_seed = best.zero_offset
+    print(f"  best for DLY {dly}: {best.format()}")
+    index += 1
+  print_profile_summary(best_by_dly)
   finalists = sorted(best_by_dly, key=lambda point: point.score)[:min(args.finalists, len(best_by_dly))]
   print("\nLong-window validation of the best profiled pairs:")
   validated: list[Measurement] = []
@@ -532,9 +645,13 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_off
       results.append(CalibrationResult(point, loaded))
   response_reference = loaded_response_reference(results)
   results.sort(key=lambda result: (result.selection_score(response_reference), abs(result.zero.mean),
-                                    abs(result.zero.dly - original.dly)))
+                                    abs(result.zero.dly - dly_start)))
   print_ranking(results, original, dly_low, dly_high, args.zero_limit)
-  return results[0], all_measurements
+  winner = results[0]
+  print(f"\nNative Driver_Torque baseline after sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
+  native_after = measure_native_driver_torque(session, original, args, "native_after")
+  print_native_comparison(native_before, native_after, winner)
+  return winner, [native_before, *all_measurements, native_after]
 
 
 def confirm_safety(args) -> None:
@@ -547,17 +664,21 @@ def confirm_safety(args) -> None:
 
 
 def run_self_test() -> None:
-  assert center_out_values(3, 1, 5) == [3, 2, 4, 1, 5]
-  synthetic = [
-    Measurement("test", 20, zero, 0, 100, 4.0 * zero + 12.0, 0.0, 1.0, 1.0, 50, 1.0)
-    for zero in (-5, 0, 5)
-  ]
+  center, low, high = dly_sweep_groups(45, 41, 49)
+  assert center == [45] and low == [44, 43, 42, 41] and high == [46, 47, 48, 49]
+  synthetic = [Measurement("test", 20, zero, 0, 100, 4.0 * zero + 12.0, 0.0, 1.0, 1.0, 50, 1.0)
+               for zero in (-5, 0, 5)]
   assert fit_zero_root(synthetic, -135, 135) == -3
+  synthetic += [Measurement("test", 20, zero, 0, 100, mean, 0.0, 1.0, 1.0, 50, 1.0)
+                for zero, mean in ((-27, -3.0), (-26, 0.5), (-25, 4.0))]
+  assert -27 <= fit_zero_root(synthetic, -135, 135) <= -25
   samples = [TorqueSample(float(index), value, -value) for index, value in enumerate([8, 9, 10, 10, 11, 12, 100])]
   summary = summarize_samples("test", 20, -3, 0, samples, 1.0)
   assert summary.samples == 7 and summary.median == 10 and summary.maximum_abs == 100
+
   def point(command: int, mean: float) -> Measurement:
     return Measurement("load", 20, -3, command, 100, mean, mean, 2.0, 2.0, 50, 2.0)
+
   loaded = LoadedValidation(point(0, 1.0), (point(100, 51.0), point(100, 53.0)),
                             (point(-100, -49.0), point(-100, -47.0)),
                             (point(0, 2.0), point(0, 0.0), point(0, 1.0), point(0, 1.0)), 100, 1.0)
@@ -574,11 +695,16 @@ def main() -> None:
   parser.add_argument("--bus", type=int, choices=(0, 1, 2), default=2, help="HRR command/status Panda bus")
   parser.add_argument("--torque-bus", type=int, choices=(0, 1, 2), default=0,
                       help="Panda bus carrying Toyota STEER_TORQUE_SENSOR 0x260")
-  parser.add_argument("--dly-offset", type=int, help="maximum samples below/above the reported current DLY")
+  parser.add_argument("--dly-start", type=int, help="DLY sweep center; prompted when omitted, blank uses the active DLY")
+  parser.add_argument("--dly-offset", type=int, help="maximum samples below/above the DLY sweep center")
   parser.add_argument("--zero-limit", type=int, default=hrr.SVEC_ZERO_OFFSET_MAX_TENTHS_DEG,
                       help="absolute SVEC_ZERO_OFFSET search limit in tenths of a degree")
   parser.add_argument("--zero-probe", type=int, default=5,
                       help="offset distance used to estimate the local zero-torque slope")
+  parser.add_argument("--zero-iterations", type=int, default=4,
+                      help="maximum iterative root-refinement passes per DLY")
+  parser.add_argument("--zero-mean-tolerance", type=float, default=3.0,
+                      help="stop zero refinement when absolute mean Driver_Torque is within this Ncm")
   parser.add_argument("--settle-time", type=float, default=0.75, help="discarded settling time for each point")
   parser.add_argument("--sample-time", type=float, default=1.5, help="torque sampling time for each profile point")
   parser.add_argument("--validation-time", type=float, default=5.0, help="long sampling time for finalists")
@@ -598,20 +724,22 @@ def main() -> None:
   parser.add_argument("--yes", action="store_true", help="skip safety and final-save confirmations")
   parser.add_argument("--self-test", action="store_true", help="run optimizer/protocol unit checks and exit")
   args = parser.parse_args()
-
   if args.self_test:
     run_self_test()
     return
-  for name in ("settle_time", "sample_time", "validation_time", "load_sample_time", "noise_weight", "rate_hz"):
+  for name in ("settle_time", "sample_time", "validation_time", "load_sample_time", "noise_weight", "rate_hz",
+               "zero_mean_tolerance"):
     if getattr(args, name) <= 0:
       parser.error(f"--{name.replace('_', '-')} must be greater than zero")
-  if args.zero_probe <= 0 or args.zero_limit <= 0 or args.finalists <= 0 or args.max_driver_torque <= 0:
-    parser.error("zero probe/limit, finalists, and torque limit must be greater than zero")
+  if (args.zero_probe <= 0 or args.zero_limit <= 0 or args.zero_iterations <= 0 or
+      args.finalists <= 0 or args.max_driver_torque <= 0):
+    parser.error("zero probe/limit/iterations, finalists, and torque limit must be greater than zero")
   if args.zero_limit > hrr.SVEC_ZERO_OFFSET_MAX_TENTHS_DEG:
     parser.error(f"--zero-limit cannot exceed {hrr.SVEC_ZERO_OFFSET_MAX_TENTHS_DEG}")
+  if args.dly_start is not None and not 0 <= args.dly_start <= hrr.MAX_DLY_SAMPLES:
+    parser.error(f"--dly-start must be within 0..{hrr.MAX_DLY_SAMPLES}")
   if args.validation_torque is not None and not 0 <= args.validation_torque <= hrr.MAX_TORQUE_NCM:
     parser.error(f"--validation-torque must be within 0..{hrr.MAX_TORQUE_NCM} Ncm")
-
   try:
     confirm_safety(args)
   except RuntimeError as error:
@@ -632,6 +760,7 @@ def main() -> None:
       panda.set_force_intercept_relay(True)
       panda.set_safety_forwarding_disabled(True)
       relay_forced = True
+      print("Harness/intercept relay forced before waiting for vehicle/HRR CAN traffic.")
     session.start()
     session_started = True
     original = session.wait_initial_status()
@@ -639,8 +768,14 @@ def main() -> None:
           + f"({original.zero_offset / 10:+.1f}deg), angle_offset={original.angle_offset:+d}, dirty={original.dirty}")
     if original.dirty and not args.allow_dirty_start:
       raise RuntimeError("HRR reports unsaved active settings; save/reboot them or pass --allow-dirty-start")
+    if args.dly_start is None:
+      entered = input(f"DLY sweep center [{original.dly}]: ").strip()
+      args.dly_start = original.dly if not entered else int(entered, 0)
+    if not 0 <= args.dly_start <= hrr.MAX_DLY_SAMPLES:
+      raise RuntimeError(f"DLY sweep center must be within 0..{hrr.MAX_DLY_SAMPLES}")
     if args.dly_offset is None:
-      args.dly_offset = int(input("Maximum DLY sweep offset in samples: ").strip(), 0)
+      entered = input("Maximum DLY sweep offset in samples [5]: ").strip()
+      args.dly_offset = 5 if not entered else int(entered, 0)
     if args.dly_offset < 0:
       raise RuntimeError("DLY sweep offset must be non-negative")
     if args.validation_torque is None:
@@ -648,8 +783,9 @@ def main() -> None:
       args.validation_torque = 100 if not entered else int(entered, 0)
     if not 0 <= args.validation_torque <= hrr.MAX_TORQUE_NCM:
       raise RuntimeError(f"validation torque must be within 0..{hrr.MAX_TORQUE_NCM} Ncm")
-
-    winner, _ = run_calibration(session, original, args.dly_offset, args)
+    if args.validation_torque == 0:
+      print("NOTE: loaded validation disabled; final recommendation will be zero-load only.")
+    winner, _ = run_calibration(session, original, args.dly_start, args.dly_offset, args)
     print("\nRecommended coupled calibration:")
     print(f"  {winner.zero.format()}")
     save = args.yes or input("Persist this DLY and SVEC_ZERO_OFFSET to HRR flash? [y/N]: ").strip().lower() in {"y", "yes"}
