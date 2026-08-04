@@ -224,12 +224,15 @@ def summarize_samples(phase: str, dly: int, zero_offset: int, command_torque: in
 
 class CalibrationSession:
   def __init__(self, panda: Panda, bus: int, torque_bus: int, rate_hz: float,
-               max_driver_torque: int) -> None:
+               max_driver_torque: int, transition_step_time: float,
+               torque_ramp_step: int) -> None:
     self.panda = panda
     self.bus = bus
     self.torque_bus = torque_bus
     self.period = 1.0 / rate_hz
     self.max_driver_torque = max_driver_torque
+    self.transition_step_time = transition_step_time
+    self.torque_ramp_step = torque_ramp_step
     self.lock = threading.Condition()
     self.config: ConfigStatus | None = None
     self.rel: bool | None = None
@@ -308,6 +311,8 @@ class CalibrationSession:
 
   def set_engaged(self, engaged: bool) -> None:
     with self.lock:
+      if self.engaged is engaged and self.rel is engaged and self.rele is engaged:
+        return
       self.engaged = engaged
       if not engaged:
         self.requested_torque = 0
@@ -319,13 +324,37 @@ class CalibrationSession:
       actual = f"REL={self.rel} RELE={self.rele}"
     raise RuntimeError(f"HRR relays did not report {'ON' if engaged else 'OFF'} ({actual})")
 
+  def _abort_if_unsafe(self) -> None:
+    if not self.safety_event.is_set():
+      return
+    try:
+      self.set_engaged(False)
+    finally:
+      raise RuntimeError(f"driver torque exceeded safety limit {self.max_driver_torque} Ncm")
+
+  def _transition_wait(self) -> None:
+    if self.transition_step_time <= 0.0:
+      self._abort_if_unsafe()
+      return
+    if self.safety_event.wait(self.transition_step_time):
+      self._abort_if_unsafe()
+
   def set_requested_torque(self, torque_ncm: int) -> None:
     if not -hrr.MAX_TORQUE_NCM <= torque_ncm <= hrr.MAX_TORQUE_NCM:
       raise ValueError(f"validation torque must be within +/-{hrr.MAX_TORQUE_NCM} Ncm")
     with self.lock:
-      if self.engaged:
-        raise RuntimeError("refusing to change requested torque while HRR relays are engaged")
-      self.requested_torque = torque_ncm
+      current = self.requested_torque
+      engaged = self.engaged
+    if not engaged:
+      with self.lock:
+        self.requested_torque = torque_ncm
+      return
+    while current != torque_ncm:
+      step = min(self.torque_ramp_step, abs(torque_ncm - current))
+      current += step if torque_ncm > current else -step
+      with self.lock:
+        self.requested_torque = current
+      self._transition_wait()
 
   def wait_initial_status(self) -> ConfigStatus:
     while True:
@@ -368,17 +397,70 @@ class CalibrationSession:
           self.lock.wait(max(0.0, deadline - time.monotonic()))
     raise RuntimeError(f"HRR did not acknowledge config command {command} value {value}")
 
-  def apply_pair(self, dly: int, zero_offset: int) -> None:
-    self.set_engaged(False)
+  def _set_dly_direct(self, dly: int) -> None:
     with self.lock:
       current = self.config
     if current is None or current.dly != dly:
-      self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_DLY, dly, signed=False, predicate=lambda status: status.dly == dly)
+      self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_DLY, dly, signed=False,
+                                 predicate=lambda status: status.dly == dly)
+
+  def _set_zero_direct(self, zero_offset: int) -> None:
     with self.lock:
       current = self.config
     if current is None or current.zero_offset != zero_offset:
       self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_ZERO_OFFSET, zero_offset, signed=True,
                                  predicate=lambda status: status.zero_offset == zero_offset)
+
+  def _ramp_zero(self, zero_offset: int) -> None:
+    with self.lock:
+      current = self.config
+      engaged = self.engaged
+    if current is None:
+      raise RuntimeError("cannot transition zero offset before HRR config status is available")
+    if not engaged:
+      self._set_zero_direct(zero_offset)
+      return
+    value = current.zero_offset
+    while value != zero_offset:
+      value += 1 if zero_offset > value else -1
+      self._set_zero_direct(value)
+      self._transition_wait()
+
+  def transition_pair(self, dly: int, zero_offset: int) -> None:
+    with self.lock:
+      current = self.config
+      engaged = self.engaged
+    if current is None:
+      raise RuntimeError("cannot transition calibration pair before HRR config status is available")
+    if not engaged:
+      self._set_dly_direct(dly)
+      self._set_zero_direct(zero_offset)
+      return
+
+    start_dly = current.dly
+    start_zero = current.zero_offset
+    if start_dly == dly:
+      self._ramp_zero(zero_offset)
+      return
+
+    direction = 1 if dly > start_dly else -1
+    steps = abs(dly - start_dly)
+    current_zero = start_zero
+    for index in range(1, steps + 1):
+      next_dly = start_dly + direction * index
+      next_zero = round(start_zero + (zero_offset - start_zero) * index / steps)
+      midpoint_zero = round((current_zero + next_zero) / 2.0)
+      self._ramp_zero(midpoint_zero)
+      self._set_dly_direct(next_dly)
+      self._transition_wait()
+      self._ramp_zero(next_zero)
+      current_zero = next_zero
+    self._ramp_zero(zero_offset)
+
+  def apply_pair(self, dly: int, zero_offset: int) -> None:
+    self.set_engaged(False)
+    self._set_dly_direct(dly)
+    self._set_zero_direct(zero_offset)
 
   def save_current(self) -> ConfigStatus:
     return self._send_config_and_wait(hrr.SVEC_CONFIG_CMD_SAVE, 0, signed=False,
@@ -386,23 +468,27 @@ class CalibrationSession:
 
   def measure(self, phase: str, dly: int, zero_offset: int, command_torque: int, settle_s: float,
               sample_s: float, noise_weight: float) -> Measurement:
-    self.apply_pair(dly, zero_offset)
-    self.set_requested_torque(command_torque)
     self.safety_event.clear()
-    self.set_engaged(True)
+    self.transition_pair(dly, zero_offset)
+    if not self.engaged:
+      self.set_requested_torque(0)
+      self.set_engaged(True)
+    self.set_requested_torque(command_torque)
+
     settle_deadline = time.monotonic() + settle_s
     while time.monotonic() < settle_deadline:
-      if self.safety_event.wait(min(0.05, settle_deadline - time.monotonic())):
-        self.set_engaged(False)
-        raise RuntimeError(f"driver torque exceeded safety limit {self.max_driver_torque} Ncm")
+      remaining = max(0.0, settle_deadline - time.monotonic())
+      if self.safety_event.wait(min(0.05, remaining)):
+        self._abort_if_unsafe()
+
     started = time.monotonic()
     deadline = started + sample_s
     while time.monotonic() < deadline:
-      if self.safety_event.wait(min(0.05, deadline - time.monotonic())):
-        self.set_engaged(False)
-        raise RuntimeError(f"driver torque exceeded safety limit {self.max_driver_torque} Ncm")
+      remaining = max(0.0, deadline - time.monotonic())
+      if self.safety_event.wait(min(0.05, remaining)):
+        self._abort_if_unsafe()
     ended = time.monotonic()
-    self.set_engaged(False)
+
     with self.lock:
       samples = [sample for sample in self.samples if started <= sample.timestamp <= ended]
     minimum_samples = max(5, round(sample_s * 20.0))
@@ -413,6 +499,10 @@ class CalibrationSession:
     return measurement
 
   def shutdown(self) -> None:
+    try:
+      self.set_requested_torque(0)
+    except RuntimeError:
+      pass
     with self.lock:
       self.engaged = False
       self.requested_torque = 0
@@ -424,8 +514,8 @@ class CalibrationSession:
 
 
 def measure_native_driver_torque(session: CalibrationSession, original: ConfigStatus, args, phase: str) -> Measurement:
-  session.set_engaged(False)
   session.set_requested_torque(0)
+  session.set_engaged(False)
   settle_deadline = time.monotonic() + args.settle_time
   while time.monotonic() < settle_deadline:
     time.sleep(min(0.05, max(0.0, settle_deadline - time.monotonic())))
@@ -507,6 +597,7 @@ def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
   if abs(best.mean) > args.zero_mean_tolerance:
     print(f"  NOTE: zero fit residual {best.mean:+.2f} Ncm exceeds "
           + f"{args.zero_mean_tolerance:.1f} Ncm tolerance after {args.zero_iterations} iterations")
+  session.transition_pair(dly, best.zero_offset)
   return best, list(measurements.values())
 
 
@@ -590,6 +681,22 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
     print(f"  DLY moves {winner.zero.dly - original.dly:+d} samples from the original value {original.dly}.")
 
 
+def walk_profile_path(session: CalibrationSession, target_dly: int,
+                      profile_by_dly: dict[int, Measurement]) -> None:
+  with session.lock:
+    current = session.config
+  if current is None:
+    raise RuntimeError("cannot walk DLY path before HRR config status is available")
+  while current.dly != target_dly:
+    next_dly = current.dly + (1 if target_dly > current.dly else -1)
+    next_point = profile_by_dly[next_dly]
+    session.transition_pair(next_dly, next_point.zero_offset)
+    with session.lock:
+      current = session.config
+    if current is None:
+      raise RuntimeError("lost HRR config status while walking DLY path")
+
+
 def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_start: int,
                     dly_offset: int, args) -> tuple[CalibrationResult, list[Measurement]]:
   print(f"\nNative Driver_Torque baseline before sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
@@ -600,7 +707,8 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
   dly_values = center_group + low_group + high_group
   print(f"\nProfiling DLY {dly_low}..{dly_high} around start {dly_start}; "
         + "each DLY gets its own converged zero offset.")
-  print("Sweep order keeps separate low/high zero seeds to avoid cross-seeding opposite sides.")
+  print("HRR resolver relays stay ON during the sweep; DLY moves one sample at a time, ZERO and torque are ramped,")
+  print("and every recorded point gets the full settle time after its final target values are reached.")
   all_measurements: list[Measurement] = []
   best_by_dly: list[Measurement] = []
   print(f"\n[1/{len(dly_values)}] DLY={dly_start} (center)")
@@ -618,6 +726,13 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
     low_seed = best.zero_offset
     print(f"  best for DLY {dly}: {best.format()}")
     index += 1
+
+  profile_by_dly = {point.dly: point for point in best_by_dly}
+  if low_group and high_group:
+    print(f"\nReturning continuously from DLY={dly_low} to DLY={dly_start} before the high-side sweep (no measurements):")
+    walk_profile_path(session, dly_start, profile_by_dly)
+    print(f"  returned to DLY={dly_start}, zero={center_best.zero_offset:+d}")
+
   high_seed = center_best.zero_offset
   for dly in high_group:
     print(f"\n[{index}/{len(dly_values)}] DLY={dly} (high side, seed={high_seed:+d})")
@@ -625,13 +740,17 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
     all_measurements.extend(measurements)
     best_by_dly.append(best)
     high_seed = best.zero_offset
+    profile_by_dly[dly] = best
     print(f"  best for DLY {dly}: {best.format()}")
     index += 1
   print_profile_summary(best_by_dly)
+
   finalists = sorted(best_by_dly, key=lambda point: point.score)[:min(args.finalists, len(best_by_dly))]
   print("\nLong-window validation of the best profiled pairs:")
   validated: list[Measurement] = []
   for finalist in finalists:
+    walk_profile_path(session, finalist.dly, profile_by_dly)
+    session.transition_pair(finalist.dly, finalist.zero_offset)
     measurement = session.measure("validation", finalist.dly, finalist.zero_offset, 0,
                                   args.settle_time, args.validation_time, args.noise_weight)
     all_measurements.append(measurement)
@@ -640,6 +759,8 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
   if args.validation_torque > 0:
     results = []
     for point in validated:
+      walk_profile_path(session, point.dly, profile_by_dly)
+      session.transition_pair(point.dly, point.zero_offset)
       loaded, measurements = validate_loaded(session, point, args)
       all_measurements.extend(measurements)
       results.append(CalibrationResult(point, loaded))
@@ -648,6 +769,8 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
                                     abs(result.zero.dly - dly_start)))
   print_ranking(results, original, dly_low, dly_high, args.zero_limit)
   winner = results[0]
+
+  session.set_requested_torque(0)
   print(f"\nNative Driver_Torque baseline after sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
   native_after = measure_native_driver_torque(session, original, args, "native_after")
   print_native_comparison(native_before, native_after, winner)
@@ -655,7 +778,8 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
 
 
 def confirm_safety(args) -> None:
-  print("\nWARNING: this calibration repeatedly engages the HRR resolver relays at zero and low symmetric torque.")
+  print("\nWARNING: this calibration engages the HRR resolver relays for the sweep and applies low symmetric torque.")
+  print("DLY is walked one sample at a time, ZERO/torque changes are ramped, and measurements occur only after settling.")
   print("Secure the stationary vehicle, keep hands and people clear of the steering wheel and linkage,")
   print("choose a load that cannot rotate the wheel, and be ready to remove power. The script aborts if")
   print("measured Driver_Torque exceeds the configured limit.")
@@ -705,18 +829,23 @@ def main() -> None:
                       help="maximum iterative root-refinement passes per DLY")
   parser.add_argument("--zero-mean-tolerance", type=float, default=3.0,
                       help="stop zero refinement when absolute mean Driver_Torque is within this Ncm")
-  parser.add_argument("--settle-time", type=float, default=0.75, help="discarded settling time for each point")
+  parser.add_argument("--settle-time", type=float, default=0.75,
+                      help="settling time after the final DLY/ZERO/torque target is reached before every measurement")
   parser.add_argument("--sample-time", type=float, default=1.5, help="torque sampling time for each profile point")
   parser.add_argument("--validation-time", type=float, default=5.0, help="long sampling time for finalists")
   parser.add_argument("--validation-torque", type=int,
                       help="symmetric finalist torque in Ncm; prompted when omitted, 0 disables")
   parser.add_argument("--load-sample-time", type=float, default=1.5,
                       help="sampling time for each point in the counterbalanced loaded test")
+  parser.add_argument("--transition-step-time", type=float, default=0.02,
+                      help="pause between individual DLY/ZERO/torque transition steps")
+  parser.add_argument("--torque-ramp-step", type=int, default=10,
+                      help="maximum requested-torque change per transition step in Ncm")
   parser.add_argument("--finalists", type=int, default=3, help="number of best pairs to revalidate")
   parser.add_argument("--noise-weight", type=float, default=1.0, help="robust std weight in the RMS-like score")
   parser.add_argument("--max-driver-torque", type=int, default=600,
                       help="abort threshold for absolute Driver_Torque in Ncm")
-  parser.add_argument("--rate-hz", type=float, default=hrr.DEFAULT_RATE_HZ, help="brake/zero-torque stream rate")
+  parser.add_argument("--rate-hz", type=float, default=hrr.DEFAULT_RATE_HZ, help="brake/torque stream rate")
   parser.add_argument("--force-harness-relay", action=argparse.BooleanOptionalAction, default=True,
                       help="force Panda intercept and disable firmware forwarding during calibration")
   parser.add_argument("--allow-dirty-start", action="store_true",
@@ -728,12 +857,12 @@ def main() -> None:
     run_self_test()
     return
   for name in ("settle_time", "sample_time", "validation_time", "load_sample_time", "noise_weight", "rate_hz",
-               "zero_mean_tolerance"):
+               "zero_mean_tolerance", "transition_step_time"):
     if getattr(args, name) <= 0:
       parser.error(f"--{name.replace('_', '-')} must be greater than zero")
   if (args.zero_probe <= 0 or args.zero_limit <= 0 or args.zero_iterations <= 0 or
-      args.finalists <= 0 or args.max_driver_torque <= 0):
-    parser.error("zero probe/limit/iterations, finalists, and torque limit must be greater than zero")
+      args.finalists <= 0 or args.max_driver_torque <= 0 or args.torque_ramp_step <= 0):
+    parser.error("zero probe/limit/iterations, finalists, torque limit, and torque ramp step must be greater than zero")
   if args.zero_limit > hrr.SVEC_ZERO_OFFSET_MAX_TENTHS_DEG:
     parser.error(f"--zero-limit cannot exceed {hrr.SVEC_ZERO_OFFSET_MAX_TENTHS_DEG}")
   if args.dly_start is not None and not 0 <= args.dly_start <= hrr.MAX_DLY_SAMPLES:
@@ -749,7 +878,8 @@ def main() -> None:
   panda = Panda()
   panda.set_power_save(False)
   panda.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
-  session = CalibrationSession(panda, args.bus, args.torque_bus, args.rate_hz, args.max_driver_torque)
+  session = CalibrationSession(panda, args.bus, args.torque_bus, args.rate_hz, args.max_driver_torque,
+                               args.transition_step_time, args.torque_ramp_step)
   relay_forced = False
   session_started = False
   original: ConfigStatus | None = None
