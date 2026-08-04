@@ -25,7 +25,6 @@ CONFIG_MAX_ATTEMPTS = 5
 STATUS_START_TIMEOUT_S = 3.0
 RELAY_ACK_TIMEOUT_S = 0.75
 NATIVE_BASELINE_TIME_S = 5.0
-ZERO_TARGET_NCM = 0.0
 
 
 @dataclass(frozen=True)
@@ -191,10 +190,10 @@ def dly_sweep_groups(center: int, low: int, high: int) -> tuple[list[int], list[
 def fit_zero_root(points: list[Measurement], low: int, high: int) -> int:
   if len(points) < 2:
     return max(low, min(high, points[0].zero_offset if points else 0))
-  best_bias = min(points, key=lambda point: abs(point.mean - ZERO_TARGET_NCM))
+  best_bias = min(points, key=lambda point: abs(point.mean))
   fit_points = sorted(points, key=lambda point: abs(point.zero_offset - best_bias.zero_offset))[:min(3, len(points))]
   xs = [float(point.zero_offset) for point in fit_points]
-  ys = [point.mean - ZERO_TARGET_NCM for point in fit_points]
+  ys = [point.mean for point in fit_points]
   x_mean = statistics.mean(xs)
   y_mean = statistics.mean(ys)
   denominator = sum((x - x_mean) ** 2 for x in xs)
@@ -202,7 +201,7 @@ def fit_zero_root(points: list[Measurement], low: int, high: int) -> int:
     return round(x_mean)
   slope = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys, strict=True)) / denominator
   if abs(slope) < 0.2:
-    return min(fit_points, key=lambda point: abs(point.mean - ZERO_TARGET_NCM)).zero_offset
+    return min(fit_points, key=lambda point: abs(point.mean)).zero_offset
   return max(low, min(high, round(x_mean - y_mean / slope)))
 
 
@@ -218,7 +217,7 @@ def summarize_samples(phase: str, dly: int, zero_offset: int, command_torque: in
   std = statistics.pstdev(trimmed)
   mad = statistics.median(abs(value - median) for value in trimmed)
   robust_std = 1.4826 * mad
-  score = math.hypot(mean - ZERO_TARGET_NCM, noise_weight * robust_std)
+  score = math.hypot(mean, noise_weight * robust_std)
   return Measurement(phase, dly, zero_offset, command_torque, len(trimmed), mean, median, std,
                      robust_std, max(abs(value) for value in values), score)
 
@@ -487,29 +486,26 @@ def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
     evaluate(offset)
   previous_count = -1
   for _ in range(args.zero_iterations):
-    best_bias = min(measurements.values(),
-                    key=lambda point: (abs(point.mean - ZERO_TARGET_NCM), point.robust_std, point.std))
-    if abs(best_bias.mean - ZERO_TARGET_NCM) <= args.zero_mean_tolerance:
+    best_bias = min(measurements.values(), key=lambda point: (abs(point.mean), point.robust_std, point.std))
+    if abs(best_bias.mean) <= args.zero_mean_tolerance:
       break
     root = fit_zero_root(list(measurements.values()), low, high)
     for offset in (root, root - 1, root + 1):
       evaluate(offset)
     if len(measurements) == previous_count:
-      nearest = sorted(measurements.values(), key=lambda point: abs(point.mean - ZERO_TARGET_NCM))[:2]
+      nearest = sorted(measurements.values(), key=lambda point: abs(point.mean))[:2]
       if len(nearest) == 2 and nearest[0].zero_offset != nearest[1].zero_offset:
         dx = nearest[1].zero_offset - nearest[0].zero_offset
         dy = nearest[1].mean - nearest[0].mean
         if abs(dy) >= 0.2:
-          estimate = round(nearest[0].zero_offset - (nearest[0].mean - ZERO_TARGET_NCM) * dx / dy)
+          estimate = round(nearest[0].zero_offset - nearest[0].mean * dx / dy)
           evaluate(estimate)
           evaluate(estimate - 1)
           evaluate(estimate + 1)
     previous_count = len(measurements)
-  best = min(measurements.values(),
-             key=lambda point: (point.score, abs(point.mean - ZERO_TARGET_NCM), point.std))
-  residual = best.mean - ZERO_TARGET_NCM
-  if abs(residual) > args.zero_mean_tolerance:
-    print(f"  NOTE: zero fit residual {residual:+.2f} Ncm from native target exceeds "
+  best = min(measurements.values(), key=lambda point: (point.score, abs(point.mean), point.std))
+  if abs(best.mean) > args.zero_mean_tolerance:
+    print(f"  NOTE: zero fit residual {best.mean:+.2f} Ncm exceeds "
           + f"{args.zero_mean_tolerance:.1f} Ncm tolerance after {args.zero_iterations} iterations")
   return best, list(measurements.values())
 
@@ -536,7 +532,7 @@ def validate_loaded(session: CalibrationSession, zero: Measurement, args) -> tup
 
 
 def print_profile_summary(best_by_dly: list[Measurement]) -> None:
-  print("\nProfile summary (each DLY with its independently fitted native-matching zero):")
+  print("\nProfile summary (each DLY with its independently fitted zero):")
   print(" DLY zero |    mean  median    std robust |  score")
   print(" --- ---- | ------- ------- ------ ------ | ------")
   for point in sorted(best_by_dly, key=lambda item: item.dly):
@@ -552,7 +548,7 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
     print("\nFinal zero-load ranking (lower score is better):")
     for rank, result in enumerate(ranked, 1):
       print(f" {rank:2d}. {result.zero.format()}")
-    print("  NOTE: loaded validation was disabled; recommendation is based on native-matched stationary torque.")
+    print("  NOTE: loaded validation was disabled; recommendation is based only on stationary zero-command torque.")
     return
   print("\nFinalist ranking (lower score is better):")
   print(" rk DLY zero | zero_mean zero_sd |    +T     -T   gain | even  asym% return repeat noise rdev | score")
@@ -573,8 +569,7 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   print("\nRecommendation diagnostics:")
   print(f"  Selected DLY={winner.zero.dly}, SVEC_ZERO_OFFSET={winner.zero.zero_offset:+d} "
         + f"({winner.zero.zero_offset / 10:+.1f}deg).")
-  print(f"  Native target: {ZERO_TARGET_NCM:+.2f} Ncm; HRR zero mean: {winner.zero.mean:+.2f} Ncm "
-        + f"(error {winner.zero.mean - ZERO_TARGET_NCM:+.2f} Ncm), robust std {winner.zero.robust_std:.2f} Ncm.")
+  print(f"  Zero: {winner.zero.mean:+.2f} Ncm mean, {winner.zero.robust_std:.2f} Ncm robust std.")
   print(f"  Loaded: {loaded.odd_response:+.2f} Ncm odd response at +/-{loaded.validation_torque} Ncm command, "
         + f"gain {loaded.response_gain:+.4f}.")
   print(f"  Response consistency: finalist median={response_reference:.2f} Ncm, "
@@ -590,27 +585,21 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   if abs(winner.zero.zero_offset) == zero_limit:
     cautions.append("best zero offset is at the configured search boundary")
   print("  CAUTION: " + "; ".join(cautions) + "." if cautions else
-        "  PASS: native-matched, symmetric, repeatable, and stable after both torque directions.")
+        "  PASS: centered, symmetric, repeatable, and stable after both torque directions.")
   if winner.zero.dly != original.dly:
     print(f"  DLY moves {winner.zero.dly - original.dly:+d} samples from the original value {original.dly}.")
 
 
 def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_start: int,
                     dly_offset: int, args) -> tuple[CalibrationResult, list[Measurement]]:
-  global ZERO_TARGET_NCM
-
   print(f"\nNative Driver_Torque baseline before sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
-  ZERO_TARGET_NCM = 0.0
   native_before = measure_native_driver_torque(session, original, args, "native_before")
-  ZERO_TARGET_NCM = native_before.mean
-  print(f"Using native Driver_Torque mean {ZERO_TARGET_NCM:+.2f} Ncm as the HRR zero target.")
-
   dly_low = max(0, dly_start - dly_offset)
   dly_high = min(hrr.MAX_DLY_SAMPLES, dly_start + dly_offset)
   center_group, low_group, high_group = dly_sweep_groups(dly_start, dly_low, dly_high)
   dly_values = center_group + low_group + high_group
   print(f"\nProfiling DLY {dly_low}..{dly_high} around start {dly_start}; "
-        + "each DLY gets its own native-matching zero offset.")
+        + "each DLY gets its own converged zero offset.")
   print("Sweep order keeps separate low/high zero seeds to avoid cross-seeding opposite sides.")
   all_measurements: list[Measurement] = []
   best_by_dly: list[Measurement] = []
@@ -639,25 +628,14 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
     print(f"  best for DLY {dly}: {best.format()}")
     index += 1
   print_profile_summary(best_by_dly)
-
   finalists = sorted(best_by_dly, key=lambda point: point.score)[:min(args.finalists, len(best_by_dly))]
-  print("\nLong-window zero re-fit of the best profiled DLY values:")
+  print("\nLong-window validation of the best profiled pairs:")
   validated: list[Measurement] = []
-  profile_sample_time = args.sample_time
-  profile_zero_probe = args.zero_probe
-  try:
-    args.sample_time = args.validation_time
-    args.zero_probe = 1
-    for finalist in finalists:
-      print(f"\nRe-fitting DLY={finalist.dly} around zero={finalist.zero_offset:+d} using {args.validation_time:g}s samples:")
-      refined, measurements = calibrate_zero(session, finalist.dly, finalist.zero_offset, args, "validation_refit")
-      all_measurements.extend(measurements)
-      validated.append(refined)
-      print(f"  refined finalist: {refined.format()}")
-  finally:
-    args.sample_time = profile_sample_time
-    args.zero_probe = profile_zero_probe
-
+  for finalist in finalists:
+    measurement = session.measure("validation", finalist.dly, finalist.zero_offset, 0,
+                                  args.settle_time, args.validation_time, args.noise_weight)
+    all_measurements.append(measurement)
+    validated.append(measurement)
   results = [CalibrationResult(point, None) for point in validated]
   if args.validation_torque > 0:
     results = []
@@ -666,12 +644,10 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
       all_measurements.extend(measurements)
       results.append(CalibrationResult(point, loaded))
   response_reference = loaded_response_reference(results)
-  results.sort(key=lambda result: (result.selection_score(response_reference),
-                                    abs(result.zero.mean - ZERO_TARGET_NCM),
+  results.sort(key=lambda result: (result.selection_score(response_reference), abs(result.zero.mean),
                                     abs(result.zero.dly - dly_start)))
   print_ranking(results, original, dly_low, dly_high, args.zero_limit)
   winner = results[0]
-
   print(f"\nNative Driver_Torque baseline after sweep ({NATIVE_BASELINE_TIME_S:g}s, HRR resolver relays OFF):")
   native_after = measure_native_driver_torque(session, original, args, "native_after")
   print_native_comparison(native_before, native_after, winner)
@@ -688,19 +664,11 @@ def confirm_safety(args) -> None:
 
 
 def run_self_test() -> None:
-  global ZERO_TARGET_NCM
-
   center, low, high = dly_sweep_groups(45, 41, 49)
   assert center == [45] and low == [44, 43, 42, 41] and high == [46, 47, 48, 49]
-  ZERO_TARGET_NCM = 0.0
   synthetic = [Measurement("test", 20, zero, 0, 100, 4.0 * zero + 12.0, 0.0, 1.0, 1.0, 50, 1.0)
                for zero in (-5, 0, 5)]
   assert fit_zero_root(synthetic, -135, 135) == -3
-  ZERO_TARGET_NCM = -10.0
-  shifted = [Measurement("test", 20, zero, 0, 100, 2.0 * zero - 12.0, 0.0, 1.0, 1.0, 50, 1.0)
-             for zero in (-2, 0, 2)]
-  assert fit_zero_root(shifted, -135, 135) == 1
-  ZERO_TARGET_NCM = 0.0
   synthetic += [Measurement("test", 20, zero, 0, 100, mean, 0.0, 1.0, 1.0, 50, 1.0)
                 for zero, mean in ((-27, -3.0), (-26, 0.5), (-25, 4.0))]
   assert -27 <= fit_zero_root(synthetic, -135, 135) <= -25
@@ -719,7 +687,6 @@ def run_self_test() -> None:
   assert loaded.even_error == 1.0 and loaded.repeatability == 2.0
   status = ConfigStatus.decode(struct.pack("<BhhBBB", 27, -3, 40, 0x06, 9, 12))
   assert status.dly == 27 and status.zero_offset == -3 and status.applied and status.save_succeeded
-  ZERO_TARGET_NCM = 0.0
   print("HRR torque-calibration self-test passed.")
 
 
@@ -737,11 +704,10 @@ def main() -> None:
   parser.add_argument("--zero-iterations", type=int, default=4,
                       help="maximum iterative root-refinement passes per DLY")
   parser.add_argument("--zero-mean-tolerance", type=float, default=3.0,
-                      help="stop zero refinement when Driver_Torque is within this Ncm of the native baseline")
+                      help="stop zero refinement when absolute mean Driver_Torque is within this Ncm")
   parser.add_argument("--settle-time", type=float, default=0.75, help="discarded settling time for each point")
   parser.add_argument("--sample-time", type=float, default=1.5, help="torque sampling time for each profile point")
-  parser.add_argument("--validation-time", type=float, default=5.0,
-                      help="long sampling time used to re-fit each finalist zero")
+  parser.add_argument("--validation-time", type=float, default=5.0, help="long sampling time for finalists")
   parser.add_argument("--validation-torque", type=int,
                       help="symmetric finalist torque in Ncm; prompted when omitted, 0 disables")
   parser.add_argument("--load-sample-time", type=float, default=1.5,
@@ -818,7 +784,7 @@ def main() -> None:
     if not 0 <= args.validation_torque <= hrr.MAX_TORQUE_NCM:
       raise RuntimeError(f"validation torque must be within 0..{hrr.MAX_TORQUE_NCM} Ncm")
     if args.validation_torque == 0:
-      print("NOTE: loaded validation disabled; final recommendation will be native-matched zero-load only.")
+      print("NOTE: loaded validation disabled; final recommendation will be zero-load only.")
     winner, _ = run_calibration(session, original, args.dly_start, args.dly_offset, args)
     print("\nRecommended coupled calibration:")
     print(f"  {winner.zero.format()}")
