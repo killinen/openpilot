@@ -75,27 +75,52 @@ class Measurement:
 @dataclass(frozen=True)
 class LoadedValidation:
   zero: Measurement
-  positive: tuple[Measurement, ...]
-  negative: tuple[Measurement, ...]
-  returns: tuple[Measurement, ...]
+  measurements: tuple[Measurement, ...]
   validation_torque: int
   noise_weight: float
 
-  @staticmethod
-  def _mean(points: tuple[Measurement, ...]) -> float:
-    return statistics.mean(point.mean for point in points)
+  @property
+  def loaded_points(self) -> tuple[Measurement, ...]:
+    return tuple(self.measurements[index] for index in range(1, len(self.measurements), 2))
+
+  @property
+  def zero_points(self) -> tuple[Measurement, ...]:
+    return tuple(self.measurements[index] for index in range(0, len(self.measurements), 2))
+
+  def _local_response(self, index: int) -> float:
+    point = self.measurements[index]
+    local_zero = (self.measurements[index - 1].mean + self.measurements[index + 1].mean) / 2.0
+    return point.mean - local_zero
+
+  @property
+  def positive_responses(self) -> tuple[float, ...]:
+    return tuple(self._local_response(index) for index in range(1, len(self.measurements) - 1, 2)
+                 if self.measurements[index].command_torque > 0)
+
+  @property
+  def negative_responses(self) -> tuple[float, ...]:
+    return tuple(self._local_response(index) for index in range(1, len(self.measurements) - 1, 2)
+                 if self.measurements[index].command_torque < 0)
 
   @property
   def positive_mean(self) -> float:
-    return self._mean(self.positive)
+    return statistics.mean(self.positive_responses)
 
   @property
   def negative_mean(self) -> float:
-    return self._mean(self.negative)
+    return statistics.mean(self.negative_responses)
 
   @property
   def return_mean(self) -> float:
-    return self._mean(self.returns)
+    return statistics.mean(point.mean for point in self.zero_points)
+
+  @property
+  def initial_loaded_zero(self) -> float:
+    return self.zero_points[0].mean
+
+  @property
+  def initial_zero_shift(self) -> float:
+    return self.initial_loaded_zero - self.zero.mean
 
   @property
   def odd_response(self) -> float:
@@ -107,30 +132,32 @@ class LoadedValidation:
 
   @property
   def even_error(self) -> float:
-    return ((self.positive_mean + self.negative_mean) / 2.0) - self.zero.mean
+    return (self.positive_mean + self.negative_mean) / 2.0
 
   @property
   def asymmetry_percent(self) -> float:
-    positive_magnitude = abs(self.positive_mean - self.zero.mean)
-    negative_magnitude = abs(self.negative_mean - self.zero.mean)
+    positive_magnitude = abs(self.positive_mean)
+    negative_magnitude = abs(self.negative_mean)
     average_magnitude = (positive_magnitude + negative_magnitude) / 2.0
     return 100.0 * abs(positive_magnitude - negative_magnitude) / max(average_magnitude, 1.0)
 
   @property
   def repeatability(self) -> float:
-    polarity_ranges = (
-      max(point.mean for point in points) - min(point.mean for point in points)
-      for points in (self.positive, self.negative)
-    )
-    return max(polarity_ranges)
+    return max(max(self.positive_responses) - min(self.positive_responses),
+               max(self.negative_responses) - min(self.negative_responses))
 
   @property
   def return_rms(self) -> float:
-    return math.sqrt(statistics.mean((point.mean - self.zero.mean) ** 2 for point in self.returns))
+    return math.sqrt(statistics.mean((point.mean - self.zero.mean) ** 2 for point in self.zero_points))
+
+  @property
+  def zero_span(self) -> float:
+    zeros = [point.mean for point in self.zero_points]
+    return max(zeros) - min(zeros)
 
   @property
   def loaded_noise(self) -> float:
-    loaded = self.positive + self.negative
+    loaded = self.loaded_points
     return math.sqrt(statistics.mean(point.robust_std ** 2 for point in loaded))
 
   @property
@@ -149,13 +176,13 @@ class LoadedValidation:
     if response < max(5.0, abs(self.validation_torque) * 0.02):
       cautions.append("weak signed response")
     if self.asymmetry_percent > 25.0:
-      cautions.append(f"{self.asymmetry_percent:.0f}% polarity asymmetry")
+      cautions.append(f"{self.asymmetry_percent:.0f}% local-response polarity asymmetry")
     if abs(self.even_error) > tolerance:
-      cautions.append(f"loaded midpoint error {self.even_error:+.1f} Ncm")
+      cautions.append(f"local-response midpoint error {self.even_error:+.1f} Ncm")
     if self.return_rms > tolerance:
-      cautions.append(f"return-to-zero RMS {self.return_rms:.1f} Ncm")
+      cautions.append(f"zero-baseline RMS from refined zero {self.return_rms:.1f} Ncm")
     if self.repeatability > tolerance:
-      cautions.append(f"polarity repeatability range {self.repeatability:.1f} Ncm")
+      cautions.append(f"local-response repeatability range {self.repeatability:.1f} Ncm")
     return cautions
 
 
@@ -601,24 +628,43 @@ def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
   return best, list(measurements.values())
 
 
+def fine_refit_zero(session: CalibrationSession, finalist: Measurement, args) -> tuple[Measurement, list[Measurement]]:
+  low = -args.zero_limit
+  high = args.zero_limit
+  offsets = tuple(dict.fromkeys(max(low, min(high, offset))
+                                for offset in (finalist.zero_offset, finalist.zero_offset - 1, finalist.zero_offset + 1)))
+  measurements = []
+  print(f"\nFine long-window zero re-fit for DLY={finalist.dly} around zero={finalist.zero_offset:+d}:")
+  for offset in offsets:
+    measurements.append(session.measure("validation_refit", finalist.dly, offset, 0,
+                                        args.settle_time, args.validation_time, args.noise_weight))
+  best = min(measurements, key=lambda point: (abs(point.mean), point.robust_std, point.std))
+  session.transition_pair(best.dly, best.zero_offset)
+  print(f"  refined finalist: {best.format()}")
+  return best, measurements
+
+
 def validate_loaded(session: CalibrationSession, zero: Measurement, args) -> tuple[LoadedValidation, list[Measurement]]:
   torque = args.validation_torque
   assert torque is not None and torque > 0
-  sequence = (torque, 0, -torque, 0, -torque, 0, torque, 0)
+  sequence = (0, torque, 0, -torque, 0, -torque, 0, torque, 0)
   measurements = []
   print(f"\nCounterbalanced loaded validation for DLY={zero.dly}, zero={zero.zero_offset:+d}, T={torque} Ncm:")
-  for command_torque in sequence:
-    phase = "loaded_return" if command_torque == 0 else ("loaded_positive" if command_torque > 0 else "loaded_negative")
-    measurements.append(session.measure(phase, zero.dly, zero.zero_offset, command_torque,
-                                        args.settle_time, args.load_sample_time, args.noise_weight))
-  positive = tuple(point for point in measurements if point.command_torque > 0)
-  negative = tuple(point for point in measurements if point.command_torque < 0)
-  returns = tuple(point for point in measurements if point.command_torque == 0)
-  loaded = LoadedValidation(zero, positive, negative, returns, torque, args.noise_weight)
-  print(f"  summary: +T={loaded.positive_mean:+.2f} -T={loaded.negative_mean:+.2f} "
+  print("  Each loaded response is referenced to the average of its neighboring zero-command measurements.")
+  for index, command_torque in enumerate(sequence):
+    phase = "loaded_zero" if command_torque == 0 else ("loaded_positive" if command_torque > 0 else "loaded_negative")
+    point = session.measure(phase, zero.dly, zero.zero_offset, command_torque,
+                            args.settle_time, args.load_sample_time, args.noise_weight)
+    measurements.append(point)
+    if 0 < index < len(sequence) - 1 and command_torque != 0:
+      pass
+  loaded = LoadedValidation(zero, tuple(measurements), torque, args.noise_weight)
+  print(f"  local response: +T={loaded.positive_mean:+.2f} -T={loaded.negative_mean:+.2f} "
         + f"gain={loaded.response_gain:+.4f} driver/cmd even_error={loaded.even_error:+.2f} "
-        + f"asymmetry={loaded.asymmetry_percent:.1f}% return_rms={loaded.return_rms:.2f} "
-        + f"repeat={loaded.repeatability:.2f} loaded_noise={loaded.loaded_noise:.2f}")
+        + f"asymmetry={loaded.asymmetry_percent:.1f}% repeat={loaded.repeatability:.2f}")
+  print(f"  zero baseline: initial_shift={loaded.initial_zero_shift:+.2f} Ncm "
+        + f"return_rms={loaded.return_rms:.2f} span={loaded.zero_span:.2f} Ncm; "
+        + f"loaded_noise={loaded.loaded_noise:.2f}")
   return loaded, measurements
 
 
@@ -642,16 +688,16 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
     print("  NOTE: loaded validation was disabled; recommendation is based only on stationary zero-command torque.")
     return
   print("\nFinalist ranking (lower score is better):")
-  print(" rk DLY zero | zero_mean zero_sd |    +T     -T   gain | even  asym% return repeat noise rdev | score")
-  print(" -- --- ---- | --------- ------- | ------ ------ ------ | ----- ------ ------ ------ ----- ---- | -----")
+  print(" rk DLY zero | zero_mean zero_sd |    +R     -R   gain | even  asym% zRMS zSpan repeat noise rdev | score")
+  print(" -- --- ---- | --------- ------- | ------ ------ ------ | ----- ------ ---- ----- ------ ----- ---- | -----")
   for rank, result in enumerate(ranked, 1):
     loaded = result.loaded
     assert loaded is not None
     print(f" {rank:2d} {result.zero.dly:3d} {result.zero.zero_offset:+4d} | "
           + f"{result.zero.mean:+9.2f} {result.zero.robust_std:7.2f} | "
           + f"{loaded.positive_mean:+6.1f} {loaded.negative_mean:+6.1f} {loaded.response_gain:+6.3f} | "
-          + f"{loaded.even_error:+5.1f} {loaded.asymmetry_percent:6.1f} {loaded.return_rms:6.1f} "
-          + f"{loaded.repeatability:6.1f} {loaded.loaded_noise:5.1f} "
+          + f"{loaded.even_error:+5.1f} {loaded.asymmetry_percent:6.1f} {loaded.return_rms:4.1f} "
+          + f"{loaded.zero_span:5.1f} {loaded.repeatability:6.1f} {loaded.loaded_noise:5.1f} "
           + f"{abs(abs(loaded.odd_response) - response_reference):4.1f} | "
           + f"{result.selection_score(response_reference):5.1f}")
   winner = ranked[0]
@@ -660,13 +706,16 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   print("\nRecommendation diagnostics:")
   print(f"  Selected DLY={winner.zero.dly}, SVEC_ZERO_OFFSET={winner.zero.zero_offset:+d} "
         + f"({winner.zero.zero_offset / 10:+.1f}deg).")
-  print(f"  Zero: {winner.zero.mean:+.2f} Ncm mean, {winner.zero.robust_std:.2f} Ncm robust std.")
-  print(f"  Loaded: {loaded.odd_response:+.2f} Ncm odd response at +/-{loaded.validation_torque} Ncm command, "
+  print(f"  Refined zero: {winner.zero.mean:+.2f} Ncm mean, {winner.zero.robust_std:.2f} Ncm robust std.")
+  print(f"  Local loaded response: {loaded.odd_response:+.2f} Ncm at +/-{loaded.validation_torque} Ncm command, "
         + f"gain {loaded.response_gain:+.4f}.")
   print(f"  Response consistency: finalist median={response_reference:.2f} Ncm, "
         + f"deviation={abs(abs(loaded.odd_response) - response_reference):.2f} Ncm.")
-  print(f"  Symmetry: {loaded.even_error:+.2f} Ncm midpoint error, {loaded.asymmetry_percent:.1f}% magnitude asymmetry.")
-  print(f"  Stability: {loaded.return_rms:.2f} Ncm return RMS, {loaded.repeatability:.2f} Ncm repeatability range, "
+  print(f"  Local symmetry: {loaded.even_error:+.2f} Ncm midpoint error, "
+        + f"{loaded.asymmetry_percent:.1f}% magnitude asymmetry.")
+  print(f"  Baseline stability: first loaded zero shift={loaded.initial_zero_shift:+.2f} Ncm, "
+        + f"zero RMS={loaded.return_rms:.2f} Ncm, span={loaded.zero_span:.2f} Ncm.")
+  print(f"  Repeatability/noise: {loaded.repeatability:.2f} Ncm local-response range, "
         + f"{loaded.loaded_noise:.2f} Ncm loaded noise.")
   cautions = loaded.cautions()
   if response_reference >= 10.0 and abs(loaded.odd_response) < response_reference * 0.5:
@@ -676,7 +725,7 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   if abs(winner.zero.zero_offset) == zero_limit:
     cautions.append("best zero offset is at the configured search boundary")
   print("  CAUTION: " + "; ".join(cautions) + "." if cautions else
-        "  PASS: centered, symmetric, repeatable, and stable after both torque directions.")
+        "  PASS: centered, locally symmetric, repeatable, and baseline-stable after both torque directions.")
   if winner.zero.dly != original.dly:
     print(f"  DLY moves {winner.zero.dly - original.dly:+d} samples from the original value {original.dly}.")
 
@@ -746,15 +795,16 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
   print_profile_summary(best_by_dly)
 
   finalists = sorted(best_by_dly, key=lambda point: point.score)[:min(args.finalists, len(best_by_dly))]
-  print("\nLong-window validation of the best profiled pairs:")
+  print("\nLong-window +/-1 ZERO re-fit of the best profiled DLY values:")
   validated: list[Measurement] = []
   for finalist in finalists:
     walk_profile_path(session, finalist.dly, profile_by_dly)
     session.transition_pair(finalist.dly, finalist.zero_offset)
-    measurement = session.measure("validation", finalist.dly, finalist.zero_offset, 0,
-                                  args.settle_time, args.validation_time, args.noise_weight)
-    all_measurements.append(measurement)
-    validated.append(measurement)
+    refined, measurements = fine_refit_zero(session, finalist, args)
+    all_measurements.extend(measurements)
+    validated.append(refined)
+    profile_by_dly[refined.dly] = refined
+
   results = [CalibrationResult(point, None) for point in validated]
   if args.validation_torque > 0:
     results = []
@@ -803,12 +853,13 @@ def run_self_test() -> None:
   def point(command: int, mean: float) -> Measurement:
     return Measurement("load", 20, -3, command, 100, mean, mean, 2.0, 2.0, 50, 2.0)
 
-  loaded = LoadedValidation(point(0, 1.0), (point(100, 51.0), point(100, 53.0)),
-                            (point(-100, -49.0), point(-100, -47.0)),
-                            (point(0, 2.0), point(0, 0.0), point(0, 1.0), point(0, 1.0)), 100, 1.0)
-  assert loaded.positive_mean == 52.0 and loaded.negative_mean == -48.0
+  sequence = (point(0, 1.0), point(100, 52.0), point(0, 2.0), point(-100, -47.0), point(0, 3.0),
+              point(-100, -46.0), point(0, 4.0), point(100, 55.0), point(0, 5.0))
+  loaded = LoadedValidation(point(0, 1.0), sequence, 100, 1.0)
+  assert loaded.positive_mean == 50.0 and loaded.negative_mean == -50.0
   assert loaded.odd_response == 50.0 and loaded.response_gain == 0.5
-  assert loaded.even_error == 1.0 and loaded.repeatability == 2.0
+  assert loaded.even_error == 0.0 and loaded.asymmetry_percent == 0.0
+  assert loaded.repeatability == 0.0 and loaded.initial_zero_shift == 0.0
   status = ConfigStatus.decode(struct.pack("<BhhBBB", 27, -3, 40, 0x06, 9, 12))
   assert status.dly == 27 and status.zero_offset == -3 and status.applied and status.save_succeeded
   print("HRR torque-calibration self-test passed.")
@@ -832,7 +883,8 @@ def main() -> None:
   parser.add_argument("--settle-time", type=float, default=0.75,
                       help="settling time after the final DLY/ZERO/torque target is reached before every measurement")
   parser.add_argument("--sample-time", type=float, default=1.5, help="torque sampling time for each profile point")
-  parser.add_argument("--validation-time", type=float, default=5.0, help="long sampling time for finalists")
+  parser.add_argument("--validation-time", type=float, default=5.0,
+                      help="long sampling time for each +/-1 ZERO finalist re-fit point")
   parser.add_argument("--validation-torque", type=int,
                       help="symmetric finalist torque in Ncm; prompted when omitted, 0 disables")
   parser.add_argument("--load-sample-time", type=float, default=1.5,
