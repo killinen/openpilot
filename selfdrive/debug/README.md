@@ -32,7 +32,7 @@ disengaged with zero torque and the brake released. At the `hrr>` prompt:
 
 - `e` engages by enabling both `REL` and `RELE`
 - `x` disengages, sets torque to zero, and disables both relays
-- `<Ncm>` sets torque directly in the range `-1000..1000` Ncm
+- `<Ncm>` sets torque directly in the range `-800..800` Ncm
 - `d <samples>` sets active SVEC DLY in the range `0..127`; `0x636` and `0x639` report the value
 - `a <tenths-deg>` sets active `ANGLE_OFFSET` in tenths of a degree. It corrects only
   the reported `OU_Angle - IN_Angle` diagnostic and the optional SVEC guard; it does not rotate

@@ -1307,7 +1307,7 @@ BO_ 1540 CANCTR_TestIoCmd: 8 CAN_Master
 CM_ BO_ 1540 "Keyed static-output test command. Commands 1..4 stop live TIM6/DMA output and take test ownership; command 1 applies digital flags only, commands 2 and 3 update PA4 or PA5 respectively, and command 4 updates both raw 12-bit DAC codes. All commands 1..4 apply relay and logical LED flags; PC11 active-low polarity is handled by firmware. These relay flags deliberately bypass normal brake/torque interlocks but remain blocked during resolver calibration. Commands 1..4 must refresh the 1000 ms deadman; expiry or command 0 safely opens relays, releases LEDs and DACs, and restores CANCTR. Test_Key must be 0xA5 and Test_Checksum is CRC-8/poly-0x07 over ID low, ID high, and bytes0..6.";
 
 BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
- SG_ Torque_Demand : 0|12@1- (1,0) [-2048|2047] "Ncm" STM32G474_HRR
+ SG_ Torque_Demand : 0|12@1- (1,0) [-800|800] "Ncm" STM32G474_HRR
  SG_ Torque_Demand_Complement : 16|12@1+ (1,0) [0|4095] "raw12" STM32G474_HRR
  SG_ REL_Cmd : 32|1@1+ (1,0) [0|1] "" STM32G474_HRR
  SG_ RELE_Cmd : 33|1@1+ (1,0) [0|1] "" STM32G474_HRR
@@ -1317,8 +1317,8 @@ BO_ 352 CANCTR_TorqueCmd: 7 CAN_Master
  SG_ OP_OutTq_Limited : 37|1@1+ (1,0) [0|1] "" STM32G474_HRR
  SG_ Torque_Counter : 40|4@1+ (1,0) [0|15] "" STM32G474_HRR
  SG_ Torque_Checksum : 48|8@1+ (1,0) [0|255] "" STM32G474_HRR
-CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. CANCTR maps +/-1000 Ncm to a full -/+13.5-degree applied rotation span about persistent SVEC_ZERO_OFFSET. The effective rotation can reach +/-27.0 degrees. Missing or stale commands activate the 250 ms torque interlock, reset SVEC delta, and open REL/RELE.";
-CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR applies inverse-sign scaling: +1000 Ncm produces -13.5 degrees of applied SVEC rotation relative to SVEC_ZERO_OFFSET.";
+CM_ BO_ 352 "Desired EPS output torque command. Assigned to 0x160 because it was absent from the supplied LS600h Radar bus capture. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm demand, Torque_Demand_Complement is the 12-bit ones-complement in bytes2..3, byte4 carries relay commands plus host limiter bits, Torque_Counter is byte5 bits0..3, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. CANCTR maps +/-800 Ncm to a full -/+13.5-degree applied rotation span about persistent SVEC_ZERO_OFFSET. The effective rotation can reach +/-27.0 degrees. Missing or stale commands activate the 250 ms torque interlock, reset SVEC delta, and open REL/RELE.";
+CM_ SG_ 352 Torque_Demand "Signed desired EPS output torque demand in Ncm. HRR CANCTR applies inverse-sign scaling: +800 Ncm produces -13.5 degrees of applied SVEC rotation relative to SVEC_ZERO_OFFSET.";
 CM_ SG_ 352 Torque_Demand_Complement "12-bit ones-complement redundancy for Torque_Demand, encoded as Torque_Demand raw12 XOR 0x0FFF.";
 CM_ SG_ 352 Torque_Counter "4-bit rolling counter carried in byte5 bits0..3.";
 CM_ SG_ 352 Torque_Checksum "8-bit CRC over id_lo, id_hi, and bytes0..5 using polynomial 0x07 and init 0x00.";
@@ -1343,10 +1343,10 @@ CM_ SG_ 1585 RC_Plus "Digital input PB1 / RC+.";
 
 BO_ 1586 HRR_AngleStatus: 8 STM32G474_HRR
  SG_ SVEC_Delta : 0|16@1- (0.1,0) [-40|40] "deg" CAN_Master
- SG_ Emulated_Torque : 16|16@1- (1,0) [-2000|2000] "Ncm" CAN_Master
+ SG_ Emulated_Torque : 16|16@1- (1,0) [-1600|1600] "Ncm" CAN_Master
  SG_ OU_Angle : 32|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
  SG_ IN_Angle : 48|16@1+ (0.1,0) [0|179.9] "deg" CAN_Master
-CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the effective resolver-vector rotation after SVEC_ZERO_OFFSET, reported in the CANCTR torque-command sign convention opposite its applied rotation. Emulated_Torque is the raw-rotation equivalent using 1000 Ncm per 13.5 degrees and can reach +/-2000 Ncm; requested torque remains limited to +/-1000 Ncm about the calibrated zero. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
+CM_ BO_ 1586 "HRR control summary. SVEC_Delta is the effective resolver-vector rotation after SVEC_ZERO_OFFSET, reported in the CANCTR torque-command sign convention opposite its applied rotation. Emulated_Torque is the raw-rotation equivalent using 800 Ncm per 13.5 degrees and can reach +/-1600 Ncm; requested torque remains limited to +/-800 Ncm about the calibrated zero. OU_Angle is measured from OUSN/OUCS and IN_Angle from INSN/INCS; consult HRR_StateStatus validity bits before using either angle.";
 
 BO_ 1587 CANCTR_VoltageStatus: 8 STM32G474_HRR
  SG_ INSN : 0|16@1- (0.001,0) [-32.768|32.767] "V" CAN_Master

@@ -193,7 +193,7 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
 
   TX_MSGS = HRR_TX_MSGS
   RELAY_MALFUNCTION_ADDRS = {0: (0x2E4,)}
-  MAX_HRR_TORQUE = 1000
+  MAX_HRR_TORQUE = 800
 
   def setUp(self):
     self.packer = CANPackerPanda("toyota_new_mc_pt_generated")

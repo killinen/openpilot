@@ -13,6 +13,7 @@ HRR_LIMIT_FLAG_STEER_MAX = 0x04
 HRR_LIMIT_FLAG_OUT_TQ_LIMITED = 0x08
 HRR_RELAY_ENABLED = 1
 HRR_RELAYE_ENABLED = 1
+HRR_MAX_TORQUE_NCM = 800  # 8 Nm
 
 
 def create_steer_command(packer, steer, steer_req):
@@ -53,7 +54,7 @@ def create_lta_steer_command_2(packer, frame):
 
 
 def clamp_hrr_torque_demand(command_tq: int) -> int:
-  return max(-2048, min(2047, command_tq))
+  return max(-HRR_MAX_TORQUE_NCM, min(HRR_MAX_TORQUE_NCM, command_tq))
 
 
 def compute_hrr_crc8(addr: int, payload_without_checksum: bytes) -> int:

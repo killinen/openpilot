@@ -6,6 +6,7 @@ from panda import Panda
 from opendbc.can.packer import CANPacker
 from opendbc.can.parser import CANParser
 from opendbc.can.tests.test_packer_parser import can_list_to_can_capnp
+from openpilot.selfdrive.car.toyota import toyotacan
 from openpilot.selfdrive.car.toyota.carcontroller import CarController
 from openpilot.selfdrive.car.toyota.carstate import (LS600H_HRR_STATUS_MAX_AGE_FRAMES, LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES,
                                                       LS600H_HRR_WRAP_HOLD_MAX_FRAMES, ls600h_hrr_ecu_overtemperature,
@@ -139,3 +140,8 @@ def test_ls600h_controller_sends_hrr_torque():
   torque_raw = payload[0] | ((payload[1] & 0xF) << 8)
   assert torque_raw == 6  # first active command is limited by TOYOTA_HRR_DELTA_UP
   assert actuators.steerOutputCan == 6
+
+
+def test_ls600h_hrr_torque_command_clamps_to_scaled_range():
+  assert toyotacan.clamp_hrr_torque_demand(801) == 800
+  assert toyotacan.clamp_hrr_torque_demand(-801) == -800
