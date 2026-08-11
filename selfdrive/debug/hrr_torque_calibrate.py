@@ -158,7 +158,7 @@ class LoadedValidation:
   @property
   def loaded_noise(self) -> float:
     loaded = self.loaded_points
-    return math.sqrt(statistics.mean(point.robust_std ** 2 for point in loaded))
+    return math.sqrt(statistics.mean(point.std ** 2 for point in loaded))
 
   @property
   def loaded_score(self) -> float:
@@ -214,6 +214,13 @@ def dly_sweep_groups(center: int, low: int, high: int) -> tuple[list[int], list[
   return center_group, low_group, high_group
 
 
+def profile_finalist_score(point: Measurement, zero_tolerance: float, noise_weight: float) -> float:
+  # Once the zero fit is inside tolerance, DLY selection should be driven by waveform noise,
+  # not by sub-tolerance short-window bias that the long finalist re-fit will correct.
+  residual_bias = max(0.0, abs(point.mean) - zero_tolerance)
+  return math.hypot(residual_bias, noise_weight * point.std)
+
+
 def fit_zero_root(points: list[Measurement], low: int, high: int) -> int:
   if len(points) < 2:
     return max(low, min(high, points[0].zero_offset if points else 0))
@@ -244,7 +251,8 @@ def summarize_samples(phase: str, dly: int, zero_offset: int, command_torque: in
   std = statistics.pstdev(trimmed)
   mad = statistics.median(abs(value - median) for value in trimmed)
   robust_std = 1.4826 * mad
-  score = math.hypot(mean, noise_weight * robust_std)
+  # The outer 10% has already been trimmed. Use continuous std for ranking; MAD remains diagnostic.
+  score = math.hypot(mean, noise_weight * std)
   return Measurement(phase, dly, zero_offset, command_torque, len(trimmed), mean, median, std,
                      robust_std, max(abs(value) for value in values), score)
 
@@ -572,10 +580,8 @@ def print_native_comparison(before: Measurement, after: Measurement, winner: Cal
   print(f"  after:  std={after.std:.2f} robust_std={after.robust_std:.2f} Ncm")
   print(f"  ref:    std={native_std:.2f} robust_std={native_robust:.2f} Ncm")
   print(f"  best HRR DLY={best.dly}: std={best.std:.2f} robust_std={best.robust_std:.2f} Ncm")
-  if native_robust > 0.0:
-    print(f"  HRR/native robust-noise ratio: {best.robust_std / native_robust:.2f}x")
-  elif native_std > 0.0:
-    print(f"  HRR/native std-noise ratio: {best.std / native_std:.2f}x (native robust_std quantized to zero)")
+  if native_std > 0.0:
+    print(f"  HRR/native std-noise ratio: {best.std / native_std:.2f}x")
   else:
     print("  HRR/native noise ratio: unavailable because the native reference measured zero spread.")
   drift = abs(after.mean - before.mean)
@@ -603,7 +609,7 @@ def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
     evaluate(offset)
   previous_count = -1
   for _ in range(args.zero_iterations):
-    best_bias = min(measurements.values(), key=lambda point: (abs(point.mean), point.robust_std, point.std))
+    best_bias = min(measurements.values(), key=lambda point: (abs(point.mean), point.std, point.robust_std))
     if abs(best_bias.mean) <= args.zero_mean_tolerance:
       break
     root = fit_zero_root(list(measurements.values()), low, high)
@@ -620,7 +626,7 @@ def calibrate_zero(session: CalibrationSession, dly: int, seed: int, args,
           evaluate(estimate - 1)
           evaluate(estimate + 1)
     previous_count = len(measurements)
-  best = min(measurements.values(), key=lambda point: (point.score, abs(point.mean), point.std))
+  best = min(measurements.values(), key=lambda point: (point.score, abs(point.mean), point.std, point.robust_std))
   if abs(best.mean) > args.zero_mean_tolerance:
     print(f"  NOTE: zero fit residual {best.mean:+.2f} Ncm exceeds "
           + f"{args.zero_mean_tolerance:.1f} Ncm tolerance after {args.zero_iterations} iterations")
@@ -638,7 +644,7 @@ def fine_refit_zero(session: CalibrationSession, finalist: Measurement, args) ->
   for offset in offsets:
     measurements.append(session.measure("validation_refit", finalist.dly, offset, 0,
                                         args.settle_time, args.validation_time, args.noise_weight))
-  best = min(measurements, key=lambda point: (abs(point.mean), point.robust_std, point.std))
+  best = min(measurements, key=lambda point: (abs(point.mean), point.std, point.robust_std))
   session.transition_pair(best.dly, best.zero_offset)
   print(f"  refined finalist: {best.format()}")
   return best, measurements
@@ -651,30 +657,28 @@ def validate_loaded(session: CalibrationSession, zero: Measurement, args) -> tup
   measurements = []
   print(f"\nCounterbalanced loaded validation for DLY={zero.dly}, zero={zero.zero_offset:+d}, T={torque} Ncm:")
   print("  Each loaded response is referenced to the average of its neighboring zero-command measurements.")
-  for index, command_torque in enumerate(sequence):
+  for command_torque in sequence:
     phase = "loaded_zero" if command_torque == 0 else ("loaded_positive" if command_torque > 0 else "loaded_negative")
-    point = session.measure(phase, zero.dly, zero.zero_offset, command_torque,
-                            args.settle_time, args.load_sample_time, args.noise_weight)
-    measurements.append(point)
-    if 0 < index < len(sequence) - 1 and command_torque != 0:
-      pass
+    measurements.append(session.measure(phase, zero.dly, zero.zero_offset, command_torque,
+                                        args.settle_time, args.load_sample_time, args.noise_weight))
   loaded = LoadedValidation(zero, tuple(measurements), torque, args.noise_weight)
   print(f"  local response: +T={loaded.positive_mean:+.2f} -T={loaded.negative_mean:+.2f} "
         + f"gain={loaded.response_gain:+.4f} driver/cmd even_error={loaded.even_error:+.2f} "
         + f"asymmetry={loaded.asymmetry_percent:.1f}% repeat={loaded.repeatability:.2f}")
   print(f"  zero baseline: initial_shift={loaded.initial_zero_shift:+.2f} Ncm "
         + f"return_rms={loaded.return_rms:.2f} span={loaded.zero_span:.2f} Ncm; "
-        + f"loaded_noise={loaded.loaded_noise:.2f}")
+        + f"loaded_noise(std)={loaded.loaded_noise:.2f}")
   return loaded, measurements
 
 
-def print_profile_summary(best_by_dly: list[Measurement]) -> None:
+def print_profile_summary(best_by_dly: list[Measurement], args) -> None:
   print("\nProfile summary (each DLY with its independently fitted zero):")
-  print(" DLY zero |    mean  median    std robust |  score")
-  print(" --- ---- | ------- ------- ------ ------ | ------")
+  print(" DLY zero |    mean  median    std robust |  score  DLYscore")
+  print(" --- ---- | ------- ------- ------ ------ | ------ --------")
   for point in sorted(best_by_dly, key=lambda item: item.dly):
+    dly_score = profile_finalist_score(point, args.zero_mean_tolerance, args.noise_weight)
     print(f" {point.dly:3d} {point.zero_offset:+4d} | {point.mean:+7.2f} {point.median:+7.2f} "
-          + f"{point.std:6.2f} {point.robust_std:6.2f} | {point.score:6.2f}")
+          + f"{point.std:6.2f} {point.robust_std:6.2f} | {point.score:6.2f} {dly_score:8.2f}")
 
 
 def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
@@ -694,7 +698,7 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
     loaded = result.loaded
     assert loaded is not None
     print(f" {rank:2d} {result.zero.dly:3d} {result.zero.zero_offset:+4d} | "
-          + f"{result.zero.mean:+9.2f} {result.zero.robust_std:7.2f} | "
+          + f"{result.zero.mean:+9.2f} {result.zero.std:7.2f} | "
           + f"{loaded.positive_mean:+6.1f} {loaded.negative_mean:+6.1f} {loaded.response_gain:+6.3f} | "
           + f"{loaded.even_error:+5.1f} {loaded.asymmetry_percent:6.1f} {loaded.return_rms:4.1f} "
           + f"{loaded.zero_span:5.1f} {loaded.repeatability:6.1f} {loaded.loaded_noise:5.1f} "
@@ -706,7 +710,8 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   print("\nRecommendation diagnostics:")
   print(f"  Selected DLY={winner.zero.dly}, SVEC_ZERO_OFFSET={winner.zero.zero_offset:+d} "
         + f"({winner.zero.zero_offset / 10:+.1f}deg).")
-  print(f"  Refined zero: {winner.zero.mean:+.2f} Ncm mean, {winner.zero.robust_std:.2f} Ncm robust std.")
+  print(f"  Refined zero: {winner.zero.mean:+.2f} Ncm mean, std={winner.zero.std:.2f} Ncm, "
+        + f"robust_std={winner.zero.robust_std:.2f} Ncm.")
   print(f"  Local loaded response: {loaded.odd_response:+.2f} Ncm at +/-{loaded.validation_torque} Ncm command, "
         + f"gain {loaded.response_gain:+.4f}.")
   print(f"  Response consistency: finalist median={response_reference:.2f} Ncm, "
@@ -716,7 +721,7 @@ def print_ranking(results: list[CalibrationResult], original: ConfigStatus,
   print(f"  Baseline stability: first loaded zero shift={loaded.initial_zero_shift:+.2f} Ncm, "
         + f"zero RMS={loaded.return_rms:.2f} Ncm, span={loaded.zero_span:.2f} Ncm.")
   print(f"  Repeatability/noise: {loaded.repeatability:.2f} Ncm local-response range, "
-        + f"{loaded.loaded_noise:.2f} Ncm loaded noise.")
+        + f"{loaded.loaded_noise:.2f} Ncm loaded std noise.")
   cautions = loaded.cautions()
   if response_reference >= 10.0 and abs(loaded.odd_response) < response_reference * 0.5:
     cautions.append("loaded response is less than half the finalist median")
@@ -792,10 +797,17 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
     profile_by_dly[dly] = best
     print(f"  best for DLY {dly}: {best.format()}")
     index += 1
-  print_profile_summary(best_by_dly)
+  print_profile_summary(best_by_dly, args)
 
-  finalists = sorted(best_by_dly, key=lambda point: point.score)[:min(args.finalists, len(best_by_dly))]
+  finalists = sorted(best_by_dly,
+                     key=lambda point: (profile_finalist_score(point, args.zero_mean_tolerance, args.noise_weight),
+                                        point.std, abs(point.mean), point.robust_std,
+                                        abs(point.dly - dly_start)))[:min(args.finalists, len(best_by_dly))]
   print("\nLong-window +/-1 ZERO re-fit of the best profiled DLY values:")
+  for finalist in finalists:
+    dly_score = profile_finalist_score(finalist, args.zero_mean_tolerance, args.noise_weight)
+    print(f"  finalist DLY={finalist.dly}: trimmed std={finalist.std:.2f}, mean={finalist.mean:+.2f}, "
+          + f"DLYscore={dly_score:.2f}, robust_std={finalist.robust_std:.2f}")
   validated: list[Measurement] = []
   for finalist in finalists:
     walk_profile_path(session, finalist.dly, profile_by_dly)
@@ -816,7 +828,7 @@ def run_calibration(session: CalibrationSession, original: ConfigStatus, dly_sta
       results.append(CalibrationResult(point, loaded))
   response_reference = loaded_response_reference(results)
   results.sort(key=lambda result: (result.selection_score(response_reference), abs(result.zero.mean),
-                                    abs(result.zero.dly - dly_start)))
+                                    result.zero.std, abs(result.zero.dly - dly_start)))
   print_ranking(results, original, dly_low, dly_high, args.zero_limit)
   winner = results[0]
 
@@ -849,6 +861,11 @@ def run_self_test() -> None:
   samples = [TorqueSample(float(index), value, -value) for index, value in enumerate([8, 9, 10, 10, 11, 12, 100])]
   summary = summarize_samples("test", 20, -3, 0, samples, 1.0)
   assert summary.samples == 7 and summary.median == 10 and summary.maximum_abs == 100
+  assert math.isclose(summary.score, math.hypot(summary.mean, summary.std))
+
+  quiet = Measurement("test", 4, 2, 0, 100, 2.0, 2.0, 2.0, 2.97, 50, math.hypot(2.0, 2.0))
+  noisy = Measurement("test", 8, 26, 0, 100, 0.5, 0.5, 2.5, 1.48, 50, math.hypot(0.5, 2.5))
+  assert profile_finalist_score(quiet, 3.0, 1.0) < profile_finalist_score(noisy, 3.0, 1.0)
 
   def point(command: int, mean: float) -> Measurement:
     return Measurement("load", 20, -3, command, 100, mean, mean, 2.0, 2.0, 50, 2.0)
@@ -860,6 +877,7 @@ def run_self_test() -> None:
   assert loaded.odd_response == 50.0 and loaded.response_gain == 0.5
   assert loaded.even_error == 0.0 and loaded.asymmetry_percent == 0.0
   assert loaded.repeatability == 0.0 and loaded.initial_zero_shift == 0.0
+  assert loaded.loaded_noise == 2.0
   status = ConfigStatus.decode(struct.pack("<BhhBBB", 27, -3, 40, 0x06, 9, 12))
   assert status.dly == 27 and status.zero_offset == -3 and status.applied and status.save_succeeded
   print("HRR torque-calibration self-test passed.")
@@ -893,8 +911,9 @@ def main() -> None:
                       help="pause between individual DLY/ZERO/torque transition steps")
   parser.add_argument("--torque-ramp-step", type=int, default=10,
                       help="maximum requested-torque change per transition step in Ncm")
-  parser.add_argument("--finalists", type=int, default=3, help="number of best pairs to revalidate")
-  parser.add_argument("--noise-weight", type=float, default=1.0, help="robust std weight in the RMS-like score")
+  parser.add_argument("--finalists", type=int, default=3, help="number of best DLY values to revalidate")
+  parser.add_argument("--noise-weight", type=float, default=1.0,
+                      help="trimmed standard-deviation weight in zero/DLY/load scoring")
   parser.add_argument("--max-driver-torque", type=int, default=600,
                       help="abort threshold for absolute Driver_Torque in Ncm")
   parser.add_argument("--rate-hz", type=float, default=hrr.DEFAULT_RATE_HZ, help="brake/torque stream rate")
@@ -926,6 +945,7 @@ def main() -> None:
   except RuntimeError as error:
     print(f"ERROR: {error}", file=sys.stderr)
     raise SystemExit(1) from error
+
   from panda import Panda
   panda = Panda()
   panda.set_power_save(False)
@@ -967,6 +987,7 @@ def main() -> None:
       raise RuntimeError(f"validation torque must be within 0..{hrr.MAX_TORQUE_NCM} Ncm")
     if args.validation_torque == 0:
       print("NOTE: loaded validation disabled; final recommendation will be zero-load only.")
+
     winner, _ = run_calibration(session, original, args.dly_start, args.dly_offset, args)
     print("\nRecommended coupled calibration:")
     print(f"  {winner.zero.format()}")
