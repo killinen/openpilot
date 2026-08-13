@@ -32,7 +32,8 @@ const int TOYOTA_LTA_MAX_MEAS_TORQUE = 1500;
 const int TOYOTA_LTA_MAX_DRIVER_TORQUE = 150;
 const int TOYOTA_HRR_MAX_TORQUE_NCM = 800;  // 8 Nm
 
-#define TOYOTA_HRR_BRAKE_ID 0x2C6
+#define TOYOTA_HRR_BRAKE_ID 0x320
+#define TOYOTA_HRR_BRAKE_INTERLOCK_ID 0x2C6
 #define TOYOTA_HRR_EPS_TORQUE_ID 0x260
 #define TOYOTA_HRR_CRUISE_ID 0x124
 #define TOYOTA_HRR_GAS_ID 0x126
@@ -157,7 +158,7 @@ RxCheck toyota_hrr_rx_checks[] = {
   {.msg = {{0x260, 0, 8, .check_checksum = true, .quality_flag = false, .frequency = 50U}, { 0 }, { 0 }}},
   {.msg = {{TOYOTA_HRR_CRUISE_ID, 1, 8, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
   {.msg = {{TOYOTA_HRR_GAS_ID, 1, 8, .check_checksum = false, .frequency = 10U}, { 0 }, { 0 }}},
-  {.msg = {{TOYOTA_HRR_BRAKE_ID, 1, 3, .check_checksum = false, .frequency = 5U}, { 0 }, { 0 }}},
+  {.msg = {{TOYOTA_HRR_BRAKE_ID, 0, 8, .check_checksum = false, .frequency = 20U}, { 0 }, { 0 }}},
 };
 
 // safety param flags
@@ -356,6 +357,10 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
       UPDATE_VEHICLE_SPEED(speed * 0.01 / 3.6);
     }
 
+    if (toyota_hrr && (addr == TOYOTA_HRR_BRAKE_ID)) {
+      brake_pressed = GET_BIT(to_push, 42U);  // VSC1S07.BRAKE_PRESSED
+    }
+
     // sample gas interceptor
     if ((addr == 0x201) && enable_gas_interceptor) {
       int gas_interceptor = TOYOTA_GET_INTERCEPTOR(to_push);
@@ -381,10 +386,6 @@ static void toyota_rx_hook(const CANPacket_t *to_push) {
     if (addr == TOYOTA_HRR_GAS_ID) {
       gas_pressed = GET_BIT(to_push, 30U);  // LS600H_126.GAS_PEDAL_PRESSED
     }
-    if (addr == TOYOTA_HRR_BRAKE_ID) {
-      brake_pressed = GET_BIT(to_push, 1U);  // LS600H_2C6.BRAKE_PRESSED
-    }
-
     generic_rx_checks(false);
   }
 }
@@ -681,9 +682,9 @@ static int toyota_fwd_hook(int bus_num, int addr) {
     }
   }
 
-  // 0x2C6 is absent from the LS600h radar bus and carries the HRR brake state
-  // on bus 1. Preserve its ID, payload, and DLC when forwarding it to bus 2.
-  if (toyota_hrr && (bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)) {
+  // 0x2C6 is absent from the LS600h radar bus and remains the external HRR's
+  // legacy brake-interlock input. Preserve it when forwarding bus 1 to bus 2.
+  if (toyota_hrr && (bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_INTERLOCK_ID)) {
     bus_fwd = 2;
   }
 
@@ -696,7 +697,7 @@ static int toyota_fwd_disabled_hook(int bus_num, int addr) {
   // frame while the physical buses are isolated.
   return (toyota_hrr && (((bus_num == 0) && (addr == TOYOTA_HRR_EPS_TORQUE_ID)) ||
                          ((bus_num == 0) && (addr == 0x25)) ||
-                         ((bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_ID)))) ? 2 : -1;
+                         ((bus_num == 1) && (addr == TOYOTA_HRR_BRAKE_INTERLOCK_ID)))) ? 2 : -1;
 }
 
 const safety_hooks toyota_hooks = {

@@ -208,7 +208,7 @@ class CarState(CarStateBase):
     ret.leftBlinker = cp.vl["STEERING_LEVERS"]["TURN_SIGNALS"] == 1
     ret.rightBlinker = cp.vl["STEERING_LEVERS"]["TURN_SIGNALS"] == 2
 
-    ret.brakePressed = cp_body.vl["LS600H_2C6"]["BRAKE_PRESSED"] != 0
+    ret.brakePressed = cp.vl["VSC1S07"]["BRAKE_PRESSED"] != 0
     ret.gasPressed = cp_body.vl["LS600H_126"]["GAS_PEDAL_PRESSED"] != 0
 
     body_state = cp_body.vl["BODY_CONTROL_STATE"]
@@ -508,7 +508,6 @@ class CarState(CarStateBase):
         ("LS600H_0B2", 10),
         ("LS600H_124", 5),
         ("LS600H_126", 10),
-        ("LS600H_2C6", 5),
         ("GEAR_PACKET", 0.1),
         ("BODY_CONTROL_STATE", 0.5),
       ]

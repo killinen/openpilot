@@ -225,9 +225,9 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
 
   @staticmethod
   def _user_brake_msg(brake):
-    dat = bytearray(3)
-    dat[0] = int(bool(brake)) << 1
-    return libpanda_py.make_CANPacket(0x2C6, 1, dat)
+    dat = bytearray(8)
+    dat[5] = int(bool(brake)) << 2
+    return libpanda_py.make_CANPacket(0x320, 0, dat)
 
   def test_rx_hook(self):
     self.assertTrue(self._rx(self._speed_msg(0)))
@@ -251,6 +251,12 @@ class TestToyotaSafetyHrr(TestToyotaSafetyBase):
     self.assertTrue(self._rx(self._user_brake_msg(True)))
     self.assertTrue(self.safety.get_brake_pressed_prev())
     self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_legacy_hrr_interlock_does_not_set_panda_brake(self):
+    dat = bytearray(3)
+    dat[0] = 1 << 1
+    self.assertTrue(self._rx(libpanda_py.make_CANPacket(0x2C6, 1, dat)))
+    self.assertFalse(self.safety.get_brake_pressed_prev())
 
   def test_hrr_rx_checks(self):
     self.assertFalse(self.safety.safety_config_valid())
