@@ -5036,6 +5036,11 @@ Developer - Highly customizable settings for seasoned swamp pros</translation>
         <source>openpilot detected a change in the device's mounting position. Ensure the device is fully seated in the mount and the mount is firmly secured to the windshield.</source>
         <translation type="gpt-5-generated">Ribbit! openpilot sensed the device’s perch has shifted. Make sure the device sits snug in the mount, and the mount clings firm to the windshield—croak!</translation>
     </message>
+    <message>
+        <source>TRQI firmware update
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OffroadHome</name>
@@ -5645,6 +5650,46 @@ This may take up to a minute, croak.</translation>
         <source>This is a complete factory reset and cannot be undone. Are you absolutely sure you want to continue?</source>
         <translation type="gpt-5-generated">Ribbit! This be a full factory reset and can’t be undone. Are you absolutely sure you want to hop on and continue? Croak!</translation>
     </message>
+    <message>
+        <source>Automatically Update TRQI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>While offroad, download production-signed TRQI releases. Installation runs at the next ignition while openpilot remains pre-ONROAD.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TRQI Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download and authenticate both firmware slots now. No CAN command is sent until the next ignition startup hold.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TRQI Update Status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CHECKING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>INSTALLING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>READY</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TEST KEY — NOT PRODUCTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PRODUCTION SIGNATURE</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SshControl</name>
@@ -5943,6 +5988,38 @@ This may take up to a minute, croak.</translation>
     </message>
     <message>
         <source>Save and upload wide road camera footage. Disable this to prevent ecamera.hevc files from being stored.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrqiUpdateWidget</name>
+    <message>
+        <source>Updating TRQI Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep ignition on. openpilot will start automatically when the update is safely confirmed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TEST KEY — NOT PRODUCTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PRODUCTION SIGNATURE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>STAGE  •  %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preparing the firmware update…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Active slot %1  →  target slot %2  •  %3
+Retries %4  •  timeouts %5</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

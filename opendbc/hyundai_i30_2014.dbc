@@ -743,6 +743,30 @@ BO_ 582 TRQI_SafetyStatus: 8 STM32G474_TRQI
  SG_ SafetyStatus_Counter : 48|8@1+ (1,0) [0|255] "" CAN_Host
  SG_ SafetyStatus_Checksum : 56|8@1+ (1,0) [0|255] "" CAN_Host
 
+BO_ 1593 TRQI_FirmwareInfo: 8 STM32G474_TRQI
+ SG_ Update_Protocol_Version : 0|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ TRQI_Product_ID : 8|32@1+ (1,0) [0|4294967295] "" CAN_Host
+ SG_ Firmware_Major : 40|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ Firmware_Minor : 48|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ Firmware_Patch : 56|8@1+ (1,0) [0|255] "" CAN_Host
+
+BO_ 1594 TRQI_UpdateInfo: 8 STM32G474_TRQI
+ SG_ Bootloader_Major : 0|8@1+ (1,0) [0|255] "" CAN_Host
+ SG_ Active_Slot : 8|8@1+ (1,0) [0|2] "" CAN_Host
+ SG_ Trial_State : 16|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Confirmed_State : 17|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Update_Supported_Flag : 18|1@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Update_Supported : 24|8@1+ (1,0) [0|1] "" CAN_Host
+ SG_ Firmware_Build_Identity : 32|32@1+ (1,0) [0|4294967295] "" CAN_Host
+
+BO_ 1595 TRQI_UpdateCompatibility: 8 STM32G474_TRQI
+ SG_ Bootloader_Version : 0|32@1+ (1,0) [0|4294967295] "" CAN_Host
+ SG_ Security_Version : 32|32@1+ (1,0) [0|4294967295] "" CAN_Host
+
+BO_ 1596 TRQI_BootDiagnostic: 8 STM32G474_TRQI
+ SG_ Last_Boot_Error : 0|32@1+ (1,0) [0|4294967295] "" CAN_Host
+ SG_ Reset_Flags : 32|32@1+ (1,0) [0|4294967295] "" CAN_Host
+
 CM_ BO_ 560 "Absolute DAC, shared midpoint, and relay command. DAC1_Code and DAC2_Code are raw 12-bit DAC codes. Midpoint_InputVoltage is the external input voltage before halving for the DAC center; SaveToNVM stores that midpoint to flash.";
 CM_ BO_ 561 "Differential DAC command matching terminal SET/DAC behavior. DAC_Delta and DAC_Delta_Redundant are signed little-endian and must match, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Delta_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 after the first valid frame, and Delta_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00.";
 CM_ BO_ 562 "Desired EPS output torque command. Torque_Demand uses the low 12 bits of bytes0..1 as a signed Ncm output-torque demand, Torque_Demand_Complement carries the 12-bit ones-complement of that raw field in bytes2..3, byte4 carries relay commands plus openpilot limit-hit bits including OP_OutTq, Torque_Counter is a 4-bit rolling counter in byte5 bits0..3 that is sequence-checked modulo 16 across accepted 0x232 frames, and Torque_Checksum is CRC-8 over id_lo, id_hi, and bytes0..5 with polynomial 0x07 and init 0x00. The receiver requires recent forwarded 0x1F1 wheel speed, maps desired output torque to required MDPS input torque with a speed-binned drive-log map, then applies the torque-to-DAC calibration. It rejects stale speed, implausible torque jumps, and large sign flips away from zero; demands above +-1000 Ncm are clipped to +-1000 Ncm and reported with Output_Range_Error.";
@@ -753,6 +777,10 @@ CM_ BO_ 579 "SNR1/SNR2/EPS1/EPS2 input voltages after divider scaling, sent as p
 CM_ BO_ 580 "Latest accepted 0x232 torque-map calculation for debugging. Reports the vehicle speed used, limited EPS output-torque demand, mapped MDPS input torque, speed-bin interpolation indexes, torque-axis point index, and map coverage/extrapolation flags. The frame has no checksum or counter; MapDebug_Valid is cleared outside active torque-map control.";
 CM_ BO_ 581 "Slow MCU status. Reports the STM32 internal temperature sensor at 0.1 degC/LSB, the raw temperature ADC code, high-temperature error state, high-temperature non-immediate disengage pending state, ADC/VDDA/reset diagnostics, max main-loop interval since the previous successful 0x245 transmit, McuStatus_Counter, and McuStatus_Checksum. Firmware samples and transmits this frame at 1 Hz.";
 CM_ BO_ 582 "Safety interlock status. Reports decoded redundant brake signals from EMS_DCT2 0x081 and EMS2 0x329, brake signal freshness/mismatch, the firmware backup brake-disengage pending/forced state, brake signal ages, pending elapsed time, configured brake override delay, SafetyStatus_Counter, and SafetyStatus_Checksum.";
+CM_ BO_ 1593 "Application firmware identity and CAN-update protocol support, transmitted at 10 Hz.";
+CM_ BO_ 1594 "Application boot context and build identity, transmitted at 10 Hz. Active slot values: 1=A, 2=B.";
+CM_ BO_ 1595 "Full bootloader compatibility and independent security/rollback version, transmitted at 10 Hz.";
+CM_ BO_ 1596 "Last durable boot outcome and raw STM32 RCC reset flags captured by the bootloader, transmitted at 1 Hz.";
 
 CM_ SG_ 560 DAC1_Code "Raw 12-bit DAC code 0..4095. DAC1 is the project DAC1 label mapped to PA5 / DAC_CHANNEL_2; about 2048 is midscale in the 0..5 V domain.";
 CM_ SG_ 560 DAC2_Code "Raw 12-bit DAC code 0..4095. DAC2 is the project DAC2 label mapped to PA4 / DAC_CHANNEL_1; about 2048 is midscale in the 0..5 V domain.";
@@ -890,6 +918,10 @@ BA_ "GenMsgCycleTime" BO_ 579 100;
 BA_ "GenMsgCycleTime" BO_ 580 100;
 BA_ "GenMsgCycleTime" BO_ 581 1000;
 BA_ "GenMsgCycleTime" BO_ 582 100;
+BA_ "GenMsgCycleTime" BO_ 1593 100;
+BA_ "GenMsgCycleTime" BO_ 1594 100;
+BA_ "GenMsgCycleTime" BO_ 1595 100;
+BA_ "GenMsgCycleTime" BO_ 1596 1000;
 
 VAL_ 560 REL_Cmd 0 "OFF" 1 "ON";
 VAL_ 560 RELE_Cmd 0 "OFF" 1 "ON";
@@ -904,6 +936,7 @@ VAL_ 576 SNR_Passthrough_Pending 0 "OFF" 1 "ON";
 VAL_ 581 MCU_Reset_Cause 0 "UNKNOWN" 1 "PIN" 2 "BOR" 3 "IWDG" 4 "WWDG" 5 "SOFTWARE" 6 "LOW_POWER" 7 "OTHER";
 VAL_ 582 Brake_DCT2_Act 0 "NOT_ACTIVE" 1 "RESERVED1" 2 "ACTIVE" 3 "RESERVED3";
 VAL_ 582 Brake_EMS2_Act 0 "NOT_ACTIVE" 1 "RESERVED1" 2 "ACTIVE" 3 "RESERVED3";
+VAL_ 1594 Active_Slot 0 "UNKNOWN" 1 "A" 2 "B";
 VAL_ 577 REL_State 0 "OFF" 1 "ON";
 VAL_ 577 RELE_State 0 "OFF" 1 "ON";
 VAL_ 577 RC_Minus 0 "LOW" 1 "HIGH";

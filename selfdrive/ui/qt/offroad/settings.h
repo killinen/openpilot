@@ -7,6 +7,7 @@
 #include <QFrame>
 #include <QLabel>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QStackedWidget>
 #include <QWidget>
 
@@ -117,6 +118,9 @@ private:
   LabelControl *versionLbl;
   ButtonControl *installBtn;
   ButtonControl *downloadBtn;
+  ButtonControl *trqiFirmwareBtn;
+  LabelControl *trqiStatusLabel;
+  QProgressBar *trqiProgressBar;
   ButtonControl *targetBranchBtn;
 
   Params params;

@@ -273,7 +273,8 @@ void can_recv_thread(std::vector<Panda *> pandas) {
   }
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override,
+                                      Params &params) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -336,6 +337,21 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     pandaStates.push_back(health);
   }
 
+  const bool trqi_update_requested = params.getBool("TrqiUpdaterRequested");
+  const bool trqi_update_in_progress = params.getBool("TrqiUpdateInProgress");
+  const bool trqi_startup_hold = params.getBool("TrqiUpdateStartupHold");
+  // Physical ignition may be on while hardwared intentionally keeps the
+  // driving stack OFFROAD. This is the only ignition-on state where a new
+  // updater lease can be granted.
+  const bool trqi_offroad_safe = !params.getBool("IsOnroad") && !params.getBool("IsEngaged");
+  const bool trqi_initial_lease_safe = trqi_offroad_safe && (!ignition_local || trqi_startup_hold);
+  // A persisted in-progress transaction may reacquire the narrow safety mode
+  // after manager restart, but never if openpilot is ONROAD or engaged.
+  const bool trqi_update_active = trqi_offroad_safe &&
+                                  (trqi_update_in_progress ||
+                                   (trqi_update_requested && trqi_initial_lease_safe));
+  bool trqi_update_ready = trqi_update_active;
+
   for (uint32_t i = 0; i < pandas_cnt; i++) {
     auto panda = pandas[i];
     const auto &health = pandaStates[i];
@@ -345,14 +361,24 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
-    bool power_save_desired = !ignition_local;
+    bool power_save_desired = !ignition_local && !trqi_update_active;
     if (health.power_save_enabled_pkt != power_save_desired) {
       panda->set_power_saving(power_save_desired);
     }
 
-    // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
-    if (!ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
-      panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
+    const bool is_trqi_panda = (i == 0U);
+    const auto desired_offroad_safety = (trqi_update_active && is_trqi_panda) ?
+      cereal::CarParams::SafetyModel::TRQI_UPDATER : cereal::CarParams::SafetyModel::NO_OUTPUT;
+    // Keep the narrow updater mode throughout an active transaction. Once the
+    // request disappears, explicitly leave it even if ignition is still on.
+    const bool force_offroad_safety = !ignition_local || trqi_update_active ||
+      (health.safety_mode_pkt == (uint8_t)cereal::CarParams::SafetyModel::TRQI_UPDATER);
+    if (force_offroad_safety && (health.safety_mode_pkt != (uint8_t)desired_offroad_safety)) {
+      panda->set_safety_model(desired_offroad_safety);
+    }
+    if (is_trqi_panda) {
+      trqi_update_ready &= !power_save_desired &&
+        (health.safety_mode_pkt == (uint8_t)cereal::CarParams::SafetyModel::TRQI_UPDATER);
     }
 
     if (!panda->comms_healthy()) {
@@ -431,6 +457,10 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
   }
 
+  if (params.getBool("TrqiUpdaterReady") != trqi_update_ready) {
+    params.putBool("TrqiUpdaterReady", trqi_update_ready);
+  }
+
   pm->send("pandaStates", msg);
   return ignition_local;
 }
@@ -495,7 +525,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       (ignition_override_value == static_cast<int>(IgnitionOverride::OFF)) ? IgnitionOverride::OFF :
       IgnitionOverride::AUTO;
 
-    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override);
+    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, params);
 
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");

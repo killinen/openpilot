@@ -5033,6 +5033,11 @@ Developer - こだわりのある上級者向けの高度にカスタマイズ�
         <source>Device temperature too high. System cooling down before starting. Current internal component temperature: %1</source>
         <translation type="gpt-5-generated">デバイスの温度が高すぎます。起動前にシステムを冷却しています。現在の内部コンポーネント温度: %1</translation>
     </message>
+    <message>
+        <source>TRQI firmware update
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>OffroadHome</name>
@@ -5639,6 +5644,46 @@ This may take up to a minute.</source>
         <source>This is a complete factory reset and cannot be undone. Are you absolutely sure you want to continue?</source>
         <translation type="gpt-5-generated">これは完全な工場出荷時リセットであり、元に戻すことはできません。本当に続行してもよろしいですか？</translation>
     </message>
+    <message>
+        <source>Automatically Update TRQI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>While offroad, download production-signed TRQI releases. Installation runs at the next ignition while openpilot remains pre-ONROAD.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TRQI Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download and authenticate both firmware slots now. No CAN command is sent until the next ignition startup hold.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TRQI Update Status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CHECKING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>INSTALLING</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>READY</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TEST KEY — NOT PRODUCTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PRODUCTION SIGNATURE</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SshControl</name>
@@ -5937,6 +5982,38 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Save and upload wide road camera footage. Disable this to prevent ecamera.hevc files from being stored.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TrqiUpdateWidget</name>
+    <message>
+        <source>Updating TRQI Firmware</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep ignition on. openpilot will start automatically when the update is safely confirmed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TEST KEY — NOT PRODUCTION</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PRODUCTION SIGNATURE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>STAGE  •  %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preparing the firmware update…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Active slot %1  →  target slot %2  •  %3
+Retries %4  •  timeouts %5</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

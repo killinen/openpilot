@@ -76,6 +76,10 @@ warn_return_any=true
 # allow implicit optionals for default args
 implicit_optional = true
 
+[[tool.mypy.overrides]]
+module = "tests.test_trqi_updater_core"
+disable_error_code = ["assignment", "method-assign"]
+
 
 [tool.poetry]
 name = "openpilot"

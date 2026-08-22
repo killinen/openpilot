@@ -18,6 +18,8 @@
 
 #include "frogpilot/ui/qt/widgets/developer_sidebar.h"
 
+class TrqiUpdateWidget;
+
 class OffroadHome : public QFrame {
   Q_OBJECT
 
@@ -31,12 +33,15 @@ private:
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
   void refresh();
+  void refreshTrqi();
 
   Params params;
 
   QTimer* timer;
+  QTimer* trqi_timer;
   ElidedLabel* version;
   QStackedLayout* center_layout;
+  TrqiUpdateWidget* trqi_update_widget;
   UpdateAlert *update_widget;
   OffroadAlert* alerts_widget;
   QPushButton* alert_notif;

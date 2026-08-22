@@ -17,6 +17,11 @@
     "severity": 1,
     "_comment": "Set extra field to the failed reason."
   },
+  "Offroad_TrqiFirmwareUpdate": {
+    "text": "TRQI firmware update\n%1",
+    "severity": 0,
+    "_comment": "Shows staged, preflight, installation, recovery, and failure status."
+  },
   "Offroad_IsTakingSnapshot": {
     "text": "Taking camera snapshots. System won't start until finished.",
     "severity": 0

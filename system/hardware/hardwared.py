@@ -50,6 +50,7 @@ THERMAL_BANDS = OrderedDict({
 
 # Override to highest thermal band when offroad and above this temp
 OFFROAD_DANGER_TEMP = 75
+TRQI_PREFLIGHT_HOLD_TIMEOUT = 20.0
 
 prev_offroad_states: dict[str, tuple[bool, str | None]] = {}
 
@@ -195,6 +196,8 @@ def hardware_thread(end_event, hw_queue) -> None:
   all_temp_filter = FirstOrderFilter(0., TEMP_TAU, DT_HW, initialized=False)
   offroad_temp_filter = FirstOrderFilter(0., TEMP_TAU, DT_HW, initialized=False)
   should_start_prev = False
+  ignition_prev = False
+  trqi_hold_started: float | None = None
   in_car = False
   engaged_prev = False
 
@@ -339,6 +342,57 @@ def hardware_thread(end_event, hw_queue) -> None:
           except Exception:
             pass
 
+    # Handle the ignition-on, pre-ONROAD TRQI update window. Physical ignition
+    # powers TRQI, while this hold deliberately leaves deviceState.started false
+    # so card/controlsd and all driving processes remain stopped.
+    ignition_active = onroad_conditions["ignition"]
+    trqi_pending = params.get_bool("TrqiUpdatePending")
+    trqi_in_progress = params.get_bool("TrqiUpdateInProgress")
+    trqi_startup_hold = params.get_bool("TrqiUpdateStartupHold")
+
+    if ignition_active and not ignition_prev and trqi_pending and not trqi_in_progress:
+      params.put_bool("TrqiUpdateStartupHold", True)
+      params.put("TrqiUpdateStatus", "Checking staged firmware against the ignition-powered TRQI…")
+      trqi_startup_hold = True
+      trqi_hold_started = time.monotonic()
+    elif not ignition_active and trqi_startup_hold and not trqi_in_progress:
+      params.put_bool("TrqiUpdateStartupHold", False)
+      trqi_startup_hold = False
+      trqi_hold_started = None
+
+    if trqi_startup_hold and not trqi_in_progress:
+      if trqi_hold_started is None:
+        trqi_hold_started = time.monotonic()
+      elif time.monotonic() - trqi_hold_started > TRQI_PREFLIGHT_HOLD_TIMEOUT:
+        params.put_bool("TrqiUpdateStartupHold", False)
+        params.put("TrqiUpdateStatus", "TRQI preflight timed out; firmware was not changed.")
+        trqi_startup_hold = False
+
+    if trqi_in_progress:
+      try:
+        trqi_deadline = int(params.get("TrqiUpdateDeadline", encoding="utf8") or "0")
+      except ValueError:
+        trqi_deadline = 0
+      if not trqi_deadline:
+        trqi_deadline = int(time.time()) + 600
+        params.put("TrqiUpdateDeadline", str(trqi_deadline))
+      if trqi_deadline and time.time() > trqi_deadline:
+        if params.get_bool("TrqiUpdateRecoverySafe"):
+          cloudlog.event("TRQI update deadline expired", error=True)
+          params.put_bool("TrqiUpdateInProgress", False)
+          params.put_bool("TrqiUpdateStartupHold", False)
+          params.put_bool("TrqiUpdaterRequested", False)
+          params.put_bool("TrqiUpdatePending", False)
+          params.put_bool("TrqiUpdateRecoverySafe", False)
+          params.remove("TrqiUpdateDeadline")
+          params.put("TrqiUpdateStatus", "Updater stopped responding; TRQI reverted to its confirmed firmware.")
+          trqi_in_progress = False
+          trqi_startup_hold = False
+        else:
+          # With no known confirmed application, allowing ONROAD is not a safe
+          # recovery action. The OFFROAD updater remains restartable.
+          params.put("TrqiUpdateStatus", "TRQI recovery requires a confirmed application; keeping openpilot OFFROAD.")
+
     # Handle offroad/onroad transition
     should_start = all(onroad_conditions.values())
     if started_ts is None:
@@ -347,6 +401,13 @@ def hardware_thread(end_event, hw_queue) -> None:
     # Handle force offroad/onroad
     should_start |= frogpilot_toggles.force_onroad
     should_start &= not frogpilot_toggles.force_offroad
+    should_start &= not (trqi_in_progress or trqi_startup_hold)
+
+    trqi_alert = trqi_in_progress or trqi_startup_hold or (trqi_pending and not ignition_active)
+    trqi_status = params.get("TrqiUpdateStatus", encoding="utf8")
+    if trqi_alert and not trqi_status:
+      trqi_status = "Signed firmware is downloaded and ready for the next ignition cycle."
+    set_offroad_alert_if_changed("Offroad_TrqiFirmwareUpdate", trqi_alert, extra_text=trqi_status)
 
     if should_start != should_start_prev or (count == 0):
       params.put_bool("IsEngaged", False)
@@ -463,6 +524,7 @@ def hardware_thread(end_event, hw_queue) -> None:
 
     count += 1
     should_start_prev = should_start
+    ignition_prev = ignition_active
 
     # Update FrogPilot variables
     if sm['frogpilotPlan'].togglesUpdated:

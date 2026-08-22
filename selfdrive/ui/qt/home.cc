@@ -1,7 +1,12 @@
 #include "selfdrive/ui/qt/home.h"
 
+#include <cmath>
+
 #include <QHBoxLayout>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMouseEvent>
+#include <QProgressBar>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
@@ -144,6 +149,116 @@ void HomeWindow::mouseDoubleClickEvent(QMouseEvent* e) {
 
 // OffroadHome: the offroad home page
 
+class TrqiUpdateWidget : public QFrame {
+  Q_DECLARE_TR_FUNCTIONS(TrqiUpdateWidget)
+
+public:
+  explicit TrqiUpdateWidget(QWidget *parent = nullptr) : QFrame(parent) {
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(70, 55, 70, 55);
+    layout->setSpacing(24);
+
+    QLabel *title = new QLabel(tr("Updating TRQI Firmware"));
+    title->setStyleSheet("font-size: 64px; font-weight: 600;");
+    layout->addWidget(title);
+
+    badge = new QLabel;
+    badge->setAlignment(Qt::AlignCenter);
+    badge->setFixedHeight(64);
+    layout->addWidget(badge, 0, Qt::AlignLeft);
+
+    stage = new QLabel;
+    stage->setStyleSheet("font-size: 42px; font-weight: 600; color: #A0A0A0;");
+    layout->addWidget(stage);
+
+    status = new QLabel;
+    status->setWordWrap(true);
+    status->setStyleSheet("font-size: 44px;");
+    layout->addWidget(status);
+
+    progress = new QProgressBar;
+    progress->setFixedHeight(72);
+    progress->setTextVisible(true);
+    progress->setStyleSheet(R"(
+      QProgressBar { border: 2px solid #555; border-radius: 22px; background: #202020;
+                     color: white; font-size: 32px; font-weight: 600; text-align: center; }
+      QProgressBar::chunk { border-radius: 19px; background-color: #2ECC71; }
+    )");
+    layout->addWidget(progress);
+
+    details = new QLabel;
+    details->setWordWrap(true);
+    details->setStyleSheet("font-size: 34px; color: #C8C8C8;");
+    layout->addWidget(details);
+    layout->addStretch();
+
+    QLabel *warning = new QLabel(tr("Keep ignition on. openpilot will start automatically when the update is safely confirmed."));
+    warning->setWordWrap(true);
+    warning->setStyleSheet("font-size: 34px; color: #F5C451;");
+    layout->addWidget(warning);
+
+    setStyleSheet("TrqiUpdateWidget { background-color: #292929; border-radius: 30px; }");
+  }
+
+  bool refresh() {
+    if (!params.getBool("TrqiUpdateStartupHold") && !params.getBool("TrqiUpdateInProgress")) {
+      return false;
+    }
+
+    // The pre-ONROAD safety hold intentionally leaves scene.started false, so
+    // the normal ONROAD wakefulness rule does not apply. Keep the display awake
+    // while this card is active instead of allowing the OFFROAD timeout to
+    // blank firmware progress.
+    device()->resetInteractiveTimeout();
+
+    const QJsonObject payload = QJsonDocument::fromJson(
+      QByteArray::fromStdString(params.get("TrqiUpdateProgress"))).object();
+    const QString trust = payload.value("trust").toString("production");
+    const QString stage_name = payload.value("stage").toString("preflight").toUpper();
+    const QString message = QString::fromStdString(params.get("TrqiUpdateStatus"));
+    const QString active_slot = payload.value("active_slot").toString("?");
+    const QString target_slot = payload.value("target_slot").toString("?");
+    const QString confirmation = payload.value("confirmation").toString("-");
+    const double percent = payload.value("percent").toDouble(-1.0);
+    const bool transferring = payload.value("stage").toString() == "transfer" && percent >= 0.0;
+
+    badge->setText(trust == "test" ? tr("TEST KEY — NOT PRODUCTION") : tr("PRODUCTION SIGNATURE"));
+    badge->setStyleSheet(QString("font-size: 30px; font-weight: 700; padding: 8px 24px; "
+                                 "border-radius: 16px; background-color: %1;")
+                           .arg(trust == "test" ? "#C97A16" : "#237A45"));
+    stage->setText(tr("STAGE  •  %1").arg(stage_name));
+    status->setText(message.isEmpty() ? tr("Preparing the firmware update…") : message);
+
+    if (transferring) {
+      progress->setRange(0, 1000);
+      progress->setValue(std::lround(percent * 10.0));
+      const double durable_kib = payload.value("durable_offset").toDouble() / 1024.0;
+      const double total_kib = payload.value("total").toDouble() / 1024.0;
+      const double rate = payload.value("throughput_kib_s").toDouble();
+      progress->setFormat(QString("%1%  •  %2/%3 KiB  •  %4 KiB/s")
+                            .arg(percent, 0, 'f', 1).arg(durable_kib, 0, 'f', 1)
+                            .arg(total_kib, 0, 'f', 1).arg(rate, 0, 'f', 1));
+    } else {
+      progress->setRange(0, 0);
+      progress->setFormat(QString());
+    }
+
+    const int retries = payload.value("retries").toInt();
+    const int timeouts = payload.value("timeouts").toInt();
+    details->setText(tr("Active slot %1  →  target slot %2  •  %3\nRetries %4  •  timeouts %5")
+                       .arg(active_slot, target_slot, confirmation).arg(retries).arg(timeouts));
+    return true;
+  }
+
+private:
+  Params params;
+  QLabel *badge;
+  QLabel *stage;
+  QLabel *status;
+  QLabel *details;
+  QProgressBar *progress;
+};
+
 OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   QVBoxLayout* main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(40, 40, 40, 40);
@@ -266,12 +381,16 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   alerts_widget = new OffroadAlert();
   QObject::connect(alerts_widget, &OffroadAlert::dismiss, [=]() { center_layout->setCurrentIndex(0); });
   center_layout->addWidget(alerts_widget);
+  trqi_update_widget = new TrqiUpdateWidget;
+  center_layout->addWidget(trqi_update_widget);
 
   main_layout->addLayout(center_layout, 1);
 
   // set up refresh timer
   timer = new QTimer(this);
   timer->callOnTimeout(this, &OffroadHome::refresh);
+  trqi_timer = new QTimer(this);
+  trqi_timer->callOnTimeout(this, &OffroadHome::refreshTrqi);
 
   setStyleSheet(R"(
     * {
@@ -295,10 +414,12 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
 void OffroadHome::showEvent(QShowEvent *event) {
   refresh();
   timer->start(10 * 1000);
+  trqi_timer->start(250);
 }
 
 void OffroadHome::hideEvent(QHideEvent *event) {
   timer->stop();
+  trqi_timer->stop();
 }
 
 void OffroadHome::refresh() {
@@ -309,6 +430,11 @@ void OffroadHome::refresh() {
 
   bool updateAvailable = update_widget->refresh();
   int alerts = alerts_widget->refresh();
+
+  if (trqi_update_widget->refresh()) {
+    center_layout->setCurrentWidget(trqi_update_widget);
+    return;
+  }
 
   // pop-up new notification
   int idx = center_layout->currentIndex();
@@ -325,5 +451,13 @@ void OffroadHome::refresh() {
   alert_notif->setVisible(alerts);
   if (alerts) {
     alert_notif->setText(QString::number(alerts) + (alerts > 1 ? tr(" ALERTS") : tr(" ALERT")));
+  }
+}
+
+void OffroadHome::refreshTrqi() {
+  if (trqi_update_widget->refresh()) {
+    center_layout->setCurrentWidget(trqi_update_widget);
+  } else if (center_layout->currentWidget() == trqi_update_widget) {
+    center_layout->setCurrentIndex(0);
   }
 }

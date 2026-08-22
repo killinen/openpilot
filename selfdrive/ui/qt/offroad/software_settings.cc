@@ -5,6 +5,8 @@
 #include <string>
 
 #include <QDebug>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 
 #include "common/params.h"
@@ -47,6 +49,37 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
     frogpilotUIState()->params_memory.putBool("ManualUpdateInitiated", true);
   });
   addItem(downloadBtn);
+
+  auto trqiAutomaticToggle = new ParamControl(
+    "TrqiAutoInstall", tr("Automatically Update TRQI"),
+    tr("While offroad, download production-signed TRQI releases. Installation runs at the next ignition while openpilot remains pre-ONROAD."), "");
+  addItem(trqiAutomaticToggle);
+
+  trqiFirmwareBtn = new ButtonControl(
+    tr("TRQI Firmware"), tr("CHECK"),
+    tr("Download and authenticate both firmware slots now. No CAN command is sent until the next ignition startup hold."));
+  connect(trqiFirmwareBtn, &ButtonControl::clicked, [=]() {
+    trqiFirmwareBtn->setEnabled(false);
+    params.put("TrqiUpdateStatus", "Checking GitHub for production-signed TRQI firmware…");
+    params.putBool("TrqiUpdateDownloadRequest", true);
+  });
+  addItem(trqiFirmwareBtn);
+
+  trqiStatusLabel = new LabelControl(tr("TRQI Update Status"), "");
+  trqiStatusLabel->setVisible(false);
+  addItem(trqiStatusLabel);
+
+  trqiProgressBar = new QProgressBar(this);
+  trqiProgressBar->setRange(0, 1000);
+  trqiProgressBar->setFixedHeight(58);
+  trqiProgressBar->setTextVisible(true);
+  trqiProgressBar->setStyleSheet(R"(
+    QProgressBar { border: 2px solid #555; border-radius: 18px; background: #222; color: white;
+                   font-size: 30px; font-weight: 600; text-align: center; }
+    QProgressBar::chunk { border-radius: 15px; background-color: #2ECC71; }
+  )");
+  trqiProgressBar->setVisible(false);
+  addItem(trqiProgressBar);
 
   // install update btn
   installBtn = new ButtonControl(tr("Install Update"), tr("INSTALL"));
@@ -155,17 +188,23 @@ void SoftwarePanel::updateLabels() {
   fs_watch->addParam("UpdateFailedCount");
   fs_watch->addParam("UpdaterState");
   fs_watch->addParam("UpdateAvailable");
+  fs_watch->addParam("TrqiUpdateDownloadRequest");
+  fs_watch->addParam("TrqiUpdatePending");
+  fs_watch->addParam("TrqiUpdateStatus");
+  fs_watch->addParam("TrqiUpdateProgress");
 
   if (!isVisible()) {
     frogpilot_scene.downloading_update = false;
     return;
   }
 
-  // updater only runs offroad or when parked
+  // The generic updater may be used while parked ONROAD. TRQI controls remain
+  // strictly OFFROAD because the managed TRQI process is stopped ONROAD.
   bool parked = frogpilot_scene.parked || frogpilot_scene.frogpilot_toggles.value("frogs_go_moo").toBool();
 
   onroadLbl->setVisible(is_onroad && !parked);
   downloadBtn->setVisible(!is_onroad || parked);
+  trqiFirmwareBtn->setVisible(!is_onroad);
 
   // download update
   QString updater_state = QString::fromStdString(params.get("UpdaterState"));
@@ -194,6 +233,53 @@ void SoftwarePanel::updateLabels() {
     downloadBtn->setEnabled(true);
   }
   targetBranchBtn->setValue(QString::fromStdString(params.get("UpdaterTargetBranch")));
+
+  const bool trqi_checking = params.getBool("TrqiUpdateDownloadRequest");
+  const bool trqi_pending = params.getBool("TrqiUpdatePending");
+  const bool trqi_in_progress = params.getBool("TrqiUpdateInProgress");
+  const QString trqi_status = QString::fromStdString(params.get("TrqiUpdateStatus"));
+  trqiFirmwareBtn->setEnabled(!trqi_checking && !trqi_pending && !trqi_in_progress);
+  if (trqi_checking) {
+    trqiFirmwareBtn->setText(tr("CHECKING"));
+  } else if (trqi_in_progress) {
+    trqiFirmwareBtn->setText(tr("INSTALLING"));
+  } else if (trqi_pending) {
+    trqiFirmwareBtn->setText(tr("READY"));
+  } else {
+    trqiFirmwareBtn->setText(tr("CHECK"));
+  }
+  trqiFirmwareBtn->setValue(trqi_status);
+
+  const QByteArray progress_raw = QByteArray::fromStdString(params.get("TrqiUpdateProgress"));
+  const QJsonObject progress = QJsonDocument::fromJson(progress_raw).object();
+  const QString stage = progress.value("stage").toString();
+  const QString trust = progress.value("trust").toString("production");
+  const double percent = progress.value("percent").toDouble(-1.0);
+  const bool transferring = stage == "transfer" && percent >= 0.0;
+  trqiProgressBar->setVisible(transferring && !is_onroad);
+  if (transferring) {
+    trqiProgressBar->setValue(std::lround(percent * 10.0));
+    const double durable_kib = progress.value("durable_offset").toDouble() / 1024.0;
+    const double total_kib = progress.value("total").toDouble() / 1024.0;
+    const double rate = progress.value("throughput_kib_s").toDouble();
+    const int retries = progress.value("retries").toInt();
+    const int timeouts = progress.value("timeouts").toInt();
+    trqiProgressBar->setFormat(QString("%1%  •  %2/%3 KiB  •  %4 KiB/s  •  retry %5  timeout %6")
+      .arg(percent, 0, 'f', 1).arg(durable_kib, 0, 'f', 1).arg(total_kib, 0, 'f', 1)
+      .arg(rate, 0, 'f', 1).arg(retries).arg(timeouts));
+  }
+
+  const bool show_trqi_status = !stage.isEmpty() || !trqi_status.isEmpty();
+  trqiStatusLabel->setVisible(show_trqi_status && !is_onroad);
+  if (show_trqi_status) {
+    const QString badge = trust == "test" ? tr("TEST KEY — NOT PRODUCTION") : tr("PRODUCTION SIGNATURE");
+    const QString active = progress.value("active_slot").toString("?");
+    const QString target = progress.value("target_slot").toString("?");
+    const QString confirmation = progress.value("confirmation").toString("-");
+    trqiStatusLabel->setText(QString("%1  •  %2").arg(stage.toUpper(), badge));
+    trqiStatusLabel->setDescription(QString("%1\nActive slot %2  →  target slot %3  •  %4")
+      .arg(trqi_status, active, target, confirmation));
+  }
 
   // current + new versions
   versionLbl->setText(QString::fromStdString(params.get("UpdaterCurrentDescription")));
