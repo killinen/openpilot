@@ -47,6 +47,8 @@ VERBOSE = False
 
 _running = True
 _last_desired_tunnel_state: bool | None = None
+_last_desired_tunnel_request: bool | dict[str, object] | None = None
+_last_tunnel_config: dict[str, object] | None = None
 _route_sender_stop_event: threading.Event | None = None
 _route_sender_thread: threading.Thread | None = None
 _missing_auth_warned = False
@@ -61,6 +63,7 @@ ERROR_LOG_STATE_FILE = "teletyped_error_logs.json"
 ERROR_LOG_MAX_BYTES = int(os.environ.get("TELETYPED_ERROR_LOG_MAX_BYTES", str(5 * 1024 * 1024)))
 _ERROR_LOG_EXTS = {".log", ".txt", ".json", ".jsonl"}
 _ERROR_LOG_STATE_PATH: str | None = None
+REVERSE_SSH_PROTOCOL_VERSION = 2
 
 _SSH_ERROR_NEEDLES = (
   "permission denied",
@@ -91,13 +94,50 @@ def _normalize_tunnel_request(request):
   }
 
 
-def _requested_forwards(request):
+def _normalize_tunnel_config(config):
+  if not isinstance(config, dict):
+    return {
+      "version": 1,
+      "shell_remote_port": REMOTE_PORT,
+      "pond_remote_port": POND_REMOTE_PORT,
+    }
+
+  version = config.get("version")
+  shell_port = config.get("shell_remote_port")
+  pond_port = config.get("pond_remote_port")
+  valid = (
+    isinstance(version, int)
+    and not isinstance(version, bool)
+    and version >= REVERSE_SSH_PROTOCOL_VERSION
+    and isinstance(shell_port, int)
+    and not isinstance(shell_port, bool)
+    and 0 < shell_port < 65536
+    and isinstance(pond_port, int)
+    and not isinstance(pond_port, bool)
+    and 0 < pond_port < 65536
+    and shell_port != pond_port
+  )
+  if not valid:
+    return {
+      "version": 1,
+      "shell_remote_port": REMOTE_PORT,
+      "pond_remote_port": POND_REMOTE_PORT,
+    }
+  return {
+    "version": version,
+    "shell_remote_port": shell_port,
+    "pond_remote_port": pond_port,
+  }
+
+
+def _requested_forwards(request, tunnel_config=None):
   requested = _normalize_tunnel_request(request)
+  config = _normalize_tunnel_config(tunnel_config)
   forwards = []
   if requested["reverse_tunnel_req"]:
-    forwards.append((REMOTE_PORT, LOCAL_PORT))
+    forwards.append((config["shell_remote_port"], LOCAL_PORT))
   if requested["pond_tunnel_req"]:
-    forwards.append((POND_REMOTE_PORT, POND_LOCAL_PORT))
+    forwards.append((config["pond_remote_port"], POND_LOCAL_PORT))
   return forwards
 
 
@@ -164,7 +204,13 @@ def fetch_ssh_request(device_id):
     return None
   try:
     response = http_get(url, headers=headers, timeout=5)
-    return response.json() if response.status_code == 200 else {}
+    if response.status_code == 200:
+      return response.json()
+    log(
+      f"⚠️ Reverse SSH request rejected with status {response.status_code}; keeping the current tunnel configuration",
+      "WARN",
+    )
+    return None
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to fetch request: {e}", "ERROR")
@@ -806,6 +852,7 @@ def send_heartbeat(device_id, tunnel_status):
     "status": "online",
     "tunnel_status": tunnel_status,
     "reverse_tunnel_requested": _last_desired_tunnel_state,
+    "reverse_ssh_protocol_version": REVERSE_SSH_PROTOCOL_VERSION,
     "internet_up": internet_ok,
   }
 
@@ -892,16 +939,20 @@ def report_status(device_id, status, detail=None):
     log(f"⚠️ Failed to report status: {e}", "WARN")
 
 def reverse_ssh_step(device_id, last_reported_status):
-  global _last_desired_tunnel_state
+  global _last_desired_tunnel_state, _last_desired_tunnel_request, _last_tunnel_config
   data = fetch_ssh_request(device_id)
   if data is None:
     # On fetch failure, keep previous desired state to avoid tearing down a working tunnel
-    desired = _last_desired_tunnel_state
+    desired = _last_desired_tunnel_request
+    tunnel_config = _last_tunnel_config
   else:
-    desired = data.get("request", _last_desired_tunnel_state)
+    desired = data.get("request", _last_desired_tunnel_request)
+    tunnel_config = data.get("tunnel_config")
+    _last_desired_tunnel_request = desired
+    _last_tunnel_config = tunnel_config
   remote_status = data.get("status") if isinstance(data, dict) else None
   current_status = get_current_tunnel_status()
-  requested_forwards = _requested_forwards(desired)
+  requested_forwards = _requested_forwards(desired, tunnel_config)
   desired_signature = _forward_signature(requested_forwards)
   _pid, _started_at, current_signature = _read_pidfile()
 

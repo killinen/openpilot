@@ -270,12 +270,43 @@ def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
   teletyped.send_heartbeat("DONGLE123", "running")
 
   assert captured["json"]["device_id"] == "DONGLE123"
+  assert (
+    captured["json"]["reverse_ssh_protocol_version"]
+    == teletyped.REVERSE_SSH_PROTOCOL_VERSION
+  )
   assert captured["json"]["details"]["uptime_seconds"] == 60
   assert captured["json"]["details"]["os_platform"] == "AGNOS"
   assert captured["json"]["details"]["os_version"] == "9"
   assert captured["json"]["details"]["os_base"] == "Ubuntu 20.04.6 LTS"
   assert captured["json"]["details"]["os_build"] == "deadbeef 2026-04-13T12:00:00Z"
   assert captured["json"]["details"]["os"] == os_info
+
+
+def test_requested_forwards_use_assigned_ports():
+  from openpilot.tools.teletyped import teletyped
+
+  request = {"reverse_tunnel_req": True, "pond_tunnel_req": True}
+  config = {
+    "version": 2,
+    "shell_remote_port": 22017,
+    "pond_remote_port": 29017,
+  }
+
+  assert teletyped._requested_forwards(request, config) == [
+    (22017, teletyped.LOCAL_PORT),
+    (29017, teletyped.POND_LOCAL_PORT),
+  ]
+
+
+def test_requested_forwards_fall_back_to_legacy_ports():
+  from openpilot.tools.teletyped import teletyped
+
+  request = {"reverse_tunnel_req": True, "pond_tunnel_req": True}
+
+  assert teletyped._requested_forwards(request, {"version": 2}) == [
+    (teletyped.REMOTE_PORT, teletyped.LOCAL_PORT),
+    (teletyped.POND_REMOTE_PORT, teletyped.POND_LOCAL_PORT),
+  ]
 
 
 class _StaticResponse:
