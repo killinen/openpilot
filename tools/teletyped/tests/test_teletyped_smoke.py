@@ -599,6 +599,33 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
   assert updates[-1]["stage"] == "ready"
 
 
+def test_direct_segment_rlog_request_requires_exact_segment_name():
+  from openpilot.tools.teletyped import route_sender
+
+  route_name = "2026-04-13--12-00-00"
+  route_segments = [
+    f"/data/media/0/realdata/{route_name}--0",
+    f"/data/media/0/realdata/{route_name}--1",
+  ]
+  exact_segment = route_segments[0]
+
+  assert not route_sender._is_direct_segment_rlog_request(
+    route_name,
+    route_segments,
+    ["rlog"],
+  )
+  assert route_sender._is_direct_segment_rlog_request(
+    f"{route_name}--0",
+    [exact_segment],
+    ["rlog"],
+  )
+  assert not route_sender._is_direct_segment_rlog_request(
+    f"{route_name}--0",
+    [exact_segment],
+    ["qlog", "rlog"],
+  )
+
+
 def test_route_sender_step_packs_split_parts_in_numeric_segment_order(
   tmp_path,
   monkeypatch: pytest.MonkeyPatch,
