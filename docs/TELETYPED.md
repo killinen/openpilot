@@ -10,6 +10,8 @@ AGNOS) and handles three capabilities:
   sync with the cloud API (`https://goranconnect.duckdns.org/api`).
 - Serve remote drive requests by packaging logs or boot traces and sending
   them via the bundled `wormhole-william` binary.
+- While offroad, derive engagement time/distance and steering-intervention
+  statistics from completed route logs and upload them to `POST /api/drive-stats`.
 
 ## Requirements
 
@@ -19,6 +21,45 @@ AGNOS) and handles three capabilities:
    sleeps while offline.
 
 All SSH material is written under `/persist/comma/` and re-used across boots.
+
+## Offroad drive statistics
+
+The route worker processes one unprocessed drive per poll by default, records
+its progress in `/persist/comma/teletyped_drive_stats_state.json`, and retries
+failed uploads without parsing the route again. Set
+`TELETYPED_DRIVE_STATS_MAX_PER_TICK` to increase the backfill rate, or set
+`TELETYPED_DRIVE_STATS=0` to disable collection. Upload failures retry after
+15 minutes by default; `TELETYPED_DRIVE_STATS_RETRY_INTERVAL` changes that
+delay in seconds.
+
+The initial vehicle profile supports the custom 2014 Hyundai i30. Its odometer
+is decoded from `CLU1`; legacy SSC steering interventions use the same filtered
+driver/actuator torque delta as `opDriveStats`. TRQI drives use the rising edge
+of the hardware-reported `steeringPressed` state. Vehicle-specific decoding is
+isolated in `tools/teletyped/drive_stats.py` so another profile can be added
+without changing discovery, persistence, or upload behavior.
+
+The upload body uses the `opDriveStats` per-drive field names (`total_time`,
+`active_time`, `odo_distance`, `engaged_distance`, `engagement_pct`,
+`engagement_pct_odo`, `steer_intervention_count`, and normalized rates). It
+also reports raw and shutdown-corrected disengagement counts, disengagements
+per 100 km, and disengagements per driving hour. The final unmatched
+engaged-to-disengaged transition is treated as the manual shutdown event.
+
+The `speed_buckets` object splits the same drive into `city` (below 55 km/h),
+`road` (55 km/h up to 90 km/h), and `highway` (90 km/h and above), matching
+the thresholds used by `opDriveStats`. Each bucket includes total/engaged time
+and distance, engagement percentages, steering interventions, raw and
+shutdown-corrected disengagements, and normalized per-distance/per-driving-hour
+rates. Bucket distance is integrated from `carState.vEgo` because an odometer
+delta cannot be assigned to a speed range; the overall distance continues to
+prefer the i30 odometer when it is available.
+
+Metadata includes device and route IDs, recording and generation timestamps,
+segment count, car name/fingerprint and stats profile, longitudinal/steering
+mode, device type, software version, Git branch/commit/date, and dirty-tree
+state. The server must treat `(device_id, drive)` as an idempotency key; an
+HTTP 409 response is also treated as an already-stored success by the device.
 
 ## Runtime Integration
 
