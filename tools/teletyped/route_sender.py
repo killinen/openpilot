@@ -679,8 +679,14 @@ def _build_segment_rlog_filename(device_id: str, drive_name: str) -> str:
   return f"{device_id}__{drive_part}__rlog.bz2"
 
 
-def _is_direct_segment_rlog_request(requested_files: list[str] | None) -> bool:
-  return requested_files in (["rlog"], ["rlog.bz2"])
+def _is_direct_segment_rlog_request(
+  base_name: str,
+  segments: list[str],
+  requested_files: list[str] | None,
+) -> bool:
+  if requested_files not in (["rlog"], ["rlog.bz2"]):
+    return False
+  return len(segments) == 1 and os.path.basename(segments[0]) == base_name
 
 
 def _find_direct_segment_rlog_path(segments: list[str]) -> str | None:
@@ -1724,7 +1730,7 @@ def route_sender_step(device_id):
         _compress_route_logs_in_place(device_id, drive_name, segments, requested_files)
         continue
 
-      if _is_direct_segment_rlog_request(requested_files):
+      if _is_direct_segment_rlog_request(base_name, segments, requested_files):
         try:
           rlog_path = _find_direct_segment_rlog_path(segments)
         except Exception as e:
