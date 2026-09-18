@@ -36,6 +36,7 @@ from openpilot.tools.teletyped.label_utils import (
   is_drive_label,
   strip_boot_prefix,
 )
+from openpilot.tools.teletyped.drive_stats import drive_stats_step
 
 OPENPILOT_BASEDIR: str | None
 try:
@@ -1989,6 +1990,14 @@ def run_route_sender(stop_event=None, device_id=None):
       except Exception as e:
         capture_exception(e)
         log(f"❌ drive_inventory_step() failed: {e}", "ERROR")
+
+      try:
+        headers = _auth_headers()
+        if headers:
+          drive_stats_step(device_id, headers)
+      except Exception as e:
+        capture_exception(e)
+        log(f"❌ drive_stats_step() failed: {e}", "ERROR")
 
       try:
         route_sender_step(device_id)
