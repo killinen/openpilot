@@ -45,13 +45,19 @@ The upload body uses the `opDriveStats` per-drive field names (`total_time`,
 also reports raw and shutdown-corrected disengagement counts, disengagements
 per 100 km, and disengagements per driving hour. The final unmatched
 engaged-to-disengaged transition is treated as the manual shutdown event.
+It also reports non-intersection disengagements using single-blinker activity
+from eight seconds before through three seconds after each transition. Both
+blinkers active together are treated as hazard lights rather than turn intent.
+The payload includes the detection method and window so this heuristic remains
+explicit to downstream consumers.
 
 The `speed_buckets` object splits the same drive into `city` (below 55 km/h),
 `road` (55 km/h up to 90 km/h), and `highway` (90 km/h and above), matching
 the thresholds used by `opDriveStats`. Each bucket includes total/engaged time
 and distance, engagement percentages, steering interventions, raw and
 shutdown-corrected disengagements, and normalized per-distance/per-driving-hour
-rates. Bucket distance is integrated from `carState.vEgo` because an odometer
+rates, including the blinker-derived non-intersection split. Bucket distance is
+integrated from `carState.vEgo` because an odometer
 delta cannot be assigned to a speed range; the overall distance continues to
 prefer the i30 odometer when it is available.
 

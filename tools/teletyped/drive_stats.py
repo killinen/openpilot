@@ -33,7 +33,7 @@ def _env_nonnegative_int(name: str, default: int) -> int:
 
 DRIVE_STATS_UPLOAD_PATH = f"{API_URL}/drive-stats"
 DRIVE_STATS_STATE_FILE = "teletyped_drive_stats_state.json"
-DRIVE_STATS_SCHEMA_VERSION = 3
+DRIVE_STATS_SCHEMA_VERSION = 4
 DRIVE_STATS_MAX_PER_TICK = _env_positive_int("TELETYPED_DRIVE_STATS_MAX_PER_TICK", 1)
 DRIVE_STATS_RETRY_INTERVAL = _env_nonnegative_int("TELETYPED_DRIVE_STATS_RETRY_INTERVAL", 900)
 DRIVE_STATS_ENABLED = os.environ.get("TELETYPED_DRIVE_STATS", "1").strip().lower() not in {
@@ -48,6 +48,8 @@ STEER_RESOLUTION_THRESHOLD = 0.3
 INTERVENTION_TIMEOUT_NS = 10 * 1_000_000_000
 ENGAGEMENT_BUFFER_NS = 3 * 1_000_000_000
 MAX_SAMPLE_GAP_NS = 1 * 1_000_000_000
+BLINKER_LOOKBACK_NS = 8 * 1_000_000_000
+BLINKER_LOOKAHEAD_NS = 3 * 1_000_000_000
 
 SPEED_BUCKETS: tuple[dict[str, Any], ...] = (
   {"key": "city", "label": "City (<55 km/h)", "min_speed_mps": 0.0, "max_speed_mps": 15.3},
@@ -91,6 +93,13 @@ class MovingAverage:
   def update(self, value: float) -> float:
     self.values.append(float(value))
     return sum(self.values) / len(self.values)
+
+
+@dataclass
+class DisengagementEvent:
+  timestamp_ns: int
+  speed_bucket: str
+  blinker_nearby: bool
 
 
 class VehicleStatsProfile:
@@ -249,8 +258,10 @@ class DriveAnalyzer:
     self.last_engagement_change_ns: int | None = None
     self.engagement_state_changes = 0
     self.disengagement_count = 0
+    self.disengagement_events: list[DisengagementEvent] = []
     self.final_disengagement_pending = False
     self.final_disengagement_bucket: str | None = None
+    self.last_single_blinker_ns: int | None = None
     self.current_speed_mps = 0.0
     self.speed_bucket_state = _new_speed_bucket_state()
 
@@ -326,6 +337,22 @@ class DriveAnalyzer:
       self.last_pressed_intervention_ns = now_ns
     self.in_pressed_intervention = pressed
 
+  def _observe_blinkers(self, now_ns: int, car_state: Any) -> None:
+    # Treat exactly one active indicator as turn intent. Both indicators are
+    # normally the hazard lights and should not make an event intersection-like.
+    one_blinker = bool(getattr(car_state, "leftBlinker", False)) != bool(getattr(car_state, "rightBlinker", False))
+    if not one_blinker:
+      return
+
+    self.last_single_blinker_ns = now_ns
+    for event in reversed(self.disengagement_events):
+      delta_ns = now_ns - event.timestamp_ns
+      if delta_ns < 0:
+        continue
+      if delta_ns > BLINKER_LOOKAHEAD_NS:
+        break
+      event.blinker_nearby = True
+
   def process_segment(self, messages: Iterable[Any]) -> None:
     self.segment_count += 1
     first_controls_ns: int | None = None
@@ -365,6 +392,11 @@ class DriveAnalyzer:
             self.final_disengagement_pending = True
             self.final_disengagement_bucket = _speed_bucket_for(self.current_speed_mps)
             self.speed_bucket_state[self.final_disengagement_bucket]["raw_disengagement_count"] += 1
+            blinker_nearby = (
+              self.last_single_blinker_ns is not None
+              and 0 <= now_ns - self.last_single_blinker_ns <= BLINKER_LOOKBACK_NS
+            )
+            self.disengagement_events.append(DisengagementEvent(now_ns, self.final_disengagement_bucket, blinker_nearby))
           elif active:
             # A re-engagement proves the preceding disengagement was part of
             # the drive rather than the final shutdown transition.
@@ -414,6 +446,7 @@ class DriveAnalyzer:
                 bucket_state["engaged_drive_time_ns"] += delta_ns
                 self.engaged_drive_time_ns += delta_ns
         self.current_speed_mps = current_speed_mps
+        self._observe_blinkers(now_ns, car_state)
         self._observe_torque(now_ns, car_state)
         self._observe_pressed(now_ns, car_state)
         previous_speed_mps = current_speed_mps
@@ -437,8 +470,15 @@ class DriveAnalyzer:
     steer_per_100km = steering_interventions / total_distance * 100 if total_distance > 0 else None
     shutdown_disengagements_removed = int(self.final_disengagement_pending and self.disengagement_count > 0)
     corrected_disengagement_count = self.disengagement_count - shutdown_disengagements_removed
+    corrected_disengagement_events = self.disengagement_events[:-1] if shutdown_disengagements_removed else self.disengagement_events
+    overall_raw_non_intersection_count = sum(not event.blinker_nearby for event in self.disengagement_events)
+    overall_non_intersection_count = sum(not event.blinker_nearby for event in corrected_disengagement_events)
+    overall_blinker_related_count = sum(event.blinker_nearby for event in corrected_disengagement_events)
+    non_intersection_shutdown_removed = overall_raw_non_intersection_count - overall_non_intersection_count
     disengagements_per_100km = corrected_disengagement_count / total_distance * 100 if total_distance > 0 else None
     disengagements_per_drive_hour = corrected_disengagement_count / (self.drive_time_ns / 3.6e12) if self.drive_time_ns > 0 else None
+    non_intersection_per_100km = overall_non_intersection_count / total_distance * 100 if total_distance > 0 else None
+    non_intersection_per_drive_hour = overall_non_intersection_count / (self.drive_time_ns / 3.6e12) if self.drive_time_ns > 0 else None
     speed_buckets: dict[str, dict[str, Any]] = {}
     for definition in SPEED_BUCKETS:
       key = str(definition["key"])
@@ -452,6 +492,11 @@ class DriveAnalyzer:
       raw_disengagement_count = int(bucket["raw_disengagement_count"])
       shutdown_removed = int(shutdown_disengagements_removed > 0 and self.final_disengagement_bucket == key)
       bucket_disengagement_count = raw_disengagement_count - shutdown_removed
+      bucket_events = [event for event in self.disengagement_events if event.speed_bucket == key]
+      bucket_corrected_events = [event for event in corrected_disengagement_events if event.speed_bucket == key]
+      bucket_raw_non_intersection_count = sum(not event.blinker_nearby for event in bucket_events)
+      bucket_non_intersection_count = sum(not event.blinker_nearby for event in bucket_corrected_events)
+      bucket_blinker_related_count = sum(event.blinker_nearby for event in bucket_corrected_events)
       bucket_steering_interventions = int(
         bucket["pressed_intervention_count"] if uses_pressed_interventions else bucket["torque_intervention_count"]
       )
@@ -478,6 +523,11 @@ class DriveAnalyzer:
         "disengagement_count": bucket_disengagement_count,
         "disengagements_per_100km": round(bucket_disengagement_count / distance_km * 100, 2) if distance_km > 0 else None,
         "disengagements_per_drive_hour": round(bucket_disengagement_count / (drive_time_ns / 3.6e12), 2) if drive_time_ns > 0 else None,
+        "raw_non_intersection_disengagement_count": bucket_raw_non_intersection_count,
+        "non_intersection_disengagement_count": bucket_non_intersection_count,
+        "blinker_related_disengagement_count": bucket_blinker_related_count,
+        "non_intersection_disengagements_per_100km": round(bucket_non_intersection_count / distance_km * 100, 2) if distance_km > 0 else None,
+        "non_intersection_disengagements_per_drive_hour": round(bucket_non_intersection_count / (drive_time_ns / 3.6e12), 2) if drive_time_ns > 0 else None,
         "manual_shutdown_removed": shutdown_removed,
       }
 
@@ -509,6 +559,21 @@ class DriveAnalyzer:
       "disengagement_count": corrected_disengagement_count,
       "disengagements_per_100km": round(disengagements_per_100km, 2) if disengagements_per_100km is not None else None,
       "disengagements_per_drive_hour": round(disengagements_per_drive_hour, 2) if disengagements_per_drive_hour is not None else None,
+      "raw_non_intersection_disengagement_count": overall_raw_non_intersection_count,
+      "non_intersection_disengagement_count": overall_non_intersection_count,
+      "blinker_related_disengagement_count": overall_blinker_related_count,
+      "non_intersection_disengagements_per_100km": round(non_intersection_per_100km, 2) if non_intersection_per_100km is not None else None,
+      "non_intersection_disengagements_per_drive_hour": round(non_intersection_per_drive_hour, 2) if non_intersection_per_drive_hour is not None else None,
+      "non_intersection_detection": {
+        "version": 1,
+        "method": "single_blinker_window",
+        "lookback_seconds": BLINKER_LOOKBACK_NS // 1_000_000_000,
+        "lookahead_seconds": BLINKER_LOOKAHEAD_NS // 1_000_000_000,
+        "raw_count": overall_raw_non_intersection_count,
+        "corrected_count": overall_non_intersection_count,
+        "blinker_related_count": overall_blinker_related_count,
+        "manual_shutdown_removed": non_intersection_shutdown_removed,
+      },
       "disengagement_corrections": {
         "version": 1,
         "raw_count": self.disengagement_count,

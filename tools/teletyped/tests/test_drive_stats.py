@@ -144,6 +144,54 @@ def test_disengagement_rates_exclude_only_final_unmatched_transition() -> None:
   assert result["speed_buckets"]["road"]["disengagements_per_drive_hour"] == 900.0
 
 
+def test_non_intersection_disengagements_use_blinker_window_and_exclude_shutdown() -> None:
+  analyzer = drive_stats.DriveAnalyzer(
+    "2026-09-07--12-40-00",
+    "DONGLE",
+    drive_stats.HyundaiI30StatsProfile(),
+  )
+  analyzer.process_segment(
+    [
+      message("controlsState", 0, active=True),
+      message("carState", 1, vEgo=10.0, leftBlinker=True, rightBlinker=False),
+      message("carState", 2, vEgo=10.0, leftBlinker=False, rightBlinker=False),
+      message("controlsState", 8, active=False),  # Blinker in the eight-second lookback window.
+      message("controlsState", 9, active=True),
+      message("controlsState", 20, active=False),
+      message("carState", 22, vEgo=10.0, leftBlinker=False, rightBlinker=True),  # Three-second lookahead window.
+      message("carState", 24, vEgo=10.0, leftBlinker=False, rightBlinker=False),
+      message("controlsState", 25, active=True),
+      message("carState", 40, vEgo=10.0, leftBlinker=True, rightBlinker=True),  # Hazard lights are not turn intent.
+      message("controlsState", 41, active=False),
+      message("controlsState", 42, active=True),
+      message("carState", 55, vEgo=10.0, leftBlinker=False, rightBlinker=False),
+      message("controlsState", 56, active=False),  # Final manual shutdown.
+    ]
+  )
+
+  result = analyzer.result()
+
+  assert result is not None
+  assert result["raw_disengagement_count"] == 4
+  assert result["disengagement_count"] == 3
+  assert result["raw_non_intersection_disengagement_count"] == 2
+  assert result["non_intersection_disengagement_count"] == 1
+  assert result["blinker_related_disengagement_count"] == 2
+  assert result["non_intersection_detection"] == {
+    "version": 1,
+    "method": "single_blinker_window",
+    "lookback_seconds": 8,
+    "lookahead_seconds": 3,
+    "raw_count": 2,
+    "corrected_count": 1,
+    "blinker_related_count": 2,
+    "manual_shutdown_removed": 1,
+  }
+  assert result["speed_buckets"]["city"]["raw_non_intersection_disengagement_count"] == 2
+  assert result["speed_buckets"]["city"]["non_intersection_disengagement_count"] == 1
+  assert result["speed_buckets"]["city"]["blinker_related_disengagement_count"] == 2
+
+
 def test_speed_buckets_track_time_distance_and_shutdown_correction() -> None:
   analyzer = drive_stats.DriveAnalyzer(
     "2026-09-07--12-45-00",
