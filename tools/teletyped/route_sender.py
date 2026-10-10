@@ -123,6 +123,7 @@ CAPNP_IMPORT_RE = re.compile(
 )
 SCHEMA_FETCH_REQUEST_FILE = "__schema_bundle__"
 SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
+TRANSFER_LOCK_PREFIX = ".teletyped-transfer-"
 
 
 AUTO_DRIVE_INVENTORY_MIN_INTERVAL = _env_nonnegative_int(
@@ -494,6 +495,36 @@ def _pick_temp_dir(min_bytes: int = 150 * 1024 * 1024) -> str:
     except OSError:
       continue
   return "/tmp"
+
+
+def _acquire_segment_deletion_locks(segments: list[str]) -> list[str]:
+  """Keep loggerd's deleter from removing route segments while they are archived."""
+  lock_paths: list[str] = []
+  try:
+    for segment in segments:
+      for name in os.listdir(segment):
+        if name.startswith(TRANSFER_LOCK_PREFIX) and name.endswith(".lock"):
+          os.remove(os.path.join(segment, name))
+      lock_path = os.path.join(segment, f"{TRANSFER_LOCK_PREFIX}{os.getpid()}.lock")
+      fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+      lock_paths.append(lock_path)
+      with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
+        lock_file.write(f"pid={os.getpid()} created={datetime.now(UTC).isoformat()}\n")
+  except Exception:
+    _release_segment_deletion_locks(lock_paths)
+    raise
+  return lock_paths
+
+
+def _release_segment_deletion_locks(lock_paths: list[str]) -> None:
+  for lock_path in lock_paths:
+    try:
+      os.remove(lock_path)
+    except FileNotFoundError:
+      pass
+    except OSError as e:
+      capture_exception(e)
+      log(f"Failed to remove route transfer lock {lock_path}: {e}", "WARN")
 
 
 def _find_boot_file(base_name: str) -> str | None:
@@ -1732,44 +1763,50 @@ def route_sender_step(device_id):
         continue
 
       if _is_direct_segment_rlog_request(base_name, segments, requested_files):
+        segment_lock_paths: list[str] = []
         try:
+          segment_lock_paths = _acquire_segment_deletion_locks(segments)
           rlog_path = _find_direct_segment_rlog_path(segments)
+          if not rlog_path:
+            log(f"Missing rlog for segment {drive_name}", "WARN")
+            report_transfer_error(device_id, drive_name, "rlog missing", detail="The requested rlog file was not found.")
+            continue
+
+          report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading direct segment rlog to the server.", clear_progress=True)
+          uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
+          if uploaded_name:
+            update_drive_transfer(
+              device_id,
+              drive_name,
+              status="sent",
+              stage="uploaded",
+              detail="Direct segment rlog uploaded and ready for the dock.",
+              filename=uploaded_name,
+              clear_progress=True,
+              included_files=["rlog"],
+            )
+          else:
+            report_transfer_error(device_id, drive_name, "rlog upload failed", detail="Segment rlog upload failed.")
         except Exception as e:
           capture_exception(e)
-          log(f"Could not resolve direct segment rlog for {drive_name}: {e}", "ERROR")
+          log(f"Could not protect or upload direct segment rlog for {drive_name}: {e}", "ERROR")
           report_transfer_error(device_id, drive_name, str(e))
-          continue
-
-        if not rlog_path:
-          log(f"Missing rlog for segment {drive_name}", "WARN")
-          report_transfer_error(device_id, drive_name, "rlog missing", detail="The requested rlog file was not found.")
-          continue
-
-        report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading direct segment rlog to the server.", clear_progress=True)
-        uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
-        if uploaded_name:
-          update_drive_transfer(
-            device_id,
-            drive_name,
-            status="sent",
-            stage="uploaded",
-            detail="Direct segment rlog uploaded and ready for the dock.",
-            filename=uploaded_name,
-            clear_progress=True,
-            included_files=["rlog"],
-          )
-        else:
-          report_transfer_error(device_id, drive_name, "rlog upload failed", detail="Segment rlog upload failed.")
+        finally:
+          _release_segment_deletion_locks(segment_lock_paths)
         continue
 
       temp_dir = _pick_temp_dir()
+      segment_lock_paths = []
       try:
+        segment_lock_paths = _acquire_segment_deletion_locks(segments)
         missing_files = []
         segment_files: list[tuple[str, list[tuple[str, str, int]]]] = []
         for segment in segments:
           selected_files: list[tuple[str, str, int]] = []
           for root, _, files in os.walk(segment):
             for file in files:
+              if file.endswith(".lock"):
+                continue
               if not should_include_file(file, requested_files):
                 continue
               abs_path = os.path.join(root, file)
@@ -1869,6 +1906,8 @@ def route_sender_step(device_id):
         log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
         report_transfer_error(device_id, drive_name, str(e))
         continue
+      finally:
+        _release_segment_deletion_locks(segment_lock_paths)
 
     all_sent = bool(zip_paths_to_send)
     wormhole_code = None

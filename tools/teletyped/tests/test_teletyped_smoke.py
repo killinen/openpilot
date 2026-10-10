@@ -560,6 +560,8 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
 
   updates: list[dict[str, Any]] = []
   zipped: dict[str, Any] = {}
+  lock_observed = False
+  original_zip_route_batch = route_sender._zip_route_batch
 
   def _get(url, headers, timeout):
     return _StaticResponse(
@@ -584,17 +586,25 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
         zipped["payload"] = bz2.decompress(compressed.read())
     return True, "1-test-code", os.path.basename(zip_path)
 
+  def _zip_route_batch(*args, **kwargs):
+    nonlocal lock_observed
+    lock_observed = any(path.name.endswith(".lock") for path in drive_dir.iterdir())
+    return original_zip_route_batch(*args, **kwargs)
+
   monkeypatch.setattr(route_sender, "REALDATA_DIR", str(tmp_path))
   monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
   monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
   monkeypatch.setattr(route_sender, "http_get", _get)
   monkeypatch.setattr(route_sender, "http_post", _post)
+  monkeypatch.setattr(route_sender, "_zip_route_batch", _zip_route_batch)
   monkeypatch.setattr(route_sender, "send_file_wormhole", _send_file_wormhole)
 
   route_sender.route_sender_step("DONGLE123")
 
   assert zipped["compress_type"] == ZIP_STORED
   assert zipped["payload"] == b"raw rlog payload" * 1024
+  assert lock_observed
+  assert not any(path.name.endswith(".lock") for path in drive_dir.iterdir())
   assert raw_rlog.exists()
   assert updates[-1]["stage"] == "ready"
 
