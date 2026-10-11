@@ -11,6 +11,96 @@ from zipfile import ZipFile, ZIP_STORED
 import pytest
 
 
+def test_inventory_keeps_polling_while_stats_and_transfer_are_blocked(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  release_work = threading.Event()
+  stats_started = threading.Event()
+  transfer_started = threading.Event()
+  scanned_while_busy = threading.Event()
+  scan_count = 0
+
+  def inventory_step(device_id):
+    nonlocal scan_count
+    assert device_id == "DONGLE123"
+    scan_count += 1
+    if scan_count >= 2 and stats_started.is_set() and transfer_started.is_set():
+      scanned_while_busy.set()
+
+  def stats_step(device_id, headers):
+    stats_started.set()
+    assert release_work.wait(5)
+
+  def transfer_step(device_id):
+    transfer_started.set()
+    assert release_work.wait(5)
+
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 0.01)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "drive_inventory_step", inventory_step)
+  monkeypatch.setattr(route_sender, "drive_stats_step", stats_step)
+  monkeypatch.setattr(route_sender, "route_sender_step", transfer_step)
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  errors: list[BaseException] = []
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  runner = threading.Thread(target=route_sender.run_route_sender, args=(stop_event, "DONGLE123"))
+  runner.start()
+  try:
+    assert scanned_while_busy.wait(2), "Inventory stopped polling while other workers were busy"
+    assert scan_count >= 2
+  finally:
+    stop_event.set()
+    release_work.set()
+    runner.join(3)
+  assert not runner.is_alive()
+  assert not errors
+  assert not any(t.name in {"drive_inventory_thread", "drive_stats_thread"} for t in threading.enumerate())
+
+
+def test_route_worker_retries_failed_steps(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  attempts = []
+  errors: list[BaseException] = []
+
+  def step(device_id):
+    attempts.append(device_id)
+    if len(attempts) == 1:
+      raise RuntimeError("temporary scan failure")
+    stop_event.set()
+
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 0)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  route_sender._run_route_worker(stop_event, "DONGLE123", step, "Drive inventory")
+  assert attempts == ["DONGLE123", "DONGLE123"]
+  assert len(errors) == 1
+
+
+def test_route_worker_stop_interrupts_poll_wait(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  step_finished = threading.Event()
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 60)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  worker = threading.Thread(
+    target=route_sender._run_route_worker,
+    args=(stop_event, "DONGLE123", lambda device_id: step_finished.set(), "Drive inventory"),
+  )
+  worker.start()
+  try:
+    assert step_finished.wait(2)
+  finally:
+    stop_event.set()
+    worker.join(2)
+  assert not worker.is_alive()
+
+
 def test_imports_smoke():
   import openpilot.tools.teletyped.helper as helper
   import openpilot.tools.teletyped.ssh_key as ssh_key

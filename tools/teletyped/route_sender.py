@@ -103,7 +103,7 @@ AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").str
 DRIVE_INVENTORY_STATE_FILE = "teletyped_drive_inventory_state.json"
 _DRIVE_INVENTORY_STATE_PATH: str | None = None
 
-_auth_wait_logged = False
+_DRIVE_INVENTORY_LOCK = threading.Lock()
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
 ZIP_STORED_EXTENSIONS = (
   ".7z",
@@ -1288,6 +1288,11 @@ def collect_drive_inventory():
   return drives, total_size
 
 def drive_inventory_step(device_id):
+  with _DRIVE_INVENTORY_LOCK:
+    _drive_inventory_step(device_id)
+
+
+def _drive_inventory_step(device_id):
   headers = _auth_headers()
   if not headers:
     return
@@ -1405,6 +1410,11 @@ def drive_inventory_step(device_id):
 
 
 def upload_drive_inventory_snapshot(device_id):
+  with _DRIVE_INVENTORY_LOCK:
+    _upload_drive_inventory_snapshot(device_id)
+
+
+def _upload_drive_inventory_snapshot(device_id):
   headers = _auth_headers()
   if not headers:
     return
@@ -1973,81 +1983,72 @@ def route_sender_step(device_id):
     else:
       report_transfer_error(device_id, drive_name, "wormhole send failed", detail="Wormhole send failed before a download offer was created.")
 
-def run_route_sender(stop_event=None, device_id=None):
-  global _auth_wait_logged
-  device_id = device_id or get_dongle_id()
-  if not device_id or device_id == "UNKNOWN_DEVICE":
-    log("❌ Route sender missing device ID; exiting", "ERROR")
-    return
-
-  log(f"🚚 Route sender loop started for {device_id}")
-
-  wait_fn: Callable[[float], bool]
-  is_set_fn: Callable[[], bool]
-  def _wait_default(_: float) -> bool:
-    return False
-
-  def _is_set_default() -> bool:
-    return False
-
-  wait_fn = _wait_default
-  is_set_fn = _is_set_default
-  use_wait_fn = False
-  if stop_event is not None:
-    wait_candidate = getattr(stop_event, "wait", None)
-    if callable(wait_candidate):
-      wait_fn = cast(Callable[[float], bool], wait_candidate)
-      use_wait_fn = True
-    is_set_candidate = getattr(stop_event, "is_set", None)
-    if callable(is_set_candidate):
-      is_set_fn = cast(Callable[[], bool], is_set_candidate)
-
-  def _wait_interval(delay: float) -> bool:
-    if use_wait_fn:
-      return wait_fn(delay)
-    time.sleep(delay)
-    return False
-
+def _run_route_worker(
+  stop_event: threading.Event,
+  device_id: str,
+  step: Callable[[str], None],
+  label: str,
+) -> None:
+  auth_wait_logged = False
+  log(f"{label} loop started for {device_id}")
   try:
-    while True:
-      if is_set_fn():
-        break
-
-      if not _auth_headers():
-        if not _auth_wait_logged:
-          log("⚠️ Route sender waiting for device JWT (registration key missing?)", "WARN")
-          _auth_wait_logged = True
-        if _wait_interval(CHECK_INTERVAL):
-          break
-        continue
-      elif _auth_wait_logged:
-        log("✅ Device JWT available; route sender active")
-        _auth_wait_logged = False
-
+    while not stop_event.is_set():
       try:
-        drive_inventory_step(device_id)
+        if _auth_headers():
+          if auth_wait_logged:
+            log(f"Device JWT available; {label} active")
+            auth_wait_logged = False
+          step(device_id)
+        elif not auth_wait_logged:
+          log(f"{label} waiting for device JWT (registration key missing?)", "WARN")
+          auth_wait_logged = True
       except Exception as e:
         capture_exception(e)
-        log(f"❌ drive_inventory_step() failed: {e}", "ERROR")
-
-      try:
-        headers = _auth_headers()
-        if headers:
-          drive_stats_step(device_id, headers)
-      except Exception as e:
-        capture_exception(e)
-        log(f"❌ drive_stats_step() failed: {e}", "ERROR")
-
-      try:
-        route_sender_step(device_id)
-      except Exception as e:
-        capture_exception(e)
-        log(f"❌ route_sender_step() failed: {e}", "ERROR")
-
-      if _wait_interval(CHECK_INTERVAL):
+        log(f"{label} step failed: {e}", "ERROR")
+      if stop_event.wait(CHECK_INTERVAL):
         break
   finally:
-    log("🚚 Route sender loop stopped", "INFO")
+    log(f"{label} loop stopped", "INFO")
+
+
+def _drive_stats_worker_step(device_id: str) -> None:
+  headers = _auth_headers()
+  if headers:
+    drive_stats_step(device_id, headers)
+
+
+def run_route_sender(stop_event=None, device_id=None):
+  device_id = device_id or get_dongle_id()
+  if not device_id or device_id == "UNKNOWN_DEVICE":
+    log("Route sender missing device ID; exiting", "ERROR")
+    return
+
+  stop_event = stop_event if stop_event is not None else threading.Event()
+  # Scan requests must keep polling while transfers or log analysis take minutes.
+  workers = [
+    threading.Thread(
+      target=_run_route_worker,
+      args=(stop_event, device_id, step, label),
+      name=name,
+      daemon=True,
+    )
+    for step, label, name in (
+      (drive_inventory_step, "Drive inventory", "drive_inventory_thread"),
+      (_drive_stats_worker_step, "Drive statistics", "drive_stats_thread"),
+    )
+  ]
+  started_workers: list[threading.Thread] = []
+  try:
+    for worker in workers:
+      worker.start()
+      started_workers.append(worker)
+    _run_route_worker(stop_event, device_id, route_sender_step, "Route sender")
+  finally:
+    stop_event.set()
+    for worker in started_workers:
+      worker.join(timeout=1)
+      if worker.is_alive():
+        log(f"{worker.name} is finishing its current operation after stop was requested", "WARN")
 
 def main():
   run_route_sender()
