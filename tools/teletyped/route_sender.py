@@ -37,6 +37,7 @@ from openpilot.tools.teletyped.label_utils import (
   strip_boot_prefix,
 )
 from openpilot.tools.teletyped.drive_stats import drive_stats_step
+from openpilot.tools.teletyped.telemetry import telemetry_step
 
 OPENPILOT_BASEDIR: str | None
 try:
@@ -2017,6 +2018,12 @@ def _drive_stats_worker_step(device_id: str) -> None:
     drive_stats_step(device_id, headers)
 
 
+def _telemetry_worker_step(device_id: str) -> None:
+  headers = _auth_headers()
+  if headers:
+    telemetry_step(device_id, headers)
+
+
 def run_route_sender(stop_event=None, device_id=None):
   device_id = device_id or get_dongle_id()
   if not device_id or device_id == "UNKNOWN_DEVICE":
@@ -2035,6 +2042,7 @@ def run_route_sender(stop_event=None, device_id=None):
     for step, label, name in (
       (drive_inventory_step, "Drive inventory", "drive_inventory_thread"),
       (_drive_stats_worker_step, "Drive statistics", "drive_stats_thread"),
+      (_telemetry_worker_step, "Vehicle telemetry", "vehicle_telemetry_thread"),
     )
   ]
   started_workers: list[threading.Thread] = []

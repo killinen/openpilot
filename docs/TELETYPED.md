@@ -2,7 +2,7 @@
 
 FrogPilot now bundles the **teletyped** service that powers the Goran Connect
 remote support workflow. The daemon runs on-device (comma three / three X on
-AGNOS) and handles three capabilities:
+AGNOS) and handles these capabilities:
 
 - Maintain a reverse SSH tunnel so support staff can reach the device when an
   access request is created on the server.
@@ -12,6 +12,8 @@ AGNOS) and handles three capabilities:
   them via the bundled `wormhole-william` binary.
 - While offroad, derive engagement time/distance and steering-intervention
   statistics from completed route logs and upload them to `POST /api/drive-stats`.
+- Collect optional vehicle telemetry from offroad rlogs and upload it through
+  the shared `POST /api/drive-telemetry` endpoint.
 
 ## Requirements
 
@@ -69,6 +71,71 @@ segment count, car name/fingerprint and stats profile, longitudinal/steering
 mode, device type, software version, Git branch/commit/date, and dirty-tree
 state. The server must treat `(device_id, drive)` as an idempotency key; an
 HTTP 409 response is also treated as an already-stored success by the device.
+
+## Optional vehicle telemetry
+
+`tools/teletyped/telemetry.py` handles discovery, batching, durable retries and
+transport. Vehicle decoding lives under `tools/teletyped/collectors/`. Modules
+activate only for matching **logged** car metadata, including CAN reports that
+precede carParams. Collection has its own worker and interrupts when driving
+resumes. Current device CarParams are never applied to another route.
+
+`hrr_temperature` schema **2** supports the custom Lexus LS600h. It receives HRR
+`0x638` on bus 2, speed `0xB4` on bus 0, ambient `0x3B0` on bus 1, and tentative
+engine/coolant temperature `0x039` on bus 1. Historical four-byte and current
+eight-byte HRR layouts are supported. Valid repeated temperature counters do
+not refresh the reading. Invalid reports carry an explicit null value.
+
+Every accepted HRR report is retained. Comparison streams match the desktop
+`hrr-temp-tracker` library: the last report of each absolute second is retained
+with its original integer nanosecond timestamp. Comparison sampling is part of
+the collector format; gzip compression itself discards no data. Ambient uses the
+**provisional** byte-3-minus-49 °C decode and includes the original raw byte.
+Engine uses the **tentative** byte-0 Celsius decode. Both caveats are in metadata.
+
+Coverage includes each segment's first/last CAN timestamps, event count and HRR
+valid/invalid/repeated/malformed counts. A matching vehicle with CAN but no HRR
+reports uploads coverage rather than disappearing from the library. Routes with
+missing rlogs upload the available segments; qlogs are excluded. All rlogs must
+be at least 120 seconds old before analysis.
+
+Snapshots contain batches of at most 600 records, with device/route IDs,
+collector/schema, car and software metadata, source fingerprint, segment list,
+recording time, monotonic origin and batch index/count. Changes to source logs
+create distinct immutable snapshots. HTTP 409 acknowledges an already stored
+batch. Schema 1 remains accepted by the server and readable by opDriveStats;
+its engine data is absent and coverage is estimated from HRR report intervals.
+
+Pending state is compressed in
+`/persist/comma/teletyped_telemetry_state.json.gz`. The previous plain JSON queue
+is migrated after a successful atomic write, including pending schema-1 jobs.
+Malformed state is preserved for recovery. Uploads resume at the first
+unacknowledged batch after a restart, even if loggerd deleted their source logs.
+Requests send gzip JSON using `Content-Encoding: gzip`; the server accepts both
+gzip and plain JSON and stores accepted payloads as compressed blobs. Exported
+JSON retains all decoded values and timestamps.
+
+The module defaults on for matching LS600h routes when GoranConnect access is
+on. Set `TELETYPED_HRR_TEMPERATURE=0` to pause it, including pending jobs.
+`TELETYPED_TELEMETRY_MAX_PER_TICK` defaults to 1 route/retry job per poll;
+`TELETYPED_TELEMETRY_RETRY_INTERVAL` defaults to 900 seconds.
+
+To add a module, implement the `Collector` protocol (`key`, `schema_version`,
+`matches`, `observe`, `result`) with a no-argument constructor and register the
+class in `COLLECTOR_TYPES`. Results contain `samples` with `time_s` and `segment`,
+plus module metadata. Heavy snapshot metadata can go in `first_batch`, which
+is sent only in batch zero. The switch is `TELETYPED_<KEY_IN_UPPERCASE>`. Bump schema
+versions for changed decode semantics and register the corresponding server
+validator in `telemetry_collectors.py`.
+
+**Deploy the GoranConnect server update before the device update.** Its
+`GET /api/drive-telemetry/export` feed uses the existing drive-stats export token
+and negotiates gzip responses. Export consumers group batches by
+`(device_id, collector, schema_version, drive, source_fingerprint)` and publish
+only complete snapshots. opDriveStats synchronizes this feed independently of
+engagement stats, keeps original batches compressed, and updates covered segments
+without deleting previously uploaded history. Its protected `/temperatures`
+page reproduces Conditions/library heatmaps, filters, coverage and CSV exports.
 
 ## Runtime Integration
 

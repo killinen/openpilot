@@ -40,6 +40,7 @@ def test_inventory_keeps_polling_while_stats_and_transfer_are_blocked(monkeypatc
   monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
   monkeypatch.setattr(route_sender, "drive_inventory_step", inventory_step)
   monkeypatch.setattr(route_sender, "drive_stats_step", stats_step)
+  monkeypatch.setattr(route_sender, "telemetry_step", stats_step)
   monkeypatch.setattr(route_sender, "route_sender_step", transfer_step)
   monkeypatch.setattr(route_sender, "log", lambda *args: None)
   errors: list[BaseException] = []
@@ -55,7 +56,7 @@ def test_inventory_keeps_polling_while_stats_and_transfer_are_blocked(monkeypatc
     runner.join(3)
   assert not runner.is_alive()
   assert not errors
-  assert not any(t.name in {"drive_inventory_thread", "drive_stats_thread"} for t in threading.enumerate())
+  assert not any(t.name in {"drive_inventory_thread", "drive_stats_thread", "vehicle_telemetry_thread"} for t in threading.enumerate())
 
 
 def test_route_worker_retries_failed_steps(monkeypatch: pytest.MonkeyPatch):
