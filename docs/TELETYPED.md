@@ -137,6 +137,37 @@ engagement stats, keeps original batches compressed, and updates covered segment
 without deleting previously uploaded history. Its protected `/temperatures`
 page reproduces Conditions/library heatmaps, filters, coverage and CSV exports.
 
+## Last known device location
+
+`tools/teletyped/location.py` is a separate optional offroad worker. In this
+checkout GPS, locationd and teletyped do not run at the same time: GPS runs
+onroad; teletyped requires offroad and the GoranConnect access toggle. Location
+reporting therefore uses the last valid GPS fix from retained drive logs.
+
+Every 60 seconds it checks recent segments, preferring qlogs and falling back
+to rlogs, including bz2 files. Files must be settled for 30 seconds. At most
+three unexamined files are read per tick, and unchanged files are skipped.
+Scanning stops when driving resumes and runs independently of drive statistics,
+HRR processing and transfers. Invalid GPS reports never replace a valid fix.
+The original GPS UTC timestamp, accuracy and source are retained.
+
+The last fix is saved privately in
+`/persist/comma/teletyped_last_location.json`, so deleting logs or restarting
+teletyped does not erase it. When no timestamped fix is available, the persistent
+`LastGPSPosition` parameter can provide coordinates; its capture time remains
+unknown because that parameter has no timestamp. Unavailable GPS never produces
+invented coordinates. Set `TELETYPED_LOCATION=0` to disable location reporting.
+
+`POST /api/device-locations/{device_id}` uses the existing device JWT. The server
+keeps one snapshot per device and rejects older reports over newer timestamped
+fixes. It does not create a location history. Authenticated users select a device
+in GoranConnect's map and press **Show last known location** to fetch and display
+it, with its GPS time, age and accuracy. Server receipt time never refreshes GPS
+age; untimestamped saved positions are explicitly marked unknown. The existing
+OwnTracks map and playback remain available.
+
+Deploy the GoranConnect backend and rebuilt frontend before updating the device.
+
 ## Runtime Integration
 
 The manager launches the service as `teletyped` (see
