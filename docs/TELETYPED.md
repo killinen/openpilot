@@ -1,5 +1,9 @@
 # Teletyped (Goran Connect)
 
+For independent supervision and last-known-good rollback, see
+[TeleTyped recovery deployment](TELETYPED_RECOVERY.md). Until that service is
+explicitly provisioned, manager uses the compatibility subprocess described below.
+
 FrogPilot now bundles the **teletyped** service that powers the Goran Connect
 remote support workflow. The daemon runs on-device (comma three / three X on
 AGNOS) and handles these capabilities:
@@ -143,13 +147,17 @@ Deploy the GoranConnect backend and rebuilt frontend before updating the device.
 
 ## Runtime Integration
 
-The manager launches the service as `teletyped` (see
+Without an installed recovery service, manager launches a fresh subprocess as `teletyped` (see
 `system/manager/process_config.py`) when the **GoranConnect access** toggle is
-on. It only runs on devices that report the `/TICI` marker—i.e. comma three /
+on and the device is offroad. Manager does not pre-import TeleTyped, and retries
+an exited compatibility worker after five seconds. It only runs on devices that report the `/TICI` marker—i.e. comma three /
 three X hardware—so it will not execute on PC emulators or legacy NEOS
 devices. The helper auto-detects persist and log paths using the hardware
 abstraction so the same binary works across both NEOS-style and AGNOS
 filesystems.
+
+The independent recovery service has its own opt-in and offroad-work policy;
+see the recovery deployment guide before enabling it.
 
 Heartbeats run in their own worker, so startup uploads, SSH operations and device
 actions do not delay status reports. DNS fallback overrides apply only to the

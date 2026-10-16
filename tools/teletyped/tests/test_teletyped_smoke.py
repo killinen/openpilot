@@ -458,13 +458,24 @@ def test_heartbeats_continue_during_main_loop_work(monkeypatch, heartbeat_main, 
   monkeypatch.setattr(teletyped, "POLL_INTERVAL", 0)
   monkeypatch.setattr(teletyped, "send_heartbeat", heartbeat)
   monkeypatch.setattr(teletyped, "capture_exception", errors.append)
+  tunnel_polled = threading.Event()
+  if blocked_operation == "startup_upload":
+    def poll_tunnel(*args):
+      tunnel_polled.set()
+      return "connected"
+
+    monkeypatch.setattr(teletyped, "reverse_ssh_step", poll_tunnel)
   runner = threading.Thread(target=run)
   runner.start()
   try:
     assert blocked.wait(2)
     assert heartbeats_received.wait(2), "Main-loop work stopped heartbeats"
-    expected_status = "unknown" if blocked_operation in {"startup_upload", "key_upload"} else "connected"
-    assert sent == [expected_status] * len(sent)
+    if blocked_operation == "startup_upload":
+      assert tunnel_polled.wait(2), "Startup diagnostics blocked tunnel management"
+      assert set(sent) <= {"unknown", "connected"}
+    else:
+      expected_status = "unknown" if blocked_operation == "key_upload" else "connected"
+      assert sent == [expected_status] * len(sent)
   finally:
     teletyped.signal_handler(None, None)
     release.set()
@@ -473,6 +484,15 @@ def test_heartbeats_continue_during_main_loop_work(monkeypatch, heartbeat_main, 
   assert not errors
   assert teletyped._heartbeat_stop_event is None
   assert not any(t.name == "heartbeat_thread" for t in threading.enumerate())
+
+
+def test_device_actions_wait_for_fresh_offroad_state(monkeypatch, heartbeat_main):
+  teletyped = heartbeat_main
+  monkeypatch.setattr(teletyped.health, "offroad", lambda: False)
+  monkeypatch.setattr(teletyped, "execute_device_actions", lambda *_: pytest.fail("action executed without fresh offroad state"))
+  monkeypatch.setattr(teletyped, "_run_heartbeats", lambda stop, *args: stop.wait(5))
+  monkeypatch.setattr(teletyped.time, "sleep", lambda _: setattr(teletyped, "_running", False))
+  teletyped.main()
 
 
 def test_ssh_backoff_keeps_device_actions_polling(monkeypatch, heartbeat_main):

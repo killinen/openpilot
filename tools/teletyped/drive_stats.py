@@ -577,7 +577,8 @@ def _resolve_state_path() -> str:
   global _DRIVE_STATS_STATE_PATH
   if _DRIVE_STATS_STATE_PATH:
     return _DRIVE_STATS_STATE_PATH
-  directories = (os.path.join(PERSIST_ROOT, "comma"), os.path.join(PERSIST_ROOT, "teletyped"), "/tmp/comma")
+  state_dir = os.environ.get("TELETYPED_STATE_DIR")
+  directories = (state_dir,) if state_dir else (os.path.join(PERSIST_ROOT, "comma"), os.path.join(PERSIST_ROOT, "teletyped"), "/tmp/comma")
   for directory in directories:
     path = os.path.join(directory, DRIVE_STATS_STATE_FILE)
     if os.path.isfile(path):
