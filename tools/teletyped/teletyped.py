@@ -51,6 +51,7 @@ _last_desired_tunnel_request: bool | dict[str, object] | None = None
 _last_tunnel_config: dict[str, object] | None = None
 _route_sender_stop_event: threading.Event | None = None
 _route_sender_thread: threading.Thread | None = None
+_heartbeat_stop_event: threading.Event | None = None
 _missing_auth_warned = False
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
@@ -161,6 +162,8 @@ def signal_handler(sig, frame):
   _running = False
   if _route_sender_stop_event is not None:
     _route_sender_stop_event.set()
+  if _heartbeat_stop_event is not None:
+    _heartbeat_stop_event.set()
 
 def check_server(api_url, timeout=5, max_backoff=60):
   attempt = 0
@@ -1037,7 +1040,26 @@ def _stop_route_sender():
   _route_sender_stop_event = None
   _route_sender_thread = None
 
+def _run_heartbeats(stop_event: threading.Event, device_id: str, tunnel_state: dict[str, str]) -> None:
+  while _running and not stop_event.is_set():
+    started_at = time.monotonic()
+    interval = HEARTBEAT_INTERVAL
+    try:
+      if has_internet_connection():
+        # Use the main loop's latest status; probing the tunnel here can block
+        # on DNS and would defeat keeping heartbeats independent of SSH.
+        send_heartbeat(device_id, tunnel_state["status"])
+      else:
+        interval = 60
+    except Exception as e:
+      capture_exception(e)
+      log(f"Heartbeat worker failed: {e}", "ERROR")
+    if stop_event.wait(max(0, interval - (time.monotonic() - started_at))):
+      break
+
+
 def main():
+  global _heartbeat_stop_event
   ssh_failures = 0
   ROUTE_BACKOFF_BASE = 10
   ROUTE_BACKOFF_MAX = 300
@@ -1060,23 +1082,32 @@ def main():
   if not check_server(API_URL):
     return
 
+  _heartbeat_stop_event = threading.Event()
+  # The main loop fills in the actual tunnel status after startup work finishes.
+  tunnel_state = {"status": "unknown"}
+  heartbeat_thread = threading.Thread(
+    target=_run_heartbeats,
+    args=(_heartbeat_stop_event, device_id, tunnel_state),
+    name="heartbeat_thread",
+    daemon=True,
+  )
+  heartbeat_thread.start()
   try:
-    send_error_logs_on_startup(device_id)
-  except Exception as e:
-    capture_exception(e)
-    log(f"⚠️ Failed to send error logs on startup: {e}", "WARN")
+    try:
+      send_error_logs_on_startup(device_id)
+    except Exception as e:
+      capture_exception(e)
+      log(f"⚠️ Failed to send error logs on startup: {e}", "WARN")
 
-  key_uploaded = ssh_key.send_ssh_key_if_needed()
-  if not key_uploaded:
-    log("⚠️ SSH key upload skipped or failed; continuing without remote key registration.", "WARN")
-  _start_route_sender(device_id)
+    key_uploaded = ssh_key.send_ssh_key_if_needed()
+    if not key_uploaded:
+      log("⚠️ SSH key upload skipped or failed; continuing without remote key registration.", "WARN")
+    _start_route_sender(device_id)
 
-  last_ssh_time = time.monotonic()
-  last_ssh_status = get_current_tunnel_status()
-  last_heartbeat_time = 0
-  last_key_attempt = time.monotonic()
+    last_ssh_time = time.monotonic()
+    tunnel_state["status"] = get_current_tunnel_status()
+    last_key_attempt = time.monotonic()
 
-  try:
     while _running:
       now = time.monotonic()
 
@@ -1084,15 +1115,12 @@ def main():
         time.sleep(60)
         continue
 
-      if now - last_ssh_time >= POLL_INTERVAL:
-        if ssh_failures > 0:
-          backoff_time = min(ROUTE_BACKOFF_BASE * (2 ** ssh_failures), ROUTE_BACKOFF_MAX)
-          if now - last_ssh_time < backoff_time:
-            time.sleep(1)
-            continue
-
+      ssh_poll_interval = POLL_INTERVAL
+      if ssh_failures:
+        ssh_poll_interval = min(ROUTE_BACKOFF_BASE * (2 ** min(ssh_failures, 5)), ROUTE_BACKOFF_MAX)
+      if now - last_ssh_time >= ssh_poll_interval:
         try:
-          last_ssh_status = reverse_ssh_step(device_id, last_ssh_status)
+          tunnel_state["status"] = reverse_ssh_step(device_id, tunnel_state["status"])
           ssh_failures = 0
         except Exception as e:
           ssh_failures += 1
@@ -1102,10 +1130,6 @@ def main():
 
       execute_device_actions(device_id)
 
-      if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
-        send_heartbeat(device_id, last_ssh_status)
-        last_heartbeat_time = now
-
       if (not key_uploaded) and (now - last_key_attempt >= 300):
         key_uploaded = ssh_key.send_ssh_key_if_needed()
         if key_uploaded:
@@ -1114,6 +1138,11 @@ def main():
 
       time.sleep(1)
   finally:
+    _heartbeat_stop_event.set()
+    heartbeat_thread.join(timeout=10)
+    if heartbeat_thread.is_alive():
+      log("Heartbeat worker is finishing its current request after stop was requested", "WARN")
+    _heartbeat_stop_event = None
     _stop_route_sender()
 
 if __name__ == "__main__":

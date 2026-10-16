@@ -15,6 +15,7 @@ from typing import Any
 
 from openpilot.tools.teletyped.helper import API_URL, PERSIST_ROOT, REALDATA_DIR, capture_exception, http_post, log
 from openpilot.tools.teletyped.label_utils import drive_base_name, is_drive_label
+from openpilot.tools.teletyped.profiles import SteeringStatsConfig, VehicleStatsProfile, select_vehicle_profile
 
 
 def _env_positive_int(name: str, default: int) -> int:
@@ -43,10 +44,6 @@ DRIVE_STATS_ENABLED = os.environ.get("TELETYPED_DRIVE_STATS", "1").strip().lower
   "off",
 }
 
-STEER_INTERVENTION_THRESHOLD = 1.5
-STEER_RESOLUTION_THRESHOLD = 0.3
-INTERVENTION_TIMEOUT_NS = 10 * 1_000_000_000
-ENGAGEMENT_BUFFER_NS = 3 * 1_000_000_000
 MAX_SAMPLE_GAP_NS = 1 * 1_000_000_000
 BLINKER_LOOKBACK_NS = 8 * 1_000_000_000
 BLINKER_LOOKAHEAD_NS = 3 * 1_000_000_000
@@ -100,61 +97,6 @@ class DisengagementEvent:
   timestamp_ns: int
   speed_bucket: str
   blinker_nearby: bool
-
-
-class VehicleStatsProfile:
-  """Vehicle-specific decoding boundary for adding future cars."""
-
-  name = "unknown"
-
-  def matches(self, car_name: str, fingerprint: str) -> bool:
-    raise NotImplementedError
-
-  def decode_odometer_km(self, source: int, address: int, data: bytes) -> float | None:
-    return None
-
-  def has_legacy_steering_feedback(self, source: int, address: int) -> bool:
-    return False
-
-  def steering_values(self, car_state: Any) -> tuple[float, float]:
-    raise NotImplementedError
-
-
-class HyundaiI30StatsProfile(VehicleStatsProfile):
-  name = "hyundai_i30_2014"
-  fingerprints = {
-    "HYUNDAI I30 GD 2014",
-    "HYUNDAI_I30_GD_2014",
-  }
-
-  def matches(self, car_name: str, fingerprint: str) -> bool:
-    return car_name.strip().lower() == "i30" or fingerprint.strip().upper() in self.fingerprints
-
-  def decode_odometer_km(self, source: int, address: int, data: bytes) -> float | None:
-    # CLU1.CF_Clu_Odometer: Intel 24-bit value at bit 40, scale 0.1 km.
-    if source != 0 or address != 1264 or len(data) < 8:
-      return None
-    return ((data[7] << 16) | (data[6] << 8) | data[5]) * 0.1
-
-  def has_legacy_steering_feedback(self, source: int, address: int) -> bool:
-    # The legacy SSC actuator publishes STEERING_STATUS on camera bus 1.
-    return source == 1 and address == 559
-
-  def steering_values(self, car_state: Any) -> tuple[float, float]:
-    # Preserve the calibration/sign convention used by opDriveStats.
-    driver = -float(getattr(car_state, "steeringTorque", 0.0)) - 0.2
-    actuator = float(getattr(car_state, "steeringTorqueEps", 0.0))
-    return driver, actuator
-
-
-VEHICLE_PROFILES: tuple[VehicleStatsProfile, ...] = (HyundaiI30StatsProfile(),)
-
-
-def select_vehicle_profile(car_name: str = "", fingerprint: str = "") -> VehicleStatsProfile | None:
-  for profile in VEHICLE_PROFILES:
-    if profile.matches(car_name, fingerprint):
-      return profile
-  return None
 
 
 @dataclass(frozen=True)
@@ -265,8 +207,7 @@ class DriveAnalyzer:
     self.current_speed_mps = 0.0
     self.speed_bucket_state = _new_speed_bucket_state()
 
-    self.driver_filter = MovingAverage()
-    self.actuator_filter = MovingAverage()
+    self._reset_steering_filters()
     self.in_torque_intervention = False
     self.last_torque_intervention_ns = 0
     self.torque_intervention_count = 0
@@ -274,7 +215,7 @@ class DriveAnalyzer:
     self.last_pressed_intervention_ns = 0
     self.pressed_intervention_count = 0
     self.saw_legacy_steering_feedback = False
-    self.trqi_steering: bool | None = None
+    self.route_params: dict[str, bytes] = {}
 
   def _set_vehicle(self, car_params: Any) -> None:
     self.car_name = str(getattr(car_params, "carName", ""))
@@ -282,7 +223,10 @@ class DriveAnalyzer:
     self.openpilot_longitudinal = bool(getattr(car_params, "openpilotLongitudinalControl", False))
     # Logged metadata is authoritative. This prevents the current car's cached
     # Params from being applied to an old route recorded by another vehicle.
-    self.profile = select_vehicle_profile(self.car_name, self.car_fingerprint)
+    profile = select_vehicle_profile(self.car_name, self.car_fingerprint)
+    if profile is not self.profile:
+      self.profile = profile
+      self._reset_steering_filters()
 
   def _observe_init_data(self, init_data: Any) -> None:
     self.version = str(getattr(init_data, "version", "")) or None
@@ -297,40 +241,47 @@ class DriveAnalyzer:
       self.recorded_at = datetime.fromtimestamp(wall_time_ns / 1e9, UTC).isoformat()
     entries = getattr(getattr(init_data, "params", None), "entries", ())
     for entry in entries:
-      if str(getattr(entry, "key", "")) != "TRQISteeringToggle":
-        continue
-      value = bytes(getattr(entry, "value", b"")).strip().lower()
-      self.trqi_steering = value in {b"1", b"true", b"yes", b"on"}
-      break
+      self.route_params[str(getattr(entry, "key", ""))] = bytes(getattr(entry, "value", b""))
+
+  def _steering_config(self) -> SteeringStatsConfig:
+    return self.profile.steering if self.profile is not None else SteeringStatsConfig()
+
+  def _reset_steering_filters(self) -> None:
+    window = self._steering_config().filter_window
+    self.driver_filter = MovingAverage(window)
+    self.actuator_filter = MovingAverage(window)
 
   def _engagement_stable(self, now_ns: int) -> bool:
-    return self.last_engagement_change_ns is None or now_ns - self.last_engagement_change_ns > ENGAGEMENT_BUFFER_NS
+    return self.last_engagement_change_ns is None or now_ns - self.last_engagement_change_ns > self._steering_config().engagement_buffer_ns
 
   def _observe_torque(self, now_ns: int, car_state: Any) -> None:
-    if self.profile is None:
+    if self.profile is None or "torque_delta" not in self.profile.steering.sources:
       return
+    config = self.profile.steering
     driver, actuator = self.profile.steering_values(car_state)
     filtered_driver = self.driver_filter.update(driver)
     filtered_actuator = self.actuator_filter.update(actuator)
     difference = abs(filtered_driver - filtered_actuator)
     if not self.engaged or not self._engagement_stable(now_ns):
       return
-    if difference > STEER_INTERVENTION_THRESHOLD and not self.in_torque_intervention and now_ns - self.last_torque_intervention_ns > INTERVENTION_TIMEOUT_NS:
+    if difference > config.intervention_threshold and not self.in_torque_intervention and now_ns - self.last_torque_intervention_ns > config.intervention_timeout_ns:
       self.torque_intervention_count += 1
       self.speed_bucket_state[_speed_bucket_for(self.current_speed_mps)]["torque_intervention_count"] += 1
       self.in_torque_intervention = True
       self.last_torque_intervention_ns = now_ns
-    elif difference < STEER_RESOLUTION_THRESHOLD and self.in_torque_intervention:
+    elif difference < config.resolution_threshold and self.in_torque_intervention:
       self.in_torque_intervention = False
 
   def _observe_pressed(self, now_ns: int, car_state: Any) -> None:
+    if self.profile is None or "steering_pressed" not in self.profile.steering.sources:
+      return
     pressed = bool(getattr(car_state, "steeringPressed", False))
     if (
       pressed
       and not self.in_pressed_intervention
       and self.engaged
       and self._engagement_stable(now_ns)
-      and now_ns - self.last_pressed_intervention_ns > INTERVENTION_TIMEOUT_NS
+      and now_ns - self.last_pressed_intervention_ns > self.profile.steering.intervention_timeout_ns
     ):
       self.pressed_intervention_count += 1
       self.speed_bucket_state[_speed_bucket_for(self.current_speed_mps)]["pressed_intervention_count"] += 1
@@ -364,8 +315,7 @@ class DriveAnalyzer:
 
     # Filters and intervention latches intentionally reset at segment boundaries,
     # matching the original opDriveStats behavior.
-    self.driver_filter = MovingAverage()
-    self.actuator_filter = MovingAverage()
+    self._reset_steering_filters()
     self.in_torque_intervention = False
     self.in_pressed_intervention = False
 
@@ -463,11 +413,15 @@ class DriveAnalyzer:
     use_odometer = self.odometer_samples >= 2
     total_distance = self.total_distance_km if use_odometer else self.integrated_distance_km
     engaged_distance = self.engaged_distance_km if use_odometer else self.integrated_engaged_distance_km
-    uses_pressed_interventions = self.trqi_steering is True or (self.trqi_steering is None and not self.saw_legacy_steering_feedback)
-    steering_interventions = self.pressed_intervention_count if uses_pressed_interventions else self.torque_intervention_count
+    steering_source = self.profile.intervention_source(self.route_params, self.saw_legacy_steering_feedback)
+    steering_interventions_available = steering_source is not None
+    uses_pressed_interventions = steering_source == "steering_pressed"
+    steering_interventions = (
+      self.pressed_intervention_count if uses_pressed_interventions else self.torque_intervention_count
+    ) if steering_interventions_available else None
     engagement_pct = self.engaged_time_ns / self.total_time_ns * 100 if self.total_time_ns else 0.0
     distance_pct = engaged_distance / total_distance * 100 if total_distance > 0 else None
-    steer_per_100km = steering_interventions / total_distance * 100 if total_distance > 0 else None
+    steer_per_100km = steering_interventions / total_distance * 100 if steering_interventions is not None and total_distance > 0 else None
     shutdown_disengagements_removed = int(self.final_disengagement_pending and self.disengagement_count > 0)
     corrected_disengagement_count = self.disengagement_count - shutdown_disengagements_removed
     corrected_disengagement_events = self.disengagement_events[:-1] if shutdown_disengagements_removed else self.disengagement_events
@@ -497,8 +451,9 @@ class DriveAnalyzer:
       bucket_raw_non_intersection_count = sum(not event.blinker_nearby for event in bucket_events)
       bucket_non_intersection_count = sum(not event.blinker_nearby for event in bucket_corrected_events)
       bucket_blinker_related_count = sum(event.blinker_nearby for event in bucket_corrected_events)
-      bucket_steering_interventions = int(
-        bucket["pressed_intervention_count"] if uses_pressed_interventions else bucket["torque_intervention_count"]
+      bucket_steering_interventions = (
+        int(bucket["pressed_intervention_count"] if uses_pressed_interventions else bucket["torque_intervention_count"])
+        if steering_interventions_available else None
       )
       speed_buckets[key] = {
         "label": definition["label"],
@@ -518,7 +473,10 @@ class DriveAnalyzer:
         "drive_time_engagement_pct": round(engaged_drive_time_ns / drive_time_ns * 100, 2) if drive_time_ns else 0.0,
         "distance_engagement_pct": round(engaged_distance_km / distance_km * 100, 2) if distance_km > 0 else None,
         "steer_intervention_count": bucket_steering_interventions,
-        "steer_interventions_per_100km": round(bucket_steering_interventions / distance_km * 100, 2) if distance_km > 0 else None,
+        "steer_interventions_per_100km": (
+          round(bucket_steering_interventions / distance_km * 100, 2)
+          if bucket_steering_interventions is not None and distance_km > 0 else None
+        ),
         "raw_disengagement_count": raw_disengagement_count,
         "disengagement_count": bucket_disengagement_count,
         "disengagements_per_100km": round(bucket_disengagement_count / distance_km * 100, 2) if distance_km > 0 else None,
@@ -553,7 +511,7 @@ class DriveAnalyzer:
       "distance_source": "odometer" if use_odometer else "integrated_v_ego",
       "steer_intervention_count": steering_interventions,
       "steer_interventions_per_100km": round(steer_per_100km, 2) if steer_per_100km is not None else None,
-      "steer_intervention_source": "steering_pressed" if uses_pressed_interventions else "torque_delta",
+      "steer_intervention_source": steering_source,
       "total_state_changes": self.engagement_state_changes,
       "raw_disengagement_count": self.disengagement_count,
       "disengagement_count": corrected_disengagement_count,
@@ -583,7 +541,7 @@ class DriveAnalyzer:
       "speed_bucket_version": 1,
       "speed_buckets": speed_buckets,
       "openpilot_longitudinal": self.openpilot_longitudinal,
-      "steering_mode": "trqi_tq_delta" if self.trqi_steering else "legacy_ssc" if self.trqi_steering is False else "unknown",
+      "steering_mode": self.profile.get_steering_mode(self.route_params),
       "version": self.version,
       "git_branch": self.git_branch,
       "git_commit": self.git_commit,
@@ -727,7 +685,6 @@ def drive_stats_step(device_id: str, headers: dict[str, str]) -> None:
 __all__ = [
   "DriveAnalyzer",
   "DriveLogSet",
-  "HyundaiI30StatsProfile",
   "analyze_drive",
   "discover_drive_logs",
   "drive_stats_step",

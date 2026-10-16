@@ -5,7 +5,10 @@ from typing import Any
 
 import pytest
 
-from openpilot.tools.teletyped import drive_stats
+from openpilot.tools.teletyped import drive_stats, profiles
+from openpilot.tools.teletyped.profiles.base import SteeringStatsConfig, VehicleStatsProfile
+from openpilot.tools.teletyped.profiles.hyundai_i30 import HyundaiI30StatsProfile
+from openpilot.tools.teletyped.profiles.lexus_ls600h import LexusLS600hStatsProfile
 
 
 BASE_TIME_NS = 100 * 1_000_000_000
@@ -102,7 +105,7 @@ def test_disengagement_rates_exclude_only_final_unmatched_transition() -> None:
   analyzer = drive_stats.DriveAnalyzer(
     "2026-09-07--12-30-00",
     "DONGLE",
-    drive_stats.HyundaiI30StatsProfile(),
+    HyundaiI30StatsProfile(),
   )
   analyzer.process_segment(
     [
@@ -144,11 +147,12 @@ def test_disengagement_rates_exclude_only_final_unmatched_transition() -> None:
   assert result["speed_buckets"]["road"]["disengagements_per_drive_hour"] == 900.0
 
 
-def test_non_intersection_disengagements_use_blinker_window_and_exclude_shutdown() -> None:
+@pytest.mark.parametrize("profile", [HyundaiI30StatsProfile(), LexusLS600hStatsProfile()])
+def test_non_intersection_disengagements_use_blinker_window_and_exclude_shutdown(profile) -> None:
   analyzer = drive_stats.DriveAnalyzer(
     "2026-09-07--12-40-00",
     "DONGLE",
-    drive_stats.HyundaiI30StatsProfile(),
+    profile,
   )
   analyzer.process_segment(
     [
@@ -172,6 +176,8 @@ def test_non_intersection_disengagements_use_blinker_window_and_exclude_shutdown
   result = analyzer.result()
 
   assert result is not None
+  assert result["vehicle_profile"] == profile.name
+  assert result["steer_intervention_count"] == (0 if profile.supports_steering_interventions else None)
   assert result["raw_disengagement_count"] == 4
   assert result["disengagement_count"] == 3
   assert result["raw_non_intersection_disengagement_count"] == 2
@@ -196,7 +202,7 @@ def test_speed_buckets_track_time_distance_and_shutdown_correction() -> None:
   analyzer = drive_stats.DriveAnalyzer(
     "2026-09-07--12-45-00",
     "DONGLE",
-    drive_stats.HyundaiI30StatsProfile(),
+    HyundaiI30StatsProfile(),
   )
   analyzer.process_segment(
     [
@@ -293,11 +299,38 @@ def test_i30_trqi_uses_hardware_steering_pressed() -> None:
   assert result["speed_buckets"]["road"]["steer_intervention_count"] == 1
 
 
+def test_ls600h_uses_integrated_distance_and_leaves_steering_interventions_blank() -> None:
+  analyzer = drive_stats.DriveAnalyzer("2026-09-07--13-30-00", "DONGLE")
+  analyzer.process_segment(
+    [
+      message("carParams", 0, carName="toyota", carFingerprint="LEXUS_LS600h", openpilotLongitudinalControl=False),
+      message("controlsState", 0, active=True),
+      message("carState", 0, vEgo=20.0, steeringTorque=100.0, steeringTorqueEps=-100.0, steeringPressed=True),
+      message("carState", 1, vEgo=20.0, steeringTorque=100.0, steeringTorqueEps=-100.0, steeringPressed=True),
+      message("controlsState", 1, active=False),
+    ]
+  )
+
+  result = analyzer.result()
+
+  assert result is not None
+  assert result["vehicle_profile"] == "lexus_ls600h_2013_17"
+  assert result["distance_source"] == "integrated_v_ego"
+  assert result["odo_distance"] == pytest.approx(0.02)
+  assert result["engaged_distance"] == pytest.approx(0.02)
+  assert result["steer_intervention_count"] is None
+  assert result["steer_interventions_per_100km"] is None
+  assert result["steer_intervention_source"] is None
+  assert result["steering_mode"] == "hrr_torque"
+  assert result["speed_buckets"]["road"]["steer_intervention_count"] is None
+  assert result["speed_buckets"]["road"]["steer_interventions_per_100km"] is None
+
+
 def test_logged_non_i30_metadata_overrides_cached_i30_profile() -> None:
   analyzer = drive_stats.DriveAnalyzer(
     "2026-09-07--14-00-00",
     "DONGLE",
-    drive_stats.HyundaiI30StatsProfile(),
+    HyundaiI30StatsProfile(),
   )
   analyzer.process_segment(
     [
@@ -328,7 +361,7 @@ def test_drive_stats_step_persists_payload_for_upload_retry(monkeypatch: pytest.
   monkeypatch.setattr(drive_stats, "DRIVE_STATS_RETRY_INTERVAL", 0)
   monkeypatch.setattr(drive_stats, "_load_state", lambda: state)
   monkeypatch.setattr(drive_stats, "_save_state", save)
-  monkeypatch.setattr(drive_stats, "_current_vehicle_profile", lambda: drive_stats.HyundaiI30StatsProfile())
+  monkeypatch.setattr(drive_stats, "_current_vehicle_profile", lambda: HyundaiI30StatsProfile())
   monkeypatch.setattr(drive_stats, "analyze_drive", lambda *args: {"drive": drive.name, "device_id": "DONGLE"})
   monkeypatch.setattr(drive_stats, "upload_drive_stats", upload)
   monkeypatch.setattr(drive_stats, "capture_exception", lambda _error: None)
@@ -343,3 +376,87 @@ def test_drive_stats_step_persists_payload_for_upload_retry(monkeypatch: pytest.
   assert "stats" not in state["drives"][drive.name]
   assert attempts == 2
   assert saved
+
+
+@pytest.mark.parametrize("car_name,fingerprint,expected", [
+  ("i30", "", "hyundai_i30_2014"),
+  ("other", " hyundai_i30_gd_2014 ", "hyundai_i30_2014"),
+  (" TOYOTA ", "lexus_ls600h", "lexus_ls600h_2013_17"),
+  ("toyota", "LEXUS LS 600H 2013-17", "lexus_ls600h_2013_17"),
+  ("other", "LEXUS_LS600H", None),
+  ("toyota", "TOYOTA COROLLA TSS2 2019", None),
+  ("", "", None),
+])
+def test_profile_registry_matches_only_supported_cars(car_name, fingerprint, expected):
+  profile = profiles.select_vehicle_profile(car_name, fingerprint)
+  assert (profile.name if profile else None) == expected
+
+
+@pytest.mark.parametrize("sources,expected", [
+  (("torque_delta",), 2),
+  (("steering_pressed",), 1),
+  ((), None),
+])
+def test_registered_profile_configures_analysis_without_vehicle_specific_core_changes(monkeypatch, sources, expected):
+  class CustomStatsProfile(VehicleStatsProfile):
+    name = "test_vehicle"
+    car_names = frozenset({"test"})
+    fingerprints = frozenset({"TEST CAR"})
+    steering_mode = "test_eps"
+    steering = SteeringStatsConfig(
+      sources=sources, filter_window=1, intervention_threshold=4.0, resolution_threshold=1.0,
+      intervention_timeout_ns=0, engagement_buffer_ns=0,
+    )
+
+    def decode_odometer_km(self, source, address, data):
+      return data[0] * 0.1 if source == 7 and address == 123 and len(data) == 1 else None
+
+  monkeypatch.setattr(profiles, "VEHICLE_PROFILES", (CustomStatsProfile(),))
+  analyzer = drive_stats.DriveAnalyzer("test-route", "DONGLE")
+  analyzer.process_segment([
+    message("initData", 0, params=SimpleNamespace(entries=[SimpleNamespace(key="TRQISteeringToggle", value=b"1")])),
+    message("carParams", 0, carName="test", carFingerprint="TEST CAR"),
+    message("controlsState", 0, active=True),
+    can_message(0, (7, 123, bytes([30])), odometer_frame(100)),
+    *[message("carState", index, vEgo=20.0, steeringTorque=torque, steeringTorqueEps=0.0, steeringPressed=True)
+      for index, torque in enumerate((2.0, 5.0, 5.0, 0.0, 5.0))],
+    can_message(4, (7, 123, bytes([32])), odometer_frame(150)),
+  ])
+  result = analyzer.result()
+  assert result is not None
+  assert result["vehicle_profile"] == "test_vehicle"
+  assert result["steering_mode"] == "test_eps"
+  assert result["steer_intervention_source"] == (sources[0] if sources else None)
+  assert result["steer_intervention_count"] == expected
+  assert result["speed_buckets"]["road"]["steer_intervention_count"] == expected
+  assert result["distance_source"] == "odometer"
+  assert result["odo_distance"] == pytest.approx(0.2)
+
+
+def test_i30_selects_late_legacy_feedback_without_losing_earlier_samples():
+  analyzer = drive_stats.DriveAnalyzer("legacy-route", "DONGLE")
+  analyzer.process_segment([
+    message("carParams", 0, carName="i30", carFingerprint="HYUNDAI I30 GD 2014"),
+    message("controlsState", 0, active=True),
+    message("carState", 1, vEgo=20.0, steeringTorque=-0.2, steeringTorqueEps=0.0),
+    message("carState", 11, vEgo=20.0, steeringTorque=-10.0, steeringTorqueEps=0.0),
+  ])
+  assert analyzer.result()["steer_intervention_count"] == 0  # No steeringPressed edge.
+  analyzer.process_segment([can_message(12, (1, 559, bytes(8)))])
+  assert analyzer.result()["steer_intervention_source"] == "torque_delta"
+  assert analyzer.result()["steer_intervention_count"] == 1
+
+
+def test_shared_profile_uses_each_routes_logged_parameters():
+  legacy = drive_stats.DriveAnalyzer("legacy-route", "DONGLE")
+  trqi = drive_stats.DriveAnalyzer("trqi-route", "DONGLE")
+  for analyzer, enabled in ((legacy, b"0"), (trqi, b"1")):
+    analyzer.process_segment([
+      message("initData", 0, params=SimpleNamespace(entries=[SimpleNamespace(key="TRQISteeringToggle", value=enabled)])),
+      message("carParams", 0, carName="i30", carFingerprint="HYUNDAI I30 GD 2014"),
+    ])
+  assert legacy.profile is trqi.profile
+  assert legacy.result()["steer_intervention_source"] == "torque_delta"
+  assert legacy.result()["steering_mode"] == "legacy_ssc"
+  assert trqi.result()["steer_intervention_source"] == "steering_pressed"
+  assert trqi.result()["steering_mode"] == "trqi_tq_delta"
