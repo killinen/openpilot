@@ -372,3 +372,100 @@ def test_drive_stats_step_persists_payload_for_upload_retry(monkeypatch: pytest.
   assert "stats" not in state["drives"][drive.name]
   assert attempts == 2
   assert saved
+
+
+@pytest.fixture
+def stats_worker(tmp_path, monkeypatch: pytest.MonkeyPatch):
+  realdata = tmp_path / "realdata"
+  drive_name = "0000011a--d9d5ec8358"
+  for segment in range(3):
+    directory = realdata / f"{drive_name}--{segment}"
+    directory.mkdir(parents=True)
+    (directory / "rlog").write_bytes(b"log")
+
+  discover = drive_stats.discover_drive_logs
+  monkeypatch.setattr(drive_stats, "discover_drive_logs", lambda: discover(str(realdata)))
+  monkeypatch.setattr(drive_stats, "_DRIVE_STATS_STATE_PATH", str(tmp_path / "stats-state.json"))
+  monkeypatch.setattr(drive_stats, "DRIVE_STATS_ENABLED", True)
+  monkeypatch.setattr(drive_stats, "_current_vehicle_profile", lambda: None)
+  analyzed = []
+  posted = []
+  response = SimpleNamespace(status_code=201, raise_for_status=lambda: None)
+
+  def analyze(*args):
+    analyzed.append(args)
+    return {"device_id": "DONGLE", "drive": drive_name, "schema_version": drive_stats.DRIVE_STATS_SCHEMA_VERSION}
+
+  def post(url, **kwargs):
+    posted.append((url, kwargs))
+    return response
+
+  monkeypatch.setattr(drive_stats, "analyze_drive", analyze)
+  monkeypatch.setattr(drive_stats, "http_post", post)
+  monkeypatch.setattr(drive_stats, "capture_exception", lambda error: pytest.fail(str(error)))
+  monkeypatch.setattr(drive_stats, "log", lambda *args: None)
+  return SimpleNamespace(realdata=realdata, drive_name=drive_name, analyzed=analyzed, posted=posted, response=response)
+
+
+@pytest.mark.parametrize("status_code", [201, 409])
+@pytest.mark.parametrize("change", ["delete_segment", "compress_log"])
+def test_uploaded_drive_stays_complete_when_logs_change(stats_worker, status_code: int, change: str) -> None:
+  worker = stats_worker
+  worker.response.status_code = status_code
+  drive_stats.drive_stats_step("DONGLE", {})
+  uploaded = drive_stats._load_state()["drives"][worker.drive_name]
+  assert uploaded["status"] == "uploaded"
+  assert len(worker.analyzed) == 1
+  assert len(worker.posted) == 1
+
+  log_path = worker.realdata / f"{worker.drive_name}--0" / "rlog"
+  if change == "delete_segment":
+    log_path.unlink()
+    log_path.parent.rmdir()
+  else:
+    log_path.rename(log_path.with_name("rlog.bz2"))
+  assert drive_stats.discover_drive_logs()[0].fingerprint != uploaded["fingerprint"]
+
+  drive_stats.drive_stats_step("DONGLE", {})
+
+  assert len(worker.analyzed) == 1
+  assert len(worker.posted) == 1
+  assert drive_stats._load_state()["drives"][worker.drive_name] == uploaded
+
+
+def test_schema_upgrade_reprocesses_a_previously_uploaded_drive(stats_worker) -> None:
+  worker = stats_worker
+  drive = drive_stats.discover_drive_logs()[0]
+  drive_stats._save_state({
+    "version": drive_stats.DRIVE_STATS_SCHEMA_VERSION - 1,
+    "drives": {drive.name: {"fingerprint": drive.fingerprint, "status": "uploaded"}},
+  })
+
+  drive_stats.drive_stats_step("DONGLE", {})
+
+  assert len(worker.analyzed) == 1
+  assert len(worker.posted) == 1
+  state = drive_stats._load_state()
+  assert state["version"] == drive_stats.DRIVE_STATS_SCHEMA_VERSION
+  assert state["drives"][drive.name]["status"] == "uploaded"
+
+
+@pytest.mark.parametrize("status", ["unsupported", "error"])
+def test_unfinished_drive_is_reconsidered_when_its_logs_change(stats_worker, status: str) -> None:
+  worker = stats_worker
+  drive = drive_stats.discover_drive_logs()[0]
+  drive_stats._save_state({
+    "version": drive_stats.DRIVE_STATS_SCHEMA_VERSION,
+    "drives": {drive.name: {"fingerprint": drive.fingerprint, "status": status}},
+  })
+  drive_stats.drive_stats_step("DONGLE", {})
+  assert not worker.analyzed
+  assert not worker.posted
+
+  log_path = worker.realdata / f"{drive.name}--0" / "rlog"
+  log_path.rename(log_path.with_name("rlog.bz2"))
+  drive_stats.drive_stats_step("DONGLE", {})
+
+  assert len(worker.analyzed) == 1
+  assert len(worker.posted) == 1
+  assert drive_stats._load_state()["drives"][drive.name]["status"] == "uploaded"
