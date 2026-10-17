@@ -39,6 +39,7 @@ from openpilot.tools.teletyped.label_utils import (
 from openpilot.tools.teletyped.drive_stats import drive_stats_step
 from openpilot.tools.teletyped.location import location_step
 from openpilot.tools.teletyped import health
+from openpilot.tools.teletyped.extensions import optional_workers
 
 OPENPILOT_BASEDIR: str | None
 try:
@@ -2048,6 +2049,7 @@ def run_route_sender(stop_event=None, device_id=None):
       (drive_inventory_step, "Drive inventory", "drive_inventory_thread"),
       (_drive_stats_worker_step, "Drive statistics", "drive_stats_thread"),
       (_location_worker_step, "Last known location", "device_location_thread"),
+      *optional_workers(_auth_headers),
     )
   ]
   started_workers: list[threading.Thread] = []
