@@ -36,6 +36,7 @@ def test_inventory_keeps_polling_while_stats_and_transfer_are_blocked(monkeypatc
     transfer_started.set()
     assert release_work.wait(5)
 
+  monkeypatch.setenv("TELETYPED_EXTENSIONS", "")
   monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 0.01)
   monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
   monkeypatch.setattr(route_sender, "drive_inventory_step", inventory_step)
