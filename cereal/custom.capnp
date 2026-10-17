@@ -130,6 +130,8 @@ struct FrogPilotCarState @0xda96579883444c35 {
   steeringAngleDegError @15 :Float32;
   steeringAngleDegDivergence @16 :Float32;
   steeringTorqueOut @17 :Float32;
+  estimatedGear @18 :UInt8;  # Estimated forward gear; 0 = unknown, including uncalibrated gears.
+  estimatedGearValid @19 :Bool;  # True only for a stable ratio match with the clutch engaged.
 
   struct ButtonEvent {
     enum Type {

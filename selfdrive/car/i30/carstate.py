@@ -3,21 +3,15 @@ from collections import deque
 from cereal import car, custom
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
+from openpilot.selfdrive.car.i30.gear import (GearEstimator, I30_GEAR_RATIO_WINDOWS, I30_MIN_CLUTCH_SPEED,
+                                           I30_MIN_CLUTCH_RPM, I30_CLUTCH_RELEASE_TOL_MULTIPLIER)
 from openpilot.selfdrive.car.i30.values import DBC, Buttons, CarControllerParams, i30_uses_trqi_steering
 
 PREV_BUTTON_SAMPLES = 8
 
 GearShifter = car.CarState.GearShifter
 
-I30_GEAR_RATIO_WINDOWS = (
-  (130.6, 10.0),
-  (105.7, 8.0),
-  (92.1, 6.0),
-)
-I30_MIN_CLUTCH_SPEED = 2.0
-I30_MIN_CLUTCH_RPM = 700.0
 I30_CLUTCH_PRESS_TOL_MULTIPLIER = 2.0
-I30_CLUTCH_RELEASE_TOL_MULTIPLIER = 0.8
 I30_CLUTCH_PRESS_FRAMES = 2
 I30_CLUTCH_RELEASE_FRAMES = 4
 TRQI_MCU_TEMP_WARN_ON = 82.0
@@ -48,6 +42,7 @@ class CarState(CarStateBase):
     self.i30_clutch_pressed = False
     self.i30_clutch_press_samples = 0
     self.i30_clutch_release_samples = 0
+    self.gear_estimator = GearEstimator()
     self.steering_torque_out = 0.0
     self.trqi_immediate_disengage_error = False
     self.trqi_non_immediate_disengage_error = False
@@ -66,7 +61,7 @@ class CarState(CarStateBase):
       return self.i30_clutch_pressed
 
     rpm_velo_ratio = engine_rpm / v_ego
-    closest_ratio, base_tol = min(I30_GEAR_RATIO_WINDOWS, key=lambda ratio_tol: abs(rpm_velo_ratio - ratio_tol[0]))
+    _, closest_ratio, base_tol = min(I30_GEAR_RATIO_WINDOWS, key=lambda entry: abs(rpm_velo_ratio - entry[1]))
     ratio_error = abs(rpm_velo_ratio - closest_ratio)
     press_tol = base_tol * I30_CLUTCH_PRESS_TOL_MULTIPLIER
     release_tol = base_tol * I30_CLUTCH_RELEASE_TOL_MULTIPLIER
@@ -113,6 +108,12 @@ class CarState(CarStateBase):
 
     # Estimate clutch state from the nearest learned RPM/speed ratio window.
     ret.clutchPressed = self.update_clutch_state(ret.vEgo, ret.engineRpm)
+    reverse = bool(cp.vl["CLU2"]["CF_Clu_SwiGearR"])
+    fp_ret.estimatedGear = self.gear_estimator.update(
+      ret.vEgo, ret.engineRpm, cp.ts_nanos["EMS1"]["N"],
+      valid=cp.can_valid and not ret.clutchPressed and not reverse,
+    )
+    fp_ret.estimatedGearValid = fp_ret.estimatedGear != 0
 
     ret.standstill = ret.vEgoRaw < 0.1
 
@@ -222,7 +223,7 @@ class CarState(CarStateBase):
     ret.brake = 0
     ret.brakePressed = cp.vl["EMS_DCT2"]['BRAKE_ACT'] == 2
     ret.gas = cp.vl["EMS_DCT1"]['PV_AV_CAN']
-    ret.gearShifter = GearShifter.reverse if cp.vl["CLU2"]['CF_Clu_SwiGearR'] else GearShifter.drive  # Force D-gear otherwise because my car is manual
+    ret.gearShifter = GearShifter.reverse if reverse else GearShifter.drive  # Force D-gear otherwise because my car is manual
     ret.parkingBrake = self.park_brake
     # TODO: You should make something up for these when have the time
     self.brake_error = False
