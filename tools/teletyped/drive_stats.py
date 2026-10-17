@@ -637,7 +637,12 @@ def drive_stats_step(device_id: str, headers: dict[str, str]) -> None:
 
   for drive in discover_drive_logs():
     previous = drive_states.get(drive.name, {})
-    if previous.get("fingerprint") == drive.fingerprint and previous.get("status") in {"uploaded", "unsupported", "error"}:
+    # The state version scopes completed uploads to the current schema. Log
+    # cleanup or compression cannot replace statistics already stored by the
+    # server, so only unfinished drives should depend on their file fingerprint.
+    if previous.get("status") == "uploaded":
+      continue
+    if previous.get("fingerprint") == drive.fingerprint and previous.get("status") in {"unsupported", "error"}:
       continue
 
     stats = previous.get("stats") if previous.get("fingerprint") == drive.fingerprint else None
