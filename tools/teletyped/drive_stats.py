@@ -216,6 +216,7 @@ class DriveAnalyzer:
     self.pressed_intervention_count = 0
     self.saw_legacy_steering_feedback = False
     self.route_params: dict[str, bytes] = {}
+    self.active_steering_mode: str | None = None
 
   def _set_vehicle(self, car_params: Any) -> None:
     self.car_name = str(getattr(car_params, "carName", ""))
@@ -226,7 +227,17 @@ class DriveAnalyzer:
     profile = select_vehicle_profile(self.car_name, self.car_fingerprint)
     if profile is not self.profile:
       self.profile = profile
+      self.active_steering_mode = None
       self._reset_steering_filters()
+    if self.profile is not None:
+      mode = self.profile.active_steering_mode(car_params)
+      if mode is not None:
+        # Contradictory controller metadata must not silently relabel a whole
+        # drive, nor combine interventions measured by different methods.
+        if self.active_steering_mode is None:
+          self.active_steering_mode = mode
+        elif mode != self.active_steering_mode:
+          self.active_steering_mode = "unknown"
 
   def _observe_init_data(self, init_data: Any) -> None:
     self.version = str(getattr(init_data, "version", "")) or None
@@ -413,7 +424,7 @@ class DriveAnalyzer:
     use_odometer = self.odometer_samples >= 2
     total_distance = self.total_distance_km if use_odometer else self.integrated_distance_km
     engaged_distance = self.engaged_distance_km if use_odometer else self.integrated_engaged_distance_km
-    steering_source = self.profile.intervention_source(self.route_params, self.saw_legacy_steering_feedback)
+    steering_source = self.profile.intervention_source(self.route_params, self.saw_legacy_steering_feedback, self.active_steering_mode)
     steering_interventions_available = steering_source is not None
     uses_pressed_interventions = steering_source == "steering_pressed"
     steering_interventions = (
@@ -541,7 +552,7 @@ class DriveAnalyzer:
       "speed_bucket_version": 1,
       "speed_buckets": speed_buckets,
       "openpilot_longitudinal": self.openpilot_longitudinal,
-      "steering_mode": self.profile.get_steering_mode(self.route_params),
+      "steering_mode": self.profile.get_steering_mode(self.route_params, self.active_steering_mode),
       "version": self.version,
       "git_branch": self.git_branch,
       "git_commit": self.git_commit,

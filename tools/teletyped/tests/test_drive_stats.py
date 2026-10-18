@@ -462,6 +462,78 @@ def test_shared_profile_uses_each_routes_logged_parameters():
   assert trqi.result()["steering_mode"] == "trqi_tq_delta"
 
 
+@pytest.mark.parametrize("mode,toggle,expected_source,expected_count", [
+  ("legacy_ssc", None, "torque_delta", 7),
+  ("legacy_ssc", b"1", "torque_delta", 7),
+  ("trqi_tq_delta", b"0", "steering_pressed", 3),
+  ("trqi_tq_delta", None, "steering_pressed", 3),
+])
+def test_active_controller_mode_overrides_missing_or_changed_toggle(mode, toggle, expected_source, expected_count):
+  analyzer = drive_stats.DriveAnalyzer("active-mode-route", "DONGLE")
+  analyzer.process_segment([
+    message("carParams", 0, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode=mode),
+  ])
+  analyzer.torque_intervention_count = 7
+  analyzer.pressed_intervention_count = 3
+  analyzer.speed_bucket_state["road"]["torque_intervention_count"] = 7
+  analyzer.speed_bucket_state["road"]["pressed_intervention_count"] = 3
+  if toggle is not None:
+    analyzer.process_segment([
+      message("initData", 1, params=SimpleNamespace(entries=[SimpleNamespace(key="TRQISteeringToggle", value=toggle)])),
+    ])
+  result = analyzer.result()
+  assert result["steering_mode"] == mode
+  assert result["steer_intervention_source"] == expected_source
+  assert result["steer_intervention_count"] == expected_count
+  assert result["speed_buckets"]["road"]["steer_intervention_count"] == expected_count
+
+
+def test_active_modes_are_per_route_and_missing_later_metadata_does_not_erase_mode():
+  legacy = drive_stats.DriveAnalyzer("legacy-route", "DONGLE")
+  trqi = drive_stats.DriveAnalyzer("trqi-route", "DONGLE")
+  for analyzer, mode in ((legacy, "legacy_ssc"), (trqi, "trqi_tq_delta")):
+    analyzer.process_segment([
+      message("carParams", 0, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode=mode),
+      message("carParams", 1, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode=""),
+    ])
+  assert legacy.profile is trqi.profile
+  assert legacy.result()["steering_mode"] == "legacy_ssc"
+  assert trqi.result()["steering_mode"] == "trqi_tq_delta"
+
+
+@pytest.mark.parametrize("modes", [
+  ("legacy_ssc", "trqi_tq_delta", "legacy_ssc"),
+  ("invalid-mode", "legacy_ssc"),
+])
+def test_conflicting_or_invalid_active_mode_is_unknown_with_no_mixed_intervention_rate(modes):
+  analyzer = drive_stats.DriveAnalyzer("ambiguous-route", "DONGLE")
+  analyzer.process_segment([
+    message("initData", 0, params=SimpleNamespace(entries=[SimpleNamespace(key="TRQISteeringToggle", value=b"1")])),
+    *[message("carParams", index, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode=mode)
+      for index, mode in enumerate(modes)],
+  ])
+  result = analyzer.result()
+  assert result["steering_mode"] == "unknown"
+  assert result["steer_intervention_source"] is None
+  assert result["steer_intervention_count"] is None
+  assert result["steer_interventions_per_100km"] is None
+  assert all(bucket["steer_intervention_count"] is None for bucket in result["speed_buckets"].values())
+
+
+def test_old_logs_without_mode_or_toggle_remain_unknown_and_fixed_profiles_still_work():
+  analyzer = drive_stats.DriveAnalyzer("old-route", "DONGLE")
+  analyzer.process_segment([
+    message("carParams", 0, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode=""),
+  ])
+  assert analyzer.result()["steering_mode"] == "unknown"
+  analyzer.process_segment([
+    message("carParams", 1, carName="i30", carFingerprint="HYUNDAI I30 GD 2014", steeringMode="legacy_ssc"),
+    message("carParams", 2, carName="toyota", carFingerprint="LEXUS LS 600H 2013-17"),
+  ])
+  assert analyzer.active_steering_mode is None
+  assert analyzer.result()["steering_mode"] == "hrr_torque"
+
+
 @pytest.fixture
 def stats_worker(tmp_path, monkeypatch: pytest.MonkeyPatch):
   realdata = tmp_path / "realdata"

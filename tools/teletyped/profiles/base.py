@@ -51,8 +51,13 @@ class VehicleStatsProfile:
   def steering_values(self, car_state: Any) -> tuple[float, float]:
     return float(getattr(car_state, "steeringTorque", 0.0)), float(getattr(car_state, "steeringTorqueEps", 0.0))
 
-  def intervention_source(self, params: Mapping[str, bytes], saw_legacy_feedback: bool) -> SteeringSource | None:
+  def active_steering_mode(self, car_params: Any) -> str | None:
+    """Read authoritative per-drive controller metadata when supported."""
+    return None
+
+  def intervention_source(self, params: Mapping[str, bytes], saw_legacy_feedback: bool,
+                          active_mode: str | None = None) -> SteeringSource | None:
     return self.steering.sources[0] if self.steering.sources else None
 
-  def get_steering_mode(self, params: Mapping[str, bytes]) -> str:
+  def get_steering_mode(self, params: Mapping[str, bytes], active_mode: str | None = None) -> str:
     return self.steering_mode

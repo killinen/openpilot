@@ -86,6 +86,9 @@ class CarController(CarControllerBase):
     self.frame = 0
 
     self.use_trqi_steering = i30_uses_trqi_steering()
+    # Publish the same startup selection used below, rather than the current
+    # toggle value (which may change before the next controller restart).
+    self.CP.steeringMode = "trqi_tq_delta" if self.use_trqi_steering else "legacy_ssc"
 
     self.apply_steer_last = 0
     self.steer_rate_limited = False

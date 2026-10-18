@@ -512,6 +512,9 @@ struct CarParams {
   secOcRequired @74 :Bool;  # Car requires SecOC message authentication to operate
   secOcKeyAvailable @75 :Bool;  # Stored SecOC key loaded from params
 
+  # Selected by the running controller; empty in logs from older software.
+  steeringMode @76 :Text;
+
   struct SafetyConfig {
     safetyModel @0 :SafetyModel;
     safetyParam @3 :UInt16;

@@ -32,10 +32,25 @@ class HyundaiI30StatsProfile(VehicleStatsProfile):
     value = params.get("TRQISteeringToggle")
     return value.strip().lower() in {b"1", b"true", b"yes", b"on"} if value is not None else None
 
-  def intervention_source(self, params: Mapping[str, bytes], saw_legacy_feedback: bool) -> SteeringSource:
+  def active_steering_mode(self, car_params: Any) -> str | None:
+    mode = str(getattr(car_params, "steeringMode", ""))
+    if not mode:
+      return None
+    return mode if mode in {"legacy_ssc", "trqi_tq_delta"} else "unknown"
+
+  def intervention_source(self, params: Mapping[str, bytes], saw_legacy_feedback: bool,
+                          active_mode: str | None = None) -> SteeringSource | None:
+    if active_mode is not None:
+      if active_mode == "legacy_ssc":
+        return "torque_delta"
+      if active_mode == "trqi_tq_delta":
+        return "steering_pressed"
+      return None
     enabled = self._trqi_enabled(params)
     return "steering_pressed" if enabled is True or (enabled is None and not saw_legacy_feedback) else "torque_delta"
 
-  def get_steering_mode(self, params: Mapping[str, bytes]) -> str:
+  def get_steering_mode(self, params: Mapping[str, bytes], active_mode: str | None = None) -> str:
+    if active_mode is not None:
+      return active_mode
     enabled = self._trqi_enabled(params)
     return "trqi_tq_delta" if enabled else "legacy_ssc" if enabled is False else "unknown"
