@@ -994,3 +994,135 @@ def test_route_sender_step_packs_split_parts_in_numeric_segment_order(
     f"{route_base}--100",
   ]
   assert sent_parts == list(range(1, len(unordered_segment_nums) + 1))
+
+
+@pytest.mark.parametrize("video_name", ["fcamera.hevc", "dcamera.hevc", "ecamera.hevc", "qcamera.ts", "FCAMERA.HEVC", "clip.mp4"])
+def test_route_archive_stores_camera_video_without_recompression(tmp_path, monkeypatch, video_name):
+  from openpilot.tools.teletyped import route_sender
+  from zipfile import ZIP_DEFLATED
+
+  video = tmp_path / video_name
+  video.write_bytes(b"encoded camera payload" * 100)
+  note = tmp_path / "notes.txt"
+  note.write_bytes(b"compressible text" * 100)
+  archive = tmp_path / "camera.zip"
+  monkeypatch.setattr(route_sender, "ZIP_DEFLATE_COMPRESSLEVEL", 1)
+  monkeypatch.setattr(route_sender, "report_transfer_progress", lambda *args, **kwargs: None)
+  reporter = route_sender.ZipProgressReporter("device", "route", stage="compressing", label="Test", total_files=2, total_bytes=video.stat().st_size + note.stat().st_size)
+  added, missing = route_sender._zip_route_batch(
+    str(archive), "route", [("segment", [(str(path), f"segment/{path.name}", path.stat().st_size) for path in (video, note)])], reporter, str(tmp_path),
+  )
+  assert added == 2
+  assert missing == []
+  with ZipFile(archive) as zipf:
+    assert zipf.getinfo(f"route/segment/{video_name}").compress_type == ZIP_STORED
+    assert zipf.read(f"route/segment/{video_name}") == video.read_bytes()
+    assert zipf.getinfo("route/segment/notes.txt").compress_type == ZIP_DEFLATED
+    assert zipf.read("route/segment/notes.txt") == note.read_bytes()
+
+
+@pytest.mark.parametrize("received_parts", [[], [2]])
+@pytest.mark.parametrize("outcome", ["success", "send_failure", "send_exception", "zip_failure", "empty_zip"])
+def test_route_archive_pipeline_overlaps_and_cleans_up(tmp_path, monkeypatch, received_parts, outcome):
+  from openpilot.tools.teletyped import route_sender
+
+  realdata = tmp_path / "realdata"
+  realdata.mkdir()
+  scratch = tmp_path / "scratch"
+  scratch.mkdir()
+  drive_name = "2026-04-13--12-00-00"
+  for number in range(4):
+    segment = realdata / f"{drive_name}--{number}"
+    segment.mkdir()
+    (segment / "qlog").write_bytes(f"qlog {number}".encode())
+
+  send_parts = [number for number in range(1, 5) if number not in received_parts]
+  prefetch_part = send_parts[1]
+  first_send_started = threading.Event()
+  first_send_finished = threading.Event()
+  prefetch_finished = threading.Event()
+  prepared: list[int] = []
+  sent_parts: list[int] = []
+  updates: list[dict[str, Any]] = []
+  errors: list[BaseException] = []
+  original_zip = route_sender._zip_route_batch
+  caller_thread = threading.get_ident()
+
+  def record_update(url, json, headers, timeout):
+    # Background preparation must not overwrite the active send's status.
+    if first_send_started.is_set() and not first_send_finished.is_set():
+      assert threading.get_ident() == caller_thread
+    updates.append(json)
+    return _StaticResponse(200, {})
+
+  def prepare(zip_path, *args, **kwargs):
+    part = int(os.path.basename(zip_path).split(".part")[1].split("-")[0])
+    assert list(realdata.glob("*/.teletyped-transfer-*.lock")), "Source locks released before preparation finished"
+    if part == prefetch_part:
+      assert first_send_started.wait(5), "The sender waited for all archives to be prepared"
+    elif part != send_parts[0]:
+      assert first_send_finished.is_set(), "Prepared more than one archive ahead"
+    try:
+      if part == prefetch_part and outcome in {"zip_failure", "empty_zip"}:
+        # Even incomplete archives must be removed after a failed preparation.
+        with open(zip_path, "wb") as handle:
+          handle.write(b"incomplete archive")
+        if outcome == "zip_failure":
+          raise OSError("test archive failure")
+        return 0, ["missing qlog"]
+      result = original_zip(zip_path, *args, **kwargs)
+      prepared.append(part)
+      return result
+    finally:
+      if part == prefetch_part:
+        prefetch_finished.set()
+
+  def send(zip_path, device_id, drive, requested_files, **kwargs):
+    part = kwargs["part_number"]
+    assert kwargs["total_parts"] == 4
+    assert kwargs["send_parts"] == send_parts
+    with ZipFile(zip_path) as zipf:
+      assert len(zipf.namelist()) == 1
+      assert f"--{part - 1}/qlog.bz2" in zipf.namelist()[0]
+    sent_parts.append(part)
+    if part == send_parts[0]:
+      first_send_started.set()
+      try:
+        assert prefetch_finished.wait(5), "Next archive was not prepared during the current send"
+        assert set(prepared).issubset({part, prefetch_part})
+        if outcome == "send_exception":
+          raise RuntimeError("test send failure")
+        if outcome == "send_failure":
+          return False, None, os.path.basename(zip_path)
+      finally:
+        first_send_finished.set()
+    return True, "1-test-code", os.path.basename(zip_path)
+
+  monkeypatch.setattr(route_sender, "REALDATA_DIR", str(realdata))
+  monkeypatch.setattr(route_sender, "WORMHOLE_ZIP_TARGET_BYTES", 1)
+  monkeypatch.setattr(route_sender, "_pick_temp_dir", lambda *args: str(scratch))
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(route_sender, "http_get", lambda *args, **kwargs: _StaticResponse(200, [{
+    "drive_name": drive_name, "status": "queued", "requested_files": ["qlog"], "received_parts": received_parts,
+  }]))
+  monkeypatch.setattr(route_sender, "http_post", record_update)
+  monkeypatch.setattr(route_sender, "log", lambda *args, **kwargs: None)
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  monkeypatch.setattr(route_sender, "_zip_route_batch", prepare)
+  monkeypatch.setattr(route_sender, "send_file_wormhole", send)
+
+  route_sender.route_sender_step("DONGLE123")
+
+  assert sent_parts == (send_parts if outcome == "success" else send_parts[:1])
+  assert updates[-1]["status"] == ("sent" if outcome == "success" else "error")
+  if outcome == "success":
+    assert prepared == send_parts
+    assert not errors
+  elif outcome in {"send_exception", "zip_failure", "empty_zip"}:
+    assert len(errors) == 1
+  else:
+    assert not errors
+  assert not list(scratch.iterdir()), "Temporary or prefetched archives were left behind"
+  assert not list(realdata.glob("*/.teletyped-transfer-*.lock")), "Source locks were left behind"
+  assert not any(thread.name.startswith("teletyped-zip") for thread in threading.enumerate())
