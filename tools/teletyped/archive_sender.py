@@ -7,6 +7,7 @@ still replace the default workers. This module never deletes source recordings.
 
 from __future__ import annotations
 
+import bz2
 import hashlib
 from contextlib import ExitStack
 import json
@@ -76,6 +77,7 @@ def collect_inventory(root: Path, offroad: bool, network: str) -> dict:
         continue
   return {
     "protocol": 1,
+    "supports_rlog_bz2": True,
     "offroad": offroad,
     "network": network,
     "segments": segments[-10000:],
@@ -92,16 +94,21 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
     raise ValueError("Segment exceeds archive size limit")
   if shutil.disk_usage(output.parent).free < sum(f["size"] for f in job["files"]) + 512 * 1024**2:
     raise ValueError("Insufficient temporary storage")
+  compress = job.get("constraints", {}).get("compress_rlogs") is True
+  names = ["rlog.bz2" if compress and f["name"] == "rlog" else f["name"] for f in job["files"]]
+  if len(set(names)) != len(names):
+    raise ValueError("Compressed filename conflicts with another requested file")
   lock = folder / (".opnas-archive-" + str(os.getpid()) + ".lock")
-  # Existing locks belong to loggerd/manual transfer work; do not remove them.
   if any(p.name.endswith(".lock") for p in folder.iterdir()):
     raise ValueError("Source segment is locked")
   fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
   os.close(fd)
   manifest = []
   try:
+    # ZIP only bundles files. A converted entry contains a complete, ordinary
+    # bzip2 stream, which the receiver stores without recompressing it.
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as z:
-      for f in job["files"]:
+      for f, name in zip(job["files"], names, strict=True):
         if f["name"] not in ALLOWED:
           raise ValueError("Unsupported file selection")
         src = folder / f["name"]
@@ -110,31 +117,36 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
         before = src.stat()
         if before.st_size != f["size"] or before.st_mtime_ns != f["mtime_ns"] or time.time() - before.st_mtime < STABLE_SECONDS:
           raise ValueError("Source file changed or is still active")
-        h = hashlib.sha256()
-        with src.open("rb") as data, z.open("files/" + f["name"], "w", force_zip64=True) as out:
+        encoder = bz2.BZ2Compressor(3) if name != f["name"] else None
+        source_hash, stored_hash = hashlib.sha256(), hashlib.sha256()
+        source_size, stored_size = 0, 0
+        with src.open("rb") as data, z.open("files/" + name, "w", force_zip64=True) as out:
           for block in iter(lambda: data.read(1024 * 1024), b""):
             if not permitted():
               raise ValueError("Offroad or network condition changed")
-            h.update(block)
-            out.write(block)
+            source_hash.update(block)
+            source_size += len(block)
+            packed = encoder.compress(block) if encoder else block
+            out.write(packed)
+            stored_hash.update(packed)
+            stored_size += len(packed)
+          if encoder:
+            if not permitted():
+              raise ValueError("Offroad or network condition changed")
+            packed = encoder.flush()
+            out.write(packed)
+            stored_hash.update(packed)
+            stored_size += len(packed)
         after = src.stat()
-        if (before.st_size, before.st_mtime_ns) != (
-          after.st_size,
-          after.st_mtime_ns,
-        ):
+        if source_size != f["size"] or (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
           raise ValueError("Source file changed while packaging")
-        manifest.append({**f, "sha256": h.hexdigest()})
-      z.writestr(
-        "manifest.json",
-        json.dumps(
-          {
-            "job_id": job["id"],
-            "device_id": job["device_id"],
-            "segment": job["segment"],
-            "files": manifest,
-          }
-        ),
-      )
+        entry = {**f, "name": name, "size": stored_size, "sha256": stored_hash.hexdigest()}
+        if encoder:
+          entry["source"] = {**f, "sha256": source_hash.hexdigest()}
+        manifest.append(entry)
+      if sum(f["size"] for f in manifest) > MAX_BYTES:
+        raise ValueError("Prepared files exceed archive size limit")
+      z.writestr("manifest.json", json.dumps({"job_id": job["id"], "device_id": job["device_id"], "segment": job["segment"], "files": manifest}))
     return manifest
   finally:
     lock.unlink(missing_ok=True)

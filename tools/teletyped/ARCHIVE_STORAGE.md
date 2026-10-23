@@ -19,8 +19,18 @@ this source does not change a device's environment or enable its GCS policy.
 
 GCS selects per-device log/video categories and requires an available receiver,
 offroad state, stable source files and the configured Wi-Fi/Ethernet or cellular
-policy. Automatic categories default off. Files are packaged without recompression
-with their sizes, source timestamps and SHA-256 checksums; source changes abort.
+policy. Automatic categories default off. Files are packaged with their original
+sizes, source timestamps and SHA-256 checksums; source changes abort.
+
+GCS **Convert raw rlogs to rlog.bz2 before sending** defaults off. When enabled,
+raw `rlog` data is streamed through bzip2 into `files/rlog.bz2` in the temporary
+ZIP. ZIP entries are stored without further compression. Other files, including
+already-compressed logs and videos, are copied unchanged. Comma source files are
+never renamed or deleted. The manifest includes the original log's name, size,
+timestamp and SHA-256 alongside the stored bzip2 size and SHA-256. Inventory
+advertises `supports_rlog_bz2`; GCS will not assign conversion jobs to older
+ZIP-only senders. OP-NAS verifies the decompressed original checksum, stores the
+received bzip2 file unchanged and skips its own raw-log compression worker.
 
 The GCS per-device **Allow direct home-network transfers** (`allow_lan`) setting
 defaults off. When off or absent from job constraints, the sender performs no
