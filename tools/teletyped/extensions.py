@@ -6,7 +6,8 @@ from collections.abc import Callable
 
 from openpilot.tools.teletyped.helper import capture_exception, log
 
-DEFAULT_EXTENSIONS = "openpilot.tools.vehicle_telemetry.worker:telemetry_step"
+# The archive worker checks GCS policy; registering it does not enable uploads.
+DEFAULT_EXTENSIONS = "openpilot.tools.vehicle_telemetry.worker:telemetry_step,openpilot.tools.teletyped.archive_sender:archive_step"
 
 
 def optional_workers(auth_headers: Callable[[], dict[str, str]]) -> list[tuple[Callable, str, str]]:
