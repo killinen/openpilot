@@ -39,6 +39,7 @@ from openpilot.tools.teletyped.label_utils import (
 from openpilot.tools.teletyped.drive_stats import drive_stats_step
 from openpilot.tools.teletyped.telemetry import telemetry_step
 from openpilot.tools.teletyped.location import location_step
+from openpilot.tools.teletyped import health
 
 OPENPILOT_BASEDIR: str | None
 try:
@@ -220,6 +221,8 @@ def _resolve_drive_inventory_state_path() -> str:
     os.path.dirname(SENDER_LOG),
     "/tmp/comma",
   ]
+  if os.environ.get("TELETYPED_STATE_DIR"):
+    candidates = [os.environ["TELETYPED_STATE_DIR"]]
 
   for base in candidates:
     path = os.path.join(base, DRIVE_INVENTORY_STATE_FILE)
@@ -1996,7 +1999,9 @@ def _run_route_worker(
   try:
     while not stop_event.is_set():
       try:
-        if _auth_headers():
+        if not health.offroad():
+          pass
+        elif _auth_headers():
           if auth_wait_logged:
             log(f"Device JWT available; {label} active")
             auth_wait_logged = False

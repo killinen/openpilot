@@ -400,9 +400,12 @@ def stats_worker(tmp_path, monkeypatch: pytest.MonkeyPatch):
     posted.append((url, kwargs))
     return response
 
+  def fail_on_exception(error: BaseException) -> None:
+    pytest.fail(str(error))
+
   monkeypatch.setattr(drive_stats, "analyze_drive", analyze)
   monkeypatch.setattr(drive_stats, "http_post", post)
-  monkeypatch.setattr(drive_stats, "capture_exception", lambda error: pytest.fail(str(error)))
+  monkeypatch.setattr(drive_stats, "capture_exception", fail_on_exception)
   monkeypatch.setattr(drive_stats, "log", lambda *args: None)
   return SimpleNamespace(realdata=realdata, drive_name=drive_name, analyzed=analyzed, posted=posted, response=response)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import gzip
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -281,3 +282,21 @@ def test_corrupt_queue_is_preserved_instead_of_reset(queue_setup, raw):
     telemetry._load_state()
   with open(path, "rb") as file:
     assert file.read() == raw
+
+
+def test_guardian_releases_keep_separate_telemetry_queues(monkeypatch, tmp_path):
+  legacy = tmp_path / "persist" / "comma"
+  legacy.mkdir(parents=True)
+  legacy_path = legacy / "teletyped_telemetry_state.json"
+  legacy_path.write_text('{"version":1,"jobs":{"legacy":{"status":"uploaded"}}}')
+  monkeypatch.setattr(telemetry, "PERSIST_ROOT", str(tmp_path / "persist"))
+  for index, release in enumerate(("good", "candidate", "good")):
+    directory = tmp_path / "worker-state" / release
+    monkeypatch.setenv("TELETYPED_STATE_DIR", str(directory))
+    monkeypatch.setattr(telemetry, "_TELEMETRY_STATE_PATH", None)
+    state = telemetry._load_state()
+    assert state["jobs"] == ({"good": {"status": "uploaded"}} if index == 2 else {})
+    state["jobs"][release] = {"status": "uploaded"}
+    telemetry._save_state(state)
+    assert Path(telemetry._state_path()).parent == directory
+  assert json.loads(legacy_path.read_text())["jobs"] == {"legacy": {"status": "uploaded"}}

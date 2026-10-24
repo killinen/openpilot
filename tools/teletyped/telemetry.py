@@ -144,7 +144,8 @@ def analyze_telemetry(
 def _state_path() -> str:
   global _TELEMETRY_STATE_PATH
   if _TELEMETRY_STATE_PATH is None:
-    directories = (os.path.join(PERSIST_ROOT, "comma"), os.path.join(PERSIST_ROOT, "teletyped"), "/tmp/comma")
+    state_dir = os.environ.get("TELETYPED_STATE_DIR")
+    directories = (state_dir,) if state_dir else (os.path.join(PERSIST_ROOT, "comma"), os.path.join(PERSIST_ROOT, "teletyped"), "/tmp/comma")
     for directory in directories:
       path = os.path.join(directory, "teletyped_telemetry_state.json.gz")
       if os.path.isfile(path) or os.path.isfile(path[:-3]):

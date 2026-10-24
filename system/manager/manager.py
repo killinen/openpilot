@@ -11,7 +11,7 @@ import openpilot.system.sentry as sentry
 from openpilot.common.params import Params, ParamKeyType
 from openpilot.common.text_window import TextWindow
 from openpilot.system.hardware import HARDWARE, PC
-from openpilot.system.manager.helpers import unblock_stdout, write_onroad_params, save_bootlog
+from openpilot.system.manager.helpers import unblock_stdout, write_onroad_params, save_bootlog, publish_teletyped_manager_state
 from openpilot.system.manager.process import ensure_running
 from openpilot.system.manager.process_config import managed_processes
 from openpilot.system.athena.registration import register, UNREGISTERED_DONGLE_ID
@@ -167,6 +167,7 @@ def manager_thread() -> None:
     sm.update(1000)
 
     started = sm['deviceState'].started
+    publish_teletyped_manager_state(started)
 
     if started and not started_prev:
       if not frogpilot_toggles.force_onroad:

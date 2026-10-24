@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 from contextlib import contextmanager
@@ -117,7 +118,8 @@ KEY_PATH, KEY_PATH_PRIV = _resolve_key_paths()
 
 def _resolve_dns_cache_path() -> str:
   file_name = "teletyped_dns_cache.json"
-  candidates = _key_dir_candidates()
+  state_dir = os.environ.get("TELETYPED_STATE_DIR")
+  candidates = [state_dir] if state_dir else _key_dir_candidates()
 
   # Prefer an existing cache file, even if the directory is now read-only.
   for base in candidates:
@@ -334,10 +336,10 @@ REMOTE_PORT = 2222
 LOCAL_PORT = _detect_local_port()
 POND_REMOTE_PORT = int(os.environ.get(POND_REMOTE_PORT_ENV, "28082"))
 POND_LOCAL_PORT = _detect_pond_local_port()
-PIDFILE = "/tmp/reverse_ssh_tunnel.pid"
+PIDFILE = os.path.join(os.environ.get("TELETYPED_TUNNEL_DIR", "/tmp"), "reverse_ssh_tunnel.pid")
 TELETYPED_DIR = os.path.dirname(__file__)
 WORMHOLE_BINARY = os.path.join(TELETYPED_DIR, "wormhole-william")
-SENDER_LOG = os.path.join(TELETYPED_DIR, "sender_log.json")
+SENDER_LOG = os.path.join(os.environ.get("TELETYPED_STATE_DIR", TELETYPED_DIR), "sender_log.json")
 SETUP_RESOLV = os.path.join(TELETYPED_DIR, "setup_resolv.sh")
 RESOLV_DEST = "/etc/resolv.conf"
 
@@ -554,7 +556,7 @@ def _mark_cached_ip_used(host: str) -> None:
     _dns_cache_save_unlocked()
 
 
-def _pick_ip_from_getaddrinfo(addrs: list[tuple]) -> str | None:
+def _pick_ip_from_getaddrinfo(addrs: Sequence[tuple]) -> str | None:
   ipv4 = None
   ipv6 = None
   for _family, _socktype, _proto, _canonname, sockaddr in addrs:

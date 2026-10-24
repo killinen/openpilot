@@ -91,7 +91,7 @@ def location_log_paths(root: str) -> list[str]:
 class LocationReporter:
   def __init__(self, root: str = REALDATA_DIR, state_path: str | None = None, *, params: Any = None, log_reader: Any = None):
     self.root = root
-    self.path = state_path or os.path.join(PERSIST_ROOT, "comma", "teletyped_last_location.json")
+    self.path = state_path or os.path.join(os.environ.get("TELETYPED_STATE_DIR", os.path.join(PERSIST_ROOT, "comma")), "teletyped_last_location.json")
     self.params = params
     self.log_reader = log_reader
     self.device_id: str | None = None

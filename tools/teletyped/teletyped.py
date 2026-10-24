@@ -11,7 +11,7 @@ import time
 import psutil
 import requests
 
-from openpilot.tools.teletyped import route_sender, ssh_key
+from openpilot.tools.teletyped import health, route_sender, ssh_key
 from openpilot.common.params import Params
 from openpilot.tools.teletyped.helper import (
   log,
@@ -44,16 +44,18 @@ from openpilot.tools.teletyped.helper import (
 from openpilot.system.hardware import HARDWARE
 
 VERBOSE = False
+GUARDIAN_PROTOCOL_VERSION = 1
 
 _running = True
 _last_desired_tunnel_state: bool | None = None
+_last_desired_tunnel_request: bool | dict[str, object] | None = None
 _route_sender_stop_event: threading.Event | None = None
 _route_sender_thread: threading.Thread | None = None
 _heartbeat_stop_event: threading.Event | None = None
 _missing_auth_warned = False
 
 base_dir = os.path.dirname(os.path.realpath(__file__))
-SSH_LOG_PATH = "/tmp/reverse_ssh_tunnel.log"
+SSH_LOG_PATH = os.path.join(os.environ.get("TELETYPED_TUNNEL_DIR", "/tmp"), "reverse_ssh_tunnel.log")
 TUNNEL_STARTING_TIMEOUT_SEC = 30
 TUNNEL_CONNECT_WAIT_SEC = 12
 TUNNEL_AUTH_SETTLE_SEC = 2.0
@@ -144,6 +146,7 @@ def check_server(api_url, timeout=5, max_backoff=60):
     log(f"⏳ Retrying in {backoff} seconds...")
     sleep_until = time.monotonic() + backoff
     while _running:
+      health.progress("waiting_for_api")
       remaining = sleep_until - time.monotonic()
       if remaining <= 0:
         break
@@ -167,7 +170,17 @@ def fetch_ssh_request(device_id):
     return None
   try:
     response = http_get(url, headers=headers, timeout=5)
-    return response.json() if response.status_code == 200 else {}
+    if response.status_code == 200:
+      data = response.json()
+      if not isinstance(data, dict):
+        raise ValueError("SSH request response must be an object")
+      health.success("request")
+      return data
+    log(
+      f"⚠️ Reverse SSH request rejected with status {response.status_code}; keeping the current tunnel configuration",
+      "WARN",
+    )
+    return None
   except Exception as e:
     capture_exception(e)
     log(f"❌ Failed to fetch request: {e}", "ERROR")
@@ -360,8 +373,10 @@ def _write_pidfile(pid: int, forwards) -> None:
       for remote_port, local_port in forwards
     ],
   }
-  with open(PIDFILE, "w") as f:
+  temporary = PIDFILE + ".tmp"
+  with open(temporary, "w") as f:
     json.dump(payload, f)
+  os.replace(temporary, PIDFILE)
 
 
 def _read_ssh_log_tail(max_chars: int = 800) -> str | None:
@@ -407,6 +422,8 @@ def _resolve_error_log_state_path() -> str:
     "/data/params/d/goranconnect_ssh",
     "/tmp/comma",
   ]
+  if os.environ.get("TELETYPED_STATE_DIR"):
+    candidates = [os.environ["TELETYPED_STATE_DIR"]]
 
   for base in candidates:
     path = os.path.join(base, ERROR_LOG_STATE_FILE)
@@ -657,12 +674,15 @@ def start_tunnel(forwards):
   except Exception:
     pass
 
+  known_hosts = os.environ.get("TELETYPED_KNOWN_HOSTS")
   cmd = [
     "ssh",
+    *(["-F", "/dev/null"] if known_hosts else []),
     "-i", KEY_PATH_PRIV,
     "-o", "IdentitiesOnly=yes",
-    "-o", "UserKnownHostsFile=/dev/null",
-    "-o", "StrictHostKeyChecking=no",
+    "-o", f"UserKnownHostsFile={known_hosts or '/dev/null'}",
+    "-o", f"StrictHostKeyChecking={'yes' if known_hosts else 'no'}",
+    "-o", f"HostKeyAlias={REMOTE_HOST}",
     "-o", "BatchMode=yes",
     "-o", "PasswordAuthentication=no",
     "-o", "KbdInteractiveAuthentication=no",
@@ -744,6 +764,11 @@ def stop_tunnel():
       proc = _get_tunnel_process()
       if proc is not None:
         proc.terminate()
+        try:
+          proc.wait(timeout=3)
+        except psutil.TimeoutExpired:
+          proc.kill()
+          proc.wait(timeout=2)
         log("Tunnel stopped")
       else:
         log("PID file found but process not running", "WARN")
@@ -751,7 +776,10 @@ def stop_tunnel():
       capture_exception(e)
       log(f"Error stopping tunnel: {e}", "ERROR")
     finally:
-      os.remove(PIDFILE)
+      try:
+        os.remove(PIDFILE)
+      except FileNotFoundError:
+        pass
   else:
     log("No tunnel PID file found. Is it running?", "WARN")
 
@@ -873,6 +901,8 @@ def send_heartbeat(device_id, tunnel_status):
         f"⚠️ Heartbeat rejected (status={resp.status_code}) auth={auth_info} device_id={device_id} response={resp.text.strip()[:200]}",
         "WARN",
       )
+    else:
+      health.success("heartbeat")
     vprint("💓 Heartbeat sent")
   except requests.RequestException as e:
     log(
@@ -895,13 +925,18 @@ def report_status(device_id, status, detail=None):
     log(f"⚠️ Failed to report status: {e}", "WARN")
 
 def reverse_ssh_step(device_id, last_reported_status):
-  global _last_desired_tunnel_state
+  global _last_desired_tunnel_state, _last_desired_tunnel_request
   data = fetch_ssh_request(device_id)
   if data is None:
     # On fetch failure, keep previous desired state to avoid tearing down a working tunnel
-    desired = _last_desired_tunnel_state
+    desired = _last_desired_tunnel_request
+    if desired is None:
+      # A newly started worker has no authority to interpret a failed fetch as
+      # a request to stop an already established recovery tunnel.
+      return get_current_tunnel_status()
   else:
-    desired = data.get("request", _last_desired_tunnel_state)
+    desired = data.get("request", _last_desired_tunnel_request)
+    _last_desired_tunnel_request = desired
   remote_status = data.get("status") if isinstance(data, dict) else None
   current_status = get_current_tunnel_status()
   requested_forwards = _requested_forwards(desired)
@@ -1007,7 +1042,27 @@ def _run_heartbeats(stop_event: threading.Event, device_id: str, tunnel_state: d
       break
 
 
-def main():
+def guardian_preflight():
+  """Non-destructive local checks, executed as the installed worker account."""
+  if get_dongle_id() in {"", "UNKNOWN_DEVICE"} or not build_auth_headers().get("X-Device-JWT"):
+    raise RuntimeError("worker account cannot sign a device JWT; check registration identity permissions")
+  with open(KEY_PATH_PRIV + ".pub") as f:
+    expected = f.read().split()[:2]
+  result = subprocess.run(["ssh-keygen", "-y", "-P", "", "-f", KEY_PATH_PRIV],
+                          capture_output=True, text=True, check=True, timeout=10)
+  if len(expected) != 2 or result.stdout.split()[:2] != expected:
+    raise RuntimeError("local tunnel private/public keys do not match")
+
+
+def _send_startup_error_logs(device_id):
+  try:
+    send_error_logs_on_startup(device_id)
+  except Exception as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to send error logs on startup: {e}", "WARN")
+
+
+def _main():
   global _heartbeat_stop_event
   ssh_failures = 0
   ROUTE_BACKOFF_BASE = 10
@@ -1015,6 +1070,7 @@ def main():
 
   signal.signal(signal.SIGINT, signal_handler)
   signal.signal(signal.SIGTERM, signal_handler)
+  health.progress("startup")
 
   device_id = get_dongle_id()
   if not device_id:
@@ -1024,6 +1080,7 @@ def main():
   _ensure_disable_power_down_default()
 
   while _running and not has_internet_connection():
+    health.progress("offline")
     log("Waiting for internet connection...", "WARN")
     time.sleep(60)
 
@@ -1041,13 +1098,9 @@ def main():
     daemon=True,
   )
   heartbeat_thread.start()
+  startup_upload_thread = threading.Thread(target=_send_startup_error_logs, args=(device_id,), name="startup_error_logs", daemon=True)
+  startup_upload_thread.start()
   try:
-    try:
-      send_error_logs_on_startup(device_id)
-    except Exception as e:
-      capture_exception(e)
-      log(f"⚠️ Failed to send error logs on startup: {e}", "WARN")
-
     key_uploaded = ssh_key.send_ssh_key_if_needed()
     if not key_uploaded:
       log("⚠️ SSH key upload skipped or failed; continuing without remote key registration.", "WARN")
@@ -1058,6 +1111,7 @@ def main():
     last_key_attempt = time.monotonic()
 
     while _running:
+      health.progress()
       now = time.monotonic()
 
       if not has_internet_connection():
@@ -1070,6 +1124,7 @@ def main():
       if now - last_ssh_time >= ssh_poll_interval:
         try:
           tunnel_state["status"] = reverse_ssh_step(device_id, tunnel_state["status"])
+          health.report(tunnel_status=tunnel_state["status"], local_ssh_port=LOCAL_PORT)
           ssh_failures = 0
         except Exception as e:
           ssh_failures += 1
@@ -1077,7 +1132,10 @@ def main():
           log(f"❌ reverse_ssh_step() failed: {e}", "ERROR")
         last_ssh_time = now
 
-      execute_device_actions(device_id)
+      # Persistent recovery SSH may run without manager or onroad. Preserve
+      # the legacy offroad restriction for reboot/update/power-policy actions.
+      if health.offroad():
+        execute_device_actions(device_id)
 
       if (not key_uploaded) and (now - last_key_attempt >= 300):
         key_uploaded = ssh_key.send_ssh_key_if_needed()
@@ -1093,6 +1151,15 @@ def main():
       log("Heartbeat worker is finishing its current request after stop was requested", "WARN")
     _heartbeat_stop_event = None
     _stop_route_sender()
+    startup_upload_thread.join(timeout=1)
+
+
+def main():
+  try:
+    _main()
+  finally:
+    # Also release a legacy tunnel if startup fails before heartbeat creation.
+    stop_tunnel()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
