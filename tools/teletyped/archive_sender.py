@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import bz2
 import hashlib
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 import json
 import os
 import re
@@ -42,6 +42,53 @@ _GUARD = threading.Lock()
 _PREPARE_SLOTS = threading.BoundedSemaphore(2)
 _WORMHOLE_SLOTS = threading.BoundedSemaphore(2)
 CONVERSION_META = ".opnas-rlog-conversion.json"
+
+
+def resource_snapshot():
+  """Optional background work must leave memory and thermal headroom."""
+  temperatures = []
+  for zone in Path("/sys/class/thermal").glob("thermal_zone*"):
+    try:
+      name = (zone / "type").read_text().lower()
+      value = int((zone / "temp").read_text()) / 1000
+      if any(part in name for part in ("cpu", "gold", "silver")) and 0 < value < 120:
+        temperatures.append(value)
+    except (OSError, ValueError):
+      pass
+  available = None
+  try:
+    for line in Path("/proc/meminfo").read_text().splitlines():
+      if line.startswith("MemAvailable:"):
+        available = int(line.split()[1]) * 1024
+  except (OSError, ValueError):
+    pass
+  return {
+    "cpu_celsius": max(temperatures) if temperatures else None,
+    "available_bytes": available,
+  }
+
+
+def resources_permit(snapshot):
+  return (
+    snapshot["cpu_celsius"] is not None
+    and snapshot["cpu_celsius"] < 70
+    and snapshot["available_bytes"] is not None
+    and snapshot["available_bytes"] >= 256 * 1024**2
+  )
+
+
+@contextmanager
+def preparation_slot(permitted):
+  """Waiting for a worker must also observe onroad/shutdown cancellation."""
+  while not _PREPARE_SLOTS.acquire(timeout=0.25):
+    if not permitted():
+      raise ValueError("Preparation conditions changed while waiting")
+  try:
+    if not permitted():
+      raise ValueError("Preparation conditions changed")
+    yield
+  finally:
+    _PREPARE_SLOTS.release()
 
 
 def _sync_directory(folder):
@@ -325,7 +372,16 @@ def scan_inventory(root: Path, offroad: bool, network: str) -> dict:
   return json.loads(result.stdout)
 
 
-def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
+def package(root: Path, job: dict, output: Path, permitted, metrics=None) -> list[dict]:
+  metrics = {} if metrics is None else metrics
+  started, cpu_started = time.monotonic(), time.thread_time()
+  metrics.update(
+    compression_seconds=0.0,
+    compression_raw_bytes=0,
+    compression_output_bytes=0,
+    source_read_seconds=0.0,
+    zip_write_seconds=0.0,
+  )
   if not re.fullmatch(r"[a-zA-Z0-9_-][a-zA-Z0-9_.-]{0,159}", job["segment"]):
     raise ValueError("Invalid segment")
   folder = root / job["segment"]
@@ -376,23 +432,41 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
         if before.st_size != physical["size"] or before.st_mtime_ns != physical["mtime_ns"] or time.time() - before.st_mtime < STABLE_SECONDS:
           raise ValueError("Source file changed or is still active")
         encoder = bz2.BZ2Compressor(3) if name != f["name"] and not conversion else None
+        job["_sender_phase"] = "compressing" if encoder else "packaging"
         source_hash, stored_hash = hashlib.sha256(), hashlib.sha256()
         source_size, stored_size = 0, 0
         with bz2.open(src, "rb") if conversion and not compress else src.open("rb") as data, z.open("files/" + name, "w", force_zip64=True) as out:
-          for block in iter(lambda: data.read(1024 * 1024), b""):
+          while True:
+            tick = time.monotonic()
+            block = data.read(256 * 1024)
+            metrics["source_read_seconds"] += time.monotonic() - tick
+            if not block:
+              break
             if not permitted():
               raise ValueError("Offroad or network condition changed")
             source_hash.update(block)
             source_size += len(block)
+            tick = time.monotonic()
             packed = encoder.compress(block) if encoder else block
+            if encoder:
+              metrics["compression_seconds"] += time.monotonic() - tick
+              metrics["compression_raw_bytes"] += len(block)
+              metrics["compression_output_bytes"] += len(packed)
+            tick = time.monotonic()
             out.write(packed)
+            metrics["zip_write_seconds"] += time.monotonic() - tick
             stored_hash.update(packed)
             stored_size += len(packed)
           if encoder:
             if not permitted():
               raise ValueError("Offroad or network condition changed")
+            tick = time.monotonic()
             packed = encoder.flush()
+            metrics["compression_seconds"] += time.monotonic() - tick
+            metrics["compression_output_bytes"] += len(packed)
+            tick = time.monotonic()
             out.write(packed)
+            metrics["zip_write_seconds"] += time.monotonic() - tick
             stored_hash.update(packed)
             stored_size += len(packed)
         after = src.stat()
@@ -429,6 +503,11 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
           }
         ),
       )
+    metrics.update(
+      package_seconds=time.monotonic() - started,
+      package_cpu_seconds=time.thread_time() - cpu_started,
+      archive_bytes=output.stat().st_size,
+    )
     return manifest
   finally:
     lock.unlink(missing_ok=True)
@@ -568,8 +647,15 @@ def transfer_job(root, job, client, facts, binary, source, stop):
       archive = Path(temporary) / "segment.zip"
       # Keep two offers prepared ahead of the NAS's two receiving slots,
       # while bounding CPU-heavy compression to two workers.
-      with _PREPARE_SLOTS:
-        manifest = package(root, job, archive, permitted)
+      metrics = {}
+      job["_sender_phase"] = "prepare_waiting"
+      tick = time.monotonic()
+      with preparation_slot(permitted):
+        metrics["prepare_wait_seconds"] = time.monotonic() - tick
+        job["_sender_phase"] = "preparing"
+        manifest = package(root, job, archive, permitted, metrics)
+      prepared_at = time.monotonic()
+      job["_sender_phase"] = "prepared"
       lan_offer = None
       try:
         lan_offer, _served = local_offer(
@@ -586,10 +672,17 @@ def transfer_job(root, job, client, facts, binary, source, stop):
       def announce(code):
         if not permitted():
           raise ValueError("Upload conditions changed")
+        metrics["offer_setup_seconds"] = time.monotonic() - prepared_at
         client.post(
           path_base + "/offer",
-          {"wormhole_code": code, "files": manifest, "lan_offer": lan_offer},
+          {
+            "wormhole_code": code,
+            "files": manifest,
+            "lan_offer": lan_offer,
+            "preparation": metrics,
+          },
         )
+        job["_sender_phase"] = "offered"
 
       last_status = 0.0
       status = {}
@@ -606,6 +699,8 @@ def transfer_job(root, job, client, facts, binary, source, stop):
           last_status = time.monotonic()
         if status.get("status") in {"failed", "cancelled"}:
           raise ValueError("Archive job was stopped by GCS")
+        if status.get("status") == "receiving":
+          job["_sender_phase"] = "receiving"
         return status.get("status") == "received"
 
       if lan_offer and job["constraints"].get("lan_only") is True:
@@ -621,7 +716,10 @@ def transfer_job(root, job, client, facts, binary, source, stop):
           stop.wait(0.25)
         else:
           raise ValueError("Direct transfer stopped or timed out")
+      tick = time.monotonic()
       with _WORMHOLE_SLOTS:
+        metrics["transport_wait_seconds"] = time.monotonic() - tick
+        job["_sender_phase"] = "connecting"
         send_archive(
           binary,
           archive,
@@ -654,7 +752,8 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
   import uuid
 
   futures = {}
-  next_inventory = next_claim = 0.0
+  next_inventory = next_claim = next_observation = 0.0
+  inventory_seconds = 0.0
   claim_id = None
   try:
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="archive-send") as pool:
@@ -662,6 +761,13 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
         while not stop.is_set():
           offroad, network = facts()
           if not offroad:
+            try:
+              client.post(
+                "/observation",
+                {"blocked_reason": getattr(facts, "blocked_reason", None) or "onroad"},
+              )
+            except Exception:
+              pass
             break
           now = time.monotonic()
           for future in list(futures):
@@ -674,7 +780,9 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
               next_claim = 0.0 if succeeded else time.monotonic() + 2
           try:
             if now >= next_inventory:
+              scan_started = time.monotonic()
               inventory = scan_inventory(root, offroad, network)
+              inventory_seconds = time.monotonic() - scan_started
               offroad, network = facts()
               if not offroad:
                 break
@@ -699,6 +807,31 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
               )
               client.post("/inventory", inventory)
               next_inventory = time.monotonic() + 30
+            if not stop.is_set() and now >= next_observation:
+              phases = [j.get("_sender_phase", "prepare_waiting") for j in futures.values()]
+              try:
+                client.post(
+                  "/observation",
+                  {
+                    **{
+                      phase: phases.count(phase)
+                      for phase in (
+                        "prepare_waiting",
+                        "preparing",
+                        "compressing",
+                        "packaging",
+                        "prepared",
+                        "connecting",
+                        "offered",
+                        "receiving",
+                      )
+                    },
+                    "inventory_seconds": inventory_seconds,
+                  },
+                )
+              except Exception:
+                pass  # Older GCS versions and failed monitoring cannot stop uploads.
+              next_observation = time.monotonic() + 10
             while len(futures) < workers and time.monotonic() >= next_claim and not stop.is_set():
               claim_id = claim_id or uuid.uuid4().hex
               job = client.post("/claim", {"request_id": claim_id}).get("job")
@@ -740,9 +873,27 @@ def archive_step(device_id: str, headers: dict) -> None:
     from cereal import log
 
     params = Params()
+    resource_lock = threading.Lock()
+    last_resources = [0.0, {}]
 
     def facts():
       offroad = params.get("IsOnroad") == b"0" and health.offroad()
+      facts.blocked_reason = None
+      if offroad:
+        with resource_lock:
+          now = time.monotonic()
+          if not last_resources[1] or now - last_resources[0] >= 1:
+            last_resources[:] = now, resource_snapshot()
+          snapshot = last_resources[1]
+        if not resources_permit(snapshot):
+          facts.blocked_reason = (
+            "resources_unknown"
+            if snapshot["cpu_celsius"] is None or snapshot["available_bytes"] is None
+            else "thermal"
+            if snapshot["cpu_celsius"] >= 70
+            else "memory"
+          )
+          offroad = False
       raw = HARDWARE.get_network_type()
       kind = log.DeviceState.NetworkType
       network = "wifi" if raw == kind.wifi else "ethernet" if raw == kind.ethernet else "unknown" if raw == kind.none else "cellular"
