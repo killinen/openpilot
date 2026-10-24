@@ -17,6 +17,7 @@ import re
 import select
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -296,6 +297,32 @@ def collect_inventory(root: Path, offroad: bool, network: str) -> dict:
     "network": network,
     "segments": segments[-10000:],
   }
+
+
+def scan_inventory(root: Path, offroad: bool, network: str) -> dict:
+  """Avoid sharing filesystem scans with CPU-heavy TeleTyped log analysis.
+
+  Only the interpreter's standard library is needed, including under the
+  isolated guardian runtime. No device credentials are passed to the helper.
+  """
+  result = subprocess.run(
+    [
+      sys.executable,
+      "-I",
+      "-S",
+      "-B",
+      str(Path(__file__).resolve()),
+      "--inventory",
+      str(root),
+      "1" if offroad else "0",
+      network,
+    ],
+    check=True,
+    capture_output=True,
+    text=True,
+    timeout=20,
+  )
+  return json.loads(result.stdout)
 
 
 def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
@@ -647,7 +674,11 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
               next_claim = 0.0 if succeeded else time.monotonic() + 2
           try:
             if now >= next_inventory:
-              inventory = collect_inventory(root, offroad, network)
+              inventory = scan_inventory(root, offroad, network)
+              offroad, network = facts()
+              if not offroad:
+                break
+              inventory.update(offroad=offroad, network=network)
               temporary_root = root.parent / ".opnas-incoming"
               allocated = 0
               for active_job in futures.values():
@@ -734,3 +765,15 @@ def archive_step(device_id: str, headers: dict) -> None:
     )
   finally:
     _GUARD.release()
+
+
+if __name__ == "__main__":
+  import argparse
+
+  parser = argparse.ArgumentParser(description="Internal OP-NAS inventory scanner")
+  parser.add_argument("--inventory", action="store_true", required=True)
+  parser.add_argument("root", type=Path)
+  parser.add_argument("offroad", choices=["0", "1"])
+  parser.add_argument("network", choices=["wifi", "ethernet", "cellular", "unknown"])
+  args = parser.parse_args()
+  print(json.dumps(collect_inventory(args.root, args.offroad == "1", args.network)))
