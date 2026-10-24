@@ -38,6 +38,8 @@ ALLOWED = {
 MAX_BYTES = 4 * 1024**3
 STABLE_SECONDS = 120
 _GUARD = threading.Lock()
+_PREPARE_SLOTS = threading.BoundedSemaphore(2)
+_WORMHOLE_SLOTS = threading.BoundedSemaphore(2)
 CONVERSION_META = ".opnas-rlog-conversion.json"
 
 
@@ -537,7 +539,10 @@ def transfer_job(root, job, client, facts, binary, source, stop):
     temp_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=job["id"] + "-", dir=temp_root) as temporary, ExitStack() as stack:
       archive = Path(temporary) / "segment.zip"
-      manifest = package(root, job, archive, permitted)
+      # Keep two offers prepared ahead of the NAS's two receiving slots,
+      # while bounding CPU-heavy compression to two workers.
+      with _PREPARE_SLOTS:
+        manifest = package(root, job, archive, permitted)
       lan_offer = None
       try:
         lan_offer, _served = local_offer(
@@ -589,15 +594,15 @@ def transfer_job(root, job, client, facts, binary, source, stop):
           stop.wait(0.25)
         else:
           raise ValueError("Direct transfer stopped or timed out")
-      send_archive(
-        binary,
-        archive,
-        announce,
-        permitted,
-        # Also observe failure/cancellation while Wormhole waits. A
-        # failed receiver must release this sender slot promptly.
-        completed=receipt,
-      )
+      with _WORMHOLE_SLOTS:
+        send_archive(
+          binary,
+          archive,
+          announce,
+          permitted,
+          # Also observe failure/cancellation while Wormhole waits.
+          completed=receipt,
+        )
       # A successful Wormhole byte transfer still needs its verified receipt
       # before the same device starts enough work to exceed its slot limit.
       deadline = time.monotonic() + 120
@@ -636,9 +641,9 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
             if future.done():
               succeeded = future.result()
               del futures[future]
-              # Refresh capacity immediately: the temporary bundle
-              # was removed when this worker returned.
-              next_inventory = 0.0
+              # Keep the full inventory on its own cadence. Sending
+              # thousands of file identities before each next claim
+              # leaves the LAN idle; GCS releases reservations on receipt.
               next_claim = 0.0 if succeeded else time.monotonic() + 2
           try:
             if now >= next_inventory:
@@ -725,6 +730,7 @@ def archive_step(device_id: str, headers: dict) -> None:
       helper.WORMHOLE_BINARY,
       archive_lan,
       threading.Event(),
+      workers=4,
     )
   finally:
     _GUARD.release()
