@@ -2,7 +2,8 @@
 
 Deploy with archive_lan.py and the current extensions.py. Automatic uploads stay
 off until enabled per device in GCS. Explicit TELETYPED_EXTENSIONS overrides
-still replace the default workers. This module never deletes source recordings.
+still replace the default workers. Raw replacement is separately opted in and
+retains a verified, durable rlog.bz2 on the comma before removing rlog.
 """
 
 from __future__ import annotations
@@ -37,6 +38,201 @@ ALLOWED = {
 MAX_BYTES = 4 * 1024**3
 STABLE_SECONDS = 120
 _GUARD = threading.Lock()
+CONVERSION_META = ".opnas-rlog-conversion.json"
+
+
+def _sync_directory(folder):
+  fd = os.open(folder, os.O_RDONLY | os.O_DIRECTORY)
+  try:
+    os.fsync(fd)
+  finally:
+    os.close(fd)
+
+
+def _matches(path, descriptor):
+  if path.is_symlink() or not path.is_file():
+    return False
+  s = path.stat()
+  return (s.st_size, s.st_mtime_ns) == (descriptor["size"], descriptor["mtime_ns"])
+
+
+def _conversion(folder):
+  path = folder / CONVERSION_META
+  if path.is_symlink():
+    raise ValueError("Conversion metadata is a symbolic link")
+  if not path.exists():
+    return None
+  if not path.is_file() or path.stat().st_size > 16384:
+    raise ValueError("Invalid conversion metadata")
+  try:
+    record = json.loads(path.read_text())
+    if record["version"] != 1 or not re.fullmatch(r"\.opnas-rlog-[a-zA-Z0-9_-]+\.bz2\.tmp", record["temporary"]):
+      raise ValueError
+    for key, name in (("source", "rlog"), ("stored", "rlog.bz2")):
+      f = record[key]
+      if (
+        set(f) != {"name", "size", "mtime_ns", "sha256"}
+        or f["name"] != name
+        or not isinstance(f["size"], int)
+        or isinstance(f["size"], bool)
+        or not 0 <= f["size"] <= MAX_BYTES
+        or not isinstance(f["mtime_ns"], int)
+        or isinstance(f["mtime_ns"], bool)
+        or f["mtime_ns"] < 0
+        or not re.fullmatch(r"[a-f0-9]{64}", f["sha256"])
+      ):
+        raise ValueError
+    if record["source"]["mtime_ns"] != record["stored"]["mtime_ns"]:
+      raise ValueError
+    return record
+  except (KeyError, TypeError, ValueError) as exc:
+    raise ValueError("Invalid conversion metadata") from exc
+
+
+def _verify_stream(stream, descriptor, permitted):
+  digest, count = hashlib.sha256(), 0
+  for block in iter(lambda: stream.read(1024 * 1024), b""):
+    if not permitted():
+      raise ValueError("Offroad or network condition changed")
+    count += len(block)
+    if count > descriptor["size"]:
+      raise ValueError("Converted source exceeds its recorded size")
+    digest.update(block)
+  if count != descriptor["size"] or digest.hexdigest() != descriptor["sha256"]:
+    raise ValueError("Converted source checksum mismatch")
+
+
+def _verify_local(path, descriptor, permitted, *, decompress=False):
+  if path.is_symlink() or not path.is_file():
+    raise ValueError("Converted source is missing or a symbolic link")
+  with bz2.open(path, "rb") if decompress else path.open("rb") as stream:
+    _verify_stream(stream, descriptor, permitted)
+
+
+def _write_conversion(folder, record):
+  fd, temporary = tempfile.mkstemp(prefix=".opnas-conversion-", dir=folder)
+  try:
+    with os.fdopen(fd, "w") as out:
+      json.dump(record, out, sort_keys=True)
+      out.flush()
+      os.fsync(out.fileno())
+    os.replace(temporary, folder / CONVERSION_META)
+    _sync_directory(folder)
+  finally:
+    Path(temporary).unlink(missing_ok=True)
+
+
+def replace_raw_rlog(folder, requested, permitted):
+  """Commit verified local bzip2 and recovery metadata before removing raw data.
+
+  The caller holds the normal segment deletion lock. Inventory retains the
+  original logical identity so retries and GCS deduplication remain stable.
+  """
+  raw, stored = folder / "rlog", folder / "rlog.bz2"
+  record = _conversion(folder)
+  identity = {k: requested[k] for k in ("name", "size", "mtime_ns")}
+  if record and identity != {k: record["source"][k] for k in identity}:
+    raise ValueError("Conversion belongs to a different source identity")
+  if record and not stored.exists() and not (folder / record["temporary"]).exists():
+    # The intent was durable, but its temporary output is gone. A complete
+    # original permits a fresh conversion; never remove the only copy.
+    if not _matches(raw, record["source"]):
+      raise ValueError("Incomplete conversion has no usable local copy")
+    _verify_local(raw, record["source"], permitted)
+    (folder / CONVERSION_META).unlink()
+    _sync_directory(folder)
+    record = None
+  temporary = None
+  intent_written = False
+  try:
+    if record is None:
+      if stored.exists() or stored.is_symlink():
+        raise ValueError("Existing rlog.bz2 has no matching conversion metadata")
+      if not _matches(raw, identity) or time.time_ns() - identity["mtime_ns"] < STABLE_SECONDS * 10**9:
+        raise ValueError("Raw rlog changed or is still active")
+      before = raw.stat()
+      fd, name = tempfile.mkstemp(prefix=".opnas-rlog-", suffix=".bz2.tmp", dir=folder)
+      temporary = Path(name)
+      source_hash, stored_hash, count = hashlib.sha256(), hashlib.sha256(), 0
+      encoder = bz2.BZ2Compressor(3)
+      with raw.open("rb") as src, os.fdopen(fd, "wb") as out:
+        for block in iter(lambda: src.read(1024 * 1024), b""):
+          if not permitted():
+            raise ValueError("Offroad or network condition changed")
+          source_hash.update(block)
+          count += len(block)
+          if count > identity["size"]:
+            raise ValueError("Raw rlog changed during conversion")
+          packed = encoder.compress(block)
+          out.write(packed)
+          stored_hash.update(packed)
+        packed = encoder.flush()
+        out.write(packed)
+        stored_hash.update(packed)
+        out.flush()
+        os.fsync(out.fileno())
+      after = raw.stat()
+      if count != identity["size"] or (
+        before.st_ino,
+        before.st_dev,
+        before.st_size,
+        before.st_mtime_ns,
+      ) != (after.st_ino, after.st_dev, after.st_size, after.st_mtime_ns):
+        raise ValueError("Raw rlog changed during conversion")
+      shutil.copystat(raw, temporary, follow_symlinks=False)
+      os.utime(temporary, ns=(before.st_atime_ns, before.st_mtime_ns))
+      with temporary.open("rb") as durable:
+        os.fsync(durable.fileno())
+      record = {
+        "version": 1,
+        "temporary": temporary.name,
+        "source": {**identity, "sha256": source_hash.hexdigest()},
+        "stored": {
+          "name": "rlog.bz2",
+          "size": temporary.stat().st_size,
+          "mtime_ns": identity["mtime_ns"],
+          "sha256": stored_hash.hexdigest(),
+        },
+      }
+      if record["stored"]["size"] > MAX_BYTES:
+        raise ValueError("Converted source exceeds archive size limit")
+      _verify_local(temporary, record["source"], permitted, decompress=True)
+      _write_conversion(folder, record)
+      intent_written = True
+    candidate = folder / record["temporary"]
+    if not stored.exists():
+      if not _matches(candidate, record["stored"]):
+        raise ValueError("Incomplete conversion output changed")
+      _verify_local(candidate, record["stored"], permitted)
+      _verify_local(candidate, record["source"], permitted, decompress=True)
+      os.link(candidate, stored, follow_symlinks=False)  # Atomic, never overwrites another file.
+      _sync_directory(folder)
+    if not _matches(stored, record["stored"]):
+      raise ValueError("Local rlog.bz2 changed")
+    _verify_local(stored, record["stored"], permitted)
+    _verify_local(stored, record["source"], permitted, decompress=True)
+    if raw.exists() or raw.is_symlink():
+      if not _matches(raw, record["source"]):
+        raise ValueError("Raw rlog changed; retaining both copies")
+      before = raw.stat()
+      _verify_local(raw, record["source"], permitted)
+      after = raw.stat()
+      if not permitted() or (
+        before.st_ino,
+        before.st_dev,
+        before.st_size,
+        before.st_mtime_ns,
+      ) != (after.st_ino, after.st_dev, after.st_size, after.st_mtime_ns):
+        raise ValueError("Raw rlog changed; retaining both copies")
+      raw.unlink()
+      _sync_directory(folder)
+    if candidate.exists() and not candidate.is_symlink() and candidate.stat().st_ino == stored.stat().st_ino:
+      candidate.unlink()
+      _sync_directory(folder)
+    return record
+  finally:
+    if temporary is not None and not intent_written:
+      temporary.unlink(missing_ok=True)
 
 
 def collect_inventory(root: Path, offroad: bool, network: str) -> dict:
@@ -59,12 +255,27 @@ def collect_inventory(root: Path, offroad: bool, network: str) -> dict:
               pass
         entries = list(segment.iterdir())
         locked = any(p.name.endswith(".lock") for p in entries)
+        try:
+          conversion = _conversion(segment)
+          converted = bool(conversion and _matches(segment / "rlog.bz2", conversion["stored"]))
+          if conversion:
+            raw = segment / "rlog"
+            if raw.exists() or raw.is_symlink():
+              changing |= not _matches(raw, conversion["source"])
+            elif not converted:
+              changing = True
+        except ValueError:
+          conversion, converted, changing = None, False, True
         for p in entries:
           if p.name not in ALLOWED or p.is_symlink() or not p.is_file():
+            continue
+          if converted and p.name in {"rlog", "rlog.bz2"}:
             continue
           s = p.stat()
           changing |= time.time() - s.st_mtime < STABLE_SECONDS
           files.append({"name": p.name, "size": s.st_size, "mtime_ns": s.st_mtime_ns})
+        if converted:
+          files.append({k: conversion["source"][k] for k in ("name", "size", "mtime_ns")})
         if files:
           segments.append(
             {
@@ -78,6 +289,7 @@ def collect_inventory(root: Path, offroad: bool, network: str) -> dict:
   return {
     "protocol": 1,
     "supports_rlog_bz2": True,
+    "supports_local_rlog_bz2": True,
     "offroad": offroad,
     "network": network,
     "segments": segments[-10000:],
@@ -95,6 +307,9 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
   if shutil.disk_usage(output.parent).free < sum(f["size"] for f in job["files"]) + 512 * 1024**2:
     raise ValueError("Insufficient temporary storage")
   compress = job.get("constraints", {}).get("compress_rlogs") is True
+  replace_raw = job.get("constraints", {}).get("replace_raw_rlogs") is True
+  if replace_raw and not compress:
+    raise ValueError("Raw replacement requires rlog compression")
   names = ["rlog.bz2" if compress and f["name"] == "rlog" else f["name"] for f in job["files"]]
   if len(set(names)) != len(names):
     raise ValueError("Compressed filename conflicts with another requested file")
@@ -111,16 +326,30 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
       for f, name in zip(job["files"], names, strict=True):
         if f["name"] not in ALLOWED:
           raise ValueError("Unsupported file selection")
+        conversion = None
+        if f["name"] == "rlog":
+          conversion = replace_raw_rlog(folder, f, permitted) if replace_raw else _conversion(folder)
+          if conversion:
+            if any(f[k] != conversion["source"][k] for k in ("name", "size", "mtime_ns")):
+              raise ValueError("Converted source identity changed")
+            if not _matches(folder / "rlog.bz2", conversion["stored"]):
+              if not _matches(folder / "rlog", f):
+                raise ValueError("Converted source is unavailable")
+              conversion = None
         src = folder / f["name"]
+        physical = f
+        if conversion:
+          src = folder / "rlog.bz2"
+          physical = conversion["stored"]
         if src.is_symlink():
           raise ValueError("Source file is a symbolic link")
         before = src.stat()
-        if before.st_size != f["size"] or before.st_mtime_ns != f["mtime_ns"] or time.time() - before.st_mtime < STABLE_SECONDS:
+        if before.st_size != physical["size"] or before.st_mtime_ns != physical["mtime_ns"] or time.time() - before.st_mtime < STABLE_SECONDS:
           raise ValueError("Source file changed or is still active")
-        encoder = bz2.BZ2Compressor(3) if name != f["name"] else None
+        encoder = bz2.BZ2Compressor(3) if name != f["name"] and not conversion else None
         source_hash, stored_hash = hashlib.sha256(), hashlib.sha256()
         source_size, stored_size = 0, 0
-        with src.open("rb") as data, z.open("files/" + name, "w", force_zip64=True) as out:
+        with bz2.open(src, "rb") if conversion and not compress else src.open("rb") as data, z.open("files/" + name, "w", force_zip64=True) as out:
           for block in iter(lambda: data.read(1024 * 1024), b""):
             if not permitted():
               raise ValueError("Offroad or network condition changed")
@@ -138,15 +367,39 @@ def package(root: Path, job: dict, output: Path, permitted) -> list[dict]:
             stored_hash.update(packed)
             stored_size += len(packed)
         after = src.stat()
-        if source_size != f["size"] or (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
+        expected = conversion["stored" if compress else "source"] if conversion else f
+        if source_size != expected["size"] or (
+          before.st_size,
+          before.st_mtime_ns,
+          before.st_ino,
+        ) != (after.st_size, after.st_mtime_ns, after.st_ino):
           raise ValueError("Source file changed while packaging")
-        entry = {**f, "name": name, "size": stored_size, "sha256": stored_hash.hexdigest()}
+        if conversion and source_hash.hexdigest() != expected["sha256"]:
+          raise ValueError("Converted source checksum mismatch")
+        entry = {
+          **f,
+          "name": name,
+          "size": stored_size,
+          "sha256": stored_hash.hexdigest(),
+        }
         if encoder:
           entry["source"] = {**f, "sha256": source_hash.hexdigest()}
+        elif conversion and compress:
+          entry["source"] = conversion["source"]
         manifest.append(entry)
       if sum(f["size"] for f in manifest) > MAX_BYTES:
         raise ValueError("Prepared files exceed archive size limit")
-      z.writestr("manifest.json", json.dumps({"job_id": job["id"], "device_id": job["device_id"], "segment": job["segment"], "files": manifest}))
+      z.writestr(
+        "manifest.json",
+        json.dumps(
+          {
+            "job_id": job["id"],
+            "device_id": job["device_id"],
+            "segment": job["segment"],
+            "files": manifest,
+          }
+        ),
+      )
     return manifest
   finally:
     lock.unlink(missing_ok=True)
@@ -198,7 +451,10 @@ def send_archive(
 
 
 def local_offer(source, stack, archive: Path, job: dict, network: str, permitted):
-  if job.get("constraints", {}).get("allow_lan") is not True or network not in {"wifi", "ethernet"}:
+  if job.get("constraints", {}).get("allow_lan") is not True or network not in {
+    "wifi",
+    "ethernet",
+  }:
     return None, None
   address = source.lan_address()
   if not address:
@@ -206,151 +462,269 @@ def local_offer(source, stack, archive: Path, job: dict, network: str, permitted
   return stack.enter_context(source.serve_archive(archive, address, permitted))
 
 
+class ArchiveAPI:
+  """One persistent HTTPS session per worker, with existing JWT and DNS support."""
+
+  def __init__(self, base, headers, helper=None):
+    self.base, self.headers, self.helper = base, headers, helper
+    self.local = threading.local()
+    self.sessions, self.lock = [], threading.Lock()
+
+  def request(self, method, path, payload=None):
+    import requests
+    from urllib.parse import urlsplit
+
+    session = getattr(self.local, "session", None)
+    if session is None:
+      session = self.local.session = requests.Session()
+      with self.lock:
+        self.sessions.append(session)
+    headers = self.headers()
+    if not headers:
+      raise ValueError("Device JWT is unavailable")
+    # Reuse TLS connections and avoid the generic helper's extra synchronous
+    # DNS refresh after every successful HTTP operation.
+    host = urlsplit(self.base).hostname
+    cached = self.helper.get_cached_ip(host) if self.helper and time.monotonic() >= getattr(self.local, "skip_cached_until", 0) else None
+    context = self.helper._force_getaddrinfo(host, cached) if cached else ExitStack()
+    try:
+      with context:
+        response = session.request(
+          method,
+          self.base + path,
+          headers=headers,
+          json=payload,
+          timeout=(3, 10),
+        )
+    except (requests.ConnectionError, requests.Timeout):
+      self.local.skip_cached_until = time.monotonic() + 60
+      raise
+    try:
+      response.raise_for_status()
+      return response.json()
+    finally:
+      response.close()
+
+  def post(self, path, payload):
+    return self.request("POST", path, payload)
+
+  def get(self, path):
+    return self.request("GET", path)
+
+  def close(self):
+    for session in self.sessions:
+      session.close()
+
+
+def transfer_job(root, job, client, facts, binary, source, stop):
+  last_check, cached, network = 0.0, False, "unknown"
+
+  def permitted():
+    nonlocal last_check, cached, network
+    if stop.is_set():
+      return False
+    if time.monotonic() - last_check >= 1:
+      offroad, network = facts()
+      cached = offroad and (job["constraints"]["network_policy"] == "any" or network in {"wifi", "ethernet"})
+      last_check = time.monotonic()
+    return cached
+
+  path_base = "/jobs/" + job["id"]
+  try:
+    if not permitted():
+      raise ValueError("Upload conditions are not satisfied")
+    temp_root = root.parent / ".opnas-incoming"
+    temp_root.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=job["id"] + "-", dir=temp_root) as temporary, ExitStack() as stack:
+      archive = Path(temporary) / "segment.zip"
+      manifest = package(root, job, archive, permitted)
+      lan_offer = None
+      try:
+        lan_offer, _served = local_offer(
+          source,
+          stack,
+          archive,
+          job,
+          network,
+          lambda: permitted() and network in {"wifi", "ethernet"},
+        )
+      except Exception:
+        pass
+
+      def announce(code):
+        if not permitted():
+          raise ValueError("Upload conditions changed")
+        client.post(
+          path_base + "/offer",
+          {"wormhole_code": code, "files": manifest, "lan_offer": lan_offer},
+        )
+
+      last_status = 0.0
+      status = {}
+
+      def receipt(force=False):
+        nonlocal last_status, status
+        if force or time.monotonic() - last_status >= 1:
+          import requests
+
+          try:
+            status = client.get(path_base)
+          except (requests.ConnectionError, requests.Timeout):
+            pass
+          last_status = time.monotonic()
+        if status.get("status") in {"failed", "cancelled"}:
+          raise ValueError("Archive job was stopped by GCS")
+        return status.get("status") == "received"
+
+      if lan_offer and job["constraints"].get("lan_only") is True:
+        # Publish the local offer immediately. Start Wormhole only when
+        # the receiver explicitly requests a fallback for this same job.
+        announce(None)
+        deadline = time.monotonic() + 7200
+        while permitted() and time.monotonic() < deadline:
+          if receipt():
+            return True
+          if status.get("fallback_requested"):
+            break
+          stop.wait(0.25)
+        else:
+          raise ValueError("Direct transfer stopped or timed out")
+      send_archive(
+        binary,
+        archive,
+        announce,
+        permitted,
+        # Also observe failure/cancellation while Wormhole waits. A
+        # failed receiver must release this sender slot promptly.
+        completed=receipt,
+      )
+      # A successful Wormhole byte transfer still needs its verified receipt
+      # before the same device starts enough work to exceed its slot limit.
+      deadline = time.monotonic() + 120
+      while permitted() and time.monotonic() < deadline:
+        if receipt():
+          return True
+        stop.wait(0.25)
+      raise ValueError("Verified receipt was not confirmed")
+  except Exception:
+    try:
+      client.post(
+        path_base + "/failed",
+        {"detail": "Sender stopped or transfer failed; source recordings retained"},
+      )
+    except Exception:
+      pass
+    return False
+
+
+def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2):
+  from concurrent.futures import ThreadPoolExecutor
+  import uuid
+
+  futures = {}
+  next_inventory = next_claim = 0.0
+  claim_id = None
+  try:
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="archive-send") as pool:
+      try:
+        while not stop.is_set():
+          offroad, network = facts()
+          if not offroad:
+            break
+          now = time.monotonic()
+          for future in list(futures):
+            if future.done():
+              succeeded = future.result()
+              del futures[future]
+              # Refresh capacity immediately: the temporary bundle
+              # was removed when this worker returned.
+              next_inventory = 0.0
+              next_claim = 0.0 if succeeded else time.monotonic() + 2
+          try:
+            if now >= next_inventory:
+              inventory = collect_inventory(root, offroad, network)
+              temporary_root = root.parent / ".opnas-incoming"
+              allocated = 0
+              for active_job in futures.values():
+                planned = sum(f["size"] for f in active_job["files"]) + 64 * 1024**2
+                for folder in temporary_root.glob(active_job["id"] + "-*"):
+                  archive = folder / "segment.zip"
+                  try:
+                    allocated += min(archive.stat().st_size, planned)
+                  except OSError:
+                    pass
+              inventory.update(
+                max_parallel_transfers=workers,
+                supports_lan_only=True,
+                temporary_available_bytes=max(
+                  0,
+                  shutil.disk_usage(root.parent).free + allocated - 512 * 1024**2,
+                ),
+              )
+              client.post("/inventory", inventory)
+              next_inventory = time.monotonic() + 30
+            while len(futures) < workers and time.monotonic() >= next_claim and not stop.is_set():
+              claim_id = claim_id or uuid.uuid4().hex
+              job = client.post("/claim", {"request_id": claim_id}).get("job")
+              claim_id = None
+              if not job:
+                next_claim = time.monotonic() + (2 if futures else 5)
+                break
+              futures[
+                pool.submit(
+                  transfer_job,
+                  root,
+                  job,
+                  client,
+                  facts,
+                  binary,
+                  source,
+                  stop,
+                )
+              ] = job
+          except Exception:
+            next_inventory = min(next_inventory, time.monotonic() + 3)
+            next_claim = time.monotonic() + 3
+            stop.wait(1)
+          stop.wait(0.1 if futures else 1)
+      finally:
+        stop.set()  # Cancel active transfers if conditions change or shutdown starts.
+  finally:
+    client.close()
+
+
 def archive_step(device_id: str, headers: dict) -> None:
-  """Teletyped optional-worker entry point; all hardware imports stay on device."""
+  """Drain available archive work; only an empty queue incurs an idle backoff."""
   if not _GUARD.acquire(blocking=False):
     return
   try:
-    from openpilot.tools.teletyped import helper, health
+    from openpilot.tools.teletyped import helper, health, archive_lan
     from openpilot.common.params import Params
     from openpilot.system.hardware import HARDWARE
     from cereal import log
-    from openpilot.tools.teletyped.helper import http_get, http_post
-    from openpilot.tools.teletyped import archive_lan
 
-    root = Path(helper.REALDATA_DIR)
-    base = helper.API_URL.rstrip("/") + "/archive/device/" + device_id
     params = Params()
 
     def facts():
-      # Fail closed when manager state/Params is unavailable; health.offroad()
-      # alone permits legacy configurations without a live manager snapshot.
       offroad = params.get("IsOnroad") == b"0" and health.offroad()
       raw = HARDWARE.get_network_type()
       kind = log.DeviceState.NetworkType
       network = "wifi" if raw == kind.wifi else "ethernet" if raw == kind.ethernet else "unknown" if raw == kind.none else "cellular"
       return offroad, network
 
-    def post(path, data):
-      auth = helper.build_auth_headers()
-      if not auth:
-        raise ValueError("Device JWT is unavailable")
-      response = http_post(base + path, headers=auth, json=data, timeout=15)
-      response.raise_for_status()
-      return response.json()
-
-    def inventory():
-      offroad, network = facts()
-      post("/inventory", collect_inventory(root, offroad, network))
-      return offroad, network
-
-    offroad, _ = inventory()
-    if not offroad:
-      return
-    job = post("/claim", {}).get("job")
-    if not job:
-      return
-    stop = threading.Event()
-
-    def updates():
-      while not stop.wait(30):
-        try:
-          inventory()
-        except Exception:
-          pass
-
-    thread = threading.Thread(target=updates, daemon=True)
-    thread.start()
-    last_check, cached, cached_network = 0.0, False, "unknown"
-
-    def permitted():
-      nonlocal last_check, cached, cached_network
-      if time.monotonic() - last_check > 1:
-        offroad, network = facts()
-        cached_network = network
-        cached = offroad and (job["constraints"]["network_policy"] == "any" or network in {"wifi", "ethernet"})
-        last_check = time.monotonic()
-      return cached
-
-    try:
-      if not permitted():
-        raise ValueError("Upload conditions are not satisfied")
-      temp_root = Path(helper.REALDATA_DIR).parent / ".opnas-incoming"
-      temp_root.mkdir(exist_ok=True)
-      for stale in temp_root.iterdir():
-        if re.fullmatch(r"[a-f0-9]{32}-.+", stale.name) and stale.is_dir() and not stale.is_symlink() and time.time() - stale.stat().st_mtime > 10800:
-          shutil.rmtree(stale)
-      with tempfile.TemporaryDirectory(prefix=job["id"] + "-", dir=temp_root) as temporary, ExitStack() as stack:
-        path = Path(temporary) / "segment.zip"
-        manifest = package(root, job, path, permitted)
-        lan_offer, served = None, None
-        _, network = facts()
-        try:
-          lan_offer, served = local_offer(
-            archive_lan,
-            stack,
-            path,
-            job,
-            network,
-            lambda: permitted() and cached_network in {"wifi", "ethernet"},
-          )
-        except Exception:
-          helper.log("Direct archive service unavailable; using Wormhole", "WARN")
-        last_status_check = 0.0
-
-        def completed():
-          nonlocal last_status_check
-          if served is None or not served.is_set() or time.monotonic() - last_status_check < 5:
-            return False
-          last_status_check = time.monotonic()
-          try:
-            response = http_get(
-              base + "/jobs/" + job["id"],
-              headers=helper.build_auth_headers(),
-              timeout=5,
-            )
-            response.raise_for_status()
-            status = response.json().get("status")
-          except Exception:
-            return False  # Keep offering the fallback until a verified receipt exists.
-          if status in {"failed", "cancelled"}:
-            raise ValueError("Archive job was stopped by GCS")
-          return status == "received"
-
-        def announce(code):
-          if not permitted():
-            raise ValueError("Upload conditions changed before offer")
-          post(
-            "/jobs/" + job["id"] + "/offer",
-            {
-              "wormhole_code": code,
-              "files": manifest,
-              "lan_offer": lan_offer,
-            },
-          )
-
-        send_archive(
-          helper.WORMHOLE_BINARY,
-          path,
-          announce,
-          permitted,
-          completed=completed,
-        )
-    except Exception:
-      # Never log JWTs, credentials, one-time codes or file contents.
-      try:
-        post(
-          "/jobs/" + job["id"] + "/failed",
-          {"detail": "Device sender stopped; source changed, conditions failed, or transfer failed"},
-        )
-      except Exception:
-        pass
-      helper.log(
-        "Automatic archive job deferred or failed; source files retained",
-        "WARN",
-      )
-    finally:
-      stop.set()
-      thread.join(timeout=20)
+    client = ArchiveAPI(
+      helper.API_URL.rstrip("/") + "/archive/device/" + device_id,
+      helper.build_auth_headers,
+      helper,
+    )
+    run_pipeline(
+      Path(helper.REALDATA_DIR),
+      device_id,
+      client,
+      facts,
+      helper.WORMHOLE_BINARY,
+      archive_lan,
+      threading.Event(),
+    )
   finally:
     _GUARD.release()

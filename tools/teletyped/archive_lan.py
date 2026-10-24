@@ -142,7 +142,9 @@ def serve_archive(archive: Path, address: str, permitted):
         connection, peer = super().get_request()
         connection.settimeout(5)
         try:
-          return context.wrap_socket(connection, server_side=True), peer
+          secured = context.wrap_socket(connection, server_side=True)
+          secured.settimeout(30)
+          return secured, peer
         except Exception:
           connection.close()
           raise
