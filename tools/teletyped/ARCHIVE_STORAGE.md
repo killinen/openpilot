@@ -81,33 +81,3 @@ Cross-repository TLS, fallback and manifest contract tests live in
 The prepared copies in `../OP-NAS/device/` must retain the same behavior. The
 LS600h extension list keeps `openpilot.tools.teletyped.telemetry:telemetry_step`;
 the updater branch uses `openpilot.tools.vehicle_telemetry.worker:telemetry_step`.
-
-### Preparation measurements and resource limits
-
-Each new offer can include bounded preparation measurements: time waiting for a
-preparation slot, packaging wall/CPU time, source-read time, bzip2 time and input/
-output bytes, ZIP-write time, and offer/transport setup time. These are monotonic
-local durations, never differences between device and NAS clocks. Compression
-rates divide encoded raw/output bytes by compressor time; they are per-worker
-rates, not aggregate production or network capacity. Already converted logs are
-reused and report no new compression work. Local source replacement stays a
-separate opt-in and should be disabled for non-destructive performance trials.
-
-A lightweight observation every ten seconds identifies workers waiting,
-compressing, packaging, ready, connecting, offered or receiving. GCS versions
-without this endpoint continue to work. Observations never replace inventories
-or refresh their eligibility timestamps. Offroad sender work also requires a
-known CPU temperature below 70 C and at least 256 MiB available memory; unknown
-resource readings suppress background work. Resource checks are cached for at
-most one second. Preparation-slot waits observe cancellation every 250 ms, and
-packaging checks conditions between 256 KiB blocks. Existing manager offroad and
-network rules still apply. The sender does not bring CPU cores online or change
-OpenPilot's power management.
-
-Level 3 and the two preparation slots remain unchanged. A same-data benchmark on
-C3X in its normal offroad power mode measured 3.15 MB/s raw with one level-3
-worker and 6.22 MB/s with two (2.20 MB/s compressed output, ratio 0.355, peak CPU
-sensor 48.2 C). Level 1 increased network bytes by about 7%; levels 6/9 reduced
-production. These short compression measurements do not establish sustained
-end-to-end ingestion performance. Use OP-NAS's guarded `tools/benchmark_rlogs.py`
-and verified-original-rlog throughput before changing concurrency or levels.
