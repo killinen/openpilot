@@ -23,6 +23,7 @@ import threading
 import time
 import zipfile
 from pathlib import Path
+from typing import cast
 
 ALLOWED = {
   "rlog",
@@ -369,7 +370,7 @@ def scan_inventory(root: Path, offroad: bool, network: str) -> dict:
     text=True,
     timeout=20,
   )
-  return json.loads(result.stdout)
+  return cast(dict, json.loads(result.stdout))
 
 
 def package(root: Path, job: dict, output: Path, permitted, metrics=None) -> list[dict]:
