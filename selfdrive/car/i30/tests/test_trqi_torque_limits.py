@@ -36,7 +36,7 @@ def test_reaches_twelve_nm_without_changing_slew(tmp_path, monkeypatch, sign):
     applied, messages = controller.update(cc, state(), 0, SimpleNamespace())
     outputs.append(demand(messages))
   assert outputs[0] == sign*6
-  assert max(abs(b-a) for a, b in zip(outputs, outputs[1:])) <= 6
+  assert max(abs(b-a) for a, b in zip(outputs, outputs[1:], strict=False)) <= 6
   assert outputs[-1] == sign*1200
   assert applied.steer == pytest.approx(sign*1.2)
   applied, messages = controller.update(command(sign*1.5), state(), 0, SimpleNamespace())
