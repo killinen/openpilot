@@ -857,7 +857,7 @@ CM_ SG_ 578 CAN_TX_Drop_Error "Set when a CANCTR status frame could not be queue
 CM_ SG_ 578 CAN_RX_Overrun_Error "Set when a latest-frame slot was overwritten before the CANCTR frame was processed, or when the local CAN RX queue overflowed and dropped frames. Classified as non-immediate; current firmware uses a 1000 ms CAN grace timer while hard faults and watchdog still override it.";
 CM_ SG_ 578 CAN_Bus_Off_Error "Set when FDCAN reports bus-off while CANCTR is active. Classified as immediate because command reception is no longer trustworthy.";
 CM_ SG_ 578 DAC_Output_Clamp_Limit "Set when CANCTR clamps DAC1 or DAC2 to the allowed 1.2..3.5 V output window.";
-CM_ SG_ 578 Torque_Demand_Clamp_Limit "Set when a 0x232 output torque demand exceeded +-1000 Ncm and was clipped.";
+CM_ SG_ 578 Torque_Demand_Clamp_Limit "Set when a 0x232 output torque demand exceeded +-1200 Ncm and was clipped (TRQI firmware 0.2.3 and later).";
 CM_ SG_ 578 Delta_Demand_Clamp_Limit "Set when a 0x231 delta command exceeded the raw DAC delta range and was clipped.";
 CM_ SG_ 578 Abs_DAC_Code_Clamp_Limit "Set when a 0x230 absolute DAC code exceeded the raw 12-bit DAC range and was clipped.";
 CM_ SG_ 578 Abs_Midpoint_Clamp_Limit "Set when a 0x230 midpoint input implied an output midpoint above the 0..5 V DAC domain and was clipped.";

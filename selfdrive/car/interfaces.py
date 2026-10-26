@@ -122,6 +122,11 @@ class CarInterfaceBase(ABC):
     return self.CC.update(c, self.CS, now_nanos, frogpilot_toggles)
 
   @staticmethod
+  def get_steer_max(CP) -> float:
+    """Maximum request in the vehicle's normalized steering command units."""
+    return 1.0
+
+  @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return ACCEL_MIN, ACCEL_MAX
 

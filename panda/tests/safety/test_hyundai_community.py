@@ -287,6 +287,15 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
     blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(blocked_no_controls))
 
+  def test_trqi_torque_authority_boundary(self):
+    for torque, allowed in [(-1202, False), (-1201, True), (-1200, True),
+                            (1200, True), (1201, True), (1202, False)]:
+      with self.subTest(torque=torque):
+        self.setUp()
+        self.assertTrue(self._tx(self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)))
+        self.safety.set_controls_allowed(1)
+        self.assertEqual(self._tx(self.packer.msg_232_trqi(torque=torque, rel=True, rele=True, counter=1)), allowed)
+
   def test_trqi_torque_counter_crc_and_controls(self):
     neutral = self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)
     self.assertTrue(self._tx(neutral))
@@ -306,7 +315,7 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
     bad_crc = common.make_msg(1, 0x232, 7, bytes(dat))
     self.assertFalse(self._tx(bad_crc))
 
-    too_large = self.packer.msg_232_trqi(torque=401, rel=True, rele=True, counter=2)
+    too_large = self.packer.msg_232_trqi(torque=1202, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(too_large))
 
     self.safety.set_controls_allowed(0)
@@ -414,6 +423,15 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
     blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(blocked_no_controls))
 
+  def test_trqi_torque_authority_boundary(self):
+    for torque, allowed in [(-1202, False), (-1201, True), (-1200, True),
+                            (1200, True), (1201, True), (1202, False)]:
+      with self.subTest(torque=torque):
+        self.setUp()
+        self.assertTrue(self._tx(self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)))
+        self.safety.set_controls_allowed(1)
+        self.assertEqual(self._tx(self.packer.msg_232_trqi(torque=torque, rel=True, rele=True, counter=1)), allowed)
+
   def test_trqi_torque_counter_crc_and_controls(self):
     neutral = self.packer.msg_232_trqi(torque=0, rel=False, rele=False, counter=0)
     self.assertTrue(self._tx(neutral))
@@ -433,7 +451,7 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
     bad_crc = common.make_msg(1, 0x232, 7, bytes(dat))
     self.assertFalse(self._tx(bad_crc))
 
-    too_large = self.packer.msg_232_trqi(torque=401, rel=True, rele=True, counter=2)
+    too_large = self.packer.msg_232_trqi(torque=1202, rel=True, rele=True, counter=2)
     self.assertFalse(self._tx(too_large))
 
     self.safety.set_controls_allowed(0)

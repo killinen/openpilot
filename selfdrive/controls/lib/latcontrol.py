@@ -11,8 +11,9 @@ class LatControl(ABC):
     self.sat_time = 0.
     self.sat_check_min_speed = 10.
 
-    # we define the steer torque scale as [-1.0...1.0]
-    self.steer_max = 1.0
+    # Most cars use [-1, 1]. Extra headroom can extend the limit while keeping
+    # the nominal torque scale (and therefore ordinary-range gains) unchanged.
+    self.steer_max = CI.get_steer_max(CP)
 
   @abstractmethod
   def update(self, active: bool, CS, VM, params, steer_limited_by_safety: bool, desired_curvature: float, curvature_limited: bool, lat_delay: float, llk, model_data, frogpilot_toggles):

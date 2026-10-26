@@ -3,7 +3,7 @@ from math import fabs
 from cereal import car
 from openpilot.selfdrive.car import create_button_events, get_safety_config
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
-from openpilot.selfdrive.car.i30.values import Buttons, CarControllerParams
+from openpilot.selfdrive.car.i30.values import Buttons, CarControllerParams, I30SteeringCommandMode, TrqiSteerLimitParams
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
@@ -13,6 +13,12 @@ BUTTONS_DICT = {Buttons.RES_ACCEL: ButtonType.accelCruise, Buttons.SET_DECEL: Bu
 
 
 class CarInterface(CarInterfaceBase):
+  @staticmethod
+  def get_steer_max(CP) -> float:
+    if CP.steeringMode == I30SteeringCommandMode.TRQI_TQ_DELTA:
+      return TrqiSteerLimitParams.MAX_STEERING_TQ / TrqiSteerLimitParams.STEER_MAX
+    return 1.0
+
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX
