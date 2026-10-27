@@ -77,6 +77,7 @@ class FrogPilotVCruise:
 
     if force_stop_enabled and not self.override_force_stop:
       self.forcing_stop |= not sm["carState"].standstill
+      self.csc_controlling_speed = False
 
       self.tracked_model_length = max(self.tracked_model_length - (v_ego * DT_MDL), 0)
       v_cruise = min((self.tracked_model_length // PLANNER_TIME), v_cruise)
@@ -90,6 +91,11 @@ class FrogPilotVCruise:
       if frogpilot_toggles.speed_limit_controller:
         targets.append(max(self.slc.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff)
 
-      v_cruise = min([target if target > CRUISING_SPEED else v_cruise for target in targets])
+      # The CSC clamps to CRUISING_SPEED; that boundary is still a valid target.
+      targets = [target if target >= CRUISING_SPEED else v_cruise for target in targets]
+
+      # Only bypass the normal turn acceleration limit when CSC lowers the cap.
+      self.csc_controlling_speed &= CRUISING_SPEED <= self.csc_target < min(targets[1:])
+      v_cruise = min(targets)
 
     return v_cruise
