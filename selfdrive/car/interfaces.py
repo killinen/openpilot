@@ -255,6 +255,9 @@ class CarInterfaceBase(ABC):
   def get_steer_feedforward_function(self):
     return self.get_steer_feedforward_default
 
+  def get_torque_feedforward_scale(self, v_ego: float) -> float:
+    return 1.0
+
   def torque_from_lateral_accel_linear(self, lateral_acceleration: float, torque_params: car.CarParams.LateralTorqueTuning) -> float:
     # The default is a linear relationship between torque and lateral acceleration (accounting for road roll and steering friction)
     return lateral_acceleration / float(torque_params.latAccelFactor)

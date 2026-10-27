@@ -138,8 +138,8 @@ def test_ls600h_controller_sends_hrr_torque():
   assert payload[4] & 0x3 == 0x3
 
   torque_raw = payload[0] | ((payload[1] & 0xF) << 8)
-  assert torque_raw == 6  # first active command is limited by TOYOTA_HRR_DELTA_UP
-  assert actuators.steerOutputCan == 6
+  assert torque_raw == 8  # existing 8.2 Ncm/frame windup limit, rounded for CAN
+  assert actuators.steerOutputCan == 8
 
 
 def test_ls600h_hrr_torque_command_clamps_to_scaled_range():

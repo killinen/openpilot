@@ -1,6 +1,7 @@
 from cereal import car, custom
 from panda import Panda
 from panda.python import uds
+from openpilot.common.numpy_fast import interp
 from openpilot.selfdrive.car.toyota.values import Ecu, CAR, DBC, ToyotaFlags, CarControllerParams, TSS2_CAR, RADAR_ACC_CAR, NO_DSU_CAR, \
                                         MIN_ACC_SPEED, EPS_SCALE, UNSUPPORTED_DSU_CAR, NO_STOP_TIMER_CAR, ANGLE_CONTROL_CAR, STOP_AND_GO_CAR, HRR_CAR
 from openpilot.selfdrive.car import create_button_events, get_safety_config
@@ -14,6 +15,14 @@ SteerControlType = car.CarParams.SteerControlType
 
 
 class CarInterface(CarInterfaceBase):
+  def get_torque_feedforward_scale(self, v_ego: float) -> float:
+    if self.CP.carFingerprint in HRR_CAR:
+      # Temporary motion-response compensation supported by fault-excluded
+      # 50-130 km/h logs. Taper outside that range to avoid command steps.
+      # Remove this scale when validated HRR firmware owns the correction.
+      return float(interp(v_ego * 3.6, [40.0, 50.0, 130.0, 140.0], [1.0, 1.25, 1.25, 1.0]))
+    return super().get_torque_feedforward_scale(v_ego)
+
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams(CP).ACCEL_MIN, CarControllerParams(CP).ACCEL_MAX
