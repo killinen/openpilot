@@ -1,4 +1,5 @@
 import copy
+import time
 from collections import deque
 
 from cereal import car, custom
@@ -9,6 +10,7 @@ from openpilot.common.realtime import DT_CTRL
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
+from openpilot.selfdrive.car.toyota.hrr_angle_shadow import HrrAngleShadow
 from openpilot.selfdrive.car.toyota.values import ToyotaFlags, ToyotaFrogPilotFlags, CAR, DBC, STEER_THRESHOLD, NO_STOP_TIMER_CAR, \
                                                   TSS2_CAR, RADAR_ACC_CAR, EPS_SCALE, UNSUPPORTED_DSU_CAR, SECOC_CAR
 
@@ -110,6 +112,8 @@ class CarState(CarStateBase):
     self.ls600h_last_valid_hrr_angle = None
     self.ls600h_hrr_temperature_age_frames = LS600H_HRR_TEMPERATURE_MAX_AGE_FRAMES + 1
     self.ls600h_hrr_ecu_overtemperature = False
+    self.ls600h_angle_shadow = HrrAngleShadow()
+    self.ls600h_angle_shadow_failed = False
 
     self.prev_distance_button = 0
     self.distance_button = 0
@@ -129,7 +133,7 @@ class CarState(CarStateBase):
     self.angle_offset_zss = 0
     self.zorro_steer_value = 0
 
-  def update_ls600h(self, cp, cp_body, cp_hrr):
+  def update_ls600h(self, cp, cp_body, cp_hrr, shadow_lat_active=False):
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
 
@@ -150,7 +154,8 @@ class CarState(CarStateBase):
     # conventional Toyota fraction/rate packing.
     fallback_steering_angle = cp.vl["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
     steering_ts = cp.ts_nanos["STEER_ANGLE_SENSOR"]["STEER_ANGLE"]
-    if steering_ts > self.ls600h_last_steering_ts:
+    shadow_oem_updated = steering_ts > self.ls600h_last_steering_ts
+    if shadow_oem_updated:
       if self.ls600h_last_steering_ts and steering_ts - self.ls600h_last_steering_ts > LS600H_STEERING_RATE_RESET_NS:
         self.ls600h_steering_history.clear()
         self.ls600h_steering_rate = FirstOrderFilter(0.0, 0.1, 1.0 / 80.0)
@@ -234,11 +239,43 @@ class CarState(CarStateBase):
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = False
 
+    # Read-only observer: neither its feedback nor its availability drives ret.
+    diagnostic = fp_ret.ls600hAngleShadow
+    diagnostic.version = HrrAngleShadow.VERSION
+    try:
+      if not self.ls600h_angle_shadow_failed:
+        status = cp_hrr.vl["HRR_TrueAngleStatus"] if cp_hrr is not None else {}
+        flags = sum(int(bool(status.get(key, 0))) << bit for bit, key in enumerate((
+          "True_Angle_Valid", "True_Angle_Initialized", "True_Angle_Resolver_Valid", "True_Angle_Calibrated",
+          "True_Angle_Reference_Fresh", "True_Angle_Wrap_Ambiguous")))
+        hrr_samples = len(cp_hrr.vl_all["HRR_TrueAngleStatus"]["True_Angle_Counter"]) if cp_hrr is not None else 0
+        result = self.ls600h_angle_shadow.update(
+          time.monotonic(), fallback_steering_angle, self.ls600h_steering_rate.x, shadow_oem_updated,
+          status.get("True_Steering_Angle", 0.0), status.get("True_Steering_Rate", 0.0), hrr_samples > 0,
+          int(status.get("True_Angle_Counter", 0)), (flags & 15) == 15, bool(flags & 32), shadow_lat_active, hrr_samples)
+        diagnostic.mode, diagnostic.reason = result.mode, result.reason
+        diagnostic.angleDeg, diagnostic.rateDegPerSec = result.angle, result.rate
+        diagnostic.usable, diagnostic.wouldDisableLateral = result.usable, result.would_disable
+        diagnostic.liveAngleDeg = ret.steeringAngleDeg
+        diagnostic.oemAngleDeg, diagnostic.hrrAngleDeg = fallback_steering_angle, status.get("True_Steering_Angle", 0.0)
+        diagnostic.referenceOffsetDeg, diagnostic.innovationDeg = result.offset, result.innovation
+        diagnostic.oemAgeSeconds, diagnostic.hrrAgeSeconds = result.oem_age, result.hrr_age
+        diagnostic.recoverySamples = result.recovery_samples
+        diagnostic.hrrFlags, diagnostic.hrrCounter = flags, int(status.get("True_Angle_Counter", 0))
+        diagnostic.latActive = shadow_lat_active
+        diagnostic.hrrSamples = hrr_samples
+    except Exception:
+      # An experimental observer must not interrupt the existing steering path.
+      self.ls600h_angle_shadow_failed = True
+    if self.ls600h_angle_shadow_failed:
+      diagnostic.mode, diagnostic.reason = 'unavailable', 'observerError'
+      diagnostic.usable, diagnostic.wouldDisableLateral = False, True
+
     return ret, fp_ret
 
   def update(self, cp, cp_cam, CC, frogpilot_toggles, cp_hrr=None):
     if self.CP.carFingerprint == CAR.LEXUS_LS600h:
-      return self.update_ls600h(cp, cp_cam, cp_hrr)
+      return self.update_ls600h(cp, cp_cam, cp_hrr, shadow_lat_active=CC.latActive)
 
     ret = car.CarState.new_message()
     fp_ret = custom.FrogPilotCarState.new_message()
