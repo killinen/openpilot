@@ -130,6 +130,47 @@ struct FrogPilotCarState @0xda96579883444c35 {
   steeringAngleDegError @15 :Float32;
   steeringAngleDegDivergence @16 :Float32;
   steeringTorqueOut @17 :Float32;
+  ls600hAngleShadow @18 :LS600hAngleShadow;
+
+  # Diagnostic only. No consumer may use this experimental observer for control.
+  struct LS600hAngleShadow {
+    version @0 :UInt16;
+    mode @1 :Mode;
+    reason @2 :Reason;
+    angleDeg @3 :Float32;
+    rateDegPerSec @4 :Float32;
+    usable @5 :Bool;
+    wouldDisableLateral @6 :Bool;
+    liveAngleDeg @7 :Float32;
+    oemAngleDeg @8 :Float32;
+    hrrAngleDeg @9 :Float32;
+    referenceOffsetDeg @10 :Float32;
+    innovationDeg @11 :Float32;
+    oemAgeSeconds @12 :Float32;
+    hrrAgeSeconds @13 :Float32;
+    recoverySamples @14 :UInt16;
+    hrrFlags @15 :UInt8;
+    hrrCounter @16 :UInt8;
+    latActive @17 :Bool;
+    hrrSamples @18 :UInt16;
+    enum Mode {
+      unavailable @0;
+      trustedHrr @1;
+      hold @2;
+      alignedOem @3;
+    }
+    enum Reason {
+      none @0;
+      staleOem @1;
+      staleHrr @2;
+      inconsistent @3;
+      invalidHrr @4;
+      qualifying @5;
+      latched @6;
+      observerError @7;
+      counterDiscontinuity @8;
+    }
+  }
 
   struct ButtonEvent {
     enum Type {
