@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 from contextlib import contextmanager
@@ -117,7 +118,8 @@ KEY_PATH, KEY_PATH_PRIV = _resolve_key_paths()
 
 def _resolve_dns_cache_path() -> str:
   file_name = "teletyped_dns_cache.json"
-  candidates = _key_dir_candidates()
+  state_dir = os.environ.get("TELETYPED_STATE_DIR")
+  candidates = [state_dir] if state_dir else _key_dir_candidates()
 
   # Prefer an existing cache file, even if the directory is now read-only.
   for base in candidates:
@@ -142,6 +144,9 @@ DNS_FALLBACK_ENABLED = os.environ.get("TELETYPED_DNS_FALLBACK", "1").strip().low
 
 _DNS_CACHE_LOCK = threading.Lock()
 _DNS_PATCH_LOCK = threading.Lock()
+_DNS_OVERRIDES = threading.local()
+_DNS_PATCH_USERS = 0
+_DNS_ORIGINAL_GETADDRINFO = socket.getaddrinfo
 _DNS_CACHE_LOADED = False
 _DNS_CACHE_DIRTY = False
 _DNS_CACHE_LAST_SAVE = 0.0
@@ -331,10 +336,10 @@ REMOTE_PORT = 2222
 LOCAL_PORT = _detect_local_port()
 POND_REMOTE_PORT = int(os.environ.get(POND_REMOTE_PORT_ENV, "28082"))
 POND_LOCAL_PORT = _detect_pond_local_port()
-PIDFILE = "/tmp/reverse_ssh_tunnel.pid"
+PIDFILE = os.path.join(os.environ.get("TELETYPED_TUNNEL_DIR", "/tmp"), "reverse_ssh_tunnel.pid")
 TELETYPED_DIR = os.path.dirname(__file__)
 WORMHOLE_BINARY = os.path.join(TELETYPED_DIR, "wormhole-william")
-SENDER_LOG = os.path.join(TELETYPED_DIR, "sender_log.json")
+SENDER_LOG = os.path.join(os.environ.get("TELETYPED_STATE_DIR", TELETYPED_DIR), "sender_log.json")
 SETUP_RESOLV = os.path.join(TELETYPED_DIR, "setup_resolv.sh")
 RESOLV_DEST = "/etc/resolv.conf"
 
@@ -551,7 +556,7 @@ def _mark_cached_ip_used(host: str) -> None:
     _dns_cache_save_unlocked()
 
 
-def _pick_ip_from_getaddrinfo(addrs: list[tuple]) -> str | None:
+def _pick_ip_from_getaddrinfo(addrs: Sequence[tuple]) -> str | None:
   ipv4 = None
   ipv6 = None
   for _family, _socktype, _proto, _canonname, sockaddr in addrs:
@@ -641,19 +646,31 @@ def _is_dns_resolution_error(exc: BaseException) -> bool:
 
 @contextmanager
 def _force_getaddrinfo(host: str, ip: str):
-  orig_getaddrinfo = socket.getaddrinfo
+  global _DNS_PATCH_USERS, _DNS_ORIGINAL_GETADDRINFO
 
-  def patched(name, port, family=0, type=0, proto=0, flags=0):  # noqa: A002
-    if name == host:
-      return orig_getaddrinfo(ip, port, family, type, proto, flags)
-    return orig_getaddrinfo(name, port, family, type, proto, flags)
-
+  # Route only this thread through its cached IP. Never hold the patch lock
+  # across network I/O: uploads can take minutes while heartbeats need to run.
   with _DNS_PATCH_LOCK:
-    socket.getaddrinfo = patched
-    try:
-      yield
-    finally:
-      socket.getaddrinfo = orig_getaddrinfo
+    if _DNS_PATCH_USERS == 0:
+      orig_getaddrinfo = socket.getaddrinfo
+      _DNS_ORIGINAL_GETADDRINFO = orig_getaddrinfo
+
+      def patched(name, port, family=0, type=0, proto=0, flags=0):  # noqa: A002
+        overrides = getattr(_DNS_OVERRIDES, "hosts", {})
+        return orig_getaddrinfo(overrides.get(name, name), port, family, type, proto, flags)
+
+      socket.getaddrinfo = patched
+    previous = getattr(_DNS_OVERRIDES, "hosts", {})
+    _DNS_OVERRIDES.hosts = {**previous, host: ip}
+    _DNS_PATCH_USERS += 1
+  try:
+    yield
+  finally:
+    with _DNS_PATCH_LOCK:
+      _DNS_OVERRIDES.hosts = previous
+      _DNS_PATCH_USERS -= 1
+      if _DNS_PATCH_USERS == 0:
+        socket.getaddrinfo = _DNS_ORIGINAL_GETADDRINFO
 
 
 _requests: ModuleType | None

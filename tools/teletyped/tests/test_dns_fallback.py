@@ -1,5 +1,8 @@
 import json
 import socket
+import threading
+
+import pytest
 
 from openpilot.tools.teletyped import helper as h
 
@@ -63,4 +66,76 @@ def test_is_dns_resolution_error_from_gaierror():
     raise Exception("outer") from socket.gaierror(7, "No address associated with hostname")
   except Exception as exc:
     assert h._is_dns_resolution_error(exc) is True
+
+
+def test_dns_fallback_upload_does_not_block_heartbeat(monkeypatch):
+  upload_started = threading.Event()
+  release_upload = threading.Event()
+  heartbeat_finished = threading.Event()
+  errors = []
+  resolved = []
+
+  def resolver(host, port, *args, **kwargs):
+    resolved.append((threading.current_thread().name, host))
+    return []
+
+  def request(method, url, **kwargs):
+    # Both requests first encounter broken DNS, then retry via their cached IP.
+    if not getattr(h._DNS_OVERRIDES, "hosts", {}):
+      raise socket.gaierror("temporary failure in name resolution")
+    socket.getaddrinfo("api.example", 443)
+    if url.endswith("/upload"):
+      upload_started.set()
+      assert release_upload.wait(5)
+    return object()
+
+  def post(path, finished=None):
+    try:
+      h.http_post(f"https://api.example/{path}", timeout=5)
+      if finished:
+        finished.set()
+    except Exception as e:
+      errors.append(e)
+
+  monkeypatch.setattr(socket, "getaddrinfo", resolver)
+  monkeypatch.setattr(h._requests, "request", request)
+  monkeypatch.setattr(h, "DNS_FALLBACK_ENABLED", True)
+  monkeypatch.setattr(h, "get_cached_ip", lambda host: "192.0.2.2" if threading.current_thread().name == "heartbeat" else "192.0.2.1")
+  monkeypatch.setattr(h, "_mark_cached_ip_used", lambda host: None)
+  monkeypatch.setattr(h, "ensure_dns_config", lambda: None)
+  uploader = threading.Thread(target=post, args=("upload",), name="upload")
+  heartbeat = threading.Thread(target=post, args=("heartbeat", heartbeat_finished), name="heartbeat")
+  uploader.start()
+  try:
+    assert upload_started.wait(2)
+    # An unrelated thread must continue using the normal resolver.
+    socket.getaddrinfo("api.example", 443)
+    heartbeat.start()
+    assert heartbeat_finished.wait(2), "Heartbeat waited for the upload's DNS fallback lock"
+    assert uploader.is_alive()
+  finally:
+    release_upload.set()
+    uploader.join(2)
+    if heartbeat.ident is not None:
+      heartbeat.join(2)
+  assert not uploader.is_alive()
+  assert not heartbeat.is_alive()
+  assert not errors
+  assert ("upload", "192.0.2.1") in resolved
+  assert ("heartbeat", "192.0.2.2") in resolved
+  assert (threading.current_thread().name, "api.example") in resolved
+  assert socket.getaddrinfo is resolver
+
+
+def test_nested_dns_override_restores_after_exception(monkeypatch):
+  def resolver(host, *args, **kwargs):
+    return host
+
+  monkeypatch.setattr(socket, "getaddrinfo", resolver)
+  with h._force_getaddrinfo("api.example", "192.0.2.1"):
+    with pytest.raises(RuntimeError), h._force_getaddrinfo("api.example", "192.0.2.2"):
+      assert socket.getaddrinfo("api.example", 443) == "192.0.2.2"
+      raise RuntimeError("request failed")
+    assert socket.getaddrinfo("api.example", 443) == "192.0.2.1"
+  assert socket.getaddrinfo is resolver
 

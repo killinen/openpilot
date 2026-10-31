@@ -11,6 +11,98 @@ from zipfile import ZipFile, ZIP_STORED
 import pytest
 
 
+def test_inventory_keeps_polling_while_stats_and_transfer_are_blocked(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  release_work = threading.Event()
+  stats_started = threading.Event()
+  transfer_started = threading.Event()
+  scanned_while_busy = threading.Event()
+  scan_count = 0
+
+  def inventory_step(device_id):
+    nonlocal scan_count
+    assert device_id == "DONGLE123"
+    scan_count += 1
+    if scan_count >= 2 and stats_started.is_set() and transfer_started.is_set():
+      scanned_while_busy.set()
+
+  def stats_step(device_id, headers):
+    stats_started.set()
+    assert release_work.wait(5)
+
+  def transfer_step(device_id):
+    transfer_started.set()
+    assert release_work.wait(5)
+
+  monkeypatch.setenv("TELETYPED_EXTENSIONS", "")
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 0.01)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "drive_inventory_step", inventory_step)
+  monkeypatch.setattr(route_sender, "drive_stats_step", stats_step)
+  monkeypatch.setattr(route_sender, "location_step", stats_step)
+  monkeypatch.setattr(route_sender, "route_sender_step", transfer_step)
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  errors: list[BaseException] = []
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  runner = threading.Thread(target=route_sender.run_route_sender, args=(stop_event, "DONGLE123"))
+  runner.start()
+  try:
+    assert scanned_while_busy.wait(2), "Inventory stopped polling while other workers were busy"
+    assert scan_count >= 2
+  finally:
+    stop_event.set()
+    release_work.set()
+    runner.join(3)
+  assert not runner.is_alive()
+  assert not errors
+  assert not any(t.name in {"drive_inventory_thread", "drive_stats_thread", "device_location_thread"} for t in threading.enumerate())
+
+
+def test_route_worker_retries_failed_steps(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  attempts = []
+  errors: list[BaseException] = []
+
+  def step(device_id):
+    attempts.append(device_id)
+    if len(attempts) == 1:
+      raise RuntimeError("temporary scan failure")
+    stop_event.set()
+
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 0)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  route_sender._run_route_worker(stop_event, "DONGLE123", step, "Drive inventory")
+  assert attempts == ["DONGLE123", "DONGLE123"]
+  assert len(errors) == 1
+
+
+def test_route_worker_stop_interrupts_poll_wait(monkeypatch: pytest.MonkeyPatch):
+  from openpilot.tools.teletyped import route_sender
+
+  stop_event = threading.Event()
+  step_finished = threading.Event()
+  monkeypatch.setattr(route_sender, "CHECK_INTERVAL", 60)
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "log", lambda *args: None)
+  worker = threading.Thread(
+    target=route_sender._run_route_worker,
+    args=(stop_event, "DONGLE123", lambda device_id: step_finished.set(), "Drive inventory"),
+  )
+  worker.start()
+  try:
+    assert step_finished.wait(2)
+  finally:
+    stop_event.set()
+    worker.join(2)
+  assert not worker.is_alive()
+
+
 def test_imports_smoke():
   import openpilot.tools.teletyped.helper as helper
   import openpilot.tools.teletyped.ssh_key as ssh_key
@@ -270,12 +362,212 @@ def test_send_heartbeat_includes_uptime(monkeypatch: pytest.MonkeyPatch):
   teletyped.send_heartbeat("DONGLE123", "running")
 
   assert captured["json"]["device_id"] == "DONGLE123"
+  assert captured["json"]["reverse_ssh_protocol_version"] == teletyped.REVERSE_SSH_PROTOCOL_VERSION
   assert captured["json"]["details"]["uptime_seconds"] == 60
   assert captured["json"]["details"]["os_platform"] == "AGNOS"
   assert captured["json"]["details"]["os_version"] == "9"
   assert captured["json"]["details"]["os_base"] == "Ubuntu 20.04.6 LTS"
   assert captured["json"]["details"]["os_build"] == "deadbeef 2026-04-13T12:00:00Z"
   assert captured["json"]["details"]["os"] == os_info
+
+
+def test_requested_forwards_use_assigned_ports():
+  from openpilot.tools.teletyped import teletyped
+
+  request = {"reverse_tunnel_req": True, "pond_tunnel_req": True}
+  config = {
+    "version": 2,
+    "shell_remote_port": 22017,
+    "pond_remote_port": 29017,
+  }
+
+  assert teletyped._requested_forwards(request, config) == [
+    (22017, teletyped.LOCAL_PORT),
+    (29017, teletyped.POND_LOCAL_PORT),
+  ]
+
+
+def test_requested_forwards_fall_back_to_legacy_ports():
+  from openpilot.tools.teletyped import teletyped
+
+  request = {"reverse_tunnel_req": True, "pond_tunnel_req": True}
+
+  assert teletyped._requested_forwards(request, {"version": 2}) == [
+    (teletyped.REMOTE_PORT, teletyped.LOCAL_PORT),
+    (teletyped.POND_REMOTE_PORT, teletyped.POND_LOCAL_PORT),
+  ]
+
+
+@pytest.fixture
+def heartbeat_main(monkeypatch):
+  from openpilot.tools.teletyped import teletyped
+
+  monkeypatch.setattr(teletyped, "_running", True)
+  monkeypatch.setattr(teletyped, "_heartbeat_stop_event", None)
+  monkeypatch.setattr(teletyped.signal, "signal", lambda *args: None)
+  monkeypatch.setattr(teletyped, "get_dongle_id", lambda: "DONGLE123")
+  monkeypatch.setattr(teletyped, "_ensure_disable_power_down_default", lambda: None)
+  monkeypatch.setattr(teletyped, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(teletyped, "ensure_dns_config", lambda: None)
+  monkeypatch.setattr(teletyped, "check_server", lambda url: True)
+  monkeypatch.setattr(teletyped, "send_error_logs_on_startup", lambda device_id: None)
+  monkeypatch.setattr(teletyped.ssh_key, "send_ssh_key_if_needed", lambda: True)
+  monkeypatch.setattr(teletyped, "_start_route_sender", lambda device_id: None)
+  monkeypatch.setattr(teletyped, "_stop_route_sender", lambda: None)
+  monkeypatch.setattr(teletyped, "get_current_tunnel_status", lambda: "connected")
+  monkeypatch.setattr(teletyped, "reverse_ssh_step", lambda *args: "connected")
+  monkeypatch.setattr(teletyped, "execute_device_actions", lambda device_id: None)
+  monkeypatch.setattr(teletyped, "log", lambda *args: None)
+  return teletyped
+
+
+@pytest.mark.parametrize("blocked_operation", ["startup_upload", "key_upload", "tunnel", "device_actions"])
+def test_heartbeats_continue_during_main_loop_work(monkeypatch, heartbeat_main, blocked_operation):
+  teletyped = heartbeat_main
+  blocked = threading.Event()
+  release = threading.Event()
+  heartbeats_received = threading.Event()
+  sent = []
+  errors = []
+
+  def block(*args):
+    blocked.set()
+    assert release.wait(5)
+    return True if blocked_operation == "key_upload" else "connected"
+
+  def heartbeat(device_id, status):
+    assert device_id == "DONGLE123"
+    if blocked.is_set():
+      sent.append(status)
+      if len(sent) >= 2:
+        heartbeats_received.set()
+
+  def run():
+    try:
+      teletyped.main()
+    except Exception as e:
+      errors.append(e)
+
+  target, name = {
+    "startup_upload": (teletyped, "send_error_logs_on_startup"),
+    "key_upload": (teletyped.ssh_key, "send_ssh_key_if_needed"),
+    "tunnel": (teletyped, "reverse_ssh_step"),
+    "device_actions": (teletyped, "execute_device_actions"),
+  }[blocked_operation]
+  monkeypatch.setattr(target, name, block)
+  monkeypatch.setattr(teletyped, "HEARTBEAT_INTERVAL", 0.01)
+  monkeypatch.setattr(teletyped, "POLL_INTERVAL", 0)
+  monkeypatch.setattr(teletyped, "send_heartbeat", heartbeat)
+  monkeypatch.setattr(teletyped, "capture_exception", errors.append)
+  tunnel_polled = threading.Event()
+  if blocked_operation == "startup_upload":
+    def poll_tunnel(*args):
+      tunnel_polled.set()
+      return "connected"
+
+    monkeypatch.setattr(teletyped, "reverse_ssh_step", poll_tunnel)
+  runner = threading.Thread(target=run)
+  runner.start()
+  try:
+    assert blocked.wait(2)
+    assert heartbeats_received.wait(2), "Main-loop work stopped heartbeats"
+    if blocked_operation == "startup_upload":
+      assert tunnel_polled.wait(2), "Startup diagnostics blocked tunnel management"
+      assert set(sent) <= {"unknown", "connected"}
+    else:
+      expected_status = "unknown" if blocked_operation == "key_upload" else "connected"
+      assert sent == [expected_status] * len(sent)
+  finally:
+    teletyped.signal_handler(None, None)
+    release.set()
+    runner.join(3)
+  assert not runner.is_alive()
+  assert not errors
+  assert teletyped._heartbeat_stop_event is None
+  assert not any(t.name == "heartbeat_thread" for t in threading.enumerate())
+
+
+def test_device_actions_wait_for_fresh_offroad_state(monkeypatch, heartbeat_main):
+  teletyped = heartbeat_main
+  monkeypatch.setattr(teletyped.health, "offroad", lambda: False)
+  monkeypatch.setattr(teletyped, "execute_device_actions", lambda *_: pytest.fail("action executed without fresh offroad state"))
+  monkeypatch.setattr(teletyped, "_run_heartbeats", lambda stop, *args: stop.wait(5))
+  monkeypatch.setattr(teletyped.time, "sleep", lambda _: setattr(teletyped, "_running", False))
+  teletyped.main()
+
+
+def test_ssh_backoff_keeps_device_actions_polling(monkeypatch, heartbeat_main):
+  teletyped = heartbeat_main
+  clock = [0]
+  ssh_attempts = []
+  actions = []
+  errors = []
+
+  def ssh_step(*args):
+    ssh_attempts.append(clock[0])
+    if len(ssh_attempts) == 1:
+      raise RuntimeError("SSH failed")
+    return "connected"
+
+  def device_actions(device_id):
+    actions.append(clock[0])
+    if clock[0] >= 30:
+      teletyped._running = False
+
+  monkeypatch.setattr(teletyped.time, "monotonic", lambda: clock[0])
+  monkeypatch.setattr(teletyped.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + 10))
+  monkeypatch.setattr(teletyped, "_run_heartbeats", lambda stop, *args: stop.wait(5))
+  monkeypatch.setattr(teletyped, "reverse_ssh_step", ssh_step)
+  monkeypatch.setattr(teletyped, "execute_device_actions", device_actions)
+  monkeypatch.setattr(teletyped, "capture_exception", errors.append)
+  teletyped.main()
+  assert ssh_attempts == [10, 30]
+  assert actions == [0, 10, 20, 30]
+  assert len(errors) == 1
+
+
+def test_heartbeat_worker_recovers_from_exception_and_stops(monkeypatch, heartbeat_main):
+  teletyped = heartbeat_main
+  stop = threading.Event()
+  sent = threading.Event()
+  attempts = []
+  errors = []
+
+  def heartbeat(*args):
+    attempts.append(args)
+    if len(attempts) == 1:
+      raise RuntimeError("temporary heartbeat failure")
+    sent.set()
+
+  monkeypatch.setattr(teletyped, "HEARTBEAT_INTERVAL", 0.01)
+  monkeypatch.setattr(teletyped, "send_heartbeat", heartbeat)
+  monkeypatch.setattr(teletyped, "capture_exception", errors.append)
+  worker = threading.Thread(target=teletyped._run_heartbeats, args=(stop, "DONGLE123", {"status": "connected"}))
+  worker.start()
+  try:
+    assert sent.wait(2)
+  finally:
+    stop.set()
+    worker.join(2)
+  assert not worker.is_alive()
+  assert len(errors) == 1
+
+
+def test_heartbeat_worker_skips_offline_and_waits_60_seconds(monkeypatch, heartbeat_main):
+  teletyped = heartbeat_main
+  waits = []
+  stop = threading.Event()
+
+  def wait(seconds):
+    waits.append(seconds)
+    return True
+
+  monkeypatch.setattr(stop, "wait", wait)
+  monkeypatch.setattr(teletyped.time, "monotonic", lambda: 0)
+  monkeypatch.setattr(teletyped, "has_internet_connection", lambda: False)
+  monkeypatch.setattr(teletyped, "send_heartbeat", lambda *args: pytest.fail("Heartbeat sent while offline"))
+  teletyped._run_heartbeats(stop, "DONGLE123", {"status": "connected"})
+  assert waits == [60]
 
 
 class _StaticResponse:
@@ -560,6 +852,8 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
 
   updates: list[dict[str, Any]] = []
   zipped: dict[str, Any] = {}
+  lock_observed = False
+  original_zip_route_batch = route_sender._zip_route_batch
 
   def _get(url, headers, timeout):
     return _StaticResponse(
@@ -584,19 +878,54 @@ def test_route_sender_step_zips_rlog_as_stored_bz2_stream(
         zipped["payload"] = bz2.decompress(compressed.read())
     return True, "1-test-code", os.path.basename(zip_path)
 
+  def _zip_route_batch(*args, **kwargs):
+    nonlocal lock_observed
+    lock_observed = any(path.name.endswith(".lock") for path in drive_dir.iterdir())
+    return original_zip_route_batch(*args, **kwargs)
+
   monkeypatch.setattr(route_sender, "REALDATA_DIR", str(tmp_path))
   monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
   monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
   monkeypatch.setattr(route_sender, "http_get", _get)
   monkeypatch.setattr(route_sender, "http_post", _post)
+  monkeypatch.setattr(route_sender, "_zip_route_batch", _zip_route_batch)
   monkeypatch.setattr(route_sender, "send_file_wormhole", _send_file_wormhole)
 
   route_sender.route_sender_step("DONGLE123")
 
   assert zipped["compress_type"] == ZIP_STORED
   assert zipped["payload"] == b"raw rlog payload" * 1024
+  assert lock_observed
+  assert not any(path.name.endswith(".lock") for path in drive_dir.iterdir())
   assert raw_rlog.exists()
   assert updates[-1]["stage"] == "ready"
+
+
+def test_direct_segment_rlog_request_requires_exact_segment_name():
+  from openpilot.tools.teletyped import route_sender
+
+  route_name = "2026-04-13--12-00-00"
+  route_segments = [
+    f"/data/media/0/realdata/{route_name}--0",
+    f"/data/media/0/realdata/{route_name}--1",
+  ]
+  exact_segment = route_segments[0]
+
+  assert not route_sender._is_direct_segment_rlog_request(
+    route_name,
+    route_segments,
+    ["rlog"],
+  )
+  assert route_sender._is_direct_segment_rlog_request(
+    f"{route_name}--0",
+    [exact_segment],
+    ["rlog"],
+  )
+  assert not route_sender._is_direct_segment_rlog_request(
+    f"{route_name}--0",
+    [exact_segment],
+    ["qlog", "rlog"],
+  )
 
 
 def test_route_sender_step_packs_split_parts_in_numeric_segment_order(
@@ -665,3 +994,135 @@ def test_route_sender_step_packs_split_parts_in_numeric_segment_order(
     f"{route_base}--100",
   ]
   assert sent_parts == list(range(1, len(unordered_segment_nums) + 1))
+
+
+@pytest.mark.parametrize("video_name", ["fcamera.hevc", "dcamera.hevc", "ecamera.hevc", "qcamera.ts", "FCAMERA.HEVC", "clip.mp4"])
+def test_route_archive_stores_camera_video_without_recompression(tmp_path, monkeypatch, video_name):
+  from openpilot.tools.teletyped import route_sender
+  from zipfile import ZIP_DEFLATED
+
+  video = tmp_path / video_name
+  video.write_bytes(b"encoded camera payload" * 100)
+  note = tmp_path / "notes.txt"
+  note.write_bytes(b"compressible text" * 100)
+  archive = tmp_path / "camera.zip"
+  monkeypatch.setattr(route_sender, "ZIP_DEFLATE_COMPRESSLEVEL", 1)
+  monkeypatch.setattr(route_sender, "report_transfer_progress", lambda *args, **kwargs: None)
+  reporter = route_sender.ZipProgressReporter("device", "route", stage="compressing", label="Test", total_files=2, total_bytes=video.stat().st_size + note.stat().st_size)
+  added, missing = route_sender._zip_route_batch(
+    str(archive), "route", [("segment", [(str(path), f"segment/{path.name}", path.stat().st_size) for path in (video, note)])], reporter, str(tmp_path),
+  )
+  assert added == 2
+  assert missing == []
+  with ZipFile(archive) as zipf:
+    assert zipf.getinfo(f"route/segment/{video_name}").compress_type == ZIP_STORED
+    assert zipf.read(f"route/segment/{video_name}") == video.read_bytes()
+    assert zipf.getinfo("route/segment/notes.txt").compress_type == ZIP_DEFLATED
+    assert zipf.read("route/segment/notes.txt") == note.read_bytes()
+
+
+@pytest.mark.parametrize("received_parts", [[], [2]])
+@pytest.mark.parametrize("outcome", ["success", "send_failure", "send_exception", "zip_failure", "empty_zip"])
+def test_route_archive_pipeline_overlaps_and_cleans_up(tmp_path, monkeypatch, received_parts, outcome):
+  from openpilot.tools.teletyped import route_sender
+
+  realdata = tmp_path / "realdata"
+  realdata.mkdir()
+  scratch = tmp_path / "scratch"
+  scratch.mkdir()
+  drive_name = "2026-04-13--12-00-00"
+  for number in range(4):
+    segment = realdata / f"{drive_name}--{number}"
+    segment.mkdir()
+    (segment / "qlog").write_bytes(f"qlog {number}".encode())
+
+  send_parts = [number for number in range(1, 5) if number not in received_parts]
+  prefetch_part = send_parts[1]
+  first_send_started = threading.Event()
+  first_send_finished = threading.Event()
+  prefetch_finished = threading.Event()
+  prepared: list[int] = []
+  sent_parts: list[int] = []
+  updates: list[dict[str, Any]] = []
+  errors: list[BaseException] = []
+  original_zip = route_sender._zip_route_batch
+  caller_thread = threading.get_ident()
+
+  def record_update(url, json, headers, timeout):
+    # Background preparation must not overwrite the active send's status.
+    if first_send_started.is_set() and not first_send_finished.is_set():
+      assert threading.get_ident() == caller_thread
+    updates.append(json)
+    return _StaticResponse(200, {})
+
+  def prepare(zip_path, *args, **kwargs):
+    part = int(os.path.basename(zip_path).split(".part")[1].split("-")[0])
+    assert list(realdata.glob("*/.teletyped-transfer-*.lock")), "Source locks released before preparation finished"
+    if part == prefetch_part:
+      assert first_send_started.wait(5), "The sender waited for all archives to be prepared"
+    elif part != send_parts[0]:
+      assert first_send_finished.is_set(), "Prepared more than one archive ahead"
+    try:
+      if part == prefetch_part and outcome in {"zip_failure", "empty_zip"}:
+        # Even incomplete archives must be removed after a failed preparation.
+        with open(zip_path, "wb") as handle:
+          handle.write(b"incomplete archive")
+        if outcome == "zip_failure":
+          raise OSError("test archive failure")
+        return 0, ["missing qlog"]
+      result = original_zip(zip_path, *args, **kwargs)
+      prepared.append(part)
+      return result
+    finally:
+      if part == prefetch_part:
+        prefetch_finished.set()
+
+  def send(zip_path, device_id, drive, requested_files, **kwargs):
+    part = kwargs["part_number"]
+    assert kwargs["total_parts"] == 4
+    assert kwargs["send_parts"] == send_parts
+    with ZipFile(zip_path) as zipf:
+      assert len(zipf.namelist()) == 1
+      assert f"--{part - 1}/qlog.bz2" in zipf.namelist()[0]
+    sent_parts.append(part)
+    if part == send_parts[0]:
+      first_send_started.set()
+      try:
+        assert prefetch_finished.wait(5), "Next archive was not prepared during the current send"
+        assert set(prepared).issubset({part, prefetch_part})
+        if outcome == "send_exception":
+          raise RuntimeError("test send failure")
+        if outcome == "send_failure":
+          return False, None, os.path.basename(zip_path)
+      finally:
+        first_send_finished.set()
+    return True, "1-test-code", os.path.basename(zip_path)
+
+  monkeypatch.setattr(route_sender, "REALDATA_DIR", str(realdata))
+  monkeypatch.setattr(route_sender, "WORMHOLE_ZIP_TARGET_BYTES", 1)
+  monkeypatch.setattr(route_sender, "_pick_temp_dir", lambda *args: str(scratch))
+  monkeypatch.setattr(route_sender, "_auth_headers", lambda: {"X-Device-JWT": "test"})
+  monkeypatch.setattr(route_sender, "has_internet_connection", lambda: True)
+  monkeypatch.setattr(route_sender, "http_get", lambda *args, **kwargs: _StaticResponse(200, [{
+    "drive_name": drive_name, "status": "queued", "requested_files": ["qlog"], "received_parts": received_parts,
+  }]))
+  monkeypatch.setattr(route_sender, "http_post", record_update)
+  monkeypatch.setattr(route_sender, "log", lambda *args, **kwargs: None)
+  monkeypatch.setattr(route_sender, "capture_exception", errors.append)
+  monkeypatch.setattr(route_sender, "_zip_route_batch", prepare)
+  monkeypatch.setattr(route_sender, "send_file_wormhole", send)
+
+  route_sender.route_sender_step("DONGLE123")
+
+  assert sent_parts == (send_parts if outcome == "success" else send_parts[:1])
+  assert updates[-1]["status"] == ("sent" if outcome == "success" else "error")
+  if outcome == "success":
+    assert prepared == send_parts
+    assert not errors
+  elif outcome in {"send_exception", "zip_failure", "empty_zip"}:
+    assert len(errors) == 1
+  else:
+    assert not errors
+  assert not list(scratch.iterdir()), "Temporary or prefetched archives were left behind"
+  assert not list(realdata.glob("*/.teletyped-transfer-*.lock")), "Source locks were left behind"
+  assert not any(thread.name.startswith("teletyped-zip") for thread in threading.enumerate())

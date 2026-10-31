@@ -168,7 +168,7 @@ class ManagerProcess(ABC):
 
 
 class NativeProcess(ManagerProcess):
-  def __init__(self, name, cwd, cmdline, should_run, enabled=True, sigkill=False, watchdog_max_dt=None):
+  def __init__(self, name, cwd, cmdline, should_run, enabled=True, sigkill=False, watchdog_max_dt=None, restart_on_exit=False):
     self.name = name
     self.cwd = cwd
     self.cmdline = cmdline
@@ -177,6 +177,8 @@ class NativeProcess(ManagerProcess):
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
     self.launcher = nativelauncher
+    self.restart_on_exit = restart_on_exit
+    self.next_restart = 0.0
 
   def prepare(self) -> None:
     pass
@@ -186,7 +188,11 @@ class NativeProcess(ManagerProcess):
     if self.shutting_down:
       self.stop()
 
-    if self.proc is not None:
+    if self.restart_on_exit and self.proc is not None and self.proc.exitcode is not None:
+      self.stop()
+      self.next_restart = time.monotonic() + 5
+
+    if self.proc is not None or time.monotonic() < self.next_restart:
       return
 
     cwd = os.path.join(BASEDIR, self.cwd)

@@ -5,5 +5,6 @@ __all__ = [
   "helper",
   "ssh_key",
   "route_sender",
+  "drive_stats",
   "announce_boot_routes",
 ]
