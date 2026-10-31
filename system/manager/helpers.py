@@ -1,5 +1,6 @@
 import errno
 import fcntl
+import json
 import os
 import sys
 import pathlib
@@ -8,6 +9,7 @@ import signal
 import subprocess
 import tempfile
 import threading
+import time
 
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
@@ -48,6 +50,26 @@ def unblock_stdout() -> None:
 def write_onroad_params(started, params):
   params.put_bool("IsOnroad", started)
   params.put_bool("IsOffroad", not started)
+
+
+def publish_teletyped_manager_state(started, installed="/data/teletyped/installed.json", output="/dev/shm/teletyped_manager_state.json"):
+  """Publish volatile manager progress for the optional recovery service."""
+  if not os.path.isfile(installed):
+    return
+  temporary = None
+  try:
+    with tempfile.NamedTemporaryFile(mode="w", dir=os.path.dirname(output), prefix="teletyped_manager_", delete=False) as f:
+      temporary = f.name
+      json.dump({"offroad": not started, "progress": time.monotonic()}, f)
+    os.replace(temporary, output)
+  except OSError:
+    pass
+  finally:
+    if temporary is not None:
+      try:
+        os.unlink(temporary)
+      except OSError:
+        pass
 
 
 def save_bootlog():

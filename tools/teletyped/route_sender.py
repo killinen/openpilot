@@ -9,7 +9,8 @@ from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED, ZIP_STORED
 import subprocess
 import bz2
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import closing
 from pathlib import Path
 from datetime import datetime, UTC
 from typing import Any, cast
@@ -36,6 +37,10 @@ from openpilot.tools.teletyped.label_utils import (
   is_drive_label,
   strip_boot_prefix,
 )
+from openpilot.tools.teletyped.drive_stats import drive_stats_step
+from openpilot.tools.teletyped.location import location_step
+from openpilot.tools.teletyped import health
+from openpilot.tools.teletyped.extensions import optional_workers
 
 OPENPILOT_BASEDIR: str | None
 try:
@@ -102,17 +107,19 @@ AUTO_DRIVE_INVENTORY = os.environ.get("TELETYPED_AUTO_DRIVE_INVENTORY", "1").str
 DRIVE_INVENTORY_STATE_FILE = "teletyped_drive_inventory_state.json"
 _DRIVE_INVENTORY_STATE_PATH: str | None = None
 
-_auth_wait_logged = False
+_DRIVE_INVENTORY_LOCK = threading.Lock()
 COMPRESSIBLE_BASENAMES = {"qlog", "rlog"}
 ZIP_STORED_EXTENSIONS = (
   ".7z",
   ".bz2",
   ".gz",
+  ".hevc",
   ".jpg",
   ".jpeg",
   ".lz4",
   ".mp4",
   ".png",
+  ".ts",
   ".xz",
   ".zip",
   ".zst",
@@ -122,6 +129,7 @@ CAPNP_IMPORT_RE = re.compile(
 )
 SCHEMA_FETCH_REQUEST_FILE = "__schema_bundle__"
 SCHEMA_FETCH_DRIVE_PREFIX = "__schema__:"
+TRANSFER_LOCK_PREFIX = ".teletyped-transfer-"
 
 
 AUTO_DRIVE_INVENTORY_MIN_INTERVAL = _env_nonnegative_int(
@@ -216,6 +224,8 @@ def _resolve_drive_inventory_state_path() -> str:
     os.path.dirname(SENDER_LOG),
     "/tmp/comma",
   ]
+  if os.environ.get("TELETYPED_STATE_DIR"):
+    candidates = [os.environ["TELETYPED_STATE_DIR"]]
 
   for base in candidates:
     path = os.path.join(base, DRIVE_INVENTORY_STATE_FILE)
@@ -295,10 +305,12 @@ class ZipProgressReporter:
     total_bytes: int,
     start_percent: int = 0,
     end_percent: int = 100,
+    report_progress: bool = True,
   ) -> None:
     self.device_id = device_id
     self.drive_name = drive_name
     self.stage = stage
+    self.report_progress = report_progress
     self.label = label
     self.total_files = max(0, total_files)
     self.total_bytes = max(0, total_bytes)
@@ -326,6 +338,8 @@ class ZipProgressReporter:
       self._report_locked(force=force)
 
   def _report_locked(self, force: bool = False) -> None:
+    if not self.report_progress:
+      return
     if self.total_bytes > 0:
       ratio = min(1.0, self.processed_bytes / self.total_bytes)
     elif self.total_files > 0:
@@ -493,6 +507,36 @@ def _pick_temp_dir(min_bytes: int = 150 * 1024 * 1024) -> str:
     except OSError:
       continue
   return "/tmp"
+
+
+def _acquire_segment_deletion_locks(segments: list[str]) -> list[str]:
+  """Keep loggerd's deleter from removing route segments while they are archived."""
+  lock_paths: list[str] = []
+  try:
+    for segment in segments:
+      for name in os.listdir(segment):
+        if name.startswith(TRANSFER_LOCK_PREFIX) and name.endswith(".lock"):
+          os.remove(os.path.join(segment, name))
+      lock_path = os.path.join(segment, f"{TRANSFER_LOCK_PREFIX}{os.getpid()}.lock")
+      fd = os.open(lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+      lock_paths.append(lock_path)
+      with os.fdopen(fd, "w", encoding="utf-8") as lock_file:
+        lock_file.write(f"pid={os.getpid()} created={datetime.now(UTC).isoformat()}\n")
+  except Exception:
+    _release_segment_deletion_locks(lock_paths)
+    raise
+  return lock_paths
+
+
+def _release_segment_deletion_locks(lock_paths: list[str]) -> None:
+  for lock_path in lock_paths:
+    try:
+      os.remove(lock_path)
+    except FileNotFoundError:
+      pass
+    except OSError as e:
+      capture_exception(e)
+      log(f"Failed to remove route transfer lock {lock_path}: {e}", "WARN")
 
 
 def _find_boot_file(base_name: str) -> str | None:
@@ -679,8 +723,14 @@ def _build_segment_rlog_filename(device_id: str, drive_name: str) -> str:
   return f"{device_id}__{drive_part}__rlog.bz2"
 
 
-def _is_direct_segment_rlog_request(requested_files: list[str] | None) -> bool:
-  return requested_files in (["rlog"], ["rlog.bz2"])
+def _is_direct_segment_rlog_request(
+  base_name: str,
+  segments: list[str],
+  requested_files: list[str] | None,
+) -> bool:
+  if requested_files not in (["rlog"], ["rlog.bz2"]):
+    return False
+  return len(segments) == 1 and os.path.basename(segments[0]) == base_name
 
 
 def _find_direct_segment_rlog_path(segments: list[str]) -> str | None:
@@ -1106,6 +1156,141 @@ def _zip_route_batch(
   return added_files, missing_files
 
 
+def _remove_transfer_archive(zip_path: str) -> None:
+  try:
+    os.remove(zip_path)
+  except FileNotFoundError:
+    pass
+  except OSError as e:
+    capture_exception(e)
+    log(f"⚠️ Failed to delete zip: {e}", "WARN")
+  else:
+    log(f"🧹 Deleted temporary zip: {zip_path}")
+
+
+def _iter_route_archives(
+  device_id: str,
+  drive_name: str,
+  base_name: str,
+  segment_batches: list[list[tuple[str, list[tuple[str, str, int]]]]],
+  received_parts: set[int],
+  temp_dir: str,
+) -> Iterator[tuple[str, int, int]]:
+  """Yield archives in order, preparing at most one ahead of the consumer.
+
+  The caller must close the iterator before releasing source segment locks.
+  Closing waits for any active preparation before removing temporary archives.
+  """
+  total_parts = len(segment_batches)
+  jobs = []
+  for part_number, batch in enumerate(segment_batches, start=1):
+    if part_number in received_parts:
+      log(f"↩️ Skipping archive part {part_number}/{total_parts}; already received by dock.")
+      continue
+    filename = f"{_safe_zip_name(base_name)}.zip" if total_parts == 1 else f"{_safe_zip_name(base_name)}.part{part_number:02d}-of{total_parts:02d}.zip"
+    jobs.append((os.path.join(temp_dir, filename), part_number, batch))
+  if not jobs:
+    return
+
+  def prepare_archive(job, report_progress):
+    zip_path, part_number, batch = job
+    batch_files = [file_tuple for _segment_name, files in batch for file_tuple in files]
+    label = f"Preparing route archive part {part_number}/{total_parts} on the device"
+    progress_reporter = ZipProgressReporter(
+      device_id,
+      drive_name,
+      stage="compressing",
+      label=label,
+      total_files=len(batch_files),
+      total_bytes=sum(file_size for _abs_path, _rel_path, file_size in batch_files),
+      # Prefetch must not overwrite the current archive's wormhole status/code.
+      report_progress=report_progress,
+    )
+    progress_reporter.report(force=True)
+    added_files, missing_files = _zip_route_batch(zip_path, base_name, batch, progress_reporter, temp_dir)
+    if missing_files:
+      log(f"⚠️ Skipped {len(missing_files)} missing file(s) in archive part {part_number}/{total_parts} for {base_name}", "WARN")
+    if not added_files:
+      raise RuntimeError(f"No files were added to archive part {part_number}/{total_parts} for {base_name}")
+    log(f"📦 Prepared archive part {part_number}/{total_parts} for {base_name} (files={added_files})")
+    return zip_path, part_number, total_parts
+
+  submitted_paths: list[str] = []
+  try:
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="teletyped-zip") as executor:
+      submitted_paths.append(jobs[0][0])
+      pending = executor.submit(prepare_archive, jobs[0], True)
+      try:
+        for index in range(len(jobs)):
+          if index and not pending.done():
+            report_transfer_progress(
+              device_id,
+              drive_name,
+              stage="compressing",
+              detail=f"Waiting for archive part {jobs[index][1]}/{total_parts} to finish preparing on the device.",
+              clear_progress=True,
+            )
+          archive = pending.result()
+          if index + 1 < len(jobs):
+            submitted_paths.append(jobs[index + 1][0])
+            pending = executor.submit(prepare_archive, jobs[index + 1], False)
+          yield archive
+      finally:
+        pending.cancel()
+  finally:
+    # The executor has stopped before cleanup, including on send/ZIP failure.
+    for zip_path in submitted_paths:
+      _remove_transfer_archive(zip_path)
+
+
+def _send_drive_archives(
+  device_id: str,
+  drive_name: str,
+  requested_files: list[str] | None,
+  archives: Iterable[tuple[str, int, int]],
+  send_parts: list[int],
+) -> None:
+  all_sent = False
+  wormhole_code = None
+  archive_name = None
+  for zip_path, part_number, total_parts in archives:
+    part_detail = f" for archive part {part_number}/{total_parts}" if total_parts > 1 else ""
+    report_transfer_progress(
+      device_id,
+      drive_name,
+      stage="wormhole",
+      detail=f"Starting wormhole send{part_detail} and waiting for a wormhole code.",
+      clear_progress=True,
+    )
+    try:
+      if total_parts > 1:
+        sent, wormhole_code, archive_name = send_file_wormhole(
+          zip_path, device_id, drive_name, requested_files,
+          part_number=part_number, total_parts=total_parts, send_parts=send_parts,
+        )
+      else:
+        sent, wormhole_code, archive_name = send_file_wormhole(zip_path, device_id, drive_name, requested_files)
+    finally:
+      _remove_transfer_archive(zip_path)
+    all_sent = sent
+    if not sent:
+      break
+
+  if all_sent:
+    update_drive_transfer(
+      device_id,
+      drive_name,
+      status="sent",
+      stage="ready",
+      detail="Wormhole code registered. Transfer is ready for the dock.",
+      wormhole_code=wormhole_code,
+      clear_progress=True,
+      filename=archive_name,
+    )
+  else:
+    report_transfer_error(device_id, drive_name, "wormhole send failed", detail="Wormhole send failed before a download offer was created.")
+
+
 def send_wormhole_code(
   code,
   zip_path,
@@ -1250,6 +1435,11 @@ def collect_drive_inventory():
   return drives, total_size
 
 def drive_inventory_step(device_id):
+  with _DRIVE_INVENTORY_LOCK:
+    _drive_inventory_step(device_id)
+
+
+def _drive_inventory_step(device_id):
   headers = _auth_headers()
   if not headers:
     return
@@ -1367,6 +1557,11 @@ def drive_inventory_step(device_id):
 
 
 def upload_drive_inventory_snapshot(device_id):
+  with _DRIVE_INVENTORY_LOCK:
+    _upload_drive_inventory_snapshot(device_id)
+
+
+def _upload_drive_inventory_snapshot(device_id):
   headers = _auth_headers()
   if not headers:
     return
@@ -1724,45 +1919,51 @@ def route_sender_step(device_id):
         _compress_route_logs_in_place(device_id, drive_name, segments, requested_files)
         continue
 
-      if _is_direct_segment_rlog_request(requested_files):
+      if _is_direct_segment_rlog_request(base_name, segments, requested_files):
+        segment_lock_paths: list[str] = []
         try:
+          segment_lock_paths = _acquire_segment_deletion_locks(segments)
           rlog_path = _find_direct_segment_rlog_path(segments)
+          if not rlog_path:
+            log(f"Missing rlog for segment {drive_name}", "WARN")
+            report_transfer_error(device_id, drive_name, "rlog missing", detail="The requested rlog file was not found.")
+            continue
+
+          report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading direct segment rlog to the server.", clear_progress=True)
+          uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
+          if uploaded_name:
+            update_drive_transfer(
+              device_id,
+              drive_name,
+              status="sent",
+              stage="uploaded",
+              detail="Direct segment rlog uploaded and ready for the dock.",
+              filename=uploaded_name,
+              clear_progress=True,
+              included_files=["rlog"],
+            )
+          else:
+            report_transfer_error(device_id, drive_name, "rlog upload failed", detail="Segment rlog upload failed.")
         except Exception as e:
           capture_exception(e)
-          log(f"Could not resolve direct segment rlog for {drive_name}: {e}", "ERROR")
+          log(f"Could not protect or upload direct segment rlog for {drive_name}: {e}", "ERROR")
           report_transfer_error(device_id, drive_name, str(e))
-          continue
-
-        if not rlog_path:
-          log(f"Missing rlog for segment {drive_name}", "WARN")
-          report_transfer_error(device_id, drive_name, "rlog missing", detail="The requested rlog file was not found.")
-          continue
-
-        report_transfer_progress(device_id, drive_name, stage="uploading", detail="Uploading direct segment rlog to the server.", clear_progress=True)
-        uploaded_name = upload_segment_rlog(rlog_path, device_id, drive_name)
-        if uploaded_name:
-          update_drive_transfer(
-            device_id,
-            drive_name,
-            status="sent",
-            stage="uploaded",
-            detail="Direct segment rlog uploaded and ready for the dock.",
-            filename=uploaded_name,
-            clear_progress=True,
-            included_files=["rlog"],
-          )
-        else:
-          report_transfer_error(device_id, drive_name, "rlog upload failed", detail="Segment rlog upload failed.")
+        finally:
+          _release_segment_deletion_locks(segment_lock_paths)
         continue
 
       temp_dir = _pick_temp_dir()
+      segment_lock_paths = []
       try:
+        segment_lock_paths = _acquire_segment_deletion_locks(segments)
         missing_files = []
         segment_files: list[tuple[str, list[tuple[str, str, int]]]] = []
         for segment in segments:
           selected_files: list[tuple[str, str, int]] = []
           for root, _, files in os.walk(segment):
             for file in files:
+              if file.endswith(".lock"):
+                continue
               if not should_include_file(file, requested_files):
                 continue
               abs_path = os.path.join(root, file)
@@ -1805,195 +2006,99 @@ def route_sender_step(device_id):
           log(f"✅ All archive parts already received for {drive_name}; skipping resend.")
           continue
 
-        total_added_files = 0
-        total_selected_bytes = sum(
-          file_size
-          for _segment_name, files in segment_files
-          for _abs_path, _rel_path, file_size in files
-        )
-        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting route segments on the device.", clear_progress=True)
-        for part_index, batch in enumerate(segment_batches, start=1):
-          if part_index in received_parts:
-            log(f"↩️ Skipping archive part {part_index}/{total_parts}; already received by dock.")
-            continue
-          batch_files = [file_tuple for _segment_name, files in batch for file_tuple in files]
-          batch_bytes = sum(file_size for _abs_path, _rel_path, file_size in batch_files)
-          if total_parts == 1:
-            zip_path = os.path.join(temp_dir, f"{_safe_zip_name(base_name)}.zip")
-            label = "Compressing and zipping the requested files on the device"
-          else:
-            zip_path = os.path.join(
-              temp_dir,
-              f"{_safe_zip_name(base_name)}.part{part_index:02d}-of{total_parts:02d}.zip",
-            )
-            label = f"Compressing route archive part {part_index}/{total_parts} on the device"
-          progress_reporter = ZipProgressReporter(
-            device_id,
-            drive_name,
-            stage="compressing",
-            label=label,
-            total_files=len(batch_files),
-            total_bytes=batch_bytes,
-            start_percent=0,
-            end_percent=100,
-          )
-          progress_reporter.report(force=True)
-          added_files, batch_missing_files = _zip_route_batch(zip_path, base_name, batch, progress_reporter, temp_dir)
-          total_added_files += added_files
-          missing_files.extend(batch_missing_files)
-          if added_files:
-            zip_paths_to_send.append((zip_path, part_index, total_parts))
-          else:
-            try:
-              os.remove(zip_path)
-            except OSError:
-              pass
         if missing_files:
-          log(f"⚠️ Skipped {len(missing_files)} missing file(s) while zipping {base_name}", "WARN")
-        if total_added_files == 0:
-          log(f"No files matched requested list for {base_name}", "WARN")
-          report_transfer_error(device_id, drive_name, "no files match request", detail="No files matched the requested file filter.")
-          continue
-        split_detail = f" across {total_parts} archive part(s)" if total_parts > 1 else ""
-        report_transfer_progress(device_id, drive_name, stage="zipped", detail=f"Archive ready with {total_added_files} file(s){split_detail}.", clear_progress=True)
-        log(f"📦 Zipped {len(segments)} segment(s) into folder: {base_name} (files={total_added_files}, parts={total_parts}, selected={_human_readable_bytes(total_selected_bytes)})")
+          log(f"⚠️ Skipped {len(missing_files)} missing file(s) while collecting {base_name}", "WARN")
+        report_transfer_progress(device_id, drive_name, stage="collecting", detail="Collecting route segments on the device.", clear_progress=True)
+        with closing(_iter_route_archives(device_id, drive_name, base_name, segment_batches, received_parts, temp_dir)) as archives:
+          _send_drive_archives(device_id, drive_name, requested_files, archives, missing_part_numbers)
       except Exception as e:
         capture_exception(e)
-        log(f"❌ Zip failed for {base_name}: {e}", "ERROR")
+        log(f"❌ Route transfer failed for {base_name}: {e}", "ERROR")
         report_transfer_error(device_id, drive_name, str(e))
         continue
+      finally:
+        _release_segment_deletion_locks(segment_lock_paths)
 
-    all_sent = bool(zip_paths_to_send)
-    wormhole_code = None
-    archive_name = None
-    for zip_path, part_number, total_parts in zip_paths_to_send:
-      part_detail = f" for archive part {part_number}/{total_parts}" if total_parts > 1 else ""
-      report_transfer_progress(
-        device_id,
-        drive_name,
-        stage="wormhole",
-        detail=f"Starting wormhole send{part_detail} and waiting for a wormhole code.",
-        clear_progress=True,
-      )
+      continue
 
-      if total_parts > 1:
-        sent, wormhole_code, archive_name = send_file_wormhole(
-          zip_path,
-          device_id,
-          drive_name,
-          requested_files,
-          part_number=part_number,
-          total_parts=total_parts,
-          send_parts=[part for _path, part, _total in zip_paths_to_send],
-        )
-      else:
-        sent, wormhole_code, archive_name = send_file_wormhole(
-          zip_path,
-          device_id,
-          drive_name,
-          requested_files,
-        )
-      try:
-        if os.path.exists(zip_path):
-          os.remove(zip_path)
-          log(f"🧹 Deleted temporary zip: {zip_path}")
-      except Exception as e:
-        capture_exception(e)
-        log(f"⚠️ Failed to delete zip: {e}", "WARN")
-      if not sent:
-        all_sent = False
-        break
+    _send_drive_archives(device_id, drive_name, requested_files, zip_paths_to_send, [1])
 
-    for zip_path, _part_number, _total_parts in zip_paths_to_send:
-      try:
-        if os.path.exists(zip_path):
-          os.remove(zip_path)
-          log(f"🧹 Deleted unsent temporary zip: {zip_path}")
-      except Exception as e:
-        capture_exception(e)
-        log(f"⚠️ Failed to delete zip: {e}", "WARN")
-
-    if all_sent:
-      update_drive_transfer(
-        device_id,
-        drive_name,
-        status="sent",
-        stage="ready",
-        detail="Wormhole code registered. Transfer is ready for the dock.",
-        wormhole_code=wormhole_code,
-        clear_progress=True,
-        filename=archive_name,
-      )
-    else:
-      report_transfer_error(device_id, drive_name, "wormhole send failed", detail="Wormhole send failed before a download offer was created.")
-
-def run_route_sender(stop_event=None, device_id=None):
-  global _auth_wait_logged
-  device_id = device_id or get_dongle_id()
-  if not device_id or device_id == "UNKNOWN_DEVICE":
-    log("❌ Route sender missing device ID; exiting", "ERROR")
-    return
-
-  log(f"🚚 Route sender loop started for {device_id}")
-
-  wait_fn: Callable[[float], bool]
-  is_set_fn: Callable[[], bool]
-  def _wait_default(_: float) -> bool:
-    return False
-
-  def _is_set_default() -> bool:
-    return False
-
-  wait_fn = _wait_default
-  is_set_fn = _is_set_default
-  use_wait_fn = False
-  if stop_event is not None:
-    wait_candidate = getattr(stop_event, "wait", None)
-    if callable(wait_candidate):
-      wait_fn = cast(Callable[[float], bool], wait_candidate)
-      use_wait_fn = True
-    is_set_candidate = getattr(stop_event, "is_set", None)
-    if callable(is_set_candidate):
-      is_set_fn = cast(Callable[[], bool], is_set_candidate)
-
-  def _wait_interval(delay: float) -> bool:
-    if use_wait_fn:
-      return wait_fn(delay)
-    time.sleep(delay)
-    return False
-
+def _run_route_worker(
+  stop_event: threading.Event,
+  device_id: str,
+  step: Callable[[str], None],
+  label: str,
+) -> None:
+  auth_wait_logged = False
+  log(f"{label} loop started for {device_id}")
   try:
-    while True:
-      if is_set_fn():
-        break
-
-      if not _auth_headers():
-        if not _auth_wait_logged:
-          log("⚠️ Route sender waiting for device JWT (registration key missing?)", "WARN")
-          _auth_wait_logged = True
-        if _wait_interval(CHECK_INTERVAL):
-          break
-        continue
-      elif _auth_wait_logged:
-        log("✅ Device JWT available; route sender active")
-        _auth_wait_logged = False
-
+    while not stop_event.is_set():
       try:
-        drive_inventory_step(device_id)
+        if not health.offroad():
+          pass
+        elif _auth_headers():
+          if auth_wait_logged:
+            log(f"Device JWT available; {label} active")
+            auth_wait_logged = False
+          step(device_id)
+        elif not auth_wait_logged:
+          log(f"{label} waiting for device JWT (registration key missing?)", "WARN")
+          auth_wait_logged = True
       except Exception as e:
         capture_exception(e)
-        log(f"❌ drive_inventory_step() failed: {e}", "ERROR")
-
-      try:
-        route_sender_step(device_id)
-      except Exception as e:
-        capture_exception(e)
-        log(f"❌ route_sender_step() failed: {e}", "ERROR")
-
-      if _wait_interval(CHECK_INTERVAL):
+        log(f"{label} step failed: {e}", "ERROR")
+      if stop_event.wait(CHECK_INTERVAL):
         break
   finally:
-    log("🚚 Route sender loop stopped", "INFO")
+    log(f"{label} loop stopped", "INFO")
+
+
+def _drive_stats_worker_step(device_id: str) -> None:
+  headers = _auth_headers()
+  if headers:
+    drive_stats_step(device_id, headers)
+
+
+def _location_worker_step(device_id: str) -> None:
+  headers = _auth_headers()
+  if headers:
+    location_step(device_id, headers)
+
+
+def run_route_sender(stop_event=None, device_id=None):
+  device_id = device_id or get_dongle_id()
+  if not device_id or device_id == "UNKNOWN_DEVICE":
+    log("Route sender missing device ID; exiting", "ERROR")
+    return
+
+  stop_event = stop_event if stop_event is not None else threading.Event()
+  # Scan requests must keep polling while transfers or log analysis take minutes.
+  workers = [
+    threading.Thread(
+      target=_run_route_worker,
+      args=(stop_event, device_id, step, label),
+      name=name,
+      daemon=True,
+    )
+    for step, label, name in (
+      (drive_inventory_step, "Drive inventory", "drive_inventory_thread"),
+      (_drive_stats_worker_step, "Drive statistics", "drive_stats_thread"),
+      (_location_worker_step, "Last known location", "device_location_thread"),
+      *optional_workers(_auth_headers),
+    )
+  ]
+  started_workers: list[threading.Thread] = []
+  try:
+    for worker in workers:
+      worker.start()
+      started_workers.append(worker)
+    _run_route_worker(stop_event, device_id, route_sender_step, "Route sender")
+  finally:
+    stop_event.set()
+    for worker in started_workers:
+      worker.join(timeout=1)
+      if worker.is_alive():
+        log(f"{worker.name} is finishing its current operation after stop was requested", "WARN")
 
 def main():
   run_route_sender()
