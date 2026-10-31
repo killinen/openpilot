@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import tempfile
 import xml.etree.ElementTree as ET
 
 if "BASEDIR" in os.environ:
@@ -25,8 +26,19 @@ def generate_translations_include():
     for alert in json.load(f).values():
       content += f'QT_TRANSLATE_NOOP("OffroadAlert", R"({alert["text"]})");\n'
 
-  with open(TRANSLATIONS_INCLUDE_FILE, "w") as f:
-    f.write(content)
+  # Multiple translation tests run concurrently and lupdate scans this header.
+  # Publish it atomically so another worker never sees a truncated file.
+  temporary_path = None
+  try:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=TRANSLATIONS_DIR,
+                                     prefix=".alerts_generated_", suffix=".tmp", delete=False) as f:
+      temporary_path = f.name
+      f.write(content)
+      os.fchmod(f.fileno(), 0o644)
+    os.replace(temporary_path, TRANSLATIONS_INCLUDE_FILE)
+  finally:
+    if temporary_path is not None and os.path.exists(temporary_path):
+      os.unlink(temporary_path)
 
 
 def backup_translation_types(root):
