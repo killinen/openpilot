@@ -58,6 +58,50 @@ runs:
       run: |
         find . -type f -executable -not -perm 755 -exec chmod 755 {} \;
         find . -type f -not -executable -not -perm 644 -exec chmod 644 {} \;
-    # build our docker image
+    # Cache only the standard native base image; publishing and cross-builds
+    # must run the original build. The tools workflow populates this cache to
+    # avoid every parallel test job exporting the same large image.
+    # Update the hash inputs when Dockerfile.openpilot_base adds a COPY.
+    - id: image-cache-generation
+      if: runner.os == 'Linux' && env.BUILD == 'selfdrive/test/docker_build.sh base' && env.BASE_IMAGE == 'openpilot-base' && env.PUSH_IMAGE == '' && env.TARGET_ARCHITECTURE == ''
+      shell: bash
+      run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+    - name: Restore base image
+      id: image-cache
+      if: steps.image-cache-generation.outcome == 'success'
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ runner.temp }}/teletyped-openpilot-base.tar
+        key: teletyped-base-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.image-cache-generation.outputs.week }}-${{ hashFiles('Dockerfile.openpilot_base', '.dockerignore', '.python-version', 'pyproject.toml', 'poetry.lock', 'tools/install_ubuntu_dependencies.sh', 'tools/install_python_dependencies.sh', 'selfdrive/test/docker_build.sh', 'selfdrive/test/docker_common.sh') }}
+    - name: Load cached base image
+      id: load-image
+      if: steps.image-cache.outputs.cache-hit == 'true'
+      continue-on-error: true
+      shell: bash
+      run: |
+        trap 'rm -f "$RUNNER_TEMP/teletyped-openpilot-base.tar"' EXIT
+        docker load --input "$RUNNER_TEMP/teletyped-openpilot-base.tar"
+        docker image inspect "$BASE_IMAGE:latest" > /dev/null
+        docker tag "$BASE_IMAGE:latest" ghcr.io/commaai/openpilot-base:latest
+    # Build on a miss or failed load; weekly rotation refreshes upstream inputs.
     - shell: bash
+      if: steps.load-image.outcome != 'success'
       run: eval ${{ env.BUILD }}
+    - name: Export base image for future runs
+      id: export-image
+      if: github.workflow == 'tools' && steps.image-cache-generation.outcome == 'success' && steps.image-cache.outputs.cache-hit != 'true'
+      continue-on-error: true
+      shell: bash
+      run: docker save --output "$RUNNER_TEMP/teletyped-openpilot-base.tar" "$BASE_IMAGE:latest"
+    - name: Save base image
+      if: steps.export-image.outcome == 'success'
+      uses: actions/cache/save@v4
+      continue-on-error: true
+      with:
+        path: ${{ runner.temp }}/teletyped-openpilot-base.tar
+        key: ${{ steps.image-cache.outputs.cache-primary-key }}
+    - name: Remove exported image archive
+      if: steps.export-image.outcome == 'success'
+      shell: bash
+      run: rm -f "$RUNNER_TEMP/teletyped-openpilot-base.tar"

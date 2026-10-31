@@ -22,7 +22,8 @@ jobs:
   teletyped:
     name: teletyped
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # A cold base image build can take most of ten minutes before tests start.
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
       with:
