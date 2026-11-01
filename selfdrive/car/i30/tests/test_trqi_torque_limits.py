@@ -3,11 +3,21 @@ from types import SimpleNamespace
 
 import pytest
 from cereal import car
+from panda import Panda
 
 from openpilot.selfdrive.car.i30.interface import CarInterface
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.car.i30.tests.test_steering_mode import controller_modules, new_controller
+
+
+@pytest.mark.parametrize('toggle,trqi', [(b'0', False), (b'1', True)])
+def test_safety_param_tracks_selected_backend(tmp_path, monkeypatch, toggle, trqi):
+  controller_modules(tmp_path, monkeypatch, toggle)
+  monkeypatch.setattr(CarInterfaceBase, 'configure_torque_tune', lambda *args: None)
+  cp = car.CarParams.new_message()
+  CarInterface._get_params(cp, None, None, None, False, False, None)
+  assert cp.safetyConfigs[0].safetyParam == Panda.FLAG_I30_LONGITUDINAL | (Panda.FLAG_I30_TRQI if trqi else 0)
 
 
 def state(output_torque=0.0):

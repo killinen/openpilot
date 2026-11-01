@@ -1,9 +1,10 @@
 from math import fabs
 
 from cereal import car
+from panda import Panda
 from openpilot.selfdrive.car import create_button_events, get_safety_config
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
-from openpilot.selfdrive.car.i30.values import Buttons, CarControllerParams, I30SteeringCommandMode, TrqiSteerLimitParams
+from openpilot.selfdrive.car.i30.values import Buttons, CarControllerParams, I30SteeringCommandMode, TrqiSteerLimitParams, i30_uses_trqi_steering
 
 ButtonType = car.CarState.ButtonEvent.Type
 EventName = car.CarEvent.EventName
@@ -37,7 +38,10 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def _get_params(ret, candidate, fingerprint, car_fw, experimental_long, docs, frogpilot_toggles):
     ret.carName = "i30"
-    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.hyundaiCommunity, 4)]
+    safety_param = Panda.FLAG_I30_LONGITUDINAL
+    if i30_uses_trqi_steering():
+      safety_param |= Panda.FLAG_I30_TRQI
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.hyundaiCommunity, safety_param)]
     ret.radarUnavailable = True
 
     ret.openpilotLongitudinalControl = True

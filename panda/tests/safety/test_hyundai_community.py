@@ -23,7 +23,7 @@ def _crc8_pedal(data: bytes) -> int:
 
 def _crc8_trqi(addr: int, data: bytes) -> int:
   crc = 0
-  for byte in ((addr & 0xFF), ((addr >> 8) & 0xFF), *data[:6]):
+  for byte in ((addr & 0xFF), ((addr >> 8) & 0xFF), *data):
     crc ^= byte
     for _ in range(8):
       if crc & 0x80:
@@ -50,7 +50,7 @@ def _i30_compute_checksum(addr: int, dat: bytes) -> int:
     return _crc8_pedal(dat[:5])
 
   if addr in (0x231, 0x232):
-    return _crc8_trqi(addr, dat)
+    return _crc8_trqi(addr, dat[:6])
 
   if addr == 0x22F:
     ssc_chksum = 0x22F
@@ -76,6 +76,7 @@ class _I30Counters:
   c081: int = 0
   c165: int = 0
   c22f: int = 0
+  c241: int = 0
   c201: int = 0
   c231: int = 0
   c232: int = 0
@@ -126,6 +127,14 @@ class _I30MsgFactory:
     dat[0] = _i30_compute_checksum(0x22F, bytes(dat)) & 0xFF
     return common.make_msg(bus, 0x22F, 8, bytes(dat))
 
+  def msg_241(self, corrupt_crc: bool = False, counter: int | None = None) -> libpanda_py.CANPacket:
+    dat = bytearray(b"\x00" * 8)
+    cnt = self._next("c241", 15) if counter is None else counter
+    dat[5] = ((cnt & 0x0F) << 4) | 0x0B
+    dat[6] = 0xA5
+    dat[7] = _crc8_trqi(0x241, dat[:7]) ^ (0xFF if corrupt_crc else 0)
+    return common.make_msg(1, 0x241, 8, bytes(dat))
+
   def msg_1f1(self, moving: bool) -> libpanda_py.CANPacket:
     dat = bytearray(b"\x00" * 8)
     # i30 uses (speed_fl + speed_rr) * 2 > 30 to determine moving.
@@ -157,7 +166,7 @@ class _I30MsgFactory:
     return common.make_msg(0, 0x260, 8, bytes(dat))
 
   def msg_201(self, interceptor_raw: int, bus: int = 1) -> libpanda_py.CANPacket:
-    dat = bytearray(b"\x00" * 7)
+    dat = bytearray(b"\x00" * 6)
     dat[0] = (interceptor_raw >> 8) & 0xFF
     dat[1] = interceptor_raw & 0xFF
     dat[2] = (interceptor_raw >> 8) & 0xFF
@@ -227,12 +236,12 @@ class _I30MsgFactory:
 
 
 class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x22E, 1, 5), (0x231, 1, 7), (0x232, 1, 7)]
+  TX_MSGS = [(0x232, 1, 7)]
 
   def setUp(self):
     self.packer = _I30MsgFactory()
     self.safety = libpanda_py.libpanda
-    self.safety.set_safety_hooks(Panda.SAFETY_HYUNDAI_COMMUNITY, 0)
+    self.safety.set_safety_hooks(Panda.SAFETY_HYUNDAI_COMMUNITY, Panda.FLAG_I30_TRQI)
     self.safety.init_tests()
 
   def test_cruise_engage_controls_allowed(self):
@@ -255,37 +264,14 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
     self.assertTrue(self._rx(self.packer.msg_2b0()))
     self.assertTrue(self._rx(self.packer.msg_1f1(moving=False)))
     self.assertTrue(self._rx(self.packer.msg_1f1(moving=True)))
-    self.assertTrue(self._rx(self.packer.msg_22f()))
+    self.assertTrue(self._rx(self.packer.msg_241()))
 
   def test_gas_command_blocked_in_lateral_mode(self):
     msg = self.packer.msg_200_gas_cmd(enable=False, gas_command=0, gas_command2=0)
     self.assertFalse(self._tx(msg))
 
-  def test_trqi_delta_counter_checksum_and_controls(self):
-    neutral = self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)
-    self.assertTrue(self._tx(neutral))
-
-    self.safety.set_controls_allowed(1)
-    enabled = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=1)
-    self.assertTrue(self._tx(enabled))
-
-    bad_counter = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=3)
-    self.assertFalse(self._tx(bad_counter))
-
-    bad_mismatch = self.packer.msg_231_trqi(delta=400, delta_redundant=399, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(bad_mismatch))
-
-    dat = bytearray(self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2).data)
-    dat[6] ^= 0xFF
-    bad_checksum = common.make_msg(1, 0x231, 7, bytes(dat))
-    self.assertFalse(self._tx(bad_checksum))
-
-    too_large = self.packer.msg_231_trqi(delta=900, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(too_large))
-
-    self.safety.set_controls_allowed(0)
-    blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(blocked_no_controls))
+  def test_unsupported_delta_command_blocked(self):
+    self.assertFalse(self._tx(self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)))
 
   def test_trqi_torque_authority_boundary(self):
     for torque, allowed in [(-1202, False), (-1201, True), (-1200, True),
@@ -324,13 +310,13 @@ class TestHyundaiCommunityI30Lateral(common.PandaSafetyTestBase):
 
 
 class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
-  TX_MSGS = [(0x200, 1, 6), (0x22E, 1, 5), (0x231, 1, 7), (0x232, 1, 7)]
+  TX_MSGS = [(0x200, 1, 6), (0x232, 1, 7)]
   I30_LONGITUDINAL_PARAM = 4
 
   def setUp(self):
     self.packer = _I30MsgFactory()
     self.safety = libpanda_py.libpanda
-    self.safety.set_safety_hooks(Panda.SAFETY_HYUNDAI_COMMUNITY, self.I30_LONGITUDINAL_PARAM)
+    self.safety.set_safety_hooks(Panda.SAFETY_HYUNDAI_COMMUNITY, self.I30_LONGITUDINAL_PARAM | Panda.FLAG_I30_TRQI)
     self.safety.init_tests()
 
   def test_button_enable_disable(self):
@@ -397,31 +383,8 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
     bad_range = self.packer.msg_200_gas_cmd(enable=True, gas_command=3000, gas_command2=1000, counter=2)
     self.assertFalse(self._tx(bad_range))
 
-  def test_trqi_delta_counter_checksum_and_controls(self):
-    neutral = self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)
-    self.assertTrue(self._tx(neutral))
-
-    self.safety.set_controls_allowed(1)
-    enabled = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=1)
-    self.assertTrue(self._tx(enabled))
-
-    bad_counter = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=3)
-    self.assertFalse(self._tx(bad_counter))
-
-    bad_mismatch = self.packer.msg_231_trqi(delta=400, delta_redundant=399, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(bad_mismatch))
-
-    dat = bytearray(self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2).data)
-    dat[6] ^= 0xFF
-    bad_checksum = common.make_msg(1, 0x231, 7, bytes(dat))
-    self.assertFalse(self._tx(bad_checksum))
-
-    too_large = self.packer.msg_231_trqi(delta=900, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(too_large))
-
-    self.safety.set_controls_allowed(0)
-    blocked_no_controls = self.packer.msg_231_trqi(delta=400, rel=True, rele=True, counter=2)
-    self.assertFalse(self._tx(blocked_no_controls))
+  def test_unsupported_delta_command_blocked(self):
+    self.assertFalse(self._tx(self.packer.msg_231_trqi(delta=0, rel=False, rele=False, counter=0)))
 
   def test_trqi_torque_authority_boundary(self):
     for torque, allowed in [(-1202, False), (-1201, True), (-1200, True),
@@ -464,6 +427,85 @@ class TestHyundaiCommunityI30Longitudinal(common.PandaSafetyTestBase):
 
     self.assertEqual(self.safety.safety_fwd_hook(0, 0x123), -1)
     self.assertEqual(self.safety.safety_fwd_hook(1, 0x081), -1)
+
+
+class TestI30BackendSafety(common.PandaSafetyTestBase):
+  def _setup_mode(self, trqi: bool, longitudinal: bool):
+    self.packer = _I30MsgFactory()
+    self.safety = libpanda_py.libpanda
+    param = (Panda.FLAG_I30_TRQI if trqi else 0) | (Panda.FLAG_I30_LONGITUDINAL if longitudinal else 0)
+    self.assertEqual(self.safety.set_safety_hooks(Panda.SAFETY_HYUNDAI_COMMUNITY, param), 0)
+    self.safety.init_tests()
+
+  def _common_rx(self, longitudinal: bool):
+    for msg in (self.packer.msg_081(False), self.packer.msg_165(), self.packer.msg_1f1(False),
+                self.packer.msg_260(False, False, False), self.packer.msg_2b0()):
+      self.assertTrue(self._rx(msg))
+    if longitudinal:
+      self.assertTrue(self._rx(self.packer.msg_201(750)))
+
+  def test_selected_heartbeat_and_timeout(self):
+    for trqi in (False, True):
+      for longitudinal in (False, True):
+        with self.subTest(trqi=trqi, longitudinal=longitudinal):
+          self._setup_mode(trqi, longitudinal)
+          self.safety.set_timer(1000000)
+          self._common_rx(longitudinal)
+          # The other actuator's traffic cannot satisfy the selected heartbeat.
+          self.assertTrue(self._rx(self.packer.msg_22f() if trqi else self.packer.msg_241()))
+          self.assertFalse(self.safety.safety_config_valid())
+          self.assertTrue(self._rx(self.packer.msg_241() if trqi else self.packer.msg_22f()))
+          self.safety.safety_tick_current_safety_config()
+          self.assertTrue(self.safety.safety_config_valid())
+          self.safety.set_timer(2100001)
+          self._common_rx(longitudinal)
+          self.assertTrue(self._rx(self.packer.msg_22f() if trqi else self.packer.msg_241()))
+          self.safety.set_controls_allowed(True)
+          self.safety.safety_tick_current_safety_config()
+          self.assertFalse(self.safety.get_controls_allowed())
+          self.assertFalse(self.safety.safety_config_valid())
+
+  def test_trqi_heartbeat_crc_and_counter(self):
+    for longitudinal in (False, True):
+      with self.subTest(longitudinal=longitudinal):
+        self._setup_mode(True, longitudinal)
+        self.safety.set_controls_allowed(True)
+        self.assertFalse(self._rx(self.packer.msg_241(corrupt_crc=True)))
+        self.assertFalse(self.safety.get_controls_allowed())
+        self.assertTrue(self._rx(self.packer.msg_241()))
+        self.safety.set_controls_allowed(True)
+        for _ in range(5):
+          self._rx(self.packer.msg_241(counter=2))
+        self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_ssc_heartbeat_preserves_checksum_and_counter_checks(self):
+    for longitudinal in (False, True):
+      with self.subTest(longitudinal=longitudinal):
+        self._setup_mode(False, longitudinal)
+        msg = self.packer.msg_22f()
+        dat = bytearray(msg.data[0:8])
+        dat[0] ^= 0xFF
+        self.safety.set_controls_allowed(True)
+        self.assertEqual(bool(self._rx(common.make_msg(1, 0x22F, 8, bytes(dat)))), longitudinal)
+        self.assertEqual(bool(self.safety.get_controls_allowed()), longitudinal)
+        valid = self.packer.msg_22f()
+        self.assertTrue(self._rx(valid))
+        self.safety.set_controls_allowed(True)
+        for _ in range(5):
+          self._rx(valid)
+        self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_only_selected_steering_command_is_allowed(self):
+    for trqi in (False, True):
+      for longitudinal in (False, True):
+        with self.subTest(trqi=trqi, longitudinal=longitudinal):
+          self._setup_mode(trqi, longitudinal)
+          ssc = common.make_msg(1, 0x22E, 5, b"\x00" * 5)
+          trqi_msg = self.packer.msg_232_trqi(0, False, False, counter=0)
+          self.assertEqual(self._tx(ssc), not trqi)
+          self.assertEqual(self._tx(trqi_msg), trqi)
+          gas = self.packer.msg_200_gas_cmd(False, 0, 0, counter=0)
+          self.assertEqual(self._tx(gas), longitudinal)
 
 
 if __name__ == "__main__":

@@ -14,19 +14,25 @@ const int I30_TRQI_MAX_TORQUE_NCM = 1201;   // 1200 Ncm host window plus the exi
 #define I30_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2U) // avg between 2 tracks
 
 // These are messages that will/can be sent to the busses
-const CanMsg I30_TX_MSGS[] = {
+const CanMsg I30_SSC_TX_MSGS[] = {
   {0x22E, 1, 5},  // SSC Bus 1
+};
+const CanMsg I30_TRQI_TX_MSGS[] = {
   {0x232, 1, 7},  // TRQI_TorqueCmd Bus 1
 };
 
-const CanMsg I30_LONG_TX_MSGS[] = {
+const CanMsg I30_SSC_LONG_TX_MSGS[] = {
   {0x200, 1, 6},  // GAS_COMMAND Bus 1
   {0x22E, 1, 5},  // SSC Bus 1
+};
+const CanMsg I30_TRQI_LONG_TX_MSGS[] = {
+  {0x200, 1, 6},  // GAS_COMMAND Bus 1
   {0x232, 1, 7},  // TRQI_TorqueCmd Bus 1
 };
 
-// older i30 models have less checks due to missing counters and checksums
+// Longitudinal control and steering backend are independent safety options.
 const int I30_PARAM_LONGITUDINAL = 4;
+const int I30_PARAM_TRQI = 8;
 
 enum {
   I30_BTN_NONE = 0,
@@ -45,24 +51,25 @@ static uint8_t i30_counter_pedal_last = 0xFFU;
 static uint8_t i30_counter_trqi_last = 0xFFU;
 static bool i30_gas_interceptor_detected = false;
 
-RxCheck i30_rx_checks[] = {
-  {.msg = {{0x081, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // EMS_DCT2 (129)
-  {.msg = {{0x165, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // VSM2 (357)
-  {.msg = {{0x1F1, 0, 8, .check_checksum = false, .max_counter = 0U, .frequency = 50U}, { 0 }, { 0 }}},   // TCS5 (497)
-  {.msg = {{0x260, 0, 8, .check_checksum = true, .max_counter = 3U, .frequency = 83U}, { 0 }, { 0 }}},    // EMS6 (608)
-  {.msg = {{0x2B0, 0, 5, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // SAS1 (688)
-  {.msg = {{0x22F, 1, 8, .check_checksum = true, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},  // SSC (559, bus 1)
-};
+// Shared vehicle messages: EMS_DCT2, VSM2, TCS5, EMS6, SAS1.
+#define I30_COMMON_RX_CHECKS \
+  {.msg = {{0x081, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}}, \
+  {.msg = {{0x165, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}}, \
+  {.msg = {{0x1F1, 0, 8, .check_checksum = false, .max_counter = 0U, .frequency = 50U}, { 0 }, { 0 }}}, \
+  {.msg = {{0x260, 0, 8, .check_checksum = true, .max_counter = 3U, .frequency = 83U}, { 0 }, { 0 }}}, \
+  {.msg = {{0x2B0, 0, 5, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}}
+#define I30_SSC_RX_CHECK(check_crc) \
+  {.msg = {{0x22F, 1, 8, .check_checksum = (check_crc), .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}}
+#define I30_TRQI_RX_CHECK \
+  {.msg = {{0x241, 1, 8, .check_checksum = true, .max_counter = 15U, .frequency = 10U}, { 0 }, { 0 }}}
+#define I30_GAS_RX_CHECK \
+  {.msg = {{0x201, 1, 6, .check_checksum = true, .max_counter = 15U, .frequency = 50U}, { 0 }, { 0 }}}
 
-RxCheck i30_long_rx_checks[] = {
-  {.msg = {{0x081, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // EMS_DCT2 (129)
-  {.msg = {{0x165, 0, 8, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // VSM2 (357)
-  {.msg = {{0x1F1, 0, 8, .check_checksum = false, .max_counter = 0U, .frequency = 50U}, { 0 }, { 0 }}},   // TCS5 (497)
-  {.msg = {{0x260, 0, 8, .check_checksum = true, .max_counter = 3U, .frequency = 83U}, { 0 }, { 0 }}},    // EMS6 (608)
-  {.msg = {{0x2B0, 0, 5, .check_checksum = true, .max_counter = 15U, .frequency = 83U}, { 0 }, { 0 }}},   // SAS1 (688)
-  {.msg = {{0x22F, 1, 8, .check_checksum = false, .max_counter = 15U, .frequency = 100U}, { 0 }, { 0 }}},  // SSC (559)
-  {.msg = {{0x201, 1, 6, .check_checksum = true, .max_counter = 15U, .frequency = 50U}, { 0 }, { 0 }}},   // Gas interceptor (513, bus 1)
-};
+RxCheck i30_ssc_rx_checks[] = {I30_COMMON_RX_CHECKS, I30_SSC_RX_CHECK(true)};
+// Preserve the existing SSC longitudinal checksum policy.
+RxCheck i30_ssc_long_rx_checks[] = {I30_COMMON_RX_CHECKS, I30_SSC_RX_CHECK(false), I30_GAS_RX_CHECK};
+RxCheck i30_trqi_rx_checks[] = {I30_COMMON_RX_CHECKS, I30_TRQI_RX_CHECK};
+RxCheck i30_trqi_long_rx_checks[] = {I30_COMMON_RX_CHECKS, I30_TRQI_RX_CHECK, I30_GAS_RX_CHECK};
 
 static uint8_t crc8_pedal(const uint8_t *data, int len) {
   uint8_t crc = 0xFFU;
@@ -106,7 +113,8 @@ static uint8_t i30_compute_trqi_crc8(const CANPacket_t *to_push) {
     }
   }
 
-  for (int i = 0; i < 6; i++) {
+  const int data_length = (GET_ADDR(to_push) == 0x241U) ? 7 : 6;
+  for (int i = 0; i < data_length; i++) {
     crc ^= GET_BYTE(to_push, i);
     for (int j = 0; j < 8; j++) {
       if ((crc & 0x80U) != 0U) {
@@ -134,6 +142,8 @@ static uint8_t i30_get_counter(const CANPacket_t *to_push) {
     cnt = GET_BYTE(to_push, 5) & 0xFU;
   } else if (addr == 0x232U) {
     cnt = GET_BYTE(to_push, 5) & 0xFU;
+  } else if (addr == 0x241U) {
+    cnt = (GET_BYTE(to_push, 5) >> 4) & 0xFU;
   } else if (addr == 0x201U) {
     cnt = GET_BYTE(to_push, 4) & 0xFU;
   } else if (addr == 0x260U) {
@@ -159,6 +169,8 @@ static uint32_t i30_get_checksum(const CANPacket_t *to_push) {
     chksum = GET_BYTE(to_push, 6);
   } else if (addr == 0x232U) {
     chksum = GET_BYTE(to_push, 6);
+  } else if (addr == 0x241U) {
+    chksum = GET_BYTE(to_push, 7);
   } else if (addr == 0x22FU) {
     chksum = GET_BYTE(to_push, 0);
   } else if (addr == 0x260U) {
@@ -190,7 +202,7 @@ static uint32_t i30_compute_checksum(const CANPacket_t *to_push) {
     }
   } else if (addr == 0x201U) {
     chksum = i30_compute_pedal_crc(to_push);
-  } else if ((addr == 0x231U) || (addr == 0x232U)) {
+  } else if ((addr == 0x231U) || (addr == 0x232U) || (addr == 0x241U)) {
     chksum = i30_compute_trqi_crc8(to_push);
   } else if (addr == 0x22FU) {
     uint16_t ssc_chksum = (uint16_t)0x22FU;
@@ -440,10 +452,16 @@ static safety_config i30_init(uint16_t param) {
   i30_counter_trqi_last = 0xFFU;
   i30_gas_interceptor_detected = false;
 
-  safety_config ret = BUILD_SAFETY_CFG(i30_rx_checks, I30_TX_MSGS);
-  if (i30_longitudinal) {
-    ret = BUILD_SAFETY_CFG(i30_long_rx_checks, I30_LONG_TX_MSGS);
+  const bool trqi = GET_FLAG(param, I30_PARAM_TRQI);
+  safety_config ret;
+  if (trqi && i30_longitudinal) {
+    ret = BUILD_SAFETY_CFG(i30_trqi_long_rx_checks, I30_TRQI_LONG_TX_MSGS);
+  } else if (trqi) {
+    ret = BUILD_SAFETY_CFG(i30_trqi_rx_checks, I30_TRQI_TX_MSGS);
+  } else if (i30_longitudinal) {
+    ret = BUILD_SAFETY_CFG(i30_ssc_long_rx_checks, I30_SSC_LONG_TX_MSGS);
   } else {
+    ret = BUILD_SAFETY_CFG(i30_ssc_rx_checks, I30_SSC_TX_MSGS);
   }
   return ret;
 }
