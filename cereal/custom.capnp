@@ -153,11 +153,13 @@ struct FrogPilotCarState @0xda96579883444c35 {
     hrrCounter @16 :UInt8;
     latActive @17 :Bool;
     hrrSamples @18 :UInt16;
+    sectorOffsetDeg @19 :Float32;
     enum Mode {
       unavailable @0;
       trustedHrr @1;
       hold @2;
       alignedOem @3;
+      sectorCorrectedHrr @4;
     }
     enum Reason {
       none @0;
@@ -169,6 +171,9 @@ struct FrogPilotCarState @0xda96579883444c35 {
       latched @6;
       observerError @7;
       counterDiscontinuity @8;
+      sectorAmbiguous @9;
+      sectorCorrected @10;
+      outsideEnvelope @11;
     }
   }
 

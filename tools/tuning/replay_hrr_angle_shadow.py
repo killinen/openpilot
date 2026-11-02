@@ -68,7 +68,7 @@ def replay(paths, output):
     writer = csv.writer(f)
     writer.writerow(['seconds', 'lat_active', 'live_angle_deg', 'shadow_angle_deg', 'shadow_rate_deg_s',
                      'usable', 'would_disable', 'mode', 'reason', 'oem_deg', 'hrr_deg', 'innovation_deg',
-                     'reference_offset_deg', 'oem_age_s', 'hrr_age_s'])
+                     'reference_offset_deg', 'sector_offset_deg', 'oem_age_s', 'hrr_age_s'])
     for msg in LogReader(paths):
       kind = msg.which()
       t = msg.logMonoTime * 1e-9
@@ -94,7 +94,7 @@ def replay(paths, output):
                               int(hs['True_Angle_Counter']),
                               bool(hs['True_Angle_Valid'] and hs['True_Angle_Initialized'] and
                                    hs['True_Angle_Resolver_Valid'] and hs['True_Angle_Calibrated']),
-                              bool(hs['True_Angle_Wrap_Ambiguous']), lat_active, hrr_samples)
+                              bool(hs['True_Angle_Wrap_Ambiguous']), hrr_samples)
         # Offline OEM rate is deliberately unspecified; angle decisions do not
         # depend on it. Live shadow logs include the existing OEM rate filter.
         dt = min(max(t - last_t, 0), .03) if last_t is not None else 0
@@ -105,7 +105,8 @@ def replay(paths, output):
           summary['usable_angle_difference_gt3_s'] += dt * (result.usable and abs(result.angle - msg.carState.steeringAngleDeg) > 3)
         writer.writerow([t - origin, lat_active, msg.carState.steeringAngleDeg, result.angle, result.rate,
                          result.usable, result.would_disable, result.mode, result.reason, os['STEER_ANGLE'],
-                         hs['True_Steering_Angle'], result.innovation, result.offset, result.oem_age, result.hrr_age])
+                         hs['True_Steering_Angle'], result.innovation, result.offset, result.sector_offset,
+                         result.oem_age, result.hrr_age])
         last_oem_ts, last_hrr_ts, last_t = ots, hts, t
         hrr_samples = 0
   return {'shadow_version': HrrAngleShadow.VERSION, 'active_modes_s': dict(modes), **summary,

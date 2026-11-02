@@ -252,7 +252,7 @@ class CarState(CarStateBase):
         result = self.ls600h_angle_shadow.update(
           time.monotonic(), fallback_steering_angle, self.ls600h_steering_rate.x, shadow_oem_updated,
           status.get("True_Steering_Angle", 0.0), status.get("True_Steering_Rate", 0.0), hrr_samples > 0,
-          int(status.get("True_Angle_Counter", 0)), (flags & 15) == 15, bool(flags & 32), shadow_lat_active, hrr_samples)
+          int(status.get("True_Angle_Counter", 0)), (flags & 15) == 15, bool(flags & 32), hrr_samples)
         diagnostic.mode, diagnostic.reason = result.mode, result.reason
         diagnostic.angleDeg, diagnostic.rateDegPerSec = result.angle, result.rate
         diagnostic.usable, diagnostic.wouldDisableLateral = result.usable, result.would_disable
@@ -264,6 +264,7 @@ class CarState(CarStateBase):
         diagnostic.hrrFlags, diagnostic.hrrCounter = flags, int(status.get("True_Angle_Counter", 0))
         diagnostic.latActive = shadow_lat_active
         diagnostic.hrrSamples = hrr_samples
+        diagnostic.sectorOffsetDeg = result.sector_offset
     except Exception:
       # An experimental observer must not interrupt the existing steering path.
       self.ls600h_angle_shadow_failed = True
