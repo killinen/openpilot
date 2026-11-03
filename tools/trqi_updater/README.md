@@ -94,3 +94,30 @@ pytest -q tests/test_trqi_updater_core.py
 The fake application/bootloader covers A/B choice, recovery mode, duplicate commands, lost START/DATA/FINISH ACKs, durable resume, authentication errors, confirmation, rollback, and failed-candidate persistence. Panda's native safety test is `panda/tests/safety/test_trqi_updater.py` and should be built/run in the repository Docker environment.
 
 These are software tests. Production readiness still requires real TRQI, Panda, `pandad`/cereal, busy-bus loss/duplication, power interruption, process restart, trial rollback, and real OFFROAD-to-ONROAD transition testing.
+
+## HRR SAMC21 manual target
+
+The manual commands `info`, `status`, `flash`, and `recover` accept
+`--target hrr`. The default remains `trqi`. HRR uses application entry ID
+`0x60B`, information IDs `0x63D`–`0x640`, and request/response IDs
+`0x6A2`/`0x6A3`, with product ID `0x48525201`. Both targets still use bus 1
+and the existing updater ownership lock and Panda safety lease. The HRR path
+requires ignition off and refuses to run while a TRQI update is pending or its
+startup hold is active. Power the SAMC21 independently from a bench supply
+for this workflow. Its state defaults to `/data/hrr_updater`.
+
+For example, once an HRR loader and confirmed application have been
+provisioned and the matching HRR manifest/image are available:
+
+```bash
+python3 -m tools.trqi_updater.cli info --target hrr --bus 1
+python3 -m tools.trqi_updater.cli flash --target hrr --bus 1 \
+  --manifest /data/hrr_updater/slot-b.manifest --image /data/hrr_updater/slot-b.bin
+```
+
+Use `--test-firmware --confirm-test-key` only for the explicitly built test
+loader and its matching local test-key artifacts. HRR currently has no automatic
+release download or ignition-startup installation; those commands remain TRQI
+only. The loader enforces 256-byte data chunks. Validate the IDs against the
+complete network and test the complete update and rollback on an isolated bench
+before use in a vehicle.

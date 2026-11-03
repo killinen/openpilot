@@ -15,7 +15,7 @@ class OpenpilotPandaTransport(CanTransport):
   # Keep unrelated vehicle traffic out of the pending queue. TX receipts use
   # the request IDs, while the remaining IDs are the only TRQI responses and
   # application identity frames consumed by this package.
-  RELEVANT_ADDRESSES = {0x60A, 0x639, 0x63A, 0x63B, 0x63C, 0x6A0, 0x6A1}
+  RELEVANT_ADDRESSES = {0x60A, 0x639, 0x63A, 0x63B, 0x63C, 0x6A0, 0x6A1, 0x60B, 0x63D, 0x63E, 0x63F, 0x640, 0x6A2, 0x6A3}
   SENDCAN_READER_TIMEOUT = 2
 
   def __init__(self, *, receipt_timeout: float = 0.75):

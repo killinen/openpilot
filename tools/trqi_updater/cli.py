@@ -9,6 +9,7 @@ from pathlib import Path
 from openpilot.tools.trqi_updater import UPDATER_VERSION
 from openpilot.tools.trqi_updater.constants import (DEFAULT_FRAME_PACING, DEFAULT_PANDA_BUS, DEFAULT_PUBLIC_KEY,
                                                     DEFAULT_TEST_PUBLIC_KEY, SLOT_A, SLOT_B, SLOT_NAMES)
+from openpilot.tools.trqi_updater.constants import TARGETS
 from openpilot.tools.trqi_updater.errors import (BootloaderIncompatible, ExitCode, TrqiNotDetected, TrqiUpdaterError,
                                       ReleaseVerificationError, RollbackOccurred, TrialFailure)
 from openpilot.tools.trqi_updater.manifest import Manifest, Version, load_public_key, load_verified_artifacts
@@ -16,7 +17,7 @@ from openpilot.tools.trqi_updater.openpilot_transport import OpenpilotPandaTrans
 from openpilot.tools.trqi_updater.output import Reporter
 from openpilot.tools.trqi_updater.release import (ArtifactCache, GitHubReleaseClient, ReleaseCandidate,
                                                   verify_release_signature)
-from openpilot.tools.trqi_updater.safety import OpenpilotSafetyGate
+from openpilot.tools.trqi_updater.safety import HrrSafetyGate, OpenpilotSafetyGate
 from openpilot.tools.trqi_updater.state import StateStore
 from openpilot.tools.trqi_updater.updater import TrqiUpdater
 
@@ -41,10 +42,10 @@ def _set_runtime_status(message: str, *, pending: bool | None = None) -> None:
 
 
 def _new_runtime(args: argparse.Namespace, reporter: Reporter):
-  safety = OpenpilotSafetyGate(args.bus)
+  safety = HrrSafetyGate(args.bus) if args.target == "hrr" else OpenpilotSafetyGate(args.bus)
   transport = OpenpilotPandaTransport()
   return transport, safety, TrqiUpdater(transport, safety, args.bus, reporter,
-                                      chunk_size=args.chunk_size, frame_pacing=args.frame_pacing)
+                                      chunk_size=args.chunk_size, frame_pacing=args.frame_pacing, target=TARGETS[args.target])
 
 
 def _version_key(version: Version) -> tuple[int, int, int, int, str]:
@@ -283,7 +284,7 @@ def _flash_local(args: argparse.Namespace, reporter: Reporter, *, recover: bool 
       raise ReleaseVerificationError(f"unknown active trust profile: {trust_profile}")
   if manifest_path is None or image_path is None:
     raise ValueError("--manifest and --image are required")
-  manifest, image = load_verified_artifacts(manifest_path, image_path, args.public_key)
+  manifest, image = load_verified_artifacts(manifest_path, image_path, args.public_key, TARGETS[args.target])
   if args.dry_run:
     reporter.event("dry-run", f"verified local slot {SLOT_NAMES[manifest.slot]} candidate; no CAN sent")
     return ExitCode.OK
@@ -318,6 +319,7 @@ def _status(args: argparse.Namespace, reporter: Reporter) -> int:
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
+  parser.add_argument("--target", choices=tuple(TARGETS), default="trqi", help="MCU to address on the shared CAN bus")
   parser.add_argument("--bus", type=int, default=DEFAULT_PANDA_BUS, help="Panda/openpilot bus number")
   parser.add_argument("--public-key", type=Path, default=DEFAULT_PUBLIC_KEY)
   parser.add_argument("--test-firmware", action="store_true",
@@ -397,6 +399,11 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main_owned(argv: list[str] | None = None) -> int:
   args = build_parser().parse_args(argv)
+  if args.target == "hrr":
+    if args.command not in ("info", "status", "flash", "recover"):
+      raise SystemExit("HRR currently supports only local info, status, flash and recover")
+    if args.data_dir is None:
+      args.data_dir = "/data/hrr_updater"
   if args.test_firmware:
     if args.command not in ("flash", "recover", "stage-local"):
       raise SystemExit("--test-firmware is local-only and cannot be used for GitHub, automatic, or status commands")

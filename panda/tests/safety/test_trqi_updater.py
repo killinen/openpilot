@@ -31,7 +31,9 @@ class TestTrqiUpdaterSafety(unittest.TestCase):
   def test_only_exact_ids_bus_and_length(self):
     self.assertTrue(self.tx(0x60A, enter_boot()))
     self.assertTrue(self.tx(0x6A0, bytes.fromhex("0122000000000000")))
-    self.assertFalse(self.tx(0x60B, enter_boot()))
+    self.assertTrue(self.tx(0x60B, enter_boot()))
+    self.assertTrue(self.tx(0x6A2, bytes.fromhex("0122000000000000")))
+    self.assertFalse(self.tx(0x60C, enter_boot()))
     self.assertFalse(self.tx(0x60A, enter_boot(), bus=2))
     self.assertFalse(self.tx(0x60A, enter_boot()[:-1]))
 
@@ -41,6 +43,7 @@ class TestTrqiUpdaterSafety(unittest.TestCase):
       corrupt = valid.copy()
       corrupt[index] ^= 1
       self.assertFalse(self.tx(0x60A, bytes(corrupt)))
+      self.assertFalse(self.tx(0x60B, bytes(corrupt)))
     self.assertFalse(self.tx(0x60A, enter_boot(0)))
 
   def test_isotp_pci_validation(self):

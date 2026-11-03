@@ -5,8 +5,9 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
-from openpilot.tools.trqi_updater.constants import (DEFAULT_FRAME_PACING, FLAG_UPDATE_SUPPORT, PRODUCT_ID,
+from openpilot.tools.trqi_updater.constants import (DEFAULT_FRAME_PACING, FLAG_UPDATE_SUPPORT,
                                          SLOT_A, SLOT_B, SLOT_NAMES)
+from openpilot.tools.trqi_updater.constants import TRQI_TARGET, TargetProfile
 from openpilot.tools.trqi_updater.errors import (BootloaderIncompatible, BootloaderRefused, CandidateAuthenticationError,
                                       TrqiNotDetected, RollbackOccurred, TrialFailure, TransportError, TransportTimeout,
                                       UnsafeStateError)
@@ -42,18 +43,20 @@ class UpdateResult:
 
 class TrqiUpdater:
   def __init__(self, transport: CanTransport, safety: SafetyGate, bus: int, reporter: Reporter | None = None,
-               *, chunk_size: int = 128, frame_pacing: float = DEFAULT_FRAME_PACING):
+               *, chunk_size: int = 128, frame_pacing: float = DEFAULT_FRAME_PACING,
+               target: TargetProfile = TRQI_TARGET):
     if bus < 0:
       raise ValueError("Panda bus must be nonnegative")
     self.transport = transport
     self.safety = safety
     self.bus = bus
     self.reporter = reporter or Reporter(plain=True)
-    self.requested_chunk_size = chunk_size
-    self.protocol = TrqiProtocol(transport, bus, frame_pacing=frame_pacing)
+    self.target = target
+    self.requested_chunk_size = target.chunk_size if target.name == "hrr" else chunk_size
+    self.protocol = TrqiProtocol(transport, bus, frame_pacing=frame_pacing, target=target)
 
   def read_application(self, timeout: float = 1.5) -> AppInfo | None:
-    collector = AppInfoCollector(self.bus)
+    collector = AppInfoCollector(self.bus, self.target)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
       frame = self.transport.recv(max(0.0, deadline - time.monotonic()))
@@ -76,7 +79,7 @@ class TrqiUpdater:
     self.reporter.event(Stage.DISCOVER.value, f"listening on Panda bus {self.bus}")
     app = self.read_application()
     if app is not None:
-      if app.product_id != PRODUCT_ID:
+      if app.product_id != self.target.product_id:
         raise TrqiNotDetected(f"unexpected product ID 0x{app.product_id:08x}")
       self.reporter.event(Stage.DISCOVER.value,
                           f"TRQI v{app.version}, slot {SLOT_NAMES.get(app.active_slot, '?')}, " +
@@ -116,7 +119,7 @@ class TrqiUpdater:
       raise BootloaderIncompatible(
         f"firmware requires bootloader >= {(required >> 16) & 0xff}.{(required >> 8) & 0xff}.{required & 0xff}; " +
         f"installed {(info.bootloader_version >> 16) & 0xff}.{(info.bootloader_version >> 8) & 0xff}.{info.bootloader_version & 0xff}")
-    if manifest.image_size > 0x30000 or manifest.image_size < 8:
+    if manifest.image_size > self.target.slot_size or manifest.image_size < 8:
       raise CandidateAuthenticationError("candidate image size is outside an application slot")
     if previous is not None:
       expected_target = self._normal_target(previous)
@@ -139,6 +142,8 @@ class TrqiUpdater:
   def _transfer(self, manifest: Manifest, image: bytes, token: int, sequence: int,
                 max_chunk: int, *, offset: int = 0, initial_retries: int = 0,
                 initial_timeouts: int = 0) -> tuple[int, int, int]:
+    if self.target.name == "hrr" and max_chunk < self.target.chunk_size:
+      raise BootloaderIncompatible("SAMC21 requires 256-byte data chunks")
     chunk_size = min(max_chunk, max(8, self.requested_chunk_size))
     chunk_size -= chunk_size % 8
     retries = initial_retries
@@ -211,6 +216,8 @@ class TrqiUpdater:
 
   def flash(self, manifest: Manifest, image: bytes, *, no_reset: bool = False,
             recover: bool = False) -> UpdateResult | None:
+    if manifest.product_id != self.target.product_id:
+      raise CandidateAuthenticationError("manifest product does not match selected target")
     self.reporter.event(Stage.VERIFY_LOCAL.value,
                         f"signed TRQI v{manifest.version}, slot {SLOT_NAMES[manifest.slot]}, " +
                         f"security {manifest.security_version}", target_slot=SLOT_NAMES[manifest.slot],

@@ -5,11 +5,9 @@ import struct
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 
-from openpilot.tools.trqi_updater.constants import (APP_INFO0_ID, APP_INFO1_ID, APP_INFO2_ID, APP_INFO3_ID,
-                                         BOOT_REQUEST_ID, BOOT_RESPONSE_ID, ENTER_BOOT_ID,
-                                         FLAG_CONFIRMED, FLAG_TRIAL, FLAG_UPDATE_SUPPORT, PRODUCT_ID,
-                                         SLOT_A, SLOT_NONE, SVC_ABORT, SVC_DATA, SVC_FINISH,
-                                         SVC_GET_INFO, SVC_RESET, SVC_START, SVC_STATUS)
+from openpilot.tools.trqi_updater.constants import (FLAG_CONFIRMED, FLAG_TRIAL, FLAG_UPDATE_SUPPORT, SLOT_A,
+                                                    SLOT_NONE, SVC_ABORT, SVC_DATA, SVC_FINISH, SVC_GET_INFO,
+                                                    SVC_RESET, SVC_START, SVC_STATUS, TRQI_TARGET, TargetProfile)
 from openpilot.tools.trqi_updater.manifest import Manifest, Version
 from openpilot.tools.trqi_updater.protocol import UpdateState
 from openpilot.tools.trqi_updater.transport import CanFrame, CanTransport
@@ -34,8 +32,9 @@ class FakeTrqiTransport(CanTransport):
 
   def __init__(self, bus: int = 1, *, active_slot: int = SLOT_A,
                version: Version | None = None, bootloader_version: int = 0x00010100,
-               recovery: bool = False, faults: FakeFaults | None = None):
+               recovery: bool = False, faults: FakeFaults | None = None, target: TargetProfile = TRQI_TARGET):
     self.bus = bus
+    self.target = target
     self.mode = "boot" if recovery else "app"
     self.active_slot = active_slot
     self.confirmed_slot = SLOT_NONE if recovery and active_slot == SLOT_NONE else active_slot
@@ -63,21 +62,21 @@ class FakeTrqiTransport(CanTransport):
 
   def _queue_app(self, *, trial: bool = False) -> None:
     flags = (FLAG_TRIAL if trial else FLAG_CONFIRMED) | FLAG_UPDATE_SUPPORT
-    self._queue(APP_INFO0_ID, bytes((1,)) + PRODUCT_ID.to_bytes(4, "little") +
+    self._queue(self.target.info_ids[0], bytes((1,)) + self.target.product_id.to_bytes(4, "little") +
                 bytes((self.version.major, self.version.minor, self.version.patch)))
-    self._queue(APP_INFO1_ID, bytes(((self.bootloader_version >> 16) & 0xFF,
+    self._queue(self.target.info_ids[1], bytes(((self.bootloader_version >> 16) & 0xFF,
                                     self.active_slot, flags, 1)) +
                 self.build_identity.to_bytes(4, "little"))
-    self._queue(APP_INFO2_ID, self.bootloader_version.to_bytes(4, "little") +
+    self._queue(self.target.info_ids[2], self.bootloader_version.to_bytes(4, "little") +
                 self.security_version.to_bytes(4, "little"))
-    self._queue(APP_INFO3_ID, bytes(8))
+    self._queue(self.target.info_ids[3], bytes(8))
 
   def _single(self, payload: bytes, service: int) -> None:
     if self.faults.corrupt_next_response[service]:
       self.faults.corrupt_next_response[service] -= 1
-      self._queue(BOOT_RESPONSE_ID, b"\x30\0\0")
+      self._queue(self.target.response_id, b"\x30\0\0")
     else:
-      self._queue(BOOT_RESPONSE_ID, bytes((len(payload),)) + payload)
+      self._queue(self.target.response_id, bytes((len(payload),)) + payload)
 
   def _status_base(self, service: int) -> bytes:
     return bytes((service | 0x40, int(self.state), self.error, self.confirmed_slot)) + self.offset.to_bytes(3, "little")
@@ -86,16 +85,16 @@ class FakeTrqiTransport(CanTransport):
     service = payload[0]
     if self.faults.reject_next_request[service]:
       self.faults.reject_next_request[service] -= 1
-      self._queue(BOOT_RESPONSE_ID, b"\x30\0\0")
+      self._queue(self.target.response_id, b"\x30\0\0")
       return
     if service == SVC_GET_INFO:
       page = payload[1] if len(payload) > 1 else 0
       if page == 0:
         response = bytes((service | 0x40, 1, 1, 1, self.confirmed_slot, SLOT_NONE, 0))
       elif page == 1:
-        response = bytes((service | 0x40, 1)) + PRODUCT_ID.to_bytes(4, "little") + bytes((0x20,))
+        response = bytes((service | 0x40, 1)) + self.target.product_id.to_bytes(4, "little") + bytes((0x10 if self.target.name == "hrr" else 0x20,))
       else:
-        response = bytes((service | 0x40, 2)) + self.bootloader_version.to_bytes(4, "little") + bytes((64,))
+        response = bytes((service | 0x40, 2)) + self.bootloader_version.to_bytes(4, "little") + bytes((self.target.chunk_size // 8 if self.target.name == "hrr" else 64,))
       self._single(response, service)
     elif service == SVC_STATUS:
       page = payload[1] if len(payload) > 1 else 0
@@ -108,7 +107,7 @@ class FakeTrqiTransport(CanTransport):
       self._single(response, service)
     elif service == SVC_START:
       token, sequence = struct.unpack_from("<IH", payload, 1)
-      candidate = Manifest.parse(payload[7:])
+      candidate = Manifest.parse(payload[7:], self.target)
       if (token == self.token and
           self.manifest is not None and candidate.raw == self.manifest.raw):
         self.error = 0
@@ -179,11 +178,11 @@ class FakeTrqiTransport(CanTransport):
   def send(self, address: int, data: bytes, bus: int) -> None:
     if self.closed or bus != self.bus or len(data) != 8:
       raise ValueError("invalid fake CAN send")
-    if address == ENTER_BOOT_ID and self.mode == "app":
+    if address == self.target.enter_id and self.mode == "app":
       self.mode = "boot"
       self.rx.clear()
       return
-    if address != BOOT_REQUEST_ID or self.mode != "boot":
+    if address != self.target.request_id or self.mode != "boot":
       return
     pci = data[0] >> 4
     if pci == 0:
@@ -192,7 +191,7 @@ class FakeTrqiTransport(CanTransport):
       self.isotp_expected = ((data[0] & 0xF) << 8) | data[1]
       self.isotp_payload = bytearray(data[2:8])
       self.isotp_sequence = 1
-      self._queue(BOOT_RESPONSE_ID, b"\x30\0\0")
+      self._queue(self.target.response_id, b"\x30\0\0")
     elif pci == 2 and (data[0] & 0xF) == self.isotp_sequence:
       needed = self.isotp_expected - len(self.isotp_payload)
       self.isotp_payload.extend(data[1:1 + min(7, needed)])

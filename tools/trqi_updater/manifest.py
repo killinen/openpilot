@@ -6,8 +6,8 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
-from openpilot.tools.trqi_updater.constants import (BOOT_BASE, BOOT_END, MANIFEST_FORMAT_VERSION, MANIFEST_MAGIC,
-                                         PRODUCT_ID, SIGNATURE_ED25519, SLOT_BASES, SLOT_SIZE)
+from openpilot.tools.trqi_updater.constants import (MANIFEST_FORMAT_VERSION, MANIFEST_MAGIC, SIGNATURE_ED25519,
+                                                    TARGETS, TRQI_TARGET, TargetProfile)
 from openpilot.tools.trqi_updater.errors import ImageVerificationError
 
 PREFIX = struct.Struct("<IHHIBBHIIIHHHHII20s32s")
@@ -64,7 +64,7 @@ class Manifest:
     return self.image_sha256.hex()
 
   @classmethod
-  def parse(cls, raw: bytes) -> Manifest:
+  def parse(cls, raw: bytes, target: TargetProfile = TRQI_TARGET) -> Manifest:
     if len(raw) != FULL.size:
       raise ImageVerificationError(f"manifest must be {FULL.size} bytes, got {len(raw)}")
     values = FULL.unpack(raw)
@@ -78,16 +78,16 @@ class Manifest:
       raise ImageVerificationError("manifest is not signed with Ed25519")
     if (binascii.crc32(raw[:-4]) & 0xFFFFFFFF) != crc32:
       raise ImageVerificationError("manifest CRC32 mismatch")
-    if product_id != PRODUCT_ID:
+    if product_id != target.product_id:
       raise ImageVerificationError(f"wrong product ID 0x{product_id:08x}")
-    if slot not in SLOT_BASES:
+    if slot not in target.slot_bases:
       raise ImageVerificationError("manifest does not target an application slot")
-    if BOOT_BASE <= load_address < BOOT_END:
+    if target.boot_base <= load_address < target.boot_end:
       raise ImageVerificationError("bootloader artifacts are service-only")
-    if load_address != SLOT_BASES[slot] or not 8 <= image_size <= SLOT_SIZE:
+    if load_address != target.slot_bases[slot] or not 8 <= image_size <= target.slot_size:
       raise ImageVerificationError("manifest slot range is invalid")
     image_end = load_address + image_size
-    if image_end > load_address + SLOT_SIZE:
+    if image_end > load_address + target.slot_size:
       raise ImageVerificationError("manifest image exceeds slot")
     if not (entry_address & 1) or not load_address <= (entry_address & ~1) < image_end:
       raise ImageVerificationError("manifest entry address is invalid")
@@ -103,7 +103,8 @@ class Manifest:
     if hashlib.sha256(image).digest() != self.image_sha256:
       raise ImageVerificationError("image SHA-256 mismatch")
     stack_pointer, reset_handler = struct.unpack_from("<II", image)
-    if not (0x20000000 <= stack_pointer <= 0x20020000 and stack_pointer % 8 == 0):
+    target = next((p for p in TARGETS.values() if p.product_id == self.product_id), None)
+    if target is None or not (0x20000000 <= stack_pointer <= target.ram_end and stack_pointer % 8 == 0):
       raise ImageVerificationError("image initial stack pointer is invalid")
     if reset_handler != self.entry_address:
       raise ImageVerificationError("image reset vector does not match manifest")
@@ -129,8 +130,8 @@ def load_public_key(path: Path) -> bytes:
   return key
 
 
-def load_verified_artifacts(manifest_path: Path, image_path: Path, public_key_path: Path) -> tuple[Manifest, bytes]:
-  manifest = Manifest.parse(manifest_path.read_bytes())
+def load_verified_artifacts(manifest_path: Path, image_path: Path, public_key_path: Path, target: TargetProfile = TRQI_TARGET) -> tuple[Manifest, bytes]:
+  manifest = Manifest.parse(manifest_path.read_bytes(), target)
   image = image_path.read_bytes()
   manifest.verify(image, load_public_key(public_key_path))
   return manifest, image

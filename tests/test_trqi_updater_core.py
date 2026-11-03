@@ -568,3 +568,54 @@ class TestPersistentPolicy(Assertions):
       pending = store.pending()
       self.assertEqual(pending["trust_profile"], "test")
       self.assertTrue(pending["force_install"])
+
+
+def test_hrr_target_identity_and_full_update():
+  from openpilot.tools.trqi_updater.constants import HRR_TARGET
+  base = HRR_TARGET.slot_bases[SLOT_B]
+  image = struct.pack("<II", 0x20007f00, base + 0x101) + bytes(i & 0xff for i in range(760))
+  prefix = PREFIX.pack(0x4D515254, 1, FULL.size, HRR_TARGET.product_id, SLOT_B, 1, 0, base,
+                       base + 0x101, len(image), 0, 1, 0, 0, 2, 0x10000,
+                       bytes.fromhex("0123456789abcdef0123456789abcdef01234567"), hashlib.sha256(image).digest())
+  signed = prefix + PRIVATE.sign(prefix)
+  raw = signed + struct.pack("<I", binascii.crc32(signed) & 0xffffffff)
+  with pytest.raises(ImageVerificationError):
+    Manifest.parse(raw)  # TRQI remains the default and rejects HRR images.
+  manifest = Manifest.parse(raw, HRR_TARGET)
+  manifest.verify(image, PUBLIC)
+  transport = FakeTrqiTransport(target=HRR_TARGET, bootloader_version=0x10000)
+  runner = TrqiUpdater(transport, FakeSafetyGate(), 1, Reporter(plain=True, stream=io.StringIO()),
+                       frame_pacing=0, target=HRR_TARGET)
+  result = runner.flash(manifest, image)
+  assert result is not None and result.installed.confirmed and result.target_slot == SLOT_B
+  assert transport.offset == len(image)
+
+
+def test_hrr_and_trqi_info_collectors_ignore_other_device():
+  from openpilot.tools.trqi_updater.constants import HRR_TARGET
+  collector = AppInfoCollector(1, HRR_TARGET)
+  assert collector.add(CanFrame(APP_INFO0_ID, bytes(8), 1)) is None
+  assert not collector.frames
+
+
+def test_hrr_gate_refuses_trqi_preflight_and_ignition():
+  from types import SimpleNamespace
+  from openpilot.tools.trqi_updater.safety import HrrSafetyGate
+  class Params:
+    flags: dict[str, bool] = {}
+    def get_bool(self, name):
+      return self.flags.get(name, False)
+  gate = HrrSafetyGate.__new__(HrrSafetyGate)
+  gate.params = Params()
+  gate.in_progress = False
+  panda = SimpleNamespace(ignitionLine=False, ignitionCan=False)
+  gate._panda = lambda: panda
+  gate._check_hrr_preconditions()
+  for key in ("TrqiUpdatePending", "TrqiUpdateStartupHold", "TrqiUpdateInProgress"):
+    gate.params.flags = {key: True}
+    with pytest.raises(UnsafeStateError):
+      gate._check_hrr_preconditions()
+  gate.params.flags = {}
+  panda.ignitionLine = True
+  with pytest.raises(UnsafeStateError):
+    gate._check_hrr_preconditions()

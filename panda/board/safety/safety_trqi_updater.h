@@ -7,10 +7,14 @@
 #define TRQI_UPDATER_BUS 1
 #define TRQI_ENTER_BOOT_ADDR 0x60AU
 #define TRQI_BOOT_REQUEST_ADDR 0x6A0U
+#define HRR_ENTER_BOOT_ADDR 0x60BU
+#define HRR_BOOT_REQUEST_ADDR 0x6A2U
 
 const CanMsg TRQI_UPDATER_TX_MSGS[] = {
   {TRQI_ENTER_BOOT_ADDR, TRQI_UPDATER_BUS, 8},
   {TRQI_BOOT_REQUEST_ADDR, TRQI_UPDATER_BUS, 8},
+  {HRR_ENTER_BOOT_ADDR, TRQI_UPDATER_BUS, 8},
+  {HRR_BOOT_REQUEST_ADDR, TRQI_UPDATER_BUS, 8},
 };
 
 static uint8_t trqi_updater_crc8_poly07(const CANPacket_t *msg, int length) {
@@ -37,14 +41,14 @@ static bool trqi_updater_tx_hook(const CANPacket_t *to_send) {
   const int length = (int)GET_LEN(to_send);
   bool valid = (bus == TRQI_UPDATER_BUS) && (length == 8);
 
-  if (valid && (addr == TRQI_ENTER_BOOT_ADDR)) {
+  if (valid && ((addr == TRQI_ENTER_BOOT_ADDR) || (addr == HRR_ENTER_BOOT_ADDR))) {
     const uint32_t nonce = GET_BYTES(to_send, 2, 4);
     valid = (GET_BYTE(to_send, 0) == 0xB0U) &&
             (GET_BYTE(to_send, 1) == 1U) &&
             (nonce != 0U) &&
             (GET_BYTE(to_send, 6) == 0xA5U) &&
             (trqi_updater_crc8_poly07(to_send, 7) == GET_BYTE(to_send, 7));
-  } else if (valid && (addr == TRQI_BOOT_REQUEST_ADDR)) {
+  } else if (valid && ((addr == TRQI_BOOT_REQUEST_ADDR) || (addr == HRR_BOOT_REQUEST_ADDR))) {
     const uint8_t pci_type = GET_BYTE(to_send, 0) >> 4U;
     const uint8_t sf_length = GET_BYTE(to_send, 0) & 0x0FU;
     const uint16_t ff_length = ((uint16_t)sf_length << 8U) | GET_BYTE(to_send, 1);

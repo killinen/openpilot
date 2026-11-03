@@ -7,11 +7,9 @@ import time
 from dataclasses import dataclass
 from enum import IntEnum
 
-from openpilot.tools.trqi_updater.constants import (APP_INFO0_ID, APP_INFO1_ID, APP_INFO2_ID, APP_INFO3_ID,
-                                         BOOT_REQUEST_ID, BOOT_RESPONSE_ID, DEFAULT_FRAME_PACING,
-                                         ENTER_BOOT_ID, FLAG_CONFIRMED, FLAG_TRIAL, PROTOCOL_VERSION,
-                                         SLOT_NONE, SVC_ABORT, SVC_DATA, SVC_FINISH, SVC_GET_INFO,
-                                         SVC_RESET, SVC_START, SVC_STATUS)
+from openpilot.tools.trqi_updater.constants import (DEFAULT_FRAME_PACING, FLAG_CONFIRMED, FLAG_TRIAL, PROTOCOL_VERSION,
+                                                    SLOT_NONE, SVC_ABORT, SVC_DATA, SVC_FINISH, SVC_GET_INFO,
+                                                    SVC_RESET, SVC_START, SVC_STATUS, TRQI_TARGET, TargetProfile)
 from openpilot.tools.trqi_updater.errors import BootloaderRefused, TransportError, TransportTimeout
 from openpilot.tools.trqi_updater.manifest import Manifest, Version
 from openpilot.tools.trqi_updater.transport import CanFrame, CanTransport
@@ -109,16 +107,18 @@ def build_enter_bootloader(nonce: int) -> bytes:
 class IsoTpClient:
   """Small request-side ISO-TP implementation with deliberate busy-bus pacing."""
 
-  def __init__(self, transport: CanTransport, bus: int, *, frame_pacing: float = DEFAULT_FRAME_PACING):
+  def __init__(self, transport: CanTransport, bus: int, *, frame_pacing: float = DEFAULT_FRAME_PACING,
+               target: TargetProfile = TRQI_TARGET):
     self.transport = transport
     self.bus = bus
     self.frame_pacing = max(0.0, frame_pacing)
+    self.target = target
 
   def _recv_boot_frame(self, timeout: float) -> CanFrame:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
       frame = self.transport.recv(max(0.0, deadline - time.monotonic()))
-      if frame is not None and frame.src == self.bus and frame.address == BOOT_RESPONSE_ID:
+      if frame is not None and frame.src == self.bus and frame.address == self.target.response_id:
         return frame
     raise TransportTimeout("timeout waiting for TRQI bootloader response")
 
@@ -126,11 +126,11 @@ class IsoTpClient:
     if not 1 <= len(payload) <= 600:
       raise ValueError("ISO-TP payload is outside bootloader limits")
     if len(payload) <= 7:
-      self.transport.send(BOOT_REQUEST_ID, (bytes((len(payload),)) + payload).ljust(8, b"\0"), self.bus)
+      self.transport.send(self.target.request_id, (bytes((len(payload),)) + payload).ljust(8, b"\0"), self.bus)
     else:
       length = len(payload)
       first = bytes((0x10 | ((length >> 8) & 0x0F), length & 0xFF)) + payload[:6]
-      self.transport.send(BOOT_REQUEST_ID, first, self.bus)
+      self.transport.send(self.target.request_id, first, self.bus)
       flow = self._recv_boot_frame(timeout)
       if len(flow.data) < 3 or flow.data[0] != 0x30:
         raise TransportError(f"invalid ISO-TP flow control: {flow.data.hex()}")
@@ -149,7 +149,7 @@ class IsoTpClient:
         frame = (bytes((0x20 | (sequence & 0x0F),)) + payload[offset:offset + 7]).ljust(8, b"\0")
         if pacing:
           time.sleep(pacing)
-        self.transport.send(BOOT_REQUEST_ID, frame, self.bus)
+        self.transport.send(self.target.request_id, frame, self.bus)
         sequence = (sequence + 1) & 0x0F
         sent_in_block += 1
         if block_size and sent_in_block == block_size and offset + 7 < length:
@@ -168,14 +168,16 @@ class IsoTpClient:
 
 
 class TrqiProtocol:
-  def __init__(self, transport: CanTransport, bus: int, *, frame_pacing: float = DEFAULT_FRAME_PACING):
+  def __init__(self, transport: CanTransport, bus: int, *, frame_pacing: float = DEFAULT_FRAME_PACING,
+               target: TargetProfile = TRQI_TARGET):
     self.transport = transport
     self.bus = bus
-    self.isotp = IsoTpClient(transport, bus, frame_pacing=frame_pacing)
+    self.target = target
+    self.isotp = IsoTpClient(transport, bus, frame_pacing=frame_pacing, target=target)
 
   def enter_bootloader(self) -> int:
     nonce = secrets.randbits(32) or 1
-    self.transport.send(ENTER_BOOT_ID, build_enter_bootloader(nonce), self.bus)
+    self.transport.send(self.target.enter_id, build_enter_bootloader(nonce), self.bus)
     return nonce
 
   def _expect(self, service: int, response: bytes) -> bytes:
@@ -236,12 +238,13 @@ class TrqiProtocol:
 
 
 class AppInfoCollector:
-  def __init__(self, bus: int):
+  def __init__(self, bus: int, target: TargetProfile = TRQI_TARGET):
     self.bus = bus
+    self.info_ids = target.info_ids
     self.frames: dict[int, bytes] = {}
 
   def add(self, frame: CanFrame) -> AppInfo | None:
-    if frame.src != self.bus or frame.address not in (APP_INFO0_ID, APP_INFO1_ID, APP_INFO2_ID, APP_INFO3_ID):
+    if frame.src != self.bus or frame.address not in self.info_ids:
       return None
     if len(frame.data) != 8:
       return None
@@ -251,14 +254,14 @@ class AppInfoCollector:
   @property
   def complete(self) -> bool:
     return all(address in self.frames for address in
-               (APP_INFO0_ID, APP_INFO1_ID, APP_INFO2_ID, APP_INFO3_ID))
+               self.info_ids)
 
   def snapshot(self) -> AppInfo | None:
-    if APP_INFO0_ID not in self.frames or APP_INFO1_ID not in self.frames:
+    if self.info_ids[0] not in self.frames or self.info_ids[1] not in self.frames:
       return None
-    info0, info1 = self.frames[APP_INFO0_ID], self.frames[APP_INFO1_ID]
-    info2 = self.frames.get(APP_INFO2_ID)
-    info3 = self.frames.get(APP_INFO3_ID)
+    info0, info1 = self.frames[self.info_ids[0]], self.frames[self.info_ids[1]]
+    info2 = self.frames.get(self.info_ids[2])
+    info3 = self.frames.get(self.info_ids[3])
     bootloader_version = int.from_bytes(info2[:4], "little") if info2 else info1[0] << 16
     security_version = int.from_bytes(info2[4:8], "little") if info2 else None
     last_error = int.from_bytes(info3[:4], "little") if info3 else None

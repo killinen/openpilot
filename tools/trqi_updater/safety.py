@@ -157,3 +157,23 @@ class OpenpilotSafetyGate:
     self.params.put_bool("TrqiUpdaterReady", False)
     self.in_progress = preserve_in_progress
     self.acquired = False
+
+class HrrSafetyGate(OpenpilotSafetyGate):
+  """Manual HRR updates share Panda's lease but cannot consume a TRQI startup hold."""
+
+  def _check_hrr_preconditions(self) -> None:
+    panda = self._panda()
+    if panda.ignitionLine or panda.ignitionCan:
+      raise UnsafeStateError("HRR manual update requires ignition off")
+    if self.params.get_bool("TrqiUpdatePending") or self.params.get_bool("TrqiUpdateStartupHold"):
+      raise UnsafeStateError("a TRQI update is pending or its startup hold is active")
+    if self.params.get_bool("TrqiUpdateInProgress") and not self.in_progress:
+      raise UnsafeStateError("another update is already in progress")
+
+  def check(self) -> None:
+    super().check()
+    self._check_hrr_preconditions()
+
+  def check_during_update(self) -> None:
+    super().check_during_update()
+    self._check_hrr_preconditions()
