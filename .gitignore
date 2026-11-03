@@ -3,6 +3,7 @@ venv/
 .ci_cache
 .codex
 AGENTS.md
+CLAUDE.md
 .env
 .clang-format
 .DS_Store
