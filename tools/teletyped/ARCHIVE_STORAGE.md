@@ -63,9 +63,9 @@ same-job fallback. The sender waits for the verified GCS receipt; a successful L
 transfer stops any unused Wormhole offer. GCS remains required for coordination,
 but successful LAN-only transfers do not require Wormhole rendezvous.
 
-The automatic pipeline allows four active jobs, with at most two packaging jobs
-and two Wormhole sends at once. The additional prepared LAN offers feed the NAS's
-two receiving slots. Inventory scans run in a separate standard-library-only
+The automatic pipeline allows eight active jobs, with at most four packaging jobs
+and four Wormhole sends at once. The additional prepared offers feed the NAS's
+four receiving slots. Inventory scans run in a separate standard-library-only
 Python process so heavy log-analysis threads do not delay those scans.
 
 The Pi retains protected-drive, free-space and checksum checks for both routes.

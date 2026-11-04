@@ -40,8 +40,10 @@ ALLOWED = {
 MAX_BYTES = 4 * 1024**3
 STABLE_SECONDS = 120
 _GUARD = threading.Lock()
-_PREPARE_SLOTS = threading.BoundedSemaphore(2)
-_WORMHOLE_SLOTS = threading.BoundedSemaphore(2)
+# The NAS receives up to 4 at once. Eight jobs keep all 4 busy with 4 more being prepared.
+SENDER_JOBS = 8
+_PREPARE_SLOTS = threading.BoundedSemaphore(4)
+_WORMHOLE_SLOTS = threading.BoundedSemaphore(4)
 CONVERSION_META = ".opnas-rlog-conversion.json"
 
 
@@ -567,8 +569,8 @@ def transfer_job(root, job, client, facts, binary, source, stop):
     temp_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=job["id"] + "-", dir=temp_root) as temporary, ExitStack() as stack:
       archive = Path(temporary) / "segment.zip"
-      # Keep two offers prepared ahead of the NAS's two receiving slots,
-      # while bounding CPU-heavy compression to two workers.
+      # Keep offers prepared ahead of the NAS's receiving slots, while
+      # bounding CPU-heavy compression.
       with _PREPARE_SLOTS:
         manifest = package(root, job, archive, permitted)
       lan_offer = None
@@ -762,7 +764,7 @@ def archive_step(device_id: str, headers: dict) -> None:
       helper.WORMHOLE_BINARY,
       archive_lan,
       threading.Event(),
-      workers=4,
+      workers=SENDER_JOBS,
     )
   finally:
     _GUARD.release()
