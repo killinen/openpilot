@@ -239,7 +239,7 @@ class CarState(CarStateBase):
     self.lkas_previously_enabled = self.lkas_enabled
     self.lkas_enabled = False
 
-    # Read-only observer: neither its feedback nor its availability drives ret.
+    # Its angle and rate replace the path above whenever usable. Otherwise ret keeps that path.
     diagnostic = fp_ret.ls600hAngleShadow
     diagnostic.version = HrrAngleShadow.VERSION
     try:
@@ -265,8 +265,12 @@ class CarState(CarStateBase):
         diagnostic.latActive = shadow_lat_active
         diagnostic.hrrSamples = hrr_samples
         diagnostic.sectorOffsetDeg = result.sector_offset
+        # Fix for HRR firmware v0.1, which can report a valid angle one sector high and whose
+        # dropouts fall back to raw OEM. Revise on HRR v0.2: this may no longer be needed.
+        if result.usable:
+          ret.steeringAngleDeg, ret.steeringRateDeg = result.angle, result.rate
     except Exception:
-      # An experimental observer must not interrupt the existing steering path.
+      # An observer failure must not interrupt steering, so ret keeps the path above.
       self.ls600h_angle_shadow_failed = True
     if self.ls600h_angle_shadow_failed:
       diagnostic.mode, diagnostic.reason = 'unavailable', 'observerError'

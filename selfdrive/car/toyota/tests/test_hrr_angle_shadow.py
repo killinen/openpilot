@@ -224,7 +224,16 @@ def make_state():
   return state, pt, body, hrr
 
 
-def test_shadow_failure_cannot_change_live_carstate():
+def step(state, pt, body, hrr, monkeypatch, i, **status):
+  """Advance one control cycle with a fresh OEM sample and HRR counter."""
+  monkeypatch.setattr('openpilot.selfdrive.car.toyota.carstate.time.monotonic', lambda: i * .01)
+  pt.ts_nanos['STEER_ANGLE_SENSOR']['STEER_ANGLE'] = i + 1
+  hrr.vl['HRR_TrueAngleStatus'].update(True_Angle_Counter=i, **status)
+  hrr.vl_all['HRR_TrueAngleStatus']['True_Angle_Counter'] = [i]
+  return state.update_ls600h(pt, body, hrr, shadow_lat_active=True)
+
+
+def test_observer_failure_keeps_previous_steering_path():
   original, pt, body, hrr = make_state()
   broken, _, _, _ = make_state()
   def fail(*args, **kwargs):
@@ -238,9 +247,22 @@ def test_shadow_failure_cannot_change_live_carstate():
   assert str(fp.ls600hAngleShadow.reason) == 'observerError'
 
 
-def test_proposed_unavailability_only_changes_shadow_message():
+def test_observer_failure_mid_drive_reverts_to_previous_path(monkeypatch):
+  state, pt, body, hrr = make_state()
+  for i in range(10):
+    step(state, pt, body, hrr, monkeypatch, i)
+  def fail(*args, **kwargs):
+    raise RuntimeError('test observer failure')
+  state.ls600h_angle_shadow.update = fail
+  live, fp = step(state, pt, body, hrr, monkeypatch, 10, True_Angle_Valid=0, True_Angle_Resolver_Valid=0)
+  assert live.steeringAngleDeg == 19.5
+  assert str(fp.ls600hAngleShadow.reason) == 'observerError'
+
+
+def test_unusable_keeps_previous_path_without_new_faults():
   state, pt, body, hrr = make_state()
   live, fp = state.update_ls600h(pt, body, hrr, shadow_lat_active=True)
+  assert not fp.ls600hAngleShadow.usable
   assert live.steeringAngleDeg == pytest.approx(12.3)
   assert not live.steerFaultTemporary
   assert fp.ls600hAngleShadow.wouldDisableLateral
@@ -250,22 +272,42 @@ def test_proposed_unavailability_only_changes_shadow_message():
     assert decoded.ls600hAngleShadow.latActive
 
 
-def test_live_fallback_jump_is_logged_but_only_shadow_corrects_it(monkeypatch):
+def test_dropout_uses_aligned_oem_instead_of_raw_oem(monkeypatch):
   state, pt, body, hrr = make_state()
-  status = hrr.vl['HRR_TrueAngleStatus']
   for i in range(25):
-    monkeypatch.setattr('openpilot.selfdrive.car.toyota.carstate.time.monotonic', lambda i=i: i * .01)
-    pt.ts_nanos['STEER_ANGLE_SENSOR']['STEER_ANGLE'] = i + 1
-    status['True_Angle_Counter'] = i
-    hrr.vl_all['HRR_TrueAngleStatus']['True_Angle_Counter'] = [i]
     if i >= 10:
-      status.update(True_Angle_Valid=0, True_Angle_Initialized=0, True_Angle_Wrap_Ambiguous=1)
-    live, fp = state.update_ls600h(pt, body, hrr, shadow_lat_active=i >= 5)
-  assert live.steeringAngleDeg == 19.5
+      hrr.vl['HRR_TrueAngleStatus'].update(True_Angle_Valid=0, True_Angle_Initialized=0, True_Angle_Wrap_Ambiguous=1)
+    live, fp = step(state, pt, body, hrr, monkeypatch, i)
+  assert live.steeringAngleDeg == pytest.approx(12.3)
+  assert live.steeringRateDeg == pytest.approx(state.ls600h_steering_rate.x)
   assert not live.steerFaultTemporary
   assert fp.ls600hAngleShadow.liveAngleDeg == 19.5
-  assert fp.ls600hAngleShadow.angleDeg == pytest.approx(12.3)
   assert str(fp.ls600hAngleShadow.mode) == 'alignedOem'
+
+
+def test_wrong_sector_from_firmware_is_corrected_in_carstate(monkeypatch):
+  state, pt, body, hrr = make_state()
+  for i in range(10):
+    step(state, pt, body, hrr, monkeypatch, i)
+  step(state, pt, body, hrr, monkeypatch, 10, True_Angle_Valid=0, True_Angle_Wrap_Ambiguous=1)
+  hrr.vl['HRR_TrueAngleStatus'].update(True_Angle_Valid=1, True_Angle_Wrap_Ambiguous=0)
+  for i in range(11, 17):
+    live, fp = step(state, pt, body, hrr, monkeypatch, i, True_Steering_Angle=34.8, True_Steering_Rate=4.0)
+  assert str(fp.ls600hAngleShadow.mode) == 'sectorCorrectedHrr'
+  assert live.steeringAngleDeg == pytest.approx(12.3)
+  assert live.steeringRateDeg == pytest.approx(4.0)
+  assert fp.ls600hAngleShadow.liveAngleDeg == pytest.approx(34.8)
+
+
+def test_corrected_output_does_not_feed_previous_path_state(monkeypatch):
+  state, pt, body, hrr = make_state()
+  for i in range(10):
+    step(state, pt, body, hrr, monkeypatch, i)
+  assert state.ls600h_last_valid_hrr_angle == pytest.approx(12.3)
+  step(state, pt, body, hrr, monkeypatch, 10, True_Angle_Valid=0, True_Angle_Wrap_Ambiguous=1)
+  hrr.vl['HRR_TrueAngleStatus'].update(True_Angle_Valid=1, True_Angle_Wrap_Ambiguous=0)
+  step(state, pt, body, hrr, monkeypatch, 11, True_Steering_Angle=34.8)
+  assert state.ls600h_last_valid_hrr_angle == pytest.approx(34.8)
 
 
 def test_export_actual_recorded_ghost_decisions(tmp_path):

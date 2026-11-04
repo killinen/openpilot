@@ -1,13 +1,19 @@
-# LS600h angle shadow (ghost), version 2
+# LS600h angle correction, version 2
 
-This is an experimental observer for the existing HRR firmware. It runs beside
-the current steering-angle selection and publishes diagnostics in
+**This is a fix for HRR firmware v0.1 and must be revised on HRR v0.2.** The
+offset, sector and margins describe v0.1 behavior and its current calibration.
+
+This observer runs on the existing HRR firmware and publishes diagnostics in
 `frogpilotCarState.ls600hAngleShadow` at the normal CarState publication rate.
 
-**It does not change steering feedback, torque, faults, engagement, controller
-trim, learned parameters or firmware. The existing steering defects therefore
-remain present in live control.** Observer exceptions disable only the observer
-and mark `observerError`; they do not interrupt the live CarState path.
+**CarState uses its angle and rate for `steeringAngleDeg` and `steeringRateDeg`
+whenever it is usable.** When it is not usable, or after an observer exception,
+CarState uses the previous HRR/OEM selection, logged as `liveAngleDeg`. It does
+not change torque limits, faults, engagement, firmware or alerts. Being unusable
+never disables lateral, and `wouldDisableLateral` remains a diagnostic only.
+
+Learned parameters now see the corrected angle. The sector correction and bridge
+have limited closed-loop evidence, so review the first engaged drives.
 
 ## The failure it targets
 
@@ -74,9 +80,9 @@ Check that every nonzero sector agrees with yaw, because a wrong sector choice i
 the new failure this policy could introduce. The LS600h driver-steering flag is
 forced false, so it cannot establish whether the driver intervened.
 
-No controller subscribes to this diagnostic. In particular it does not freeze the
-real integrator or parameter learner when the ghost would reject feedback.
-Adding those protections belongs to a separately reviewed active implementation.
+Only CarState reads this result. It does not freeze the real integrator or
+parameter learner while the angle is unusable. Adding that protection needs its
+own review.
 
 ## Recorded-log replay
 
@@ -100,18 +106,18 @@ Old logs contain no shadow publications and yield a zero-sample summary in that
 mode. Counter qualification accounts for multiple HRR frames in a normal CAN
 batch; a skipped/reset sequence requires requalification.
 
-Neither offline replay nor live shadow measures a counterfactual vehicle path.
-The actual vehicle still responds to the old controller. Corrected feedback would
-change future torque, motion, model inputs and subsequent requests; predicting
-that requires additional closed-loop validation.
+Offline replay does not measure a closed-loop vehicle path. Logs recorded before
+this change show the vehicle responding to the old angle. In logs recorded after
+it, `carState.steeringAngleDeg` is the corrected angle, so compare against
+`liveAngleDeg` from `--recorded-shadow`, not the replay's `live_angle_deg` column.
 
-## Checks before any activation
+## Checks
 
 The focused tests cover reference-preserving fallback, sector correction and
 reselection, OEM excursions, offset walks, the envelope, bridge expiry without a
 latch, qualification, repeated/reset/wrapped counters, nonfinite or missing
-inputs, diagnostic serialization and isolation from live CarState even when the
-observer fails. Exercise the same observer on known recorded failures.
-Future activation needs its own tests of actuation, warning timing, takeover,
-learning gates and re-engagement. There is deliberately no activation switch in
-this change.
+inputs, diagnostic serialization, CarState source selection and the fallback to
+the previous path when the observer is unusable or fails.
+
+Disabling lateral when the angle is unusable would need its own tests of warning
+timing, takeover and re-engagement.

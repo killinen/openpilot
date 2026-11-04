@@ -1,7 +1,10 @@
-"""Experimental LS600h angle observer. Its outputs must never drive actuators.
+"""LS600h steering angle correction for HRR firmware v0.1.
 
-All thresholds below are hypotheses for shadow evaluation, not validated
-steering availability limits. The observer neither changes CarState nor tunes.
+This is a fix for HRR v0.1 and must be revised on HRR v0.2. The offset, sector and
+margins below describe v0.1 firmware behavior and its current calibration.
+
+CarState uses this angle whenever it is usable. The thresholds were chosen from
+logs and have limited closed-loop validation. The observer does not tune anything.
 """
 from dataclasses import dataclass
 import math
@@ -28,6 +31,7 @@ class HrrAngleShadow:
   FRESH_SECONDS = 0.05
   BRIDGE_SECONDS = 2.5
   RECOVERY_SAMPLES = 5
+  # HRR v0.1 values: revise these on HRR v0.2 or after any recalibration.
   # Measured HRR minus OEM angle near center. Logs do not support it beyond the envelope.
   NOMINAL_OFFSET_DEG = -7.2
   ENVELOPE_DEG = 60.0
