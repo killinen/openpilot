@@ -39,6 +39,7 @@ class LatControlTorque(LatControl):
     self.torque_params = CP.lateralTuning.torque
     self.torque_from_lateral_accel = CI.torque_from_lateral_accel()
     self.lateral_accel_from_torque = CI.lateral_accel_from_torque()
+    self.torque_feedforward_scale = CI.get_torque_feedforward_scale
     self.pid = PIDController([INTERP_SPEEDS, KP_INTERP], KI, KD, rate=1/self.dt)
     self.update_limits()
     self.steering_angle_deadzone_deg = self.torque_params.steeringAngleDeadzoneDeg
@@ -89,6 +90,8 @@ class LatControlTorque(LatControl):
       ff = gravity_adjusted_future_lateral_accel
       # latAccelOffset corrects roll compensation bias from device roll misalignment relative to car roll
       ff -= self.torque_params.latAccelOffset
+      # Scale kinematic feedforward before adding friction.
+      ff *= self.torque_feedforward_scale(CS.vEgo)
       # TODO jerk is weighted by lat_delay for legacy reasons, but should be made independent of it
       friction_scale = min(1.0, (FRICTION_SPEED_REF / max(CS.vEgo, FRICTION_SPEED_REF)) ** FRICTION_SPEED_EXP)
       ff += get_friction(error, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params, friction_scale)

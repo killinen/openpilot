@@ -2,6 +2,7 @@ from math import fabs
 
 from cereal import car
 from panda import Panda
+from openpilot.common.numpy_fast import interp
 from openpilot.selfdrive.car import create_button_events, get_safety_config
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.car.i30.values import Buttons, CarControllerParams, I30SteeringCommandMode, TrqiSteerLimitParams, i30_uses_trqi_steering
@@ -14,6 +15,10 @@ BUTTONS_DICT = {Buttons.RES_ACCEL: ButtonType.accelCruise, Buttons.SET_DECEL: Bu
 
 
 class CarInterface(CarInterfaceBase):
+  def get_torque_feedforward_scale(self, v_ego: float) -> float:
+    # Breakpoints in m/s correspond to 0, 36, 72, 90, ~100, and 144 km/h.
+    return float(interp(v_ego, [0.0, 10.0, 20.0, 25.0, 27.8, 40.0], [1.08, 1.08, 1.08, 1.08, 1.0, 1.0]))
+
   @staticmethod
   def get_steer_max(CP) -> float:
     if CP.steeringMode == I30SteeringCommandMode.TRQI_TQ_DELTA:
