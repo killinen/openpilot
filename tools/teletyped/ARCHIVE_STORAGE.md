@@ -46,11 +46,18 @@ served. Up to two connections are allowed, reads and TLS handshakes have timeout
 and service/key cleanup happens when the job ends. Onroad/network transitions
 stop direct serving.
 
-A Wormhole offer is prepared at the same time. If the local endpoint is not
-reachable, its identity does not match, or transfer is interrupted, the receiver
-uses Wormhole for that same job. After a successful local transfer the sender
-polls GCS for the verified receipt and stops the unused Wormhole process. GCS
-and Wormhole rendezvous are required even for local jobs in this version.
+When both GCS and OP-NAS support LAN-only offers, the sender publishes the local
+offer immediately and starts Wormhole only if the receiver requests fallback for
+that same job. Older peers still receive a Wormhole offer alongside the local
+offer. An unreachable endpoint, identity mismatch or interrupted download triggers
+same-job fallback. The sender waits for the verified GCS receipt; a successful LAN
+transfer stops any unused Wormhole offer. GCS remains required for coordination,
+but successful LAN-only transfers do not require Wormhole rendezvous.
+
+The automatic pipeline allows eight active jobs, with at most four packaging jobs
+and four Wormhole sends at once. The additional prepared offers feed the NAS's
+four receiving slots. Inventory scans run in a separate standard-library-only
+Python process so heavy log-analysis threads do not delay those scans.
 
 The Pi retains protected-drive, free-space and checksum checks for both routes.
 Interrupted direct downloads are discarded and restarted through Wormhole rather
