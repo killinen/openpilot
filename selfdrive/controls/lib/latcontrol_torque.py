@@ -4,7 +4,6 @@ from collections import deque
 
 from cereal import log
 from openpilot.common.filter_simple import FirstOrderFilter
-from openpilot.selfdrive.car.interfaces import FRICTION_THRESHOLD
 from openpilot.selfdrive.controls.lib.drive_helpers import get_friction
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.pid import PIDController
@@ -40,6 +39,8 @@ class LatControlTorque(LatControl):
     self.torque_from_lateral_accel = CI.torque_from_lateral_accel()
     self.lateral_accel_from_torque = CI.lateral_accel_from_torque()
     self.torque_feedforward_scale = CI.get_torque_feedforward_scale
+    self.friction_threshold = CI.get_torque_friction_threshold()
+    self.setpoint_filter = FirstOrderFilter(0.0, CI.get_torque_setpoint_filter_tau(), self.dt)
     self.pid = PIDController([INTERP_SPEEDS, KP_INTERP], KI, KD, rate=1/self.dt)
     self.update_limits()
     self.steering_angle_deadzone_deg = self.torque_params.steeringAngleDeadzoneDeg
@@ -64,6 +65,8 @@ class LatControlTorque(LatControl):
     if not active:
       output_torque = 0.0
       pid_log.active = False
+      # desired_curvature tracks the current curvature while inactive, so engaging starts without a step.
+      self.setpoint_filter.x = desired_curvature * CS.vEgo ** 2
     else:
       measured_curvature = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
@@ -73,7 +76,7 @@ class LatControlTorque(LatControl):
       delay_frames = int(np.clip(lat_delay / self.dt, 1, self.lat_accel_request_buffer_len))
       expected_lateral_accel = self.lat_accel_request_buffer[-delay_frames]
       # TODO factor out lateral jerk from error to later replace it with delay independent alternative
-      future_desired_lateral_accel = desired_curvature * CS.vEgo ** 2
+      future_desired_lateral_accel = self.setpoint_filter.update(desired_curvature * CS.vEgo ** 2)
       self.lat_accel_request_buffer.append(future_desired_lateral_accel)
       gravity_adjusted_future_lateral_accel = future_desired_lateral_accel - roll_compensation
       desired_lateral_jerk = (future_desired_lateral_accel - expected_lateral_accel) / lat_delay
@@ -94,7 +97,7 @@ class LatControlTorque(LatControl):
       ff *= self.torque_feedforward_scale(CS.vEgo)
       # TODO jerk is weighted by lat_delay for legacy reasons, but should be made independent of it
       friction_scale = min(1.0, (FRICTION_SPEED_REF / max(CS.vEgo, FRICTION_SPEED_REF)) ** FRICTION_SPEED_EXP)
-      ff += get_friction(error, lateral_accel_deadzone, FRICTION_THRESHOLD, self.torque_params, friction_scale)
+      ff += get_friction(error, lateral_accel_deadzone, self.friction_threshold, self.torque_params, friction_scale)
 
       freeze_integrator = steer_limited_by_safety or CS.steeringPressed or CS.vEgo < 5
       output_lataccel = self.pid.update(pid_log.error,

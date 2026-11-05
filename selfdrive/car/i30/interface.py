@@ -12,12 +12,23 @@ EventName = car.CarEvent.EventName
 ENABLE_BUTTONS = (Buttons.RES_ACCEL, Buttons.SET_DECEL, Buttons.CANCEL)
 BUTTONS_DICT = {Buttons.RES_ACCEL: ButtonType.accelCruise, Buttons.SET_DECEL: ButtonType.decelCruise,
                 Buttons.GAP_DIST: ButtonType.gapAdjustCruise, Buttons.CANCEL: ButtonType.cancel}
+TRQI_FRICTION_THRESHOLD = 0.6  # m/s^2
+TRQI_SETPOINT_FILTER_TAU = 0.05  # s
 
 
 class CarInterface(CarInterfaceBase):
   def get_torque_feedforward_scale(self, v_ego: float) -> float:
     # Breakpoints in m/s correspond to 0, 36, 72, 90, ~100, and 144 km/h.
     return float(interp(v_ego, [0.0, 10.0, 20.0, 25.0, 27.8, 40.0], [1.08, 1.08, 1.08, 1.08, 1.0, 1.0]))
+
+  def get_torque_friction_threshold(self) -> float:
+    # With SteerFriction 0.14 this keeps the near-zero-error gain of 0.07 at 0.3,
+    # adding friction torque only for errors above 0.3 m/s^2 (curve-exit sticking).
+    return TRQI_FRICTION_THRESHOLD if i30_uses_trqi_steering() else super().get_torque_friction_threshold()
+
+  def get_torque_setpoint_filter_tau(self) -> float:
+    # Smooths the 20 Hz model steps before P and feedforward amplify them.
+    return TRQI_SETPOINT_FILTER_TAU if i30_uses_trqi_steering() else super().get_torque_setpoint_filter_tau()
 
   @staticmethod
   def get_steer_max(CP) -> float:
