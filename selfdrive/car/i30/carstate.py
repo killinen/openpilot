@@ -140,6 +140,10 @@ class CarState(CarStateBase):
       # steeringTorqueEps for measured MDPS output torque so controls can report
       # TRQI output-torque saturation through the standard steerSaturated event.
       ret.steeringTorqueEps = self.steering_torque_out
+      # CR_Mdps_StrTq is negative for driver torque to the left; openpilot expects
+      # positive left. While engaged it mostly reflects TRQI's own injected torque,
+      # so only treat it as driver torque while steeringPressed is set.
+      ret.steeringTorque = -ret.steeringTorque
       self.trqi_immediate_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["Immediate_Disengage_Error"])
       self.trqi_non_immediate_disengage_error = bool(cp_cam.vl["TRQI_FaultStatus"]["NonImmediate_Disengage_Error"])
       self.trqi_non_immediate_disengage_pending = bool(cp_cam.vl["TRQI_FaultStatus"]["NonImmediate_Disengage_Pending"])
