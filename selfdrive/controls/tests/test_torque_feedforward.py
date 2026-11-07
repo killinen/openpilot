@@ -32,10 +32,9 @@ def controller(fingerprint=CAR.TOYOTA_PRIUS):
   return LatControlTorque(cp, ci, .01)
 
 
-@pytest.mark.parametrize('speed_kph,scale', [(0, 1), (30, 1), (40, 1), (45, 1.125), (50, 1.25),
-                                            (60, 1.25), (70, 1.25), (80, 1.25), (90, 1.25), (100, 1.25),
-                                            (110, 1.25), (120, 1.25), (130, 1.25), (135, 1.125),
-                                            (140, 1), (150, 1), (160, 1)])
+@pytest.mark.parametrize('speed_kph,scale', [(0, 1), (30, 1), (35, 1.075), (40, 1.15), (45, 1.3), (50, 1.45),
+                                            (60, 1.45), (90, 1.45), (130, 1.45), (140, 1.45), (150, 1.45),
+                                            (200, 1.45)])
 def test_hrr_feedforward_speed_schedule(speed_kph, scale):
   c = controller(CAR.LEXUS_LS600h)
   assert c.torque_feedforward_scale(speed_kph / 3.6) == pytest.approx(scale)
@@ -47,8 +46,13 @@ def test_feedforward_schedule_preserves_other_cars(speed_kph):
   assert c.torque_feedforward_scale(speed_kph / 3.6) == 1.0
 
 
+def test_hrr_uses_raised_integral_gain():
+  assert controller(CAR.LEXUS_LS600h).pid.k_i == pytest.approx(0.45)
+  assert controller().pid.k_i == pytest.approx(0.3)
+
+
 @pytest.mark.parametrize('direction', [-1, 1])
-@pytest.mark.parametrize('speed_kph', [40, 45, 50, 60, 70, 80, 90, 110, 120, 130, 135, 140])
+@pytest.mark.parametrize('speed_kph', [35, 40, 45, 50, 60, 70, 80, 90, 110, 120, 130, 140, 160])
 def test_hrr_scale_changes_only_kinematic_feedforward(direction, speed_kph):
   speed = speed_kph / 3.6
   cs, params, llk = inputs(speed=speed, yaw=direction * .1 / speed)
@@ -56,6 +60,8 @@ def test_hrr_scale_changes_only_kinematic_feedforward(direction, speed_kph):
   baseline = controller()
   hrr = controller(CAR.LEXUS_LS600h)
   target = direction * .2
+  # Same Ki on both so this compares only the feedforward scale.
+  hrr.pid._k_i = baseline.pid._k_i
   for c in (baseline, hrr):
     c.pid._k_p = [[0], [.85]]
     c.torque_params.friction = .07
@@ -74,7 +80,7 @@ def test_hrr_scale_changes_only_kinematic_feedforward(direction, speed_kph):
 
 
 @pytest.mark.parametrize('direction', [-1, 1])
-@pytest.mark.parametrize('speed_kph', [60, 90, 130, 135])
+@pytest.mark.parametrize('speed_kph', [40, 60, 90, 130, 160])
 def test_hrr_feedforward_preserves_controller_authority(direction, speed_kph):
   speed = speed_kph / 3.6
   cs, params, llk = inputs(speed=speed)

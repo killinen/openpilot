@@ -17,11 +17,19 @@ SteerControlType = car.CarParams.SteerControlType
 class CarInterface(CarInterfaceBase):
   def get_torque_feedforward_scale(self, v_ego: float) -> float:
     if self.CP.carFingerprint in HRR_CAR:
-      # Temporary motion-response compensation supported by fault-excluded
-      # 50-130 km/h logs. Taper outside that range to avoid command steps.
-      # Remove this scale when validated HRR firmware owns the correction.
-      return float(interp(v_ego * 3.6, [40.0, 50.0, 130.0, 140.0], [1.0, 1.25, 1.25, 1.0]))
+      # Temporary motion-response compensation for HRR v0.1. Logged steady curves at
+      # 50-200 km/h needed about 1.2-1.4x the 1.25 scale, most above 130 km/h, so the
+      # scale is held at high speed. Below 40 km/h there is almost no engaged data,
+      # so it tapers to 1.0 at 30 km/h. Remove when validated HRR firmware owns this.
+      return float(interp(v_ego * 3.6, [30.0, 40.0, 50.0], [1.0, 1.15, 1.45]))
     return super().get_torque_feedforward_scale(v_ego)
+
+  def get_torque_ki(self) -> float | None:
+    if self.CP.carFingerprint in HRR_CAR:
+      # Steady curves lagged the setpoint by 22-26% with Ki 0.3. Ki averages measurement
+      # noise, unlike friction or Kp, which raised jitter most at motorway speed.
+      return 0.45
+    return super().get_torque_ki()
 
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):

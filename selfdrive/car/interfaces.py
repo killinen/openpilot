@@ -258,6 +258,10 @@ class CarInterfaceBase(ABC):
   def get_torque_feedforward_scale(self, v_ego: float) -> float:
     return 1.0
 
+  def get_torque_ki(self) -> float | None:
+    """Car-specific torque controller integral gain, or None for the controller default."""
+    return None
+
   def torque_from_lateral_accel_linear(self, lateral_acceleration: float, torque_params: car.CarParams.LateralTorqueTuning) -> float:
     # The default is a linear relationship between torque and lateral acceleration (accounting for road roll and steering friction)
     return lateral_acceleration / float(torque_params.latAccelFactor)
