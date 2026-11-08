@@ -40,8 +40,11 @@ ALLOWED = {
 MAX_BYTES = 4 * 1024**3
 STABLE_SECONDS = 120
 _GUARD = threading.Lock()
-_PREPARE_SLOTS = threading.BoundedSemaphore(2)
-_WORMHOLE_SLOTS = threading.BoundedSemaphore(2)
+_FAILURE_LOG_LOCK = threading.Lock()
+# The NAS receives up to 4 at once. Eight jobs keep all 4 busy with 4 more being prepared.
+SENDER_JOBS = 8
+_PREPARE_SLOTS = threading.BoundedSemaphore(4)
+_WORMHOLE_SLOTS = threading.BoundedSemaphore(4)
 CONVERSION_META = ".opnas-rlog-conversion.json"
 
 
@@ -469,7 +472,8 @@ def send_archive(
         announce(match[1].decode())
         announced = True
     if process.returncode or not announced:
-      raise ValueError("Wormhole sender failed")
+      tail = pending.decode("utf-8", "replace").strip().splitlines()[-2:]
+      raise ValueError("Wormhole sender failed (exit " + str(process.returncode) + ("): " + " | ".join(tail) if tail else ")"))
   finally:
     if process.poll() is None:
       process.terminate()
@@ -560,6 +564,7 @@ def transfer_job(root, job, client, facts, binary, source, stop):
     return cached
 
   path_base = "/jobs/" + job["id"]
+  stage = "preparing"
   try:
     if not permitted():
       raise ValueError("Upload conditions are not satisfied")
@@ -567,8 +572,8 @@ def transfer_job(root, job, client, facts, binary, source, stop):
     temp_root.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=job["id"] + "-", dir=temp_root) as temporary, ExitStack() as stack:
       archive = Path(temporary) / "segment.zip"
-      # Keep two offers prepared ahead of the NAS's two receiving slots,
-      # while bounding CPU-heavy compression to two workers.
+      # Keep offers prepared ahead of the NAS's receiving slots, while
+      # bounding CPU-heavy compression.
       with _PREPARE_SLOTS:
         manifest = package(root, job, archive, permitted)
       lan_offer = None
@@ -585,12 +590,25 @@ def transfer_job(root, job, client, facts, binary, source, stop):
         pass
 
       def announce(code):
-        if not permitted():
-          raise ValueError("Upload conditions changed")
-        client.post(
-          path_base + "/offer",
-          {"wormhole_code": code, "files": manifest, "lan_offer": lan_offer},
-        )
+        import requests
+
+        offer = {"wormhole_code": code, "files": manifest, "lan_offer": lan_offer}
+        for attempt in range(3):
+          if not permitted():
+            raise ValueError("Upload conditions changed")
+          try:
+            client.post(path_base + "/offer", offer)
+            return
+          except (requests.ConnectionError, requests.Timeout):
+            # A slow GCS may still have recorded the offer.
+            try:
+              if client.get(path_base).get("status") in {"offered", "receiving"}:
+                return
+            except requests.RequestException:
+              pass
+            if attempt == 2:
+              raise
+            stop.wait(1)
 
       last_status = 0.0
       status = {}
@@ -602,7 +620,8 @@ def transfer_job(root, job, client, facts, binary, source, stop):
 
           try:
             status = client.get(path_base)
-          except (requests.ConnectionError, requests.Timeout):
+          except (requests.RequestException, ValueError):
+            # A slow or erroring status poll must not abort a live send.
             pass
           last_status = time.monotonic()
         if status.get("status") in {"failed", "cancelled"}:
@@ -622,6 +641,7 @@ def transfer_job(root, job, client, facts, binary, source, stop):
           stop.wait(0.25)
         else:
           raise ValueError("Direct transfer stopped or timed out")
+      stage = "sending"
       with _WORMHOLE_SLOTS:
         send_archive(
           binary,
@@ -633,21 +653,66 @@ def transfer_job(root, job, client, facts, binary, source, stop):
         )
       # A successful Wormhole byte transfer still needs its verified receipt
       # before the same device starts enough work to exceed its slot limit.
+      stage = "awaiting_receipt"
       deadline = time.monotonic() + 120
       while permitted() and time.monotonic() < deadline:
         if receipt():
           return True
         stop.wait(0.25)
       raise ValueError("Verified receipt was not confirmed")
-  except Exception:
+  except Exception as exc:
+    reason = failure_reason(exc)
+    record_failure(root, job, stage, reason)
     try:
       client.post(
         path_base + "/failed",
-        {"detail": "Sender stopped or transfer failed; source recordings retained"},
+        {
+          "detail": ("Sender failed while " + stage + ": " + reason)[:240],
+          # Only an interrupted byte stream lets GCS stop the receiver early.
+          "sender_stopped": stage == "sending",
+        },
       )
     except Exception:
       pass
     return False
+
+
+FAILURE_LOG_LINES = 300
+
+
+def failure_reason(exc):
+  text = str(exc).strip()
+  return type(exc).__name__ + (": " + text[:200] if text else "")
+
+
+def record_failure(root, job, stage, reason):
+  """Keep a bounded local record; this sender has no other log."""
+  # Concurrent jobs share one log and temporary file.
+  with _FAILURE_LOG_LOCK:
+    _record_failure(root, job, stage, reason)
+
+
+def _record_failure(root, job, stage, reason):
+  try:
+    path = Path(root).parent / ".opnas-sender-failures.jsonl"
+    lines = path.read_text().splitlines()[-(FAILURE_LOG_LINES - 1) :] if path.exists() else []
+    lines.append(
+      json.dumps(
+        {
+          "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+          "job_id": job.get("id"),
+          "segment": job.get("segment"),
+          "stage": stage,
+          "reason": reason,
+        },
+        sort_keys=True,
+      )
+    )
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text("\n".join(lines) + "\n")
+    os.replace(temporary, path)
+  except OSError:
+    pass
 
 
 def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2):
@@ -762,7 +827,7 @@ def archive_step(device_id: str, headers: dict) -> None:
       helper.WORMHOLE_BINARY,
       archive_lan,
       threading.Event(),
-      workers=4,
+      workers=SENDER_JOBS,
     )
   finally:
     _GUARD.release()

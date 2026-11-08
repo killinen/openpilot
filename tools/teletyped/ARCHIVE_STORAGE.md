@@ -63,10 +63,17 @@ same-job fallback. The sender waits for the verified GCS receipt; a successful L
 transfer stops any unused Wormhole offer. GCS remains required for coordination,
 but successful LAN-only transfers do not require Wormhole rendezvous.
 
-The automatic pipeline allows four active jobs, with at most two packaging jobs
-and two Wormhole sends at once. The additional prepared LAN offers feed the NAS's
-two receiving slots. Inventory scans run in a separate standard-library-only
+The automatic pipeline allows eight active jobs, with at most four packaging jobs
+and four Wormhole sends at once. The additional prepared offers feed the NAS's
+four receiving slots. Inventory scans run in a separate standard-library-only
 Python process so heavy log-analysis threads do not delay those scans.
+
+Offer announcements retry transient connection errors and timeouts, checking
+whether GCS already accepted the offer before retrying. Failed status polls leave
+active sends running until a verified receipt, explicit cancellation or transfer
+deadline. Failures report the preparation/sending/receipt stage to GCS and retain
+the latest 300 records in `.opnas-sender-failures.jsonl` beside the realdata
+directory. Wormhole failures include the exit status and last two output lines.
 
 The Pi retains protected-drive, free-space and checksum checks for both routes.
 Interrupted direct downloads are discarded and restarted through Wormhole rather
@@ -74,10 +81,10 @@ than resumed. Different routed subnets, VPNs and isolated guest networks fall ba
 
 Hardware-independent checks:
 
-    python -m pytest -c /dev/null --confcutdir=tools/teletyped/tests tools/teletyped/tests/test_archive_lan.py
+    python -m pytest -c /dev/null --confcutdir=tools/teletyped/tests tools/teletyped/tests/test_archive_lan.py tools/teletyped/tests/test_archive_sender.py
 
 Cross-repository TLS, fallback and manifest contract tests live in
 `../OP-NAS/tests/test_lan_transfer.py` and `test_gcs_integration.py`.
-The prepared copies in `../OP-NAS/device/` must retain the same behavior. The
-LS600h extension list keeps `openpilot.tools.teletyped.telemetry:telemetry_step`;
-the updater branch uses `openpilot.tools.vehicle_telemetry.worker:telemetry_step`.
+The prepared copies in `../OP-NAS/device/` must retain the same behavior. This
+checkout keeps the optional telemetry worker at
+`openpilot.tools.teletyped.telemetry:telemetry_step`.
