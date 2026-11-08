@@ -4106,6 +4106,14 @@ Developer - Highly customizable settings for seasoned swamp pros</translation>
         <source>Unable to map "%1" to a valid fingerprint.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Motorhome SSC Steering Output</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable steering-motor commands and require SSC feedback. Leave OFF to test cruise and steering engagement without an SSC connected. Change while offroad, then restart the device. Calibrate the installed actuator before enabling output.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>FrogPilotVisualsPanel</name>

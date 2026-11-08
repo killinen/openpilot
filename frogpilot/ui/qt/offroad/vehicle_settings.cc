@@ -135,6 +135,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
         selectModelButton->setValue(tr("SELECT"));
         forceFingerprint->refresh();
       }
+      updateToggles();
     }
   });
   settingsList->addItem(selectMakeButton);
@@ -169,6 +170,13 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 
   forceFingerprint = new ParamControl("ForceFingerprint", tr("Disable Automatic Fingerprint Detection"), tr("<b>Force the selected fingerprint</b> and prevent it from ever changing."), "");
   settingsList->addItem(forceFingerprint);
+
+  motorhomeSSC = new ParamControl("MotorhomeSSCEnabled", tr("Motorhome SSC Steering Output"),
+    tr("Enable steering-motor commands and require SSC feedback. Leave OFF to test cruise and steering engagement without an SSC connected. Change while offroad, then restart the device. Calibrate the installed actuator before enabling output."), "");
+  QObject::connect(motorhomeSSC, &ToggleControl::toggleFlipped, [this](bool) {
+    this->parent->updateVariables();
+  });
+  settingsList->addItem(motorhomeSSC);
 
   disableOpenpilotLong = new ParamControl("DisableOpenpilotLongitudinal", tr("Disable openpilot Longitudinal Control"), tr("<b>Disable openpilot longitudinal</b> and use the car's stock ACC instead."), "");
   QObject::connect(disableOpenpilotLong, &ToggleControl::toggleFlipped, [parent, this](bool state) {
@@ -376,6 +384,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 }
 
 void FrogPilotVehiclesPanel::showEvent(QShowEvent *event) {
+  started = uiState()->scene.started;
   if (forceOpenDescriptions) {
     disableOpenpilotLong->showDescription();
     forceFingerprint->showDescription();
@@ -405,9 +414,12 @@ void FrogPilotVehiclesPanel::updateState(const UIState &s) {
   }
 
   started = s.scene.started;
+  motorhomeSSC->setEnabled(!started);
 }
 
 void FrogPilotVehiclesPanel::updateToggles() {
+  motorhomeSSC->setVisible(QString::fromStdString(params.get("CarMake")).trimmed().compare("Motorhome", Qt::CaseInsensitive) == 0);
+  motorhomeSSC->setEnabled(!started);
   for (auto &[key, toggle] : toggles) {
     if (parentKeys.contains(key)) {
       toggle->setVisible(false);

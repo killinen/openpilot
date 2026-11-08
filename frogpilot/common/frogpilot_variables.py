@@ -51,6 +51,7 @@ _DEFAULT_TOGGLE_VALUES = {
   "always_on_lateral_lkas": False,
   "always_on_lateral_main": False,
   "always_on_lateral_pause_speed": 0,
+  "motorhome_ssc_enabled": False,
   "use_lkas_for_aol": False,
   "frogs_go_moo": False,
   "conditional_experimental_mode": False,
@@ -242,6 +243,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int, str]] = [
   ("AlwaysOnLateral", "1", 0, "0"),
   ("AlwaysOnLateralLKAS", "1", 2, "0"),
   ("AlwaysOnLateralMain", "1", 2, "0"),
+  ("MotorhomeSSCEnabled", "0", 0, "0"),
   ("AMapKey1", "", 0, ""),
   ("AMapKey2", "", 0, ""),
   ("AutomaticallyDownloadModels", "1", 1, "0"),
@@ -633,6 +635,7 @@ class FrogPilotVariables:
     toggle.debug_mode = params.get_bool("DebugMode")
     toggle.force_offroad = params_memory.get_bool("ForceOffroad")
     toggle.force_onroad = params_memory.get_bool("ForceOnroad")
+    toggle.motorhome_ssc_enabled = params.get_bool("MotorhomeSSCEnabled")
 
     tuning_level = params.get_int("TuningLevel") if params.get_bool("TuningLevelConfirmed") else 3
 

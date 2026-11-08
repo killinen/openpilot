@@ -59,13 +59,16 @@ BO_ 419361024 CCVS_00: 8 ENGINE
  SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
  SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
  SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
- SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
- SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ CRUISE_CONTROL_SET_SWITCH : 32|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_COAST_SWITCH : 34|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_RESUME_SWITCH : 36|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ACCELERATE_SWITCH : 38|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 40|8@1+ (1,0) [0|250] "kph" XXX
  SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
 CM_ BO_ 419361024 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x00. Observed at approximately 5.94 Hz.";
 CM_ SG_ 419361024 WHEEL_BASED_VEHICLE_SPEED "SPN 84, wheel-based vehicle speed.";
 CM_ SG_ 419361024 CRUISE_CONTROL_SET_SPEED "SPN 86, cruise-control set speed.";
-CM_ SG_ 419361024 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 0/off in this route while this source reported brake/clutch as not available.";
+CM_ SG_ 419361024 CRUISE_CONTROL_ACTIVE "SPN 595, engine cruise active. Route 00000010--1412ebded8 contains five engagement/disengagement pairs while source 0x17 cruise master remains on.";
 CM_ SG_ 419361024 BRAKE_SWITCH "SPN 597, brake switch. J1939 2-bit state: 0 = off, 1 = on, 2 = error, 3 = not available.";
 
 BO_ 419361047 CCVS_17: 8 CCVS17
@@ -74,13 +77,16 @@ BO_ 419361047 CCVS_17: 8 CCVS17
  SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
  SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
  SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
- SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
- SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ CRUISE_CONTROL_SET_SWITCH : 32|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_COAST_SWITCH : 34|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_RESUME_SWITCH : 36|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ACCELERATE_SWITCH : 38|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 40|8@1+ (1,0) [0|250] "kph" XXX
  SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
-CM_ BO_ 419361047 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x17. Observed at approximately 5.68 Hz; this source carried cruise set-speed values up to 85 kph in the scanned route.";
+CM_ BO_ 419361047 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x17. Carries master, brake and SET/COAST/RESUME/ACCEL inputs at approximately 10 Hz in route 00000010--1412ebded8.";
 CM_ SG_ 419361047 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 3/not available in this route.";
-CM_ SG_ 419361047 CRUISE_CONTROL_ENABLE_SWITCH "SPN 596, cruise control enable switch. In this route it was 1/on only when CRUISE_CONTROL_SET_SPEED was 85 kph, making it the best candidate cruise-state signal so far.";
-CM_ SG_ 419361047 CRUISE_CONTROL_SET_SPEED "SPN 86, cruise-control set speed. Observed 85 kph for 31 frames and 0 otherwise in this route.";
+CM_ SG_ 419361047 CRUISE_CONTROL_ENABLE_SWITCH "SPN 596, cruise master. Remains on across brake-induced cruise disengagement and RESUME. End-of-session frames with all four cruise switches asserted must not authorize steering.";
+CM_ SG_ 419361047 CRUISE_CONTROL_SET_SPEED "SPN 86, byte 6; not supplied by this source. Byte 5 is the cruise switch bitfield, not a set speed.";
 CM_ SG_ 419361047 BRAKE_SWITCH "SPN 597, brake switch. J1939 2-bit state: 0 = off, 1 = on, 2 = error, 3 = not available.";
 
 BO_ 419361057 CCVS_21: 8 CCVS21
@@ -89,8 +95,11 @@ BO_ 419361057 CCVS_21: 8 CCVS21
  SG_ CRUISE_CONTROL_ENABLE_SWITCH : 26|2@1+ (1,0) [0|3] "" XXX
  SG_ BRAKE_SWITCH : 28|2@1+ (1,0) [0|3] "" XXX
  SG_ CLUTCH_SWITCH : 30|2@1+ (1,0) [0|3] "" XXX
- SG_ CRUISE_CONTROL_SET_SPEED : 32|8@1+ (1,0) [0|250] "kph" XXX
- SG_ CCVS_SWITCHES_2 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ CRUISE_CONTROL_SET_SWITCH : 32|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_COAST_SWITCH : 34|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_RESUME_SWITCH : 36|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_ACCELERATE_SWITCH : 38|2@1+ (1,0) [0|3] "" XXX
+ SG_ CRUISE_CONTROL_SET_SPEED : 40|8@1+ (1,0) [0|250] "kph" XXX
  SG_ PTO_SET_SPEED : 48|16@1+ (0.125,0) [0|8031.875] "rpm" XXX
 CM_ BO_ 419361057 "PGN 65265 / 0xFEF1, Cruise Control/Vehicle Speed, source address 0x21. Observed at approximately 10.00 Hz.";
 CM_ SG_ 419361057 CRUISE_CONTROL_ACTIVE "SPN 595, cruise control active. Observed always 3/not available in this route.";
@@ -446,18 +455,7 @@ BO_ 418382091 EBC1_0B: 8 XXX
  SG_ EBC1_0B_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
 CM_ BO_ 418382091 "Raw J1939 message from CAN0 log. PGN 0x0F001, source address 0x0B, global, observed 5018 frames at approximately 5.66 Hz.";
 
-BO_ 217055747 ETC2_03: 8 XXX
- SG_ ETC2_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_3 : 24|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
- SG_ ETC2_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
-CM_ BO_ 217055747 "Raw J1939 message from CAN0 log. PGN 0x0F002, source address 0x03, global, observed 50505 frames at approximately 56.98 Hz.";
-
-BO_ 418383107 ETC1_03: 8 XXX
+BO_ 217055747 ETC1_03: 8 XXX
  SG_ ETC1_03_BYTE_0 : 0|8@1+ (1,0) [0|255] "" XXX
  SG_ ETC1_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
  SG_ ETC1_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
@@ -466,6 +464,17 @@ BO_ 418383107 ETC1_03: 8 XXX
  SG_ ETC1_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
  SG_ ETC1_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
  SG_ ETC1_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
+CM_ BO_ 217055747 "Raw J1939 message from CAN0 log. PGN 0x0F002, source address 0x03, global, observed 50505 frames at approximately 56.98 Hz.";
+
+BO_ 418383107 ETC2_03: 8 XXX
+ SG_ TRANSMISSION_SELECTED_GEAR : 0|8@1+ (1,-125) [-125|130] "" XXX
+ SG_ ETC2_03_BYTE_1 : 8|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_2 : 16|8@1+ (1,0) [0|255] "" XXX
+ SG_ TRANSMISSION_CURRENT_GEAR : 24|8@1+ (1,-125) [-125|130] "" XXX
+ SG_ ETC2_03_BYTE_4 : 32|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_5 : 40|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_6 : 48|8@1+ (1,0) [0|255] "" XXX
+ SG_ ETC2_03_BYTE_7 : 56|8@1+ (1,0) [0|255] "" XXX
 CM_ BO_ 418383107 "Raw J1939 message from CAN0 log. PGN 0x0F005, source address 0x03, global, observed 5051 frames at approximately 5.70 Hz.";
 
 BO_ 284166120 VDC1_E8: 8 XXX

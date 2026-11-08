@@ -4,6 +4,7 @@ from cereal import car
 from openpilot.selfdrive.car import get_safety_config
 from openpilot.selfdrive.car.i30.values import CarControllerParams
 from openpilot.selfdrive.car.interfaces import CarInterfaceBase
+from openpilot.selfdrive.car.motorhome.values import MotorhomeFlags
 
 
 class CarInterface(CarInterfaceBase):
@@ -25,7 +26,9 @@ class CarInterface(CarInterfaceBase):
   @staticmethod
   def _get_params(ret, candidate, fingerprint, car_fw, experimental_long, docs, frogpilot_toggles):
     ret.carName = "motorhome"
-    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.motorhome)]
+    if getattr(frogpilot_toggles, "motorhome_ssc_enabled", False):
+      ret.flags |= int(MotorhomeFlags.SSC_ENABLED)
+    ret.safetyConfigs = [get_safety_config(car.CarParams.SafetyModel.motorhome, int(ret.flags & MotorhomeFlags.SSC_ENABLED))]
     ret.radarUnavailable = True
 
     ret.openpilotLongitudinalControl = False
