@@ -619,3 +619,59 @@ def test_hrr_gate_refuses_trqi_preflight_and_ignition():
   panda.ignitionLine = True
   with pytest.raises(UnsafeStateError):
     gate._check_hrr_preconditions()
+
+
+class TestDiagnosticLog:
+  def test_events_progress_and_exceptions_are_persisted(self):
+    with tempfile.TemporaryDirectory() as directory:
+      log_path = Path(directory) / "logs" / "trqi_updater.log"
+      reporter = Reporter(plain=True, stream=io.StringIO(), log_path=log_path)
+      reporter.event("transfer", "uploading", target_slot="A")
+      reporter.progress(128, 1024, retries=0, timeouts=0, chunk_size=128, elapsed=1.0)
+      reporter.progress(256, 1024, retries=0, timeouts=0, chunk_size=128, elapsed=2.0)
+      reporter.progress(264, 1024, retries=1, timeouts=1, chunk_size=128, elapsed=3.0)  # retry change is logged
+      try:
+        raise RuntimeError("panda went silent")
+      except RuntimeError as exc:
+        reporter.log_exception("auto", exc)
+      text = log_path.read_text()
+      assert "uploading [target_slot=A]" in text
+      assert "durable=128/1024" in text and "durable=264/1024" in text and "retries=1 timeouts=1" in text
+      assert "exception RuntimeError: panda went silent" in text and "Traceback" in text
+      assert all(" boot=" in line and " mono=" in line for line in text.splitlines())
+
+  def test_log_rotates_and_never_raises(self):
+    with tempfile.TemporaryDirectory() as directory:
+      log_path = Path(directory) / "trqi_updater.log"
+      reporter = Reporter(plain=True, stream=io.StringIO(), log_path=log_path, log_max_bytes=200)
+      for i in range(20):
+        reporter.log(f"line {i}")
+      assert log_path.with_name("trqi_updater.previous.log").exists()
+      assert log_path.stat().st_size < 400
+      Reporter(plain=True, stream=io.StringIO(), log_path=Path(directory) / "file" / "x").log("ok")
+      (Path(directory) / "blocker").write_text("")
+      Reporter(plain=True, stream=io.StringIO(), log_path=Path(directory) / "blocker" / "x.log").log("ignored")
+
+  def test_events_and_failures_mirror_to_cloudlog(self, monkeypatch):
+    import sys
+    import types
+    calls = []
+    fake = types.ModuleType("openpilot.common.swaglog")
+    fake.cloudlog = types.SimpleNamespace(event=lambda name, **kw: calls.append((name, kw)))
+    monkeypatch.setitem(sys.modules, "openpilot.common.swaglog", fake)
+    reporter = Reporter(plain=True, stream=io.StringIO(), cloudlog_events=True)
+    reporter.event("transfer", "uploading", target_slot="A", path=Path("/x"))
+    reporter.progress(128, 1024, retries=0, timeouts=0, chunk_size=128, elapsed=1.0)
+    try:
+      raise RuntimeError("boom")
+    except RuntimeError as exc:
+      reporter.log_exception("auto", exc)
+    assert [name for name, _ in calls] == ["trqi_updater", "trqi_updater"]
+    assert calls[0][1]["stage"] == "transfer" and calls[0][1]["path"] == "/x" and not calls[0][1]["error"]
+    assert calls[1][1]["error"] and calls[1][1]["exception"] == "RuntimeError" and "Traceback" in calls[1][1]["traceback"]
+    Reporter(plain=True, stream=io.StringIO()).event("quiet", "not mirrored")
+    assert len(calls) == 2
+
+  def test_flash_ecc_error_name(self):
+    from openpilot.tools.trqi_updater.protocol import BootStatus
+    assert BootStatus(UpdateState.FAILED, 24, 2, 0).error_name == "FLASH_ECC"

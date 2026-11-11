@@ -5,8 +5,19 @@ import os
 import shutil
 import sys
 import time
+import traceback
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+LOG_MAX_BYTES = 1_000_000
+
+
+def _boot_id() -> str:
+  try:
+    return Path("/proc/sys/kernel/random/boot_id").read_text().strip()[:8]
+  except OSError:
+    return "unknown"
 
 
 @dataclass
@@ -20,6 +31,53 @@ class Reporter:
   trust_profile: str = "production"
   last_param_publish: float = 0.0
   context: dict[str, Any] = field(default_factory=dict)
+  # Persistent diagnostic log. The daemon's stdout is not captured by
+  # manager/swaglog, so without this an interrupted update leaves no trace.
+  log_path: Path | str | None = None
+  log_max_bytes: int = LOG_MAX_BYTES
+  last_logged_bucket: int = -1
+  last_logged_retries: tuple[int, int] = (0, 0)
+  # Also mirror events and failures (not per-chunk progress) to cloudlog so
+  # they sit beside pandad/hardwared in swaglog. The file above stays the
+  # durable record; swaglog files are small, shared and rotated.
+  cloudlog_events: bool = False
+
+  def _cloudlog(self, level: str, **fields: Any) -> None:
+    if not self.cloudlog_events:
+      return
+    try:
+      from openpilot.common.swaglog import cloudlog
+      safe = {key: (value if isinstance(value, (bool, int, float, str)) or value is None else str(value))
+              for key, value in fields.items()}
+      cloudlog.event("trqi_updater", error=(level == "error"), **safe)
+    except Exception:
+      pass
+
+  def log(self, line: str) -> None:
+    """Append one line; never raises. Wall clock may be unsynced early after
+    boot, so each line also carries boot id and monotonic seconds."""
+    if self.log_path is None:
+      return
+    try:
+      path = Path(self.log_path)
+      path.parent.mkdir(parents=True, exist_ok=True)
+      if path.exists() and path.stat().st_size > self.log_max_bytes:
+        os.replace(path, path.with_name(f"{path.stem}.previous{path.suffix}"))
+      stamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+      with open(path, "a", encoding="utf-8") as handle:
+        handle.write(f"{stamp} boot={_boot_id()} mono={time.monotonic():.1f} pid={os.getpid()} {line}\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    except Exception:
+      pass
+
+  def log_exception(self, stage: str, exc: BaseException) -> None:
+    self.log(f"{stage:<18} exception {type(exc).__name__}: {exc}")
+    self._cloudlog("error", stage=stage, exception=type(exc).__name__, message=str(exc),
+                   traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__))[-4000:])
+    for text in traceback.format_exception(type(exc), exc, exc.__traceback__):
+      for item in text.rstrip().splitlines():
+        self.log(f"{stage:<18}   {item}")
 
   def _publish(self, payload: dict[str, Any], *, force: bool = False) -> None:
     if not self.publish_params:
@@ -47,6 +105,9 @@ class Reporter:
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     self.context.update(fields)
     self._publish({**self.context, "stage": stage, "message": message}, force=True)
+    details = " ".join(f"{key}={value}" for key, value in sorted(fields.items()))
+    self.log(f"{stage:<18} {message}" + (f" [{details}]" if details else ""))
+    self._cloudlog("info", stage=stage, message=message, trust=self.trust_profile, **fields)
     if self.json_output:
       print(json.dumps({"timestamp": timestamp, "stage": stage, "message": message, **fields},
                        sort_keys=True), file=sys.stdout, flush=True)
@@ -63,6 +124,13 @@ class Reporter:
                        "retries": retries, "timeouts": timeouts, "chunk_size": chunk_size,
                        "throughput_kib_s": round(throughput, 2), "ack_age_ms": round(ack_age * 1000)}
     self._publish(progress_fields, force=durable == total)
+    bucket = int(percent) // 5
+    if bucket != self.last_logged_bucket or (retries, timeouts) != self.last_logged_retries or durable == total:
+      self.last_logged_bucket = bucket
+      self.last_logged_retries = (retries, timeouts)
+      self.log(f"{'transfer':<18} durable={durable}/{total} {percent:.1f}% retries={retries} " +
+               f"timeouts={timeouts} chunk={chunk_size} ack_age_ms={round(ack_age * 1000)} " +
+               f"kib_s={throughput:.2f}")
     if self.json_output:
       self.event("transfer", "durable progress", durable_offset=durable, total=total,
                  percent=round(percent, 2), retries=retries, timeouts=timeouts, chunk_size=chunk_size,

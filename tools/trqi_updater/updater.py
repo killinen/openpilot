@@ -382,8 +382,8 @@ class TrqiUpdater:
           self.protocol.reset()
           if self.read_application(timeout=5.0) is not None:
             release_lease = True
-        except Exception:
-          pass
+        except Exception as cleanup_exc:
+          self.reporter.event("cleanup", f"abort/reset after failure did not complete: {cleanup_exc}")
       raise
     except Exception:
       if not entered_bootloader:
@@ -395,8 +395,8 @@ class TrqiUpdater:
           self.protocol.reset()
           if self.read_application(timeout=5.0) is not None:
             release_lease = True
-        except Exception:
-          pass
+        except Exception as cleanup_exc:
+          self.reporter.event("cleanup", f"abort/reset after failure did not complete: {cleanup_exc}")
       raise
     finally:
       if release_lease:

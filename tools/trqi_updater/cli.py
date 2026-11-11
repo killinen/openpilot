@@ -26,6 +26,10 @@ def _data_root(value: str | None) -> Path:
   return Path(value if value is not None else os.getenv("TRQI_UPDATER_DATA_DIR", "/data/trqi_updater"))
 
 
+def _log_path(value: str | None) -> Path:
+  return _data_root(value) / "logs" / "trqi_updater.log"
+
+
 def _state_store(args: argparse.Namespace) -> StateStore:
   return StateStore(_data_root(args.data_dir) / "state.json")
 
@@ -416,7 +420,9 @@ def _main_owned(argv: list[str] | None = None) -> int:
     raise SystemExit("custom trust roots require the explicit --test-firmware path")
   reporter = Reporter(json_output=args.json, plain=not sys.stderr.isatty(),
                       publish_params=args.command in ("auto", "update", "flash", "recover", "stage-local"),
-                      trust_profile="test" if args.test_firmware else "production")
+                      trust_profile="test" if args.test_firmware else "production",
+                      log_path=_log_path(args.data_dir))
+  reporter.log(f"{'cli':<18} command={args.command} target={args.target} bus={args.bus}")
   if args.test_firmware:
     reporter.event("test-key", "TEST-KEY FIRMWARE: local-only; never sourced by automatic GitHub checks")
   try:
@@ -449,9 +455,11 @@ def _main_owned(argv: list[str] | None = None) -> int:
       from openpilot.tools.trqi_updater.daemon import run
       return run(args, reporter)
   except TrqiUpdaterError as exc:
+    reporter.log_exception("failed", exc)
     reporter.event("failed", str(exc), exit_code=int(exc.exit_code))
     return int(exc.exit_code)
   except (OSError, ValueError) as exc:
+    reporter.log_exception("failed", exc)
     reporter.event("failed", str(exc), exit_code=int(ExitCode.PROGRAM_FAILURE))
     return int(ExitCode.PROGRAM_FAILURE)
   return int(ExitCode.PROGRAM_FAILURE)

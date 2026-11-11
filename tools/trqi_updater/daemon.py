@@ -104,6 +104,7 @@ def run(args, reporter: Reporter) -> int:
       pause(2.0)
     except (BootloaderIncompatible, CandidateAuthenticationError, ReleaseVerificationError, ImageVerificationError,
             RollbackOccurred, TrialFailure) as exc:
+      reporter.log_exception("auto", exc)
       # Permanent candidate-specific failures must not block or repeat on every
       # ignition. _flash_local records trial/rollback identities separately.
       reporter.event("auto", f"candidate rejected: {exc}")
@@ -117,6 +118,7 @@ def run(args, reporter: Reporter) -> int:
     except KeyboardInterrupt:
       return int(ExitCode.OK)
     except Exception as exc:
+      reporter.log_exception("auto", exc)
       reporter.event("auto", f"attempt failed: {exc}; retrying with backoff")
       _set_runtime_status(f"TRQI update attempt failed: {exc}")
       if params.get_bool("TrqiUpdateStartupHold") and not params.get_bool("TrqiUpdateInProgress"):
@@ -129,9 +131,12 @@ def run(args, reporter: Reporter) -> int:
 
 
 def main() -> int:
-  from openpilot.tools.trqi_updater.cli import build_parser
+  from openpilot.tools.trqi_updater.cli import _log_path, build_parser
   args = build_parser().parse_args(["auto"])
-  return run(args, Reporter(plain=True, publish_params=True))
+  reporter = Reporter(plain=True, publish_params=True, log_path=_log_path(args.data_dir),
+                      cloudlog_events=True)
+  reporter.log("daemon             started")
+  return run(args, reporter)
 
 
 if __name__ == "__main__":
