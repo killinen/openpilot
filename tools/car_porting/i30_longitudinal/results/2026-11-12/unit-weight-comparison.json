@@ -1,0 +1,102 @@
+[
+  {
+    "scenario": "steady",
+    "coast": -0.35,
+    "baseline_minimum_gap": null,
+    "candidate_minimum_gap": null,
+    "baseline_max_speed_state_gap": 3.034106264010461e-07,
+    "candidate_max_speed_state_gap": 3.034106264010461e-07,
+    "baseline_first_resume": null,
+    "candidate_first_resume": null
+  },
+  {
+    "scenario": "steady",
+    "coast": -0.15,
+    "baseline_minimum_gap": null,
+    "candidate_minimum_gap": null,
+    "baseline_max_speed_state_gap": 3.034106264010461e-07,
+    "candidate_max_speed_state_gap": 3.034106264010461e-07,
+    "baseline_first_resume": null,
+    "candidate_first_resume": null
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.35,
+    "baseline_minimum_gap": 48.22452389085447,
+    "candidate_minimum_gap": 48.22452389085447,
+    "baseline_max_speed_state_gap": 0.24196518550463253,
+    "candidate_max_speed_state_gap": 0.24196518550463253,
+    "baseline_first_resume": null,
+    "candidate_first_resume": null
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.15,
+    "baseline_minimum_gap": 38.840887443666986,
+    "candidate_minimum_gap": 38.840887443666986,
+    "baseline_max_speed_state_gap": 0.758467349925624,
+    "candidate_max_speed_state_gap": 0.3313346365348586,
+    "baseline_first_resume": 27.0,
+    "candidate_first_resume": 27.150000000000002
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.35,
+    "baseline_minimum_gap": 7.771018914777187,
+    "candidate_minimum_gap": 7.771018914777187,
+    "baseline_max_speed_state_gap": 2.7492724860975173,
+    "candidate_max_speed_state_gap": 0.460060441215445,
+    "baseline_first_resume": 29.700000000000003,
+    "candidate_first_resume": 29.900000000000002
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.15,
+    "baseline_minimum_gap": -26.697125749884094,
+    "candidate_minimum_gap": -26.697125749884094,
+    "baseline_max_speed_state_gap": 5.353548018114486,
+    "candidate_max_speed_state_gap": 0.5144372674877573,
+    "baseline_first_resume": 40.0,
+    "candidate_first_resume": 40.2
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.35,
+    "baseline_minimum_gap": 5.762997365563251,
+    "candidate_minimum_gap": 5.762997365563251,
+    "baseline_max_speed_state_gap": 2.773476861754059,
+    "candidate_max_speed_state_gap": 0.44980239966964675,
+    "baseline_first_resume": 29.55,
+    "candidate_first_resume": 29.5
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.15,
+    "baseline_minimum_gap": -24.713216156026874,
+    "candidate_minimum_gap": -24.713216156026874,
+    "baseline_max_speed_state_gap": 3.900191998980336,
+    "candidate_max_speed_state_gap": 0.5109929390205998,
+    "baseline_first_resume": 58.5,
+    "candidate_first_resume": 58.7
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.35,
+    "baseline_minimum_gap": null,
+    "candidate_minimum_gap": null,
+    "baseline_max_speed_state_gap": 4.9999960349066015,
+    "candidate_max_speed_state_gap": 4.9999960349066015,
+    "baseline_first_resume": 24.650000000000002,
+    "candidate_first_resume": 24.650000000000002
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.15,
+    "baseline_minimum_gap": null,
+    "candidate_minimum_gap": null,
+    "baseline_max_speed_state_gap": 4.9999960349066015,
+    "candidate_max_speed_state_gap": 4.9999960349066015,
+    "baseline_first_resume": 30.0,
+    "candidate_first_resume": 30.0
+  }
+]

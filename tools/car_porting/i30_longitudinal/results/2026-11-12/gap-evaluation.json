@@ -1,0 +1,26 @@
+{
+  "seconds": {
+    "valid_coast_seconds": 1052.01,
+    "covered_coast_seconds": 815.012,
+    "eligible_seconds": 382.301,
+    "speed_state_changed_seconds": 73.8,
+    "accel_state_changed_seconds": 75.003,
+    "naive_feedforward_positive_pedal_seconds": 0.501
+  },
+  "eligible_gap_p05_p50_p95": [
+    [
+      -0.29536190032958987,
+      -0.5480570018568559
+    ],
+    [
+      0.19025039672851562,
+      -0.12404233622291655
+    ],
+    [
+      1.657491683959961,
+      0.8695289891679938
+    ]
+  ],
+  "meaning": "Initial-state shadow calculation only; no rerun of MPC or simulated lead following.",
+  "desktop_microseconds_per_inverse_lookup": 6.101286052726209
+}

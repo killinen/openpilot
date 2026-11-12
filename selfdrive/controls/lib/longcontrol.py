@@ -154,6 +154,9 @@ class LongControl:
 
   def update_old_long(self, active, CS, long_plan, accel_limits, t_since_plan, frogpilot_toggles):
     """Update longitudinal control. This updates the state machine and runs a PID loop"""
+    # The old API follows trajectory arrays, so scalar aTarget clipping alone
+    # does not enforce the planner's throttle veto on the pedal-only i30.
+    throttle_blocked = self.CP.carName == "i30" and self.CP.enableGasInterceptor and not long_plan.allowThrottle
     # Interp control trajectory
     speeds = long_plan.speeds
     if len(speeds) == CONTROL_N:
@@ -200,7 +203,7 @@ class LongControl:
       # TODO too complex, needs to be simplified and tested on toyotas
       prevent_overshoot = not self.CP.stoppingControl and CS.vEgo < 1.5 and v_target_1sec < 0.7 and v_target_1sec < self.v_pid
       deadzone = interp(CS.vEgo, self.CP.longitudinalTuning.deadzoneBP, self.CP.longitudinalTuning.deadzoneV)
-      freeze_integrator = prevent_overshoot
+      freeze_integrator = prevent_overshoot or throttle_blocked
 
       error = self.v_pid - CS.vEgo
       error_deadzone = apply_deadzone(error, deadzone)
@@ -222,6 +225,10 @@ class LongControl:
                                      integrator_min=integrator_min,
                                      integrator_max=integrator_max)
 
+    # Apply to every state, including starting. Preserve negative lead demand;
+    # the interceptor converts nonpositive commands to exactly zero pedal.
+    if throttle_blocked:
+      output_accel = min(output_accel, 0.0)
     self.last_output_accel = clip(output_accel, accel_limits[0], accel_limits[1])
 
     return self.last_output_accel

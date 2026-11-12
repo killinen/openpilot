@@ -1,0 +1,222 @@
+[
+  {
+    "scenario": "steady",
+    "coast": -0.35,
+    "candidate": false,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.999995729741876,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 3.034106264010461e-07
+  },
+  {
+    "scenario": "steady",
+    "coast": -0.35,
+    "candidate": true,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.999995729741876,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 3.034106264010461e-07
+  },
+  {
+    "scenario": "steady",
+    "coast": -0.15,
+    "candidate": false,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.999995729741876,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 3.034106264010461e-07
+  },
+  {
+    "scenario": "steady",
+    "coast": -0.15,
+    "candidate": true,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.999995729741876,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 3.034106264010461e-07
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.35,
+    "candidate": false,
+    "minimum_gap": 48.22452389085447,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.975153119510143,
+    "final_lead_speed": 19.99999999999929,
+    "maximum_speed_state_gap": 0.24196518550463253
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.35,
+    "candidate": true,
+    "minimum_gap": 48.22452389085447,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.975153119510143,
+    "final_lead_speed": 19.99999999999929,
+    "maximum_speed_state_gap": 0.24196518550463253
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.15,
+    "candidate": false,
+    "minimum_gap": 38.840887443666986,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.896958219662206,
+    "final_lead_speed": 19.99999999999929,
+    "maximum_speed_state_gap": 0.758467349925624
+  },
+  {
+    "scenario": "lead_slow",
+    "coast": -0.15,
+    "candidate": true,
+    "minimum_gap": 38.840887443666986,
+    "state_correction_frames": 222,
+    "solver_failures": 0,
+    "final_speed": 19.89708003179856,
+    "final_lead_speed": 19.99999999999929,
+    "maximum_speed_state_gap": 0.3313346365348586
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.35,
+    "candidate": false,
+    "minimum_gap": 7.771018914777187,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.712087827362964,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 2.7492724860975173
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.35,
+    "candidate": true,
+    "minimum_gap": 7.771018914777187,
+    "state_correction_frames": 339,
+    "solver_failures": 0,
+    "final_speed": 19.755062768167882,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 0.460060441215445
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.15,
+    "candidate": false,
+    "minimum_gap": -26.697125749884094,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.239697229837617,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 5.353548018114486
+  },
+  {
+    "scenario": "lead_brake",
+    "coast": -0.15,
+    "candidate": true,
+    "minimum_gap": -26.697125749884094,
+    "state_correction_frames": 552,
+    "solver_failures": 0,
+    "final_speed": 19.241886966759036,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 0.5144372674877573
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.35,
+    "candidate": false,
+    "minimum_gap": 5.762997365563251,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 15.963125935247337,
+    "final_lead_speed": 16.0,
+    "maximum_speed_state_gap": 2.773476861754059
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.35,
+    "candidate": true,
+    "minimum_gap": 5.762997365563251,
+    "state_correction_frames": 340,
+    "solver_failures": 0,
+    "final_speed": 15.952176451999028,
+    "final_lead_speed": 16.0,
+    "maximum_speed_state_gap": 0.44980239966964675
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.15,
+    "candidate": false,
+    "minimum_gap": -24.713216156026874,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 12.727076287795954,
+    "final_lead_speed": 16.0,
+    "maximum_speed_state_gap": 3.900191998980336
+  },
+  {
+    "scenario": "cut_in",
+    "coast": -0.15,
+    "candidate": true,
+    "minimum_gap": -24.713216156026874,
+    "state_correction_frames": 931,
+    "solver_failures": 0,
+    "final_speed": 12.692176841257387,
+    "final_lead_speed": 16.0,
+    "maximum_speed_state_gap": 0.5109929390205998
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.35,
+    "candidate": false,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.7699154717166,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 4.9999960349066015
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.35,
+    "candidate": true,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.7699154717166,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 4.9999960349066015
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.15,
+    "candidate": false,
+    "minimum_gap": null,
+    "state_correction_frames": 0,
+    "solver_failures": 0,
+    "final_speed": 19.89153535863229,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 4.9999960349066015
+  },
+  {
+    "scenario": "cruise_drop",
+    "coast": -0.15,
+    "candidate": true,
+    "minimum_gap": null,
+    "state_correction_frames": 1,
+    "solver_failures": 0,
+    "final_speed": 19.89611451316457,
+    "final_lead_speed": 20.0,
+    "maximum_speed_state_gap": 4.9999960349066015
+  }
+]

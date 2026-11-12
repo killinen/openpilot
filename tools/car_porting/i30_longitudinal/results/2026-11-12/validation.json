@@ -1,0 +1,194 @@
+{
+  "training": {
+    "all": {
+      "windows": 5111,
+      "supported_windows": 4470,
+      "coverage": 0.8745842300919585,
+      "inverse_supported_windows": 4464,
+      "mae": 0.05994113346291886,
+      "bias": -0.014753119218306488,
+      "p95_absolute_error": 0.16349612805510225
+    },
+    "coast": {
+      "windows": 642,
+      "supported_windows": 484,
+      "coverage": 0.7538940809968847,
+      "inverse_supported_windows": 484,
+      "mae": 0.04300693276191347,
+      "bias": -0.001209488526787582,
+      "p95_absolute_error": 0.09465182256785583
+    },
+    "gears": {
+      "4": {
+        "windows": 1425,
+        "supported_windows": 1229,
+        "coverage": 0.8624561403508771,
+        "inverse_supported_windows": 1247,
+        "mae": 0.07677896318820275,
+        "bias": -0.026145142564730543,
+        "p95_absolute_error": 0.18791660145019237
+      },
+      "5": {
+        "windows": 2522,
+        "supported_windows": 2242,
+        "coverage": 0.8889770023790642,
+        "inverse_supported_windows": 2221,
+        "mae": 0.05846850087495098,
+        "bias": -0.013151511682441554,
+        "p95_absolute_error": 0.159298604234892
+      },
+      "6": {
+        "windows": 1164,
+        "supported_windows": 999,
+        "coverage": 0.8582474226804123,
+        "inverse_supported_windows": 996,
+        "mae": 0.0425316735328388,
+        "bias": -0.004332706207950149,
+        "p95_absolute_error": 0.10500431991307671
+      }
+    },
+    "routes": {
+      "0000061b--115d338284": {
+        "windows": 1151,
+        "supported_windows": 1023,
+        "coverage": 0.8887923544743701,
+        "inverse_supported_windows": 1017,
+        "mae": 0.06355395079346571,
+        "bias": -0.02414016805843913,
+        "p95_absolute_error": 0.1688843811311646
+      },
+      "0000061d--7bfedd42bc": {
+        "windows": 1177,
+        "supported_windows": 1063,
+        "coverage": 0.903143585386576,
+        "inverse_supported_windows": 1054,
+        "mae": 0.06129688698749471,
+        "bias": -0.02095462596221319,
+        "p95_absolute_error": 0.1730007598882555
+      },
+      "0000061e--c8f55405a7": {
+        "windows": 174,
+        "supported_windows": 171,
+        "coverage": 0.9827586206896551,
+        "inverse_supported_windows": 174,
+        "mae": 0.08192018297633614,
+        "bias": -0.06710091825641927,
+        "p95_absolute_error": 0.18947220959906386
+      },
+      "0000061f--8e98e3cc45": {
+        "windows": 761,
+        "supported_windows": 638,
+        "coverage": 0.8383705650459922,
+        "inverse_supported_windows": 640,
+        "mae": 0.051123878338464865,
+        "bias": -0.011967919402687547,
+        "p95_absolute_error": 0.15275659652488674
+      },
+      "00000621--87a8f70af0": {
+        "windows": 740,
+        "supported_windows": 636,
+        "coverage": 0.8594594594594595,
+        "inverse_supported_windows": 629,
+        "mae": 0.05914503137024844,
+        "bias": 0.012299665651247509,
+        "p95_absolute_error": 0.16161603946373032
+      },
+      "00000622--98c115f5c7": {
+        "windows": 155,
+        "supported_windows": 145,
+        "coverage": 0.9354838709677419,
+        "inverse_supported_windows": 139,
+        "mae": 0.08391411609561503,
+        "bias": 0.019290937031658056,
+        "p95_absolute_error": 0.18422829115434475
+      },
+      "00000623--56b1c108a6": {
+        "windows": 181,
+        "supported_windows": 128,
+        "coverage": 0.7071823204419889,
+        "inverse_supported_windows": 140,
+        "mae": 0.05652392177221316,
+        "bias": 0.027636330742665693,
+        "p95_absolute_error": 0.14078627700459032
+      },
+      "00000624--ec1d9a5175": {
+        "windows": 772,
+        "supported_windows": 666,
+        "coverage": 0.8626943005181347,
+        "inverse_supported_windows": 671,
+        "mae": 0.05122875316628441,
+        "bias": -0.02105663294639165,
+        "p95_absolute_error": 0.13851144356404377
+      }
+    }
+  },
+  "validation": {
+    "all": {
+      "windows": 1278,
+      "supported_windows": 510,
+      "coverage": 0.39906103286384975,
+      "inverse_supported_windows": 493,
+      "mae": 0.06596958490099337,
+      "bias": -0.059004235301349676,
+      "p95_absolute_error": 0.1714115324497004
+    },
+    "coast": {
+      "windows": 321,
+      "supported_windows": 135,
+      "coverage": 0.4205607476635514,
+      "inverse_supported_windows": 135,
+      "mae": 0.04975447354702727,
+      "bias": -0.04029539045433496,
+      "p95_absolute_error": 0.10446914397201706
+    },
+    "gears": {
+      "4": {
+        "windows": 149,
+        "supported_windows": 51,
+        "coverage": 0.3422818791946309,
+        "inverse_supported_windows": 51,
+        "mae": 0.07622566258217227,
+        "bias": -0.06038841268008513,
+        "p95_absolute_error": 0.19349997386358603
+      },
+      "5": {
+        "windows": 659,
+        "supported_windows": 70,
+        "coverage": 0.1062215477996965,
+        "inverse_supported_windows": 70,
+        "mae": 0.07929188202385962,
+        "bias": -0.07667325335645662,
+        "p95_absolute_error": 0.188996758450138
+      },
+      "6": {
+        "windows": 470,
+        "supported_windows": 389,
+        "coverage": 0.8276595744680851,
+        "inverse_supported_windows": 372,
+        "mae": 0.062227629218883446,
+        "bias": -0.055643247357460235,
+        "p95_absolute_error": 0.15151301702958472
+      }
+    },
+    "routes": {
+      "00000614--b9716077be": {
+        "windows": 680,
+        "supported_windows": 411,
+        "coverage": 0.6044117647058823,
+        "inverse_supported_windows": 394,
+        "mae": 0.06375181788122887,
+        "bias": -0.05627508939307014,
+        "p95_absolute_error": 0.16321461225958006
+      },
+      "00000615--dc696323e9": {
+        "windows": 598,
+        "supported_windows": 99,
+        "coverage": 0.16555183946488294,
+        "inverse_supported_windows": 99,
+        "mae": 0.0751766782860763,
+        "bias": -0.07033432589026775,
+        "p95_absolute_error": 0.17843568815658406
+      }
+    }
+  }
+}
