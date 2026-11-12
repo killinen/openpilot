@@ -669,7 +669,14 @@ class Controls:
       pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, CS.vEgo, self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
       if self.frogpilot_toggles.old_long_api:
         t_since_plan = (self.sm.frame - self.sm.recv_frame['longitudinalPlan']) * DT_CTRL
-        actuators.accel = float(min(self.LoC.update_old_long(CC.longActive, CS, long_plan, pid_accel_limits, t_since_plan, self.frogpilot_toggles), self.frogpilot_toggles.max_desired_acceleration))
+        # An uninitialized liveLocationKalman reports a frozen ~0 orientation with valid=False; use NaN (no grade feedforward) then.
+        orientation = self.sm['liveLocationKalman'].calibratedOrientationNED
+        pitch = orientation.value[1] if orientation.valid and len(orientation.value) > 2 else float('nan')
+        actuators.accel = float(min(self.LoC.update_old_long(CC.longActive, CS, long_plan, pid_accel_limits, t_since_plan, self.frogpilot_toggles,
+                                                             pitch=pitch), self.frogpilot_toggles.max_desired_acceleration))
+        if self.LoC.pedal_map is not None:
+          # i30 interceptor pedal from the fitted map (exactly 0 when inactive or throttle vetoed).
+          actuators.gas = self.LoC.pedal_command
       else:
         actuators.accel = float(min(self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits, self.frogpilot_toggles), self.frogpilot_toggles.max_desired_acceleration))
 

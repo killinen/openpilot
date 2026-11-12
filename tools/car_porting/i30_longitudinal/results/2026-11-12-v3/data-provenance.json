@@ -1,0 +1,11 @@
+{
+ "device": "ff528bde139e99de (C3X, interceptor-fitted i30; the only device used)",
+ "fetched_segments": 2875,
+ "segments_with_features": 2875,
+ "routes_in_rows": 184,
+ "engaged_hours": 30.91,
+ "pitch": "carControl.orientationNED, valid only where liveLocationKalman.calibratedOrientationNED.valid",
+ "previous_fit": "../2026-11-12-v2 (735 segments)",
+ "source": "OP-NAS log-data API (query + raw-log route), cached in I30_LONG_DATA",
+ "inventory": "../2026-11-12-v2/opnas-i30-drives.json and opnas-segment-inventory.json (unchanged)"
+}

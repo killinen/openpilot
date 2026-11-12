@@ -1,0 +1,38 @@
+{
+ "approach": {
+  "map+lift": {
+   "min_gap_m": 27.76,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.46,
+   "pedal_total_variation": 17.59
+  }
+ },
+ "cut_in": {
+  "map+lift": {
+   "min_gap_m": 6.64,
+   "contact": false,
+   "time_headway_below_1s": 15.0,
+   "mean_headway_s": 1.34,
+   "pedal_total_variation": 11.35
+  }
+ },
+ "lead_brake": {
+  "map+lift": {
+   "min_gap_m": -17.03,
+   "contact": true,
+   "time_headway_below_1s": 21.5,
+   "mean_headway_s": 1.04,
+   "pedal_total_variation": 8.51
+  }
+ },
+ "lead_slow": {
+  "map+lift": {
+   "min_gap_m": 31.0,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.88,
+   "pedal_total_variation": 13.91
+  }
+ }
+}

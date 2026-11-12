@@ -1,0 +1,20 @@
+{
+ "engaged_hours": 30.905194444444444,
+ "following_hours": 11.729072222222223,
+ "veto_s": 5081.36,
+ "veto_fraction_of_following": 0.11864062374924984,
+ "throttle_removed_s": 1250.54,
+ "coast_known_fraction": 0.9983938295773134,
+ "coast_accel_p5_p50_p95": [
+  -0.702,
+  -0.43,
+  -0.133
+ ],
+ "driver_brake_onsets_while_following": 965,
+ "onsets_preceded_by_veto": 520,
+ "veto_lead_time_s_p50_p90": [
+  6.94,
+  10.0
+ ],
+ "pedal_at_onset_minus_1s_median": 5.468400001525879
+}

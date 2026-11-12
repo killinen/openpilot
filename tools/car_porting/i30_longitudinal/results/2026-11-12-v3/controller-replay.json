@@ -1,0 +1,29 @@
+{
+ "segments": 608,
+ "engaged_hours": 4.78,
+ "map_active_fraction": 1.0,
+ "vetoed_fraction": 0.0005,
+ "legacy_replay_vs_logged": {
+  "mae": 0.0094,
+  "corr": 0.986
+ },
+ "mean_cmd": {
+  "logged": 0.1576,
+  "legacy": 0.1571,
+  "map": 0.1769
+ },
+ "zero_cmd_fraction": {
+  "legacy": 0.185,
+  "map": 0.12
+ },
+ "step_per_10ms_p99_max": {
+  "legacy": [
+   0.0048,
+   0.956
+  ],
+  "map": [
+   0.0055,
+   0.374
+  ]
+ }
+}

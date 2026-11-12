@@ -1,0 +1,54 @@
+{
+ "approach": {
+  "map+lift": {
+   "min_gap_m": 27.77,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.69,
+   "pedal_total_variation": 26.9
+  }
+ },
+ "cut_in": {
+  "map+lift": {
+   "min_gap_m": 6.64,
+   "contact": false,
+   "time_headway_below_1s": 14.8,
+   "mean_headway_s": 1.4,
+   "pedal_total_variation": 15.64
+  }
+ },
+ "lead_brake": {
+  "map+lift": {
+   "min_gap_m": -16.35,
+   "contact": true,
+   "time_headway_below_1s": 21.3,
+   "mean_headway_s": 1.09,
+   "pedal_total_variation": 10.08
+  }
+ },
+ "lead_loss_change": {
+  "map+lift": {
+   "min_gap_m": 19.15,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.68,
+   "pedal_total_variation": 17.93
+  }
+ },
+ "lead_slow": {
+  "map+lift": {
+   "min_gap_m": 31.41,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.91,
+   "pedal_total_variation": 17.22
+  }
+ },
+ "steady": {
+  "map+lift": {
+   "rms_speed_error": 0.016,
+   "max_abs_speed_error": 0.03,
+   "pedal_total_variation": 0.31
+  }
+ }
+}

@@ -1,0 +1,4278 @@
+{
+ "holdout": {
+  "all": {
+   "windows": 73626,
+   "physical_dynamic": {
+    "n": 73161,
+    "coverage": 0.994,
+    "mae": 0.1055,
+    "bias": -0.0125,
+    "p95": 0.2826
+   },
+   "physical_static": {
+    "n": 73161,
+    "coverage": 0.994,
+    "mae": 0.1261,
+    "bias": -0.0117,
+    "p95": 0.3605
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 73161,
+    "coverage": 0.994,
+    "mae": 0.0755,
+    "bias": -0.0005,
+    "p95": 0.2124
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 72634,
+    "coverage": 0.987,
+    "mae": 0.1159,
+    "bias": 0.0003,
+    "p95": 0.3117
+   },
+   "codex_map": {
+    "n": 40152,
+    "coverage": 0.545,
+    "mae": 0.1,
+    "bias": -0.0386,
+    "p95": 0.2568
+   }
+  },
+  "not_codex_training": {
+   "windows": 57141,
+   "physical_dynamic": {
+    "n": 56803,
+    "coverage": 0.994,
+    "mae": 0.1091,
+    "bias": -0.0161,
+    "p95": 0.2909
+   },
+   "physical_static": {
+    "n": 56803,
+    "coverage": 0.994,
+    "mae": 0.1288,
+    "bias": -0.015,
+    "p95": 0.365
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 56803,
+    "coverage": 0.994,
+    "mae": 0.0753,
+    "bias": -0.0031,
+    "p95": 0.2085
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 56276,
+    "coverage": 0.985,
+    "mae": 0.1145,
+    "bias": -0.0027,
+    "p95": 0.3042
+   },
+   "codex_map": {
+    "n": 26809,
+    "coverage": 0.469,
+    "mae": 0.1054,
+    "bias": -0.0468,
+    "p95": 0.2688
+   }
+  },
+  "coast_1s": {
+   "windows": 13112,
+   "physical_dynamic": {
+    "n": 13108,
+    "coverage": 1.0,
+    "mae": 0.0936,
+    "bias": -0.0269,
+    "p95": 0.2576
+   },
+   "physical_static": {
+    "n": 13108,
+    "coverage": 1.0,
+    "mae": 0.0936,
+    "bias": -0.0269,
+    "p95": 0.2572
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 13108,
+    "coverage": 1.0,
+    "mae": 0.0617,
+    "bias": 0.0061,
+    "p95": 0.1718
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 13068,
+    "coverage": 0.997,
+    "mae": 0.1066,
+    "bias": 0.0113,
+    "p95": 0.2844
+   },
+   "codex_map": {
+    "n": 7566,
+    "coverage": 0.577,
+    "mae": 0.0899,
+    "bias": -0.047,
+    "p95": 0.2302
+   }
+  },
+  "coast_1s_not_codex_training": {
+   "windows": 9856,
+   "physical_dynamic": {
+    "n": 9852,
+    "coverage": 1.0,
+    "mae": 0.0951,
+    "bias": -0.0413,
+    "p95": 0.2689
+   },
+   "physical_static": {
+    "n": 9852,
+    "coverage": 1.0,
+    "mae": 0.0952,
+    "bias": -0.0414,
+    "p95": 0.2687
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 9852,
+    "coverage": 1.0,
+    "mae": 0.0568,
+    "bias": -0.0067,
+    "p95": 0.1697
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 9812,
+    "coverage": 0.996,
+    "mae": 0.0975,
+    "bias": -0.0082,
+    "p95": 0.2568
+   },
+   "codex_map": {
+    "n": 5211,
+    "coverage": 0.529,
+    "mae": 0.0944,
+    "bias": -0.0614,
+    "p95": 0.2425
+   }
+  },
+  "op_pedal": {
+   "windows": 45923,
+   "physical_dynamic": {
+    "n": 45682,
+    "coverage": 0.995,
+    "mae": 0.0952,
+    "bias": -0.0082,
+    "p95": 0.2446
+   },
+   "physical_static": {
+    "n": 45682,
+    "coverage": 0.995,
+    "mae": 0.1038,
+    "bias": 0.0021,
+    "p95": 0.269
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 45682,
+    "coverage": 0.995,
+    "mae": 0.0636,
+    "bias": -0.0079,
+    "p95": 0.1613
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 45682,
+    "coverage": 0.995,
+    "mae": 0.106,
+    "bias": -0.0096,
+    "p95": 0.2732
+   },
+   "codex_map": {
+    "n": 27496,
+    "coverage": 0.599,
+    "mae": 0.0964,
+    "bias": -0.0423,
+    "p95": 0.2436
+   }
+  },
+  "driver": {
+   "windows": 27703,
+   "physical_dynamic": {
+    "n": 27479,
+    "coverage": 0.992,
+    "mae": 0.1228,
+    "bias": -0.0196,
+    "p95": 0.3534
+   },
+   "physical_static": {
+    "n": 27479,
+    "coverage": 0.992,
+    "mae": 0.1632,
+    "bias": -0.0348,
+    "p95": 0.5145
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 27479,
+    "coverage": 0.992,
+    "mae": 0.0954,
+    "bias": 0.0117,
+    "p95": 0.3127
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 26952,
+    "coverage": 0.973,
+    "mae": 0.1327,
+    "bias": 0.0172,
+    "p95": 0.374
+   },
+   "codex_map": {
+    "n": 12656,
+    "coverage": 0.457,
+    "mae": 0.1077,
+    "bias": -0.0308,
+    "p95": 0.2938
+   }
+  },
+  "gear1": {
+   "windows": 362,
+   "physical_dynamic": {
+    "n": 359,
+    "coverage": 0.992,
+    "mae": 0.3094,
+    "bias": 0.0189,
+    "p95": 0.9291
+   },
+   "physical_static": {
+    "n": 359,
+    "coverage": 0.992,
+    "mae": 0.4744,
+    "bias": 0.1439,
+    "p95": 1.0656
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 359,
+    "coverage": 0.992,
+    "mae": 0.3075,
+    "bias": 0.0631,
+    "p95": 0.8379
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 359,
+    "coverage": 0.992,
+    "mae": 0.3267,
+    "bias": 0.1491,
+    "p95": 0.7586
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear2": {
+   "windows": 4671,
+   "physical_dynamic": {
+    "n": 4617,
+    "coverage": 0.988,
+    "mae": 0.2025,
+    "bias": -0.0114,
+    "p95": 0.538
+   },
+   "physical_static": {
+    "n": 4617,
+    "coverage": 0.988,
+    "mae": 0.2815,
+    "bias": 0.0091,
+    "p95": 0.7348
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 4617,
+    "coverage": 0.988,
+    "mae": 0.1893,
+    "bias": 0.057,
+    "p95": 0.4999
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 4611,
+    "coverage": 0.987,
+    "mae": 0.206,
+    "bias": 0.0613,
+    "p95": 0.5315
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear3": {
+   "windows": 2846,
+   "physical_dynamic": {
+    "n": 2759,
+    "coverage": 0.969,
+    "mae": 0.1403,
+    "bias": -0.0043,
+    "p95": 0.3549
+   },
+   "physical_static": {
+    "n": 2759,
+    "coverage": 0.969,
+    "mae": 0.2117,
+    "bias": -0.0232,
+    "p95": 0.5564
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 2759,
+    "coverage": 0.969,
+    "mae": 0.1348,
+    "bias": 0.0505,
+    "p95": 0.3534
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 2746,
+    "coverage": 0.965,
+    "mae": 0.1547,
+    "bias": 0.0618,
+    "p95": 0.4114
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear4": {
+   "windows": 7458,
+   "physical_dynamic": {
+    "n": 7351,
+    "coverage": 0.986,
+    "mae": 0.1033,
+    "bias": -0.0326,
+    "p95": 0.2826
+   },
+   "physical_static": {
+    "n": 7351,
+    "coverage": 0.986,
+    "mae": 0.1299,
+    "bias": -0.0427,
+    "p95": 0.3925
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 7351,
+    "coverage": 0.986,
+    "mae": 0.0732,
+    "bias": -0.0183,
+    "p95": 0.1917
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 7351,
+    "coverage": 0.986,
+    "mae": 0.1089,
+    "bias": -0.0129,
+    "p95": 0.2956
+   },
+   "codex_map": {
+    "n": 5281,
+    "coverage": 0.708,
+    "mae": 0.1186,
+    "bias": -0.0452,
+    "p95": 0.3158
+   }
+  },
+  "gear5": {
+   "windows": 32866,
+   "physical_dynamic": {
+    "n": 32652,
+    "coverage": 0.993,
+    "mae": 0.0884,
+    "bias": 0.002,
+    "p95": 0.2297
+   },
+   "physical_static": {
+    "n": 32652,
+    "coverage": 0.993,
+    "mae": 0.1051,
+    "bias": 0.0013,
+    "p95": 0.2864
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 32652,
+    "coverage": 0.993,
+    "mae": 0.0622,
+    "bias": -0.001,
+    "p95": 0.1594
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 32551,
+    "coverage": 0.99,
+    "mae": 0.1055,
+    "bias": -0.0013,
+    "p95": 0.2762
+   },
+   "codex_map": {
+    "n": 23589,
+    "coverage": 0.718,
+    "mae": 0.0919,
+    "bias": -0.0233,
+    "p95": 0.2385
+   }
+  },
+  "gear6": {
+   "windows": 25423,
+   "physical_dynamic": {
+    "n": 25423,
+    "coverage": 1.0,
+    "mae": 0.1039,
+    "bias": -0.0269,
+    "p95": 0.2641
+   },
+   "physical_static": {
+    "n": 25423,
+    "coverage": 1.0,
+    "mae": 0.1097,
+    "bias": -0.0242,
+    "p95": 0.281
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 25423,
+    "coverage": 1.0,
+    "mae": 0.0631,
+    "bias": -0.0117,
+    "p95": 0.1671
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 25016,
+    "coverage": 0.984,
+    "mae": 0.1077,
+    "bias": -0.0138,
+    "p95": 0.2735
+   },
+   "codex_map": {
+    "n": 11282,
+    "coverage": 0.444,
+    "mae": 0.108,
+    "bias": -0.0677,
+    "p95": 0.2677
+   }
+  },
+  "pedal_0-0.5": {
+   "windows": 18103,
+   "physical_dynamic": {
+    "n": 18085,
+    "coverage": 0.999,
+    "mae": 0.1006,
+    "bias": -0.0296,
+    "p95": 0.276
+   },
+   "physical_static": {
+    "n": 18085,
+    "coverage": 0.999,
+    "mae": 0.1344,
+    "bias": -0.0811,
+    "p95": 0.4218
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 18085,
+    "coverage": 0.999,
+    "mae": 0.0696,
+    "bias": -0.0048,
+    "p95": 0.1941
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 18008,
+    "coverage": 0.995,
+    "mae": 0.111,
+    "bias": 0.0015,
+    "p95": 0.2999
+   },
+   "codex_map": {
+    "n": 10308,
+    "coverage": 0.569,
+    "mae": 0.1017,
+    "bias": -0.031,
+    "p95": 0.2731
+   }
+  },
+  "pedal_0.5-10": {
+   "windows": 19124,
+   "physical_dynamic": {
+    "n": 19119,
+    "coverage": 1.0,
+    "mae": 0.0955,
+    "bias": -0.0105,
+    "p95": 0.2553
+   },
+   "physical_static": {
+    "n": 19119,
+    "coverage": 1.0,
+    "mae": 0.1104,
+    "bias": 0.0036,
+    "p95": 0.3153
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 19119,
+    "coverage": 1.0,
+    "mae": 0.0637,
+    "bias": 0.0048,
+    "p95": 0.1841
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 18900,
+    "coverage": 0.988,
+    "mae": 0.1029,
+    "bias": 0.0063,
+    "p95": 0.2729
+   },
+   "codex_map": {
+    "n": 13495,
+    "coverage": 0.706,
+    "mae": 0.1017,
+    "bias": -0.0498,
+    "p95": 0.2528
+   }
+  },
+  "pedal_10-25": {
+   "windows": 19765,
+   "physical_dynamic": {
+    "n": 19653,
+    "coverage": 0.994,
+    "mae": 0.1025,
+    "bias": 0.0151,
+    "p95": 0.271
+   },
+   "physical_static": {
+    "n": 19653,
+    "coverage": 0.994,
+    "mae": 0.1242,
+    "bias": 0.0339,
+    "p95": 0.3544
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 19653,
+    "coverage": 0.994,
+    "mae": 0.0771,
+    "bias": 0.0177,
+    "p95": 0.2266
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 19533,
+    "coverage": 0.988,
+    "mae": 0.1162,
+    "bias": 0.015,
+    "p95": 0.3226
+   },
+   "codex_map": {
+    "n": 13006,
+    "coverage": 0.658,
+    "mae": 0.0895,
+    "bias": -0.0295,
+    "p95": 0.2269
+   }
+  },
+  "pedal_25-40": {
+   "windows": 11638,
+   "physical_dynamic": {
+    "n": 11535,
+    "coverage": 0.991,
+    "mae": 0.1221,
+    "bias": -0.0099,
+    "p95": 0.3025
+   },
+   "physical_static": {
+    "n": 11535,
+    "coverage": 0.991,
+    "mae": 0.1364,
+    "bias": 0.0158,
+    "p95": 0.3485
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 11535,
+    "coverage": 0.991,
+    "mae": 0.0917,
+    "bias": -0.0054,
+    "p95": 0.2212
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 11435,
+    "coverage": 0.983,
+    "mae": 0.1322,
+    "bias": -0.0049,
+    "p95": 0.3282
+   },
+   "codex_map": {
+    "n": 2410,
+    "coverage": 0.207,
+    "mae": 0.1357,
+    "bias": -0.0818,
+    "p95": 0.3306
+   }
+  },
+  "pedal_40-101": {
+   "windows": 4996,
+   "physical_dynamic": {
+    "n": 4769,
+    "coverage": 0.955,
+    "mae": 0.137,
+    "bias": -0.076,
+    "p95": 0.3419
+   },
+   "physical_static": {
+    "n": 4769,
+    "coverage": 0.955,
+    "mae": 0.1407,
+    "bias": -0.0648,
+    "p95": 0.3592
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 4769,
+    "coverage": 0.955,
+    "mae": 0.1001,
+    "bias": -0.0692,
+    "p95": 0.2494
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 4758,
+    "coverage": 0.952,
+    "mae": 0.1463,
+    "bias": -0.0753,
+    "p95": 0.3705
+   },
+   "codex_map": {
+    "n": 933,
+    "coverage": 0.187,
+    "mae": 0.1089,
+    "bias": 0.0213,
+    "p95": 0.2746
+   }
+  },
+  "per_route": {
+   "0000001c--692ae674ad": {
+    "windows": 610,
+    "physical_dynamic": {
+     "n": 610,
+     "coverage": 1.0,
+     "mae": 0.1226,
+     "bias": -0.0819,
+     "p95": 0.3128
+    },
+    "codex_map": {
+     "n": 396,
+     "coverage": 0.649,
+     "mae": 0.1166,
+     "bias": -0.0695,
+     "p95": 0.2589
+    }
+   },
+   "00000020--73a42faf95": {
+    "windows": 656,
+    "physical_dynamic": {
+     "n": 645,
+     "coverage": 0.983,
+     "mae": 0.1596,
+     "bias": 0.0396,
+     "p95": 0.4266
+    },
+    "codex_map": {
+     "n": 227,
+     "coverage": 0.346,
+     "mae": 0.1548,
+     "bias": 0.0087,
+     "p95": 0.3451
+    }
+   },
+   "00000489--d20ab4f43f": {
+    "windows": 527,
+    "physical_dynamic": {
+     "n": 527,
+     "coverage": 1.0,
+     "mae": 0.1729,
+     "bias": -0.0154,
+     "p95": 0.4508
+    },
+    "codex_map": {
+     "n": 414,
+     "coverage": 0.786,
+     "mae": 0.1362,
+     "bias": -0.0644,
+     "p95": 0.3754
+    }
+   },
+   "000004a6--8bfce2a5b6": {
+    "windows": 931,
+    "physical_dynamic": {
+     "n": 928,
+     "coverage": 0.997,
+     "mae": 0.1071,
+     "bias": 0.0303,
+     "p95": 0.268
+    },
+    "codex_map": {
+     "n": 425,
+     "coverage": 0.456,
+     "mae": 0.0716,
+     "bias": 0.0105,
+     "p95": 0.1641
+    }
+   },
+   "000004ab--8c603ab669": {
+    "windows": 497,
+    "physical_dynamic": {
+     "n": 466,
+     "coverage": 0.938,
+     "mae": 0.1226,
+     "bias": -0.0144,
+     "p95": 0.3086
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004b6--89c793a7a7": {
+    "windows": 1015,
+    "physical_dynamic": {
+     "n": 1006,
+     "coverage": 0.991,
+     "mae": 0.1084,
+     "bias": -0.044,
+     "p95": 0.2838
+    },
+    "codex_map": {
+     "n": 577,
+     "coverage": 0.568,
+     "mae": 0.0955,
+     "bias": -0.0542,
+     "p95": 0.2314
+    }
+   },
+   "000004ba--3f3325876b": {
+    "windows": 675,
+    "physical_dynamic": {
+     "n": 675,
+     "coverage": 1.0,
+     "mae": 0.0731,
+     "bias": -0.0208,
+     "p95": 0.2177
+    },
+    "codex_map": {
+     "n": 552,
+     "coverage": 0.818,
+     "mae": 0.0806,
+     "bias": -0.0439,
+     "p95": 0.1919
+    }
+   },
+   "000004c7--10af7adccd": {
+    "windows": 932,
+    "physical_dynamic": {
+     "n": 932,
+     "coverage": 1.0,
+     "mae": 0.0997,
+     "bias": -0.0106,
+     "p95": 0.2505
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004e3--b48b63f6f6": {
+    "windows": 515,
+    "physical_dynamic": {
+     "n": 515,
+     "coverage": 1.0,
+     "mae": 0.154,
+     "bias": 0.0956,
+     "p95": 0.3649
+    },
+    "codex_map": {
+     "n": 432,
+     "coverage": 0.839,
+     "mae": 0.1087,
+     "bias": 0.0594,
+     "p95": 0.2732
+    }
+   },
+   "000004e6--cf7da2d47c": {
+    "windows": 398,
+    "physical_dynamic": {
+     "n": 398,
+     "coverage": 1.0,
+     "mae": 0.0762,
+     "bias": -0.0307,
+     "p95": 0.1967
+    },
+    "codex_map": {
+     "n": 306,
+     "coverage": 0.769,
+     "mae": 0.0825,
+     "bias": -0.0504,
+     "p95": 0.1938
+    }
+   },
+   "000004f5--f96cf6038f": {
+    "windows": 887,
+    "physical_dynamic": {
+     "n": 887,
+     "coverage": 1.0,
+     "mae": 0.0809,
+     "bias": -0.017,
+     "p95": 0.2058
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.661,
+     "mae": 0.0926,
+     "bias": -0.0481,
+     "p95": 0.2444
+    }
+   },
+   "000004f6--c2b2da67dd": {
+    "windows": 873,
+    "physical_dynamic": {
+     "n": 802,
+     "coverage": 0.919,
+     "mae": 0.1649,
+     "bias": 0.0067,
+     "p95": 0.5261
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000500--5ee5777ed4": {
+    "windows": 1077,
+    "physical_dynamic": {
+     "n": 1077,
+     "coverage": 1.0,
+     "mae": 0.1004,
+     "bias": 0.0643,
+     "p95": 0.2281
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000504--342a57cfdc": {
+    "windows": 2912,
+    "physical_dynamic": {
+     "n": 2893,
+     "coverage": 0.993,
+     "mae": 0.1054,
+     "bias": -0.0237,
+     "p95": 0.2676
+    },
+    "codex_map": {
+     "n": 702,
+     "coverage": 0.241,
+     "mae": 0.1247,
+     "bias": -0.0291,
+     "p95": 0.2958
+    }
+   },
+   "0000050b--de03e803d7": {
+    "windows": 992,
+    "physical_dynamic": {
+     "n": 992,
+     "coverage": 1.0,
+     "mae": 0.1018,
+     "bias": 0.0031,
+     "p95": 0.2727
+    },
+    "codex_map": {
+     "n": 337,
+     "coverage": 0.34,
+     "mae": 0.1061,
+     "bias": -0.008,
+     "p95": 0.2907
+    }
+   },
+   "0000050c--b4d76c726a": {
+    "windows": 590,
+    "physical_dynamic": {
+     "n": 590,
+     "coverage": 1.0,
+     "mae": 0.082,
+     "bias": -0.0048,
+     "p95": 0.2178
+    },
+    "codex_map": {
+     "n": 447,
+     "coverage": 0.758,
+     "mae": 0.1114,
+     "bias": -0.0895,
+     "p95": 0.2592
+    }
+   },
+   "0000050f--3bb66e7f4a": {
+    "windows": 15639,
+    "physical_dynamic": {
+     "n": 15608,
+     "coverage": 0.998,
+     "mae": 0.1038,
+     "bias": -0.0409,
+     "p95": 0.2633
+    },
+    "codex_map": {
+     "n": 6020,
+     "coverage": 0.385,
+     "mae": 0.1175,
+     "bias": -0.0885,
+     "p95": 0.2827
+    }
+   },
+   "00000515--005edb198f": {
+    "windows": 1179,
+    "physical_dynamic": {
+     "n": 1179,
+     "coverage": 1.0,
+     "mae": 0.089,
+     "bias": -0.0475,
+     "p95": 0.2413
+    },
+    "codex_map": {
+     "n": 1054,
+     "coverage": 0.894,
+     "mae": 0.1121,
+     "bias": -0.0769,
+     "p95": 0.27
+    }
+   },
+   "00000535--6c79b26525": {
+    "windows": 434,
+    "physical_dynamic": {
+     "n": 434,
+     "coverage": 1.0,
+     "mae": 0.1193,
+     "bias": -0.0826,
+     "p95": 0.324
+    },
+    "codex_map": {
+     "n": 116,
+     "coverage": 0.267,
+     "mae": 0.1559,
+     "bias": -0.152,
+     "p95": 0.2955
+    }
+   },
+   "00000536--c378112bce": {
+    "windows": 370,
+    "physical_dynamic": {
+     "n": 370,
+     "coverage": 1.0,
+     "mae": 0.1284,
+     "bias": 0.0586,
+     "p95": 0.2924
+    },
+    "codex_map": {
+     "n": 144,
+     "coverage": 0.389,
+     "mae": 0.0971,
+     "bias": 0.0627,
+     "p95": 0.214
+    }
+   },
+   "0000053c--1735d2a642": {
+    "windows": 543,
+    "physical_dynamic": {
+     "n": 543,
+     "coverage": 1.0,
+     "mae": 0.0795,
+     "bias": -0.0441,
+     "p95": 0.2131
+    },
+    "codex_map": {
+     "n": 501,
+     "coverage": 0.923,
+     "mae": 0.0786,
+     "bias": -0.0405,
+     "p95": 0.1943
+    }
+   },
+   "0000059f--1ce2e9d173": {
+    "windows": 288,
+    "physical_dynamic": {
+     "n": 285,
+     "coverage": 0.99,
+     "mae": 0.1164,
+     "bias": 0.0306,
+     "p95": 0.2815
+    },
+    "codex_map": {
+     "n": 43,
+     "coverage": 0.149,
+     "mae": 0.1241,
+     "bias": 0.0527,
+     "p95": 0.3233
+    }
+   },
+   "000005a0--dcfb186e1a": {
+    "windows": 591,
+    "physical_dynamic": {
+     "n": 567,
+     "coverage": 0.959,
+     "mae": 0.0899,
+     "bias": -0.0297,
+     "p95": 0.2365
+    },
+    "codex_map": {
+     "n": 424,
+     "coverage": 0.717,
+     "mae": 0.094,
+     "bias": -0.0405,
+     "p95": 0.2261
+    }
+   },
+   "000005a1--86231f74c1": {
+    "windows": 1033,
+    "physical_dynamic": {
+     "n": 1033,
+     "coverage": 1.0,
+     "mae": 0.1128,
+     "bias": 0.0477,
+     "p95": 0.2545
+    },
+    "codex_map": {
+     "n": 574,
+     "coverage": 0.556,
+     "mae": 0.0965,
+     "bias": 0.0017,
+     "p95": 0.2378
+    }
+   },
+   "000005a2--8fa3ffbe55": {
+    "windows": 1113,
+    "physical_dynamic": {
+     "n": 1113,
+     "coverage": 1.0,
+     "mae": 0.085,
+     "bias": -0.0315,
+     "p95": 0.2106
+    },
+    "codex_map": {
+     "n": 1047,
+     "coverage": 0.941,
+     "mae": 0.1074,
+     "bias": -0.0832,
+     "p95": 0.2492
+    }
+   },
+   "000005a4--f123d24cc1": {
+    "windows": 1158,
+    "physical_dynamic": {
+     "n": 1158,
+     "coverage": 1.0,
+     "mae": 0.0837,
+     "bias": 0.0097,
+     "p95": 0.2128
+    },
+    "codex_map": {
+     "n": 108,
+     "coverage": 0.093,
+     "mae": 0.0862,
+     "bias": -0.0333,
+     "p95": 0.2077
+    }
+   },
+   "000005c5--9e23068be9": {
+    "windows": 79,
+    "physical_dynamic": {
+     "n": 79,
+     "coverage": 1.0,
+     "mae": 0.1499,
+     "bias": -0.0227,
+     "p95": 0.3026
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000005c9--60a5985752": {
+    "windows": 891,
+    "physical_dynamic": {
+     "n": 891,
+     "coverage": 1.0,
+     "mae": 0.0873,
+     "bias": -0.0309,
+     "p95": 0.2145
+    },
+    "codex_map": {
+     "n": 711,
+     "coverage": 0.798,
+     "mae": 0.1061,
+     "bias": -0.0523,
+     "p95": 0.2714
+    }
+   },
+   "000005ca--bfd0c16765": {
+    "windows": 731,
+    "physical_dynamic": {
+     "n": 714,
+     "coverage": 0.977,
+     "mae": 0.1638,
+     "bias": -0.0476,
+     "p95": 0.4619
+    },
+    "codex_map": {
+     "n": 334,
+     "coverage": 0.457,
+     "mae": 0.1327,
+     "bias": -0.0747,
+     "p95": 0.4341
+    }
+   },
+   "000005cc--163285ee18": {
+    "windows": 1117,
+    "physical_dynamic": {
+     "n": 1117,
+     "coverage": 1.0,
+     "mae": 0.1698,
+     "bias": -0.0838,
+     "p95": 0.397
+    },
+    "codex_map": {
+     "n": 663,
+     "coverage": 0.594,
+     "mae": 0.1092,
+     "bias": -0.0579,
+     "p95": 0.2618
+    }
+   },
+   "000005df--0f4d6e7e2b": {
+    "windows": 654,
+    "physical_dynamic": {
+     "n": 645,
+     "coverage": 0.986,
+     "mae": 0.116,
+     "bias": -0.0432,
+     "p95": 0.3346
+    },
+    "codex_map": {
+     "n": 31,
+     "coverage": 0.047,
+     "mae": 0.0809,
+     "bias": -0.0206,
+     "p95": 0.1818
+    }
+   },
+   "000005e6--5705fd0f48": {
+    "windows": 518,
+    "physical_dynamic": {
+     "n": 518,
+     "coverage": 1.0,
+     "mae": 0.1032,
+     "bias": 0.0687,
+     "p95": 0.2501
+    },
+    "codex_map": {
+     "n": 427,
+     "coverage": 0.824,
+     "mae": 0.0848,
+     "bias": 0.0399,
+     "p95": 0.218
+    }
+   },
+   "000005e8--62e0767835": {
+    "windows": 391,
+    "physical_dynamic": {
+     "n": 386,
+     "coverage": 0.987,
+     "mae": 0.1609,
+     "bias": -0.0561,
+     "p95": 0.3458
+    },
+    "codex_map": {
+     "n": 95,
+     "coverage": 0.243,
+     "mae": 0.2091,
+     "bias": -0.1916,
+     "p95": 0.363
+    }
+   },
+   "000005e9--97c8e43666": {
+    "windows": 1078,
+    "physical_dynamic": {
+     "n": 1078,
+     "coverage": 1.0,
+     "mae": 0.0948,
+     "bias": 0.0573,
+     "p95": 0.2255
+    },
+    "codex_map": {
+     "n": 356,
+     "coverage": 0.33,
+     "mae": 0.0675,
+     "bias": 0.0356,
+     "p95": 0.1763
+    }
+   },
+   "000005f1--689c401ce3": {
+    "windows": 1023,
+    "physical_dynamic": {
+     "n": 1023,
+     "coverage": 1.0,
+     "mae": 0.1104,
+     "bias": -0.0256,
+     "p95": 0.3553
+    },
+    "codex_map": {
+     "n": 927,
+     "coverage": 0.906,
+     "mae": 0.0881,
+     "bias": -0.0297,
+     "p95": 0.2312
+    }
+   },
+   "000005f2--2de982c98f": {
+    "windows": 560,
+    "physical_dynamic": {
+     "n": 539,
+     "coverage": 0.962,
+     "mae": 0.0979,
+     "bias": 0.0072,
+     "p95": 0.2547
+    },
+    "codex_map": {
+     "n": 224,
+     "coverage": 0.4,
+     "mae": 0.0917,
+     "bias": -0.0245,
+     "p95": 0.2488
+    }
+   },
+   "000005f4--433ce768d2": {
+    "windows": 696,
+    "physical_dynamic": {
+     "n": 696,
+     "coverage": 1.0,
+     "mae": 0.1045,
+     "bias": -0.0565,
+     "p95": 0.2672
+    },
+    "codex_map": {
+     "n": 337,
+     "coverage": 0.484,
+     "mae": 0.1275,
+     "bias": -0.0805,
+     "p95": 0.2656
+    }
+   },
+   "000005f5--f9353401a3": {
+    "windows": 846,
+    "physical_dynamic": {
+     "n": 846,
+     "coverage": 1.0,
+     "mae": 0.1628,
+     "bias": 0.0773,
+     "p95": 0.4186
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.693,
+     "mae": 0.1375,
+     "bias": -0.0212,
+     "p95": 0.3495
+    }
+   },
+   "000005f6--cccefa97bd": {
+    "windows": 536,
+    "physical_dynamic": {
+     "n": 536,
+     "coverage": 1.0,
+     "mae": 0.1679,
+     "bias": -0.1063,
+     "p95": 0.4188
+    },
+    "codex_map": {
+     "n": 275,
+     "coverage": 0.513,
+     "mae": 0.0894,
+     "bias": 0.0147,
+     "p95": 0.2294
+    }
+   },
+   "000005f7--e4503bdfbb": {
+    "windows": 472,
+    "physical_dynamic": {
+     "n": 467,
+     "coverage": 0.989,
+     "mae": 0.1387,
+     "bias": 0.0249,
+     "p95": 0.3463
+    },
+    "codex_map": {
+     "n": 436,
+     "coverage": 0.924,
+     "mae": 0.1296,
+     "bias": 0.0267,
+     "p95": 0.3257
+    }
+   },
+   "000005fc--7ac6a2ca62": {
+    "windows": 935,
+    "physical_dynamic": {
+     "n": 935,
+     "coverage": 1.0,
+     "mae": 0.0918,
+     "bias": 0.02,
+     "p95": 0.2283
+    },
+    "codex_map": {
+     "n": 737,
+     "coverage": 0.788,
+     "mae": 0.1021,
+     "bias": 0.0308,
+     "p95": 0.2645
+    }
+   },
+   "000005fd--5313af75e8": {
+    "windows": 699,
+    "physical_dynamic": {
+     "n": 699,
+     "coverage": 1.0,
+     "mae": 0.1068,
+     "bias": 0.0197,
+     "p95": 0.3156
+    },
+    "codex_map": {
+     "n": 244,
+     "coverage": 0.349,
+     "mae": 0.0787,
+     "bias": -0.034,
+     "p95": 0.1839
+    }
+   },
+   "000005fe--169cca6307": {
+    "windows": 846,
+    "physical_dynamic": {
+     "n": 846,
+     "coverage": 1.0,
+     "mae": 0.2181,
+     "bias": 0.1389,
+     "p95": 0.7051
+    },
+    "codex_map": {
+     "n": 434,
+     "coverage": 0.513,
+     "mae": 0.0895,
+     "bias": 0.0429,
+     "p95": 0.2213
+    }
+   },
+   "00000602--b4a8333768": {
+    "windows": 980,
+    "physical_dynamic": {
+     "n": 980,
+     "coverage": 1.0,
+     "mae": 0.0828,
+     "bias": -0.0356,
+     "p95": 0.212
+    },
+    "codex_map": {
+     "n": 786,
+     "coverage": 0.802,
+     "mae": 0.0997,
+     "bias": -0.0525,
+     "p95": 0.2638
+    }
+   },
+   "00000607--d9e6fc03d9": {
+    "windows": 590,
+    "physical_dynamic": {
+     "n": 590,
+     "coverage": 1.0,
+     "mae": 0.0694,
+     "bias": -0.0435,
+     "p95": 0.1898
+    },
+    "codex_map": {
+     "n": 506,
+     "coverage": 0.858,
+     "mae": 0.0858,
+     "bias": -0.0633,
+     "p95": 0.23
+    }
+   },
+   "00000608--845526a03c": {
+    "windows": 951,
+    "physical_dynamic": {
+     "n": 912,
+     "coverage": 0.959,
+     "mae": 0.0781,
+     "bias": -0.0418,
+     "p95": 0.2202
+    },
+    "codex_map": {
+     "n": 728,
+     "coverage": 0.766,
+     "mae": 0.0819,
+     "bias": -0.045,
+     "p95": 0.2243
+    }
+   },
+   "00000610--d945b190cc": {
+    "windows": 319,
+    "physical_dynamic": {
+     "n": 315,
+     "coverage": 0.987,
+     "mae": 0.1752,
+     "bias": -0.0935,
+     "p95": 0.3602
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000611--85c848515a": {
+    "windows": 1071,
+    "physical_dynamic": {
+     "n": 1053,
+     "coverage": 0.983,
+     "mae": 0.1063,
+     "bias": 0.0711,
+     "p95": 0.2607
+    },
+    "codex_map": {
+     "n": 165,
+     "coverage": 0.154,
+     "mae": 0.0618,
+     "bias": 0.0001,
+     "p95": 0.1481
+    }
+   },
+   "00000612--7ef503dd0e": {
+    "windows": 366,
+    "physical_dynamic": {
+     "n": 365,
+     "coverage": 0.997,
+     "mae": 0.1447,
+     "bias": -0.0295,
+     "p95": 0.4279
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000614--b9716077be": {
+    "windows": 1105,
+    "physical_dynamic": {
+     "n": 1095,
+     "coverage": 0.991,
+     "mae": 0.0887,
+     "bias": -0.0187,
+     "p95": 0.2225
+    },
+    "codex_map": {
+     "n": 817,
+     "coverage": 0.739,
+     "mae": 0.0994,
+     "bias": -0.0484,
+     "p95": 0.2514
+    }
+   },
+   "00000615--dc696323e9": {
+    "windows": 1096,
+    "physical_dynamic": {
+     "n": 1096,
+     "coverage": 1.0,
+     "mae": 0.0791,
+     "bias": -0.026,
+     "p95": 0.2036
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000618--ebdc46cce1": {
+    "windows": 2156,
+    "physical_dynamic": {
+     "n": 2149,
+     "coverage": 0.997,
+     "mae": 0.1045,
+     "bias": -0.0152,
+     "p95": 0.2719
+    },
+    "codex_map": {
+     "n": 1558,
+     "coverage": 0.723,
+     "mae": 0.0966,
+     "bias": -0.0414,
+     "p95": 0.2396
+    }
+   },
+   "0000061d--7bfedd42bc": {
+    "windows": 12070,
+    "physical_dynamic": {
+     "n": 11951,
+     "coverage": 0.99,
+     "mae": 0.082,
+     "bias": 0.005,
+     "p95": 0.2162
+    },
+    "codex_map": {
+     "n": 10197,
+     "coverage": 0.845,
+     "mae": 0.0825,
+     "bias": -0.0196,
+     "p95": 0.2167
+    }
+   },
+   "0000061e--c8f55405a7": {
+    "windows": 2099,
+    "physical_dynamic": {
+     "n": 2098,
+     "coverage": 1.0,
+     "mae": 0.0962,
+     "bias": -0.0468,
+     "p95": 0.26
+    },
+    "codex_map": {
+     "n": 1655,
+     "coverage": 0.788,
+     "mae": 0.1037,
+     "bias": -0.0656,
+     "p95": 0.2547
+    }
+   },
+   "00000620--fe5c49d79f": {
+    "windows": 368,
+    "physical_dynamic": {
+     "n": 368,
+     "coverage": 1.0,
+     "mae": 0.1592,
+     "bias": 0.0388,
+     "p95": 0.3896
+    },
+    "codex_map": {
+     "n": 38,
+     "coverage": 0.103,
+     "mae": 0.1605,
+     "bias": -0.1605,
+     "p95": 0.2551
+    }
+   },
+   "00000622--98c115f5c7": {
+    "windows": 1948,
+    "physical_dynamic": {
+     "n": 1941,
+     "coverage": 0.996,
+     "mae": 0.1455,
+     "bias": 0.0105,
+     "p95": 0.4525
+    },
+    "codex_map": {
+     "n": 1453,
+     "coverage": 0.746,
+     "mae": 0.1171,
+     "bias": 0.0123,
+     "p95": 0.3107
+    }
+   }
+  }
+ },
+ "training": {
+  "all": {
+   "windows": 231642,
+   "physical_dynamic": {
+    "n": 230573,
+    "coverage": 0.995,
+    "mae": 0.0997,
+    "bias": -0.0007,
+    "p95": 0.2556
+   },
+   "physical_static": {
+    "n": 230573,
+    "coverage": 0.995,
+    "mae": 0.1143,
+    "bias": 0.0001,
+    "p95": 0.3063
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 230573,
+    "coverage": 0.995,
+    "mae": 0.0684,
+    "bias": -0.0008,
+    "p95": 0.1737
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 230573,
+    "coverage": 0.995,
+    "mae": 0.1069,
+    "bias": -0.0,
+    "p95": 0.2748
+   },
+   "codex_map": {
+    "n": 107554,
+    "coverage": 0.464,
+    "mae": 0.1004,
+    "bias": -0.0293,
+    "p95": 0.2526
+   }
+  },
+  "not_codex_training": {
+   "windows": 199441,
+   "physical_dynamic": {
+    "n": 198541,
+    "coverage": 0.995,
+    "mae": 0.1011,
+    "bias": -0.0034,
+    "p95": 0.2585
+   },
+   "physical_static": {
+    "n": 198541,
+    "coverage": 0.995,
+    "mae": 0.1154,
+    "bias": -0.0024,
+    "p95": 0.3083
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 198541,
+    "coverage": 0.995,
+    "mae": 0.068,
+    "bias": -0.0055,
+    "p95": 0.1722
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 198541,
+    "coverage": 0.995,
+    "mae": 0.1067,
+    "bias": -0.0047,
+    "p95": 0.2726
+   },
+   "codex_map": {
+    "n": 81666,
+    "coverage": 0.409,
+    "mae": 0.1051,
+    "bias": -0.0358,
+    "p95": 0.261
+   }
+  },
+  "coast_1s": {
+   "windows": 32505,
+   "physical_dynamic": {
+    "n": 32420,
+    "coverage": 0.997,
+    "mae": 0.0932,
+    "bias": -0.0307,
+    "p95": 0.2378
+   },
+   "physical_static": {
+    "n": 32420,
+    "coverage": 0.997,
+    "mae": 0.0933,
+    "bias": -0.0305,
+    "p95": 0.2379
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 32420,
+    "coverage": 0.997,
+    "mae": 0.0697,
+    "bias": -0.0117,
+    "p95": 0.1537
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 32420,
+    "coverage": 0.997,
+    "mae": 0.1024,
+    "bias": -0.0057,
+    "p95": 0.2613
+   },
+   "codex_map": {
+    "n": 19235,
+    "coverage": 0.592,
+    "mae": 0.0902,
+    "bias": -0.0417,
+    "p95": 0.2204
+   }
+  },
+  "coast_1s_not_codex_training": {
+   "windows": 27118,
+   "physical_dynamic": {
+    "n": 27033,
+    "coverage": 0.997,
+    "mae": 0.098,
+    "bias": -0.0397,
+    "p95": 0.2506
+   },
+   "physical_static": {
+    "n": 27033,
+    "coverage": 0.997,
+    "mae": 0.0981,
+    "bias": -0.0395,
+    "p95": 0.2506
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 27033,
+    "coverage": 0.997,
+    "mae": 0.0732,
+    "bias": -0.0221,
+    "p95": 0.16
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 27033,
+    "coverage": 0.997,
+    "mae": 0.1023,
+    "bias": -0.0182,
+    "p95": 0.2573
+   },
+   "codex_map": {
+    "n": 15288,
+    "coverage": 0.564,
+    "mae": 0.0962,
+    "bias": -0.0513,
+    "p95": 0.2308
+   }
+  },
+  "op_pedal": {
+   "windows": 167550,
+   "physical_dynamic": {
+    "n": 167318,
+    "coverage": 0.999,
+    "mae": 0.0925,
+    "bias": 0.0082,
+    "p95": 0.231
+   },
+   "physical_static": {
+    "n": 167318,
+    "coverage": 0.999,
+    "mae": 0.0977,
+    "bias": 0.0162,
+    "p95": 0.246
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 167318,
+    "coverage": 0.999,
+    "mae": 0.0576,
+    "bias": -0.0014,
+    "p95": 0.1428
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 167318,
+    "coverage": 0.999,
+    "mae": 0.0996,
+    "bias": -0.0023,
+    "p95": 0.2496
+   },
+   "codex_map": {
+    "n": 79023,
+    "coverage": 0.472,
+    "mae": 0.0976,
+    "bias": -0.0357,
+    "p95": 0.2431
+   }
+  },
+  "driver": {
+   "windows": 64092,
+   "physical_dynamic": {
+    "n": 63255,
+    "coverage": 0.987,
+    "mae": 0.1186,
+    "bias": -0.0243,
+    "p95": 0.3403
+   },
+   "physical_static": {
+    "n": 63255,
+    "coverage": 0.987,
+    "mae": 0.1584,
+    "bias": -0.0424,
+    "p95": 0.5199
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 63255,
+    "coverage": 0.987,
+    "mae": 0.0969,
+    "bias": 0.0006,
+    "p95": 0.2977
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 63255,
+    "coverage": 0.987,
+    "mae": 0.1263,
+    "bias": 0.006,
+    "p95": 0.3504
+   },
+   "codex_map": {
+    "n": 28531,
+    "coverage": 0.445,
+    "mae": 0.1085,
+    "bias": -0.0118,
+    "p95": 0.2933
+   }
+  },
+  "gear1": {
+   "windows": 582,
+   "physical_dynamic": {
+    "n": 582,
+    "coverage": 1.0,
+    "mae": 0.3305,
+    "bias": 0.0013,
+    "p95": 0.8978
+   },
+   "physical_static": {
+    "n": 582,
+    "coverage": 1.0,
+    "mae": 0.5706,
+    "bias": 0.0799,
+    "p95": 1.437
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 582,
+    "coverage": 1.0,
+    "mae": 0.3454,
+    "bias": 0.0973,
+    "p95": 0.8277
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 582,
+    "coverage": 1.0,
+    "mae": 0.3213,
+    "bias": 0.0999,
+    "p95": 0.7847
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear2": {
+   "windows": 8592,
+   "physical_dynamic": {
+    "n": 8329,
+    "coverage": 0.969,
+    "mae": 0.2052,
+    "bias": -0.064,
+    "p95": 0.5337
+   },
+   "physical_static": {
+    "n": 8329,
+    "coverage": 0.969,
+    "mae": 0.2996,
+    "bias": -0.0498,
+    "p95": 0.8016
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 8329,
+    "coverage": 0.969,
+    "mae": 0.2023,
+    "bias": 0.0374,
+    "p95": 0.5375
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 8329,
+    "coverage": 0.969,
+    "mae": 0.2099,
+    "bias": 0.0328,
+    "p95": 0.5371
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear3": {
+   "windows": 7045,
+   "physical_dynamic": {
+    "n": 6771,
+    "coverage": 0.961,
+    "mae": 0.1397,
+    "bias": -0.0348,
+    "p95": 0.3669
+   },
+   "physical_static": {
+    "n": 6771,
+    "coverage": 0.961,
+    "mae": 0.2167,
+    "bias": -0.0614,
+    "p95": 0.6503
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 6771,
+    "coverage": 0.961,
+    "mae": 0.1228,
+    "bias": 0.0203,
+    "p95": 0.3284
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 6771,
+    "coverage": 0.961,
+    "mae": 0.1421,
+    "bias": 0.0328,
+    "p95": 0.3753
+   },
+   "codex_map": {
+    "n": 0,
+    "coverage": 0.0
+   }
+  },
+  "gear4": {
+   "windows": 31957,
+   "physical_dynamic": {
+    "n": 31553,
+    "coverage": 0.987,
+    "mae": 0.1023,
+    "bias": -0.0115,
+    "p95": 0.271
+   },
+   "physical_static": {
+    "n": 31553,
+    "coverage": 0.987,
+    "mae": 0.1254,
+    "bias": -0.0168,
+    "p95": 0.3704
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 31553,
+    "coverage": 0.987,
+    "mae": 0.0763,
+    "bias": 0.0077,
+    "p95": 0.1978
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 31553,
+    "coverage": 0.987,
+    "mae": 0.1081,
+    "bias": 0.009,
+    "p95": 0.2827
+   },
+   "codex_map": {
+    "n": 23851,
+    "coverage": 0.746,
+    "mae": 0.1117,
+    "bias": -0.011,
+    "p95": 0.2941
+   }
+  },
+  "gear5": {
+   "windows": 44560,
+   "physical_dynamic": {
+    "n": 44432,
+    "coverage": 0.997,
+    "mae": 0.0872,
+    "bias": 0.0026,
+    "p95": 0.2227
+   },
+   "physical_static": {
+    "n": 44432,
+    "coverage": 0.997,
+    "mae": 0.1002,
+    "bias": 0.0014,
+    "p95": 0.2646
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 44432,
+    "coverage": 0.997,
+    "mae": 0.0568,
+    "bias": 0.0038,
+    "p95": 0.1456
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 44432,
+    "coverage": 0.997,
+    "mae": 0.0958,
+    "bias": 0.0033,
+    "p95": 0.2513
+   },
+   "codex_map": {
+    "n": 39676,
+    "coverage": 0.89,
+    "mae": 0.0952,
+    "bias": -0.0145,
+    "p95": 0.2475
+   }
+  },
+  "gear6": {
+   "windows": 138906,
+   "physical_dynamic": {
+    "n": 138906,
+    "coverage": 1.0,
+    "mae": 0.0938,
+    "bias": 0.0062,
+    "p95": 0.2327
+   },
+   "physical_static": {
+    "n": 138906,
+    "coverage": 1.0,
+    "mae": 0.0983,
+    "bias": 0.0093,
+    "p95": 0.2457
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 138906,
+    "coverage": 1.0,
+    "mae": 0.0585,
+    "bias": -0.008,
+    "p95": 0.1365
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 138906,
+    "coverage": 1.0,
+    "mae": 0.1014,
+    "bias": -0.0072,
+    "p95": 0.2509
+   },
+   "codex_map": {
+    "n": 44027,
+    "coverage": 0.317,
+    "mae": 0.0991,
+    "bias": -0.0527,
+    "p95": 0.2392
+   }
+  },
+  "pedal_0-0.5": {
+   "windows": 44552,
+   "physical_dynamic": {
+    "n": 44423,
+    "coverage": 0.997,
+    "mae": 0.1016,
+    "bias": -0.0362,
+    "p95": 0.2672
+   },
+   "physical_static": {
+    "n": 44423,
+    "coverage": 0.997,
+    "mae": 0.1347,
+    "bias": -0.0843,
+    "p95": 0.4347
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 44423,
+    "coverage": 0.997,
+    "mae": 0.0763,
+    "bias": -0.0206,
+    "p95": 0.1897
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 44423,
+    "coverage": 0.997,
+    "mae": 0.1076,
+    "bias": -0.0127,
+    "p95": 0.2776
+   },
+   "codex_map": {
+    "n": 25749,
+    "coverage": 0.578,
+    "mae": 0.1038,
+    "bias": -0.0267,
+    "p95": 0.2721
+   }
+  },
+  "pedal_0.5-10": {
+   "windows": 45716,
+   "physical_dynamic": {
+    "n": 45696,
+    "coverage": 1.0,
+    "mae": 0.0939,
+    "bias": -0.0152,
+    "p95": 0.2414
+   },
+   "physical_static": {
+    "n": 45696,
+    "coverage": 1.0,
+    "mae": 0.1048,
+    "bias": -0.0012,
+    "p95": 0.2787
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 45696,
+    "coverage": 1.0,
+    "mae": 0.069,
+    "bias": 0.0013,
+    "p95": 0.1736
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 45696,
+    "coverage": 1.0,
+    "mae": 0.1008,
+    "bias": 0.0038,
+    "p95": 0.2622
+   },
+   "codex_map": {
+    "n": 32844,
+    "coverage": 0.718,
+    "mae": 0.1054,
+    "bias": -0.0429,
+    "p95": 0.2576
+   }
+  },
+  "pedal_10-25": {
+   "windows": 60556,
+   "physical_dynamic": {
+    "n": 60302,
+    "coverage": 0.996,
+    "mae": 0.098,
+    "bias": 0.0278,
+    "p95": 0.2506
+   },
+   "physical_static": {
+    "n": 60302,
+    "coverage": 0.996,
+    "mae": 0.1125,
+    "bias": 0.0392,
+    "p95": 0.302
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 60302,
+    "coverage": 0.996,
+    "mae": 0.0692,
+    "bias": 0.0236,
+    "p95": 0.1753
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 60302,
+    "coverage": 0.996,
+    "mae": 0.1068,
+    "bias": 0.0211,
+    "p95": 0.2779
+   },
+   "codex_map": {
+    "n": 35906,
+    "coverage": 0.593,
+    "mae": 0.0895,
+    "bias": -0.0167,
+    "p95": 0.2257
+   }
+  },
+  "pedal_25-40": {
+   "windows": 62254,
+   "physical_dynamic": {
+    "n": 62146,
+    "coverage": 0.998,
+    "mae": 0.1011,
+    "bias": 0.021,
+    "p95": 0.2508
+   },
+   "physical_static": {
+    "n": 62146,
+    "coverage": 0.998,
+    "mae": 0.1092,
+    "bias": 0.0348,
+    "p95": 0.274
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 62146,
+    "coverage": 0.998,
+    "mae": 0.0579,
+    "bias": 0.0044,
+    "p95": 0.1547
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 62146,
+    "coverage": 0.998,
+    "mae": 0.1068,
+    "bias": 0.0034,
+    "p95": 0.2689
+   },
+   "codex_map": {
+    "n": 9986,
+    "coverage": 0.16,
+    "mae": 0.1124,
+    "bias": -0.0497,
+    "p95": 0.2751
+   }
+  },
+  "pedal_40-101": {
+   "windows": 18564,
+   "physical_dynamic": {
+    "n": 18006,
+    "coverage": 0.97,
+    "mae": 0.1108,
+    "bias": -0.0462,
+    "p95": 0.2941
+   },
+   "physical_static": {
+    "n": 18006,
+    "coverage": 0.97,
+    "mae": 0.1123,
+    "bias": -0.0384,
+    "p95": 0.3023
+   },
+   "physical_dynamic_esp_grade": {
+    "n": 18006,
+    "coverage": 0.97,
+    "mae": 0.0812,
+    "bias": -0.0571,
+    "p95": 0.2039
+   },
+   "physical_dynamic_causal_esp_grade": {
+    "n": 18006,
+    "coverage": 0.97,
+    "mae": 0.1209,
+    "bias": -0.061,
+    "p95": 0.305
+   },
+   "codex_map": {
+    "n": 3069,
+    "coverage": 0.165,
+    "mae": 0.1082,
+    "bias": 0.012,
+    "p95": 0.2783
+   }
+  },
+  "per_route": {
+   "00000454--ef6c959021": {
+    "windows": 365,
+    "physical_dynamic": {
+     "n": 365,
+     "coverage": 1.0,
+     "mae": 0.0952,
+     "bias": -0.0214,
+     "p95": 0.2768
+    },
+    "codex_map": {
+     "n": 264,
+     "coverage": 0.723,
+     "mae": 0.1134,
+     "bias": -0.0504,
+     "p95": 0.3242
+    }
+   },
+   "00000497--42325a03df": {
+    "windows": 995,
+    "physical_dynamic": {
+     "n": 995,
+     "coverage": 1.0,
+     "mae": 0.1312,
+     "bias": 0.1019,
+     "p95": 0.3763
+    },
+    "codex_map": {
+     "n": 679,
+     "coverage": 0.682,
+     "mae": 0.0835,
+     "bias": 0.0486,
+     "p95": 0.2072
+    }
+   },
+   "0000049e--bbcc702e73": {
+    "windows": 563,
+    "physical_dynamic": {
+     "n": 561,
+     "coverage": 0.996,
+     "mae": 0.1399,
+     "bias": -0.0826,
+     "p95": 0.5524
+    },
+    "codex_map": {
+     "n": 395,
+     "coverage": 0.702,
+     "mae": 0.0995,
+     "bias": -0.0387,
+     "p95": 0.2422
+    }
+   },
+   "0000049f--282deee435": {
+    "windows": 563,
+    "physical_dynamic": {
+     "n": 563,
+     "coverage": 1.0,
+     "mae": 0.0744,
+     "bias": -0.0218,
+     "p95": 0.215
+    },
+    "codex_map": {
+     "n": 545,
+     "coverage": 0.968,
+     "mae": 0.0909,
+     "bias": -0.0096,
+     "p95": 0.2224
+    }
+   },
+   "000004a3--8fbe7b9c49": {
+    "windows": 590,
+    "physical_dynamic": {
+     "n": 590,
+     "coverage": 1.0,
+     "mae": 0.0712,
+     "bias": 0.0165,
+     "p95": 0.1649
+    },
+    "codex_map": {
+     "n": 584,
+     "coverage": 0.99,
+     "mae": 0.0799,
+     "bias": -0.0014,
+     "p95": 0.188
+    }
+   },
+   "000004a5--c3d4f30e05": {
+    "windows": 587,
+    "physical_dynamic": {
+     "n": 577,
+     "coverage": 0.983,
+     "mae": 0.1074,
+     "bias": -0.0323,
+     "p95": 0.2965
+    },
+    "codex_map": {
+     "n": 41,
+     "coverage": 0.07,
+     "mae": 0.0663,
+     "bias": -0.0209,
+     "p95": 0.1328
+    }
+   },
+   "000004ac--9f424d99a9": {
+    "windows": 1096,
+    "physical_dynamic": {
+     "n": 1096,
+     "coverage": 1.0,
+     "mae": 0.106,
+     "bias": 0.0288,
+     "p95": 0.264
+    },
+    "codex_map": {
+     "n": 753,
+     "coverage": 0.687,
+     "mae": 0.0922,
+     "bias": -0.0476,
+     "p95": 0.2225
+    }
+   },
+   "000004b0--fbd6079d7d": {
+    "windows": 333,
+    "physical_dynamic": {
+     "n": 333,
+     "coverage": 1.0,
+     "mae": 0.1752,
+     "bias": -0.0002,
+     "p95": 0.6814
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004b3--cdc8498f16": {
+    "windows": 729,
+    "physical_dynamic": {
+     "n": 729,
+     "coverage": 1.0,
+     "mae": 0.1204,
+     "bias": 0.045,
+     "p95": 0.3022
+    },
+    "codex_map": {
+     "n": 62,
+     "coverage": 0.085,
+     "mae": 0.109,
+     "bias": -0.0142,
+     "p95": 0.3062
+    }
+   },
+   "000004b8--0cae1362fb": {
+    "windows": 56,
+    "physical_dynamic": {
+     "n": 54,
+     "coverage": 0.964,
+     "mae": 0.1322,
+     "bias": -0.1104,
+     "p95": 0.3424
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004b9--6ae1deb851": {
+    "windows": 1080,
+    "physical_dynamic": {
+     "n": 1057,
+     "coverage": 0.979,
+     "mae": 0.1021,
+     "bias": -0.0392,
+     "p95": 0.2966
+    },
+    "codex_map": {
+     "n": 636,
+     "coverage": 0.589,
+     "mae": 0.0729,
+     "bias": -0.024,
+     "p95": 0.1855
+    }
+   },
+   "000004bb--91bd14bcb8": {
+    "windows": 1017,
+    "physical_dynamic": {
+     "n": 1017,
+     "coverage": 1.0,
+     "mae": 0.1275,
+     "bias": 0.0169,
+     "p95": 0.3182
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004c8--e0c0a336b6": {
+    "windows": 243,
+    "physical_dynamic": {
+     "n": 243,
+     "coverage": 1.0,
+     "mae": 0.1674,
+     "bias": 0.0048,
+     "p95": 0.4184
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004c9--2321579e8e": {
+    "windows": 905,
+    "physical_dynamic": {
+     "n": 850,
+     "coverage": 0.939,
+     "mae": 0.1358,
+     "bias": 0.0054,
+     "p95": 0.4037
+    },
+    "codex_map": {
+     "n": 580,
+     "coverage": 0.641,
+     "mae": 0.0713,
+     "bias": 0.0157,
+     "p95": 0.1719
+    }
+   },
+   "000004ca--ba4f0f0bfd": {
+    "windows": 948,
+    "physical_dynamic": {
+     "n": 948,
+     "coverage": 1.0,
+     "mae": 0.1092,
+     "bias": 0.024,
+     "p95": 0.2486
+    },
+    "codex_map": {
+     "n": 605,
+     "coverage": 0.638,
+     "mae": 0.0876,
+     "bias": -0.0309,
+     "p95": 0.2121
+    }
+   },
+   "000004cb--ea00a360f0": {
+    "windows": 1154,
+    "physical_dynamic": {
+     "n": 1154,
+     "coverage": 1.0,
+     "mae": 0.0908,
+     "bias": -0.0412,
+     "p95": 0.2282
+    },
+    "codex_map": {
+     "n": 1129,
+     "coverage": 0.978,
+     "mae": 0.1056,
+     "bias": -0.0773,
+     "p95": 0.251
+    }
+   },
+   "000004cc--6d7d01e7bf": {
+    "windows": 1181,
+    "physical_dynamic": {
+     "n": 1181,
+     "coverage": 1.0,
+     "mae": 0.0742,
+     "bias": -0.0306,
+     "p95": 0.1863
+    },
+    "codex_map": {
+     "n": 1147,
+     "coverage": 0.971,
+     "mae": 0.106,
+     "bias": -0.0862,
+     "p95": 0.2348
+    }
+   },
+   "000004d0--40eb823eb3": {
+    "windows": 1042,
+    "physical_dynamic": {
+     "n": 1041,
+     "coverage": 0.999,
+     "mae": 0.1141,
+     "bias": -0.0624,
+     "p95": 0.2938
+    },
+    "codex_map": {
+     "n": 602,
+     "coverage": 0.578,
+     "mae": 0.1063,
+     "bias": -0.0454,
+     "p95": 0.2569
+    }
+   },
+   "000004d1--7bd793f3b3": {
+    "windows": 1120,
+    "physical_dynamic": {
+     "n": 1049,
+     "coverage": 0.937,
+     "mae": 0.1178,
+     "bias": -0.005,
+     "p95": 0.3373
+    },
+    "codex_map": {
+     "n": 418,
+     "coverage": 0.373,
+     "mae": 0.1066,
+     "bias": -0.0422,
+     "p95": 0.273
+    }
+   },
+   "000004d7--a04dbeb648": {
+    "windows": 1082,
+    "physical_dynamic": {
+     "n": 1082,
+     "coverage": 1.0,
+     "mae": 0.0808,
+     "bias": 0.0,
+     "p95": 0.1938
+    },
+    "codex_map": {
+     "n": 743,
+     "coverage": 0.687,
+     "mae": 0.0892,
+     "bias": -0.0494,
+     "p95": 0.2289
+    }
+   },
+   "000004df--db1198e0e5": {
+    "windows": 1178,
+    "physical_dynamic": {
+     "n": 1178,
+     "coverage": 1.0,
+     "mae": 0.1185,
+     "bias": -0.0276,
+     "p95": 0.2721
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.497,
+     "mae": 0.1374,
+     "bias": -0.1306,
+     "p95": 0.2669
+    }
+   },
+   "000004e1--b50a35fd90": {
+    "windows": 942,
+    "physical_dynamic": {
+     "n": 942,
+     "coverage": 1.0,
+     "mae": 0.1016,
+     "bias": -0.0107,
+     "p95": 0.2889
+    },
+    "codex_map": {
+     "n": 665,
+     "coverage": 0.706,
+     "mae": 0.0782,
+     "bias": -0.0344,
+     "p95": 0.2054
+    }
+   },
+   "000004e2--9e6117c421": {
+    "windows": 88,
+    "physical_dynamic": {
+     "n": 88,
+     "coverage": 1.0,
+     "mae": 0.1673,
+     "bias": -0.1112,
+     "p95": 0.3109
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004e4--c80db10dfd": {
+    "windows": 589,
+    "physical_dynamic": {
+     "n": 589,
+     "coverage": 1.0,
+     "mae": 0.0722,
+     "bias": 0.0412,
+     "p95": 0.1797
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.995,
+     "mae": 0.0686,
+     "bias": 0.0133,
+     "p95": 0.1733
+    }
+   },
+   "000004e5--ad9ef588a6": {
+    "windows": 333,
+    "physical_dynamic": {
+     "n": 331,
+     "coverage": 0.994,
+     "mae": 0.1408,
+     "bias": -0.0784,
+     "p95": 0.3199
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000004e7--a05e068705": {
+    "windows": 1139,
+    "physical_dynamic": {
+     "n": 1139,
+     "coverage": 1.0,
+     "mae": 0.1028,
+     "bias": 0.0153,
+     "p95": 0.2499
+    },
+    "codex_map": {
+     "n": 1085,
+     "coverage": 0.953,
+     "mae": 0.1203,
+     "bias": -0.0129,
+     "p95": 0.2752
+    }
+   },
+   "000004e8--8f8c9fce4c": {
+    "windows": 386,
+    "physical_dynamic": {
+     "n": 386,
+     "coverage": 1.0,
+     "mae": 0.1052,
+     "bias": -0.0208,
+     "p95": 0.2863
+    },
+    "codex_map": {
+     "n": 211,
+     "coverage": 0.547,
+     "mae": 0.1014,
+     "bias": -0.0279,
+     "p95": 0.2507
+    }
+   },
+   "000004f2--f4be484675": {
+    "windows": 1178,
+    "physical_dynamic": {
+     "n": 1178,
+     "coverage": 1.0,
+     "mae": 0.1338,
+     "bias": 0.101,
+     "p95": 0.3362
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.497,
+     "mae": 0.1521,
+     "bias": 0.1178,
+     "p95": 0.3568
+    }
+   },
+   "000004f4--01e5de13b0": {
+    "windows": 710,
+    "physical_dynamic": {
+     "n": 710,
+     "coverage": 1.0,
+     "mae": 0.163,
+     "bias": 0.0247,
+     "p95": 0.4741
+    },
+    "codex_map": {
+     "n": 277,
+     "coverage": 0.39,
+     "mae": 0.1746,
+     "bias": 0.1456,
+     "p95": 0.4349
+    }
+   },
+   "000004fb--d61c10108b": {
+    "windows": 525,
+    "physical_dynamic": {
+     "n": 525,
+     "coverage": 1.0,
+     "mae": 0.1236,
+     "bias": -0.0323,
+     "p95": 0.2774
+    },
+    "codex_map": {
+     "n": 33,
+     "coverage": 0.063,
+     "mae": 0.13,
+     "bias": -0.0282,
+     "p95": 0.2406
+    }
+   },
+   "000004ff--bf9987ea85": {
+    "windows": 842,
+    "physical_dynamic": {
+     "n": 842,
+     "coverage": 1.0,
+     "mae": 0.1009,
+     "bias": -0.0754,
+     "p95": 0.2586
+    },
+    "codex_map": {
+     "n": 535,
+     "coverage": 0.635,
+     "mae": 0.1216,
+     "bias": -0.0774,
+     "p95": 0.3039
+    }
+   },
+   "00000505--a6487803c7": {
+    "windows": 83224,
+    "physical_dynamic": {
+     "n": 83149,
+     "coverage": 0.999,
+     "mae": 0.0903,
+     "bias": -0.0132,
+     "p95": 0.2227
+    },
+    "codex_map": {
+     "n": 13997,
+     "coverage": 0.168,
+     "mae": 0.1239,
+     "bias": -0.1121,
+     "p95": 0.2631
+    }
+   },
+   "00000506--93beb9d0ab": {
+    "windows": 1179,
+    "physical_dynamic": {
+     "n": 1179,
+     "coverage": 1.0,
+     "mae": 0.0845,
+     "bias": -0.0271,
+     "p95": 0.2049
+    },
+    "codex_map": {
+     "n": 503,
+     "coverage": 0.427,
+     "mae": 0.1026,
+     "bias": -0.0719,
+     "p95": 0.2653
+    }
+   },
+   "00000507--bd80b841f1": {
+    "windows": 172,
+    "physical_dynamic": {
+     "n": 172,
+     "coverage": 1.0,
+     "mae": 0.175,
+     "bias": 0.0242,
+     "p95": 0.4815
+    },
+    "codex_map": {
+     "n": 103,
+     "coverage": 0.599,
+     "mae": 0.1243,
+     "bias": 0.1152,
+     "p95": 0.3263
+    }
+   },
+   "00000508--b4fc5f83f5": {
+    "windows": 2098,
+    "physical_dynamic": {
+     "n": 2030,
+     "coverage": 0.968,
+     "mae": 0.0985,
+     "bias": -0.0148,
+     "p95": 0.252
+    },
+    "codex_map": {
+     "n": 751,
+     "coverage": 0.358,
+     "mae": 0.0953,
+     "bias": -0.0176,
+     "p95": 0.2312
+    }
+   },
+   "00000509--adc2ba32c9": {
+    "windows": 464,
+    "physical_dynamic": {
+     "n": 453,
+     "coverage": 0.976,
+     "mae": 0.1288,
+     "bias": -0.0483,
+     "p95": 0.4354
+    },
+    "codex_map": {
+     "n": 266,
+     "coverage": 0.573,
+     "mae": 0.0954,
+     "bias": -0.016,
+     "p95": 0.2208
+    }
+   },
+   "0000050a--03d18fa2f2": {
+    "windows": 2713,
+    "physical_dynamic": {
+     "n": 2651,
+     "coverage": 0.977,
+     "mae": 0.0822,
+     "bias": -0.0171,
+     "p95": 0.2188
+    },
+    "codex_map": {
+     "n": 1632,
+     "coverage": 0.602,
+     "mae": 0.0846,
+     "bias": -0.0488,
+     "p95": 0.2082
+    }
+   },
+   "00000516--2b14a53712": {
+    "windows": 467,
+    "physical_dynamic": {
+     "n": 466,
+     "coverage": 0.998,
+     "mae": 0.1585,
+     "bias": 0.1048,
+     "p95": 0.3915
+    },
+    "codex_map": {
+     "n": 238,
+     "coverage": 0.51,
+     "mae": 0.1414,
+     "bias": 0.1164,
+     "p95": 0.3195
+    }
+   },
+   "0000051d--4d00efb006": {
+    "windows": 589,
+    "physical_dynamic": {
+     "n": 589,
+     "coverage": 1.0,
+     "mae": 0.0876,
+     "bias": -0.0538,
+     "p95": 0.2186
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.995,
+     "mae": 0.1004,
+     "bias": -0.0636,
+     "p95": 0.2482
+    }
+   },
+   "00000522--049a0c8b67": {
+    "windows": 821,
+    "physical_dynamic": {
+     "n": 821,
+     "coverage": 1.0,
+     "mae": 0.1222,
+     "bias": -0.0953,
+     "p95": 0.2775
+    },
+    "codex_map": {
+     "n": 221,
+     "coverage": 0.269,
+     "mae": 0.1346,
+     "bias": -0.1246,
+     "p95": 0.3086
+    }
+   },
+   "00000523--eb106bebbe": {
+    "windows": 706,
+    "physical_dynamic": {
+     "n": 649,
+     "coverage": 0.919,
+     "mae": 0.1014,
+     "bias": -0.0578,
+     "p95": 0.2557
+    },
+    "codex_map": {
+     "n": 454,
+     "coverage": 0.643,
+     "mae": 0.1104,
+     "bias": -0.0483,
+     "p95": 0.2619
+    }
+   },
+   "00000527--e18526e788": {
+    "windows": 1069,
+    "physical_dynamic": {
+     "n": 1069,
+     "coverage": 1.0,
+     "mae": 0.115,
+     "bias": 0.074,
+     "p95": 0.3145
+    },
+    "codex_map": {
+     "n": 924,
+     "coverage": 0.864,
+     "mae": 0.1042,
+     "bias": 0.0512,
+     "p95": 0.2894
+    }
+   },
+   "00000528--b6f44770a7": {
+    "windows": 1153,
+    "physical_dynamic": {
+     "n": 1153,
+     "coverage": 1.0,
+     "mae": 0.0919,
+     "bias": 0.033,
+     "p95": 0.2145
+    },
+    "codex_map": {
+     "n": 1000,
+     "coverage": 0.867,
+     "mae": 0.0928,
+     "bias": -0.0509,
+     "p95": 0.2276
+    }
+   },
+   "00000534--ad32280214": {
+    "windows": 889,
+    "physical_dynamic": {
+     "n": 889,
+     "coverage": 1.0,
+     "mae": 0.0991,
+     "bias": -0.0422,
+     "p95": 0.2501
+    },
+    "codex_map": {
+     "n": 749,
+     "coverage": 0.843,
+     "mae": 0.1311,
+     "bias": -0.064,
+     "p95": 0.3084
+    }
+   },
+   "00000537--2d2fc78700": {
+    "windows": 1039,
+    "physical_dynamic": {
+     "n": 1039,
+     "coverage": 1.0,
+     "mae": 0.0858,
+     "bias": -0.0386,
+     "p95": 0.2221
+    },
+    "codex_map": {
+     "n": 910,
+     "coverage": 0.876,
+     "mae": 0.1104,
+     "bias": -0.0677,
+     "p95": 0.2839
+    }
+   },
+   "00000538--7ce240e87d": {
+    "windows": 621,
+    "physical_dynamic": {
+     "n": 595,
+     "coverage": 0.958,
+     "mae": 0.1179,
+     "bias": -0.0406,
+     "p95": 0.2997
+    },
+    "codex_map": {
+     "n": 143,
+     "coverage": 0.23,
+     "mae": 0.105,
+     "bias": 0.0477,
+     "p95": 0.3751
+    }
+   },
+   "00000539--b4ddbbb5f4": {
+    "windows": 133,
+    "physical_dynamic": {
+     "n": 130,
+     "coverage": 0.977,
+     "mae": 0.1701,
+     "bias": -0.0781,
+     "p95": 0.3423
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "0000053a--0d6f70bd8f": {
+    "windows": 884,
+    "physical_dynamic": {
+     "n": 859,
+     "coverage": 0.972,
+     "mae": 0.0932,
+     "bias": 0.0237,
+     "p95": 0.2302
+    },
+    "codex_map": {
+     "n": 533,
+     "coverage": 0.603,
+     "mae": 0.1008,
+     "bias": 0.0224,
+     "p95": 0.2259
+    }
+   },
+   "0000053b--491c6011b0": {
+    "windows": 178,
+    "physical_dynamic": {
+     "n": 168,
+     "coverage": 0.944,
+     "mae": 0.1471,
+     "bias": -0.1167,
+     "p95": 0.4411
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "0000054f--463a1b204f": {
+    "windows": 1690,
+    "physical_dynamic": {
+     "n": 1690,
+     "coverage": 1.0,
+     "mae": 0.1067,
+     "bias": -0.046,
+     "p95": 0.2575
+    },
+    "codex_map": {
+     "n": 919,
+     "coverage": 0.544,
+     "mae": 0.1321,
+     "bias": -0.1096,
+     "p95": 0.324
+    }
+   },
+   "00000550--95f8860799": {
+    "windows": 2442,
+    "physical_dynamic": {
+     "n": 2441,
+     "coverage": 1.0,
+     "mae": 0.0923,
+     "bias": 0.0349,
+     "p95": 0.2363
+    },
+    "codex_map": {
+     "n": 296,
+     "coverage": 0.121,
+     "mae": 0.0707,
+     "bias": 0.0009,
+     "p95": 0.186
+    }
+   },
+   "00000556--6495051a1c": {
+    "windows": 1086,
+    "physical_dynamic": {
+     "n": 1086,
+     "coverage": 1.0,
+     "mae": 0.0908,
+     "bias": -0.0157,
+     "p95": 0.243
+    },
+    "codex_map": {
+     "n": 933,
+     "coverage": 0.859,
+     "mae": 0.0907,
+     "bias": -0.0337,
+     "p95": 0.2296
+    }
+   },
+   "00000557--f60e66cbb8": {
+    "windows": 9300,
+    "physical_dynamic": {
+     "n": 9287,
+     "coverage": 0.999,
+     "mae": 0.1169,
+     "bias": 0.0553,
+     "p95": 0.3176
+    },
+    "codex_map": {
+     "n": 3320,
+     "coverage": 0.357,
+     "mae": 0.142,
+     "bias": 0.0406,
+     "p95": 0.4622
+    }
+   },
+   "00000558--2bc142441f": {
+    "windows": 528,
+    "physical_dynamic": {
+     "n": 528,
+     "coverage": 1.0,
+     "mae": 0.0974,
+     "bias": 0.0006,
+     "p95": 0.2726
+    },
+    "codex_map": {
+     "n": 385,
+     "coverage": 0.729,
+     "mae": 0.0969,
+     "bias": 0.0094,
+     "p95": 0.2075
+    }
+   },
+   "00000559--bebdf6efae": {
+    "windows": 937,
+    "physical_dynamic": {
+     "n": 937,
+     "coverage": 1.0,
+     "mae": 0.109,
+     "bias": 0.0526,
+     "p95": 0.2652
+    },
+    "codex_map": {
+     "n": 236,
+     "coverage": 0.252,
+     "mae": 0.1288,
+     "bias": 0.0312,
+     "p95": 0.3717
+    }
+   },
+   "0000059e--bc19ed69b5": {
+    "windows": 1178,
+    "physical_dynamic": {
+     "n": 1178,
+     "coverage": 1.0,
+     "mae": 0.0922,
+     "bias": -0.0054,
+     "p95": 0.2141
+    },
+    "codex_map": {
+     "n": 1031,
+     "coverage": 0.875,
+     "mae": 0.0981,
+     "bias": -0.0316,
+     "p95": 0.2385
+    }
+   },
+   "000005a5--78637e3536": {
+    "windows": 916,
+    "physical_dynamic": {
+     "n": 916,
+     "coverage": 1.0,
+     "mae": 0.0988,
+     "bias": 0.026,
+     "p95": 0.2843
+    },
+    "codex_map": {
+     "n": 753,
+     "coverage": 0.822,
+     "mae": 0.1011,
+     "bias": 0.0226,
+     "p95": 0.2635
+    }
+   },
+   "000005a6--7a1f7bd705": {
+    "windows": 933,
+    "physical_dynamic": {
+     "n": 923,
+     "coverage": 0.989,
+     "mae": 0.1248,
+     "bias": 0.037,
+     "p95": 0.2801
+    },
+    "codex_map": {
+     "n": 578,
+     "coverage": 0.62,
+     "mae": 0.0931,
+     "bias": 0.0306,
+     "p95": 0.2172
+    }
+   },
+   "000005a7--94f13c4bcc": {
+    "windows": 1082,
+    "physical_dynamic": {
+     "n": 1081,
+     "coverage": 0.999,
+     "mae": 0.0907,
+     "bias": 0.0042,
+     "p95": 0.2314
+    },
+    "codex_map": {
+     "n": 310,
+     "coverage": 0.287,
+     "mae": 0.0828,
+     "bias": 0.0336,
+     "p95": 0.2435
+    }
+   },
+   "000005a8--b53667aa00": {
+    "windows": 577,
+    "physical_dynamic": {
+     "n": 577,
+     "coverage": 1.0,
+     "mae": 0.0971,
+     "bias": 0.054,
+     "p95": 0.2253
+    },
+    "codex_map": {
+     "n": 175,
+     "coverage": 0.303,
+     "mae": 0.1126,
+     "bias": 0.046,
+     "p95": 0.2545
+    }
+   },
+   "000005c4--fa2b7ccf77": {
+    "windows": 1120,
+    "physical_dynamic": {
+     "n": 1120,
+     "coverage": 1.0,
+     "mae": 0.0779,
+     "bias": 0.011,
+     "p95": 0.2045
+    },
+    "codex_map": {
+     "n": 948,
+     "coverage": 0.846,
+     "mae": 0.0775,
+     "bias": -0.029,
+     "p95": 0.2101
+    }
+   },
+   "000005c6--34609b3918": {
+    "windows": 501,
+    "physical_dynamic": {
+     "n": 495,
+     "coverage": 0.988,
+     "mae": 0.194,
+     "bias": -0.177,
+     "p95": 0.3838
+    },
+    "codex_map": {
+     "n": 121,
+     "coverage": 0.242,
+     "mae": 0.216,
+     "bias": -0.1916,
+     "p95": 0.3606
+    }
+   },
+   "000005c7--fe32b0263e": {
+    "windows": 135,
+    "physical_dynamic": {
+     "n": 135,
+     "coverage": 1.0,
+     "mae": 0.2368,
+     "bias": -0.223,
+     "p95": 0.4897
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000005c8--3bb30266ea": {
+    "windows": 988,
+    "physical_dynamic": {
+     "n": 988,
+     "coverage": 1.0,
+     "mae": 0.0988,
+     "bias": 0.0513,
+     "p95": 0.2881
+    },
+    "codex_map": {
+     "n": 567,
+     "coverage": 0.574,
+     "mae": 0.0828,
+     "bias": -0.0073,
+     "p95": 0.2201
+    }
+   },
+   "000005cb--5ddd649120": {
+    "windows": 1018,
+    "physical_dynamic": {
+     "n": 1018,
+     "coverage": 1.0,
+     "mae": 0.1085,
+     "bias": -0.0075,
+     "p95": 0.26
+    },
+    "codex_map": {
+     "n": 471,
+     "coverage": 0.463,
+     "mae": 0.1535,
+     "bias": -0.1328,
+     "p95": 0.3222
+    }
+   },
+   "000005cd--c819b69380": {
+    "windows": 908,
+    "physical_dynamic": {
+     "n": 908,
+     "coverage": 1.0,
+     "mae": 0.0991,
+     "bias": -0.0535,
+     "p95": 0.2583
+    },
+    "codex_map": {
+     "n": 600,
+     "coverage": 0.661,
+     "mae": 0.1053,
+     "bias": -0.0764,
+     "p95": 0.2634
+    }
+   },
+   "000005ce--6b820d3394": {
+    "windows": 551,
+    "physical_dynamic": {
+     "n": 551,
+     "coverage": 1.0,
+     "mae": 0.0863,
+     "bias": 0.0176,
+     "p95": 0.2115
+    },
+    "codex_map": {
+     "n": 501,
+     "coverage": 0.909,
+     "mae": 0.0954,
+     "bias": -0.0622,
+     "p95": 0.2423
+    }
+   },
+   "000005cf--0cda6f338d": {
+    "windows": 705,
+    "physical_dynamic": {
+     "n": 705,
+     "coverage": 1.0,
+     "mae": 0.1025,
+     "bias": -0.0087,
+     "p95": 0.267
+    },
+    "codex_map": {
+     "n": 406,
+     "coverage": 0.576,
+     "mae": 0.1097,
+     "bias": -0.0255,
+     "p95": 0.283
+    }
+   },
+   "000005d0--70400288ef": {
+    "windows": 72,
+    "physical_dynamic": {
+     "n": 72,
+     "coverage": 1.0,
+     "mae": 0.2113,
+     "bias": 0.0835,
+     "p95": 0.6175
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000005d1--526831ede1": {
+    "windows": 161,
+    "physical_dynamic": {
+     "n": 161,
+     "coverage": 1.0,
+     "mae": 0.2857,
+     "bias": -0.174,
+     "p95": 0.4956
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000005d2--d32ae18a41": {
+    "windows": 589,
+    "physical_dynamic": {
+     "n": 589,
+     "coverage": 1.0,
+     "mae": 0.0923,
+     "bias": -0.0059,
+     "p95": 0.2308
+    },
+    "codex_map": {
+     "n": 551,
+     "coverage": 0.935,
+     "mae": 0.0849,
+     "bias": -0.0249,
+     "p95": 0.2149
+    }
+   },
+   "000005d3--4a3a8b878a": {
+    "windows": 589,
+    "physical_dynamic": {
+     "n": 589,
+     "coverage": 1.0,
+     "mae": 0.0811,
+     "bias": -0.0117,
+     "p95": 0.1876
+    },
+    "codex_map": {
+     "n": 246,
+     "coverage": 0.418,
+     "mae": 0.0797,
+     "bias": -0.0123,
+     "p95": 0.1785
+    }
+   },
+   "000005d4--4eb21aacac": {
+    "windows": 549,
+    "physical_dynamic": {
+     "n": 549,
+     "coverage": 1.0,
+     "mae": 0.0833,
+     "bias": -0.0489,
+     "p95": 0.2145
+    },
+    "codex_map": {
+     "n": 546,
+     "coverage": 0.995,
+     "mae": 0.102,
+     "bias": -0.0678,
+     "p95": 0.2512
+    }
+   },
+   "000005d5--2fd4c7c5af": {
+    "windows": 415,
+    "physical_dynamic": {
+     "n": 412,
+     "coverage": 0.993,
+     "mae": 0.123,
+     "bias": -0.0299,
+     "p95": 0.2751
+    },
+    "codex_map": {
+     "n": 194,
+     "coverage": 0.467,
+     "mae": 0.1196,
+     "bias": -0.0754,
+     "p95": 0.2874
+    }
+   },
+   "000005d6--901f63d513": {
+    "windows": 1048,
+    "physical_dynamic": {
+     "n": 1048,
+     "coverage": 1.0,
+     "mae": 0.087,
+     "bias": -0.0551,
+     "p95": 0.2073
+    },
+    "codex_map": {
+     "n": 925,
+     "coverage": 0.883,
+     "mae": 0.1015,
+     "bias": -0.079,
+     "p95": 0.2441
+    }
+   },
+   "000005d7--b76052c387": {
+    "windows": 934,
+    "physical_dynamic": {
+     "n": 903,
+     "coverage": 0.967,
+     "mae": 0.1042,
+     "bias": -0.0374,
+     "p95": 0.265
+    },
+    "codex_map": {
+     "n": 695,
+     "coverage": 0.744,
+     "mae": 0.0976,
+     "bias": -0.0162,
+     "p95": 0.2468
+    }
+   },
+   "000005d8--d42560c127": {
+    "windows": 584,
+    "physical_dynamic": {
+     "n": 584,
+     "coverage": 1.0,
+     "mae": 0.1817,
+     "bias": -0.1409,
+     "p95": 0.5669
+    },
+    "codex_map": {
+     "n": 363,
+     "coverage": 0.622,
+     "mae": 0.1361,
+     "bias": -0.0911,
+     "p95": 0.4777
+    }
+   },
+   "000005d9--0062724284": {
+    "windows": 759,
+    "physical_dynamic": {
+     "n": 759,
+     "coverage": 1.0,
+     "mae": 0.0956,
+     "bias": 0.0147,
+     "p95": 0.2413
+    },
+    "codex_map": {
+     "n": 139,
+     "coverage": 0.183,
+     "mae": 0.0989,
+     "bias": -0.0026,
+     "p95": 0.2816
+    }
+   },
+   "000005da--084cd611fd": {
+    "windows": 921,
+    "physical_dynamic": {
+     "n": 909,
+     "coverage": 0.987,
+     "mae": 0.0977,
+     "bias": -0.0496,
+     "p95": 0.2446
+    },
+    "codex_map": {
+     "n": 782,
+     "coverage": 0.849,
+     "mae": 0.1174,
+     "bias": -0.0565,
+     "p95": 0.2735
+    }
+   },
+   "000005db--637df38b8b": {
+    "windows": 1016,
+    "physical_dynamic": {
+     "n": 1006,
+     "coverage": 0.99,
+     "mae": 0.0959,
+     "bias": 0.0491,
+     "p95": 0.2256
+    },
+    "codex_map": {
+     "n": 703,
+     "coverage": 0.692,
+     "mae": 0.0916,
+     "bias": 0.0183,
+     "p95": 0.2158
+    }
+   },
+   "000005dc--2fbc0e8240": {
+    "windows": 709,
+    "physical_dynamic": {
+     "n": 709,
+     "coverage": 1.0,
+     "mae": 0.0969,
+     "bias": -0.0208,
+     "p95": 0.259
+    },
+    "codex_map": {
+     "n": 359,
+     "coverage": 0.506,
+     "mae": 0.0792,
+     "bias": -0.0159,
+     "p95": 0.1997
+    }
+   },
+   "000005dd--f1d2f30a52": {
+    "windows": 704,
+    "physical_dynamic": {
+     "n": 704,
+     "coverage": 1.0,
+     "mae": 0.0893,
+     "bias": 0.0148,
+     "p95": 0.2947
+    },
+    "codex_map": {
+     "n": 514,
+     "coverage": 0.73,
+     "mae": 0.0671,
+     "bias": -0.0322,
+     "p95": 0.1831
+    }
+   },
+   "000005de--ce765f0f11": {
+    "windows": 144,
+    "physical_dynamic": {
+     "n": 144,
+     "coverage": 1.0,
+     "mae": 0.3709,
+     "bias": -0.3659,
+     "p95": 0.8308
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "000005e0--7566755379": {
+    "windows": 911,
+    "physical_dynamic": {
+     "n": 911,
+     "coverage": 1.0,
+     "mae": 0.2462,
+     "bias": -0.0741,
+     "p95": 0.837
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.643,
+     "mae": 0.0757,
+     "bias": 0.0038,
+     "p95": 0.1952
+    }
+   },
+   "000005e1--1032175ae1": {
+    "windows": 657,
+    "physical_dynamic": {
+     "n": 516,
+     "coverage": 0.785,
+     "mae": 0.1153,
+     "bias": 0.0164,
+     "p95": 0.3049
+    },
+    "codex_map": {
+     "n": 126,
+     "coverage": 0.192,
+     "mae": 0.0865,
+     "bias": -0.0165,
+     "p95": 0.2227
+    }
+   },
+   "000005e2--dfb37a2cf9": {
+    "windows": 866,
+    "physical_dynamic": {
+     "n": 866,
+     "coverage": 1.0,
+     "mae": 0.0891,
+     "bias": -0.0299,
+     "p95": 0.2525
+    },
+    "codex_map": {
+     "n": 734,
+     "coverage": 0.848,
+     "mae": 0.1008,
+     "bias": -0.0558,
+     "p95": 0.2323
+    }
+   },
+   "000005e3--37b9d7a4cc": {
+    "windows": 1144,
+    "physical_dynamic": {
+     "n": 1144,
+     "coverage": 1.0,
+     "mae": 0.0735,
+     "bias": 0.0115,
+     "p95": 0.1779
+    },
+    "codex_map": {
+     "n": 996,
+     "coverage": 0.871,
+     "mae": 0.0713,
+     "bias": -0.005,
+     "p95": 0.1875
+    }
+   },
+   "000005e5--40223fc154": {
+    "windows": 907,
+    "physical_dynamic": {
+     "n": 901,
+     "coverage": 0.993,
+     "mae": 0.0929,
+     "bias": 0.0419,
+     "p95": 0.2325
+    },
+    "codex_map": {
+     "n": 720,
+     "coverage": 0.794,
+     "mae": 0.097,
+     "bias": -0.0383,
+     "p95": 0.2291
+    }
+   },
+   "000005e7--0ccdf44479": {
+    "windows": 589,
+    "physical_dynamic": {
+     "n": 589,
+     "coverage": 1.0,
+     "mae": 0.0919,
+     "bias": 0.0426,
+     "p95": 0.2202
+    },
+    "codex_map": {
+     "n": 586,
+     "coverage": 0.995,
+     "mae": 0.1012,
+     "bias": -0.0076,
+     "p95": 0.2318
+    }
+   },
+   "000005ea--8c646f3889": {
+    "windows": 1039,
+    "physical_dynamic": {
+     "n": 1039,
+     "coverage": 1.0,
+     "mae": 0.0992,
+     "bias": 0.0593,
+     "p95": 0.2367
+    },
+    "codex_map": {
+     "n": 1017,
+     "coverage": 0.979,
+     "mae": 0.0976,
+     "bias": 0.0335,
+     "p95": 0.2424
+    }
+   },
+   "000005eb--c812a5f60c": {
+    "windows": 767,
+    "physical_dynamic": {
+     "n": 767,
+     "coverage": 1.0,
+     "mae": 0.121,
+     "bias": 0.0138,
+     "p95": 0.4086
+    },
+    "codex_map": {
+     "n": 545,
+     "coverage": 0.711,
+     "mae": 0.0735,
+     "bias": -0.0395,
+     "p95": 0.1857
+    }
+   },
+   "000005ec--fcf71764fe": {
+    "windows": 1082,
+    "physical_dynamic": {
+     "n": 1082,
+     "coverage": 1.0,
+     "mae": 0.0872,
+     "bias": -0.0076,
+     "p95": 0.2219
+    },
+    "codex_map": {
+     "n": 1024,
+     "coverage": 0.946,
+     "mae": 0.0982,
+     "bias": -0.042,
+     "p95": 0.2518
+    }
+   },
+   "000005ed--a9ffab2e74": {
+    "windows": 1133,
+    "physical_dynamic": {
+     "n": 1128,
+     "coverage": 0.996,
+     "mae": 0.1105,
+     "bias": 0.0476,
+     "p95": 0.2628
+    },
+    "codex_map": {
+     "n": 921,
+     "coverage": 0.813,
+     "mae": 0.0875,
+     "bias": 0.0139,
+     "p95": 0.2156
+    }
+   },
+   "000005ee--0cacdfe1d4": {
+    "windows": 1100,
+    "physical_dynamic": {
+     "n": 1100,
+     "coverage": 1.0,
+     "mae": 0.1012,
+     "bias": 0.0118,
+     "p95": 0.2609
+    },
+    "codex_map": {
+     "n": 891,
+     "coverage": 0.81,
+     "mae": 0.0836,
+     "bias": -0.0367,
+     "p95": 0.2184
+    }
+   },
+   "000005ef--2d59a906a1": {
+    "windows": 1160,
+    "physical_dynamic": {
+     "n": 1160,
+     "coverage": 1.0,
+     "mae": 0.1077,
+     "bias": 0.0043,
+     "p95": 0.2649
+    },
+    "codex_map": {
+     "n": 766,
+     "coverage": 0.66,
+     "mae": 0.0898,
+     "bias": 0.0163,
+     "p95": 0.223
+    }
+   },
+   "000005f0--8e36c7c03e": {
+    "windows": 932,
+    "physical_dynamic": {
+     "n": 930,
+     "coverage": 0.998,
+     "mae": 0.0993,
+     "bias": -0.0245,
+     "p95": 0.2457
+    },
+    "codex_map": {
+     "n": 879,
+     "coverage": 0.943,
+     "mae": 0.1129,
+     "bias": -0.0584,
+     "p95": 0.2868
+    }
+   },
+   "000005f3--2f93d10ca2": {
+    "windows": 800,
+    "physical_dynamic": {
+     "n": 788,
+     "coverage": 0.985,
+     "mae": 0.1292,
+     "bias": -0.0858,
+     "p95": 0.3261
+    },
+    "codex_map": {
+     "n": 384,
+     "coverage": 0.48,
+     "mae": 0.1348,
+     "bias": -0.1086,
+     "p95": 0.2962
+    }
+   },
+   "000005f8--05541646cd": {
+    "windows": 300,
+    "physical_dynamic": {
+     "n": 300,
+     "coverage": 1.0,
+     "mae": 0.168,
+     "bias": 0.0364,
+     "p95": 0.3842
+    },
+    "codex_map": {
+     "n": 13,
+     "coverage": 0.043,
+     "mae": 0.1164,
+     "bias": -0.0639,
+     "p95": 0.2347
+    }
+   },
+   "000005f9--d6e8df2eac": {
+    "windows": 264,
+    "physical_dynamic": {
+     "n": 264,
+     "coverage": 1.0,
+     "mae": 0.1893,
+     "bias": 0.1363,
+     "p95": 0.4166
+    },
+    "codex_map": {
+     "n": 10,
+     "coverage": 0.038,
+     "mae": 0.5092,
+     "bias": 0.5092,
+     "p95": 0.8337
+    }
+   },
+   "000005fa--9aa9c337c2": {
+    "windows": 682,
+    "physical_dynamic": {
+     "n": 682,
+     "coverage": 1.0,
+     "mae": 0.1011,
+     "bias": -0.016,
+     "p95": 0.3133
+    },
+    "codex_map": {
+     "n": 578,
+     "coverage": 0.848,
+     "mae": 0.1012,
+     "bias": -0.0268,
+     "p95": 0.2507
+    }
+   },
+   "000005fb--92283e2455": {
+    "windows": 590,
+    "physical_dynamic": {
+     "n": 590,
+     "coverage": 1.0,
+     "mae": 0.0869,
+     "bias": 0.0352,
+     "p95": 0.1994
+    },
+    "codex_map": {
+     "n": 496,
+     "coverage": 0.841,
+     "mae": 0.0769,
+     "bias": 0.0027,
+     "p95": 0.1886
+    }
+   },
+   "000005ff--c4b12ac487": {
+    "windows": 637,
+    "physical_dynamic": {
+     "n": 632,
+     "coverage": 0.992,
+     "mae": 0.075,
+     "bias": 0.0123,
+     "p95": 0.192
+    },
+    "codex_map": {
+     "n": 421,
+     "coverage": 0.661,
+     "mae": 0.0863,
+     "bias": -0.0184,
+     "p95": 0.2107
+    }
+   },
+   "00000600--1e51d8d4f3": {
+    "windows": 245,
+    "physical_dynamic": {
+     "n": 242,
+     "coverage": 0.988,
+     "mae": 0.1285,
+     "bias": -0.0264,
+     "p95": 0.3481
+    },
+    "codex_map": {
+     "n": 19,
+     "coverage": 0.078,
+     "mae": 0.1987,
+     "bias": 0.1114,
+     "p95": 0.4413
+    }
+   },
+   "00000601--8c0adfc25b": {
+    "windows": 658,
+    "physical_dynamic": {
+     "n": 658,
+     "coverage": 1.0,
+     "mae": 0.1279,
+     "bias": 0.0428,
+     "p95": 0.3489
+    },
+    "codex_map": {
+     "n": 365,
+     "coverage": 0.555,
+     "mae": 0.1587,
+     "bias": 0.0948,
+     "p95": 0.4537
+    }
+   },
+   "00000603--4b975d0477": {
+    "windows": 732,
+    "physical_dynamic": {
+     "n": 725,
+     "coverage": 0.99,
+     "mae": 0.0916,
+     "bias": -0.0218,
+     "p95": 0.3046
+    },
+    "codex_map": {
+     "n": 340,
+     "coverage": 0.464,
+     "mae": 0.0824,
+     "bias": 0.0092,
+     "p95": 0.2029
+    }
+   },
+   "00000604--e43d5745c3": {
+    "windows": 142,
+    "physical_dynamic": {
+     "n": 142,
+     "coverage": 1.0,
+     "mae": 0.0595,
+     "bias": 0.0156,
+     "p95": 0.1634
+    },
+    "codex_map": {
+     "n": 133,
+     "coverage": 0.937,
+     "mae": 0.0731,
+     "bias": 0.0332,
+     "p95": 0.1749
+    }
+   },
+   "00000605--705a8cff2f": {
+    "windows": 14,
+    "physical_dynamic": {
+     "n": 14,
+     "coverage": 1.0,
+     "mae": 0.0725,
+     "bias": 0.0496,
+     "p95": 0.1834
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000606--4a61a86c47": {
+    "windows": 919,
+    "physical_dynamic": {
+     "n": 919,
+     "coverage": 1.0,
+     "mae": 0.1379,
+     "bias": -0.0072,
+     "p95": 0.3988
+    },
+    "codex_map": {
+     "n": 721,
+     "coverage": 0.785,
+     "mae": 0.1451,
+     "bias": -0.0407,
+     "p95": 0.404
+    }
+   },
+   "00000609--506909b275": {
+    "windows": 836,
+    "physical_dynamic": {
+     "n": 831,
+     "coverage": 0.994,
+     "mae": 0.0735,
+     "bias": -0.0062,
+     "p95": 0.2286
+    },
+    "codex_map": {
+     "n": 745,
+     "coverage": 0.891,
+     "mae": 0.0749,
+     "bias": -0.042,
+     "p95": 0.2082
+    }
+   },
+   "0000060a--db98afc345": {
+    "windows": 298,
+    "physical_dynamic": {
+     "n": 298,
+     "coverage": 1.0,
+     "mae": 0.0898,
+     "bias": 0.0056,
+     "p95": 0.218
+    },
+    "codex_map": {
+     "n": 161,
+     "coverage": 0.54,
+     "mae": 0.11,
+     "bias": 0.0513,
+     "p95": 0.2686
+    }
+   },
+   "0000060b--5eb8e3c58d": {
+    "windows": 487,
+    "physical_dynamic": {
+     "n": 487,
+     "coverage": 1.0,
+     "mae": 0.1816,
+     "bias": -0.1342,
+     "p95": 0.4906
+    },
+    "codex_map": {
+     "n": 50,
+     "coverage": 0.103,
+     "mae": 0.0957,
+     "bias": 0.0032,
+     "p95": 0.2322
+    }
+   },
+   "0000060c--eccd7328e3": {
+    "windows": 1121,
+    "physical_dynamic": {
+     "n": 1121,
+     "coverage": 1.0,
+     "mae": 0.1238,
+     "bias": 0.1151,
+     "p95": 0.2748
+    },
+    "codex_map": {
+     "n": 838,
+     "coverage": 0.748,
+     "mae": 0.0748,
+     "bias": 0.0101,
+     "p95": 0.1861
+    }
+   },
+   "0000060d--fdd1721f10": {
+    "windows": 549,
+    "physical_dynamic": {
+     "n": 549,
+     "coverage": 1.0,
+     "mae": 0.1344,
+     "bias": 0.1273,
+     "p95": 0.2732
+    },
+    "codex_map": {
+     "n": 544,
+     "coverage": 0.991,
+     "mae": 0.0752,
+     "bias": 0.0169,
+     "p95": 0.187
+    }
+   },
+   "0000060e--ee9ecf3406": {
+    "windows": 967,
+    "physical_dynamic": {
+     "n": 945,
+     "coverage": 0.977,
+     "mae": 0.1117,
+     "bias": 0.0854,
+     "p95": 0.2624
+    },
+    "codex_map": {
+     "n": 770,
+     "coverage": 0.796,
+     "mae": 0.0759,
+     "bias": 0.0084,
+     "p95": 0.1927
+    }
+   },
+   "0000060f--9ce6b9e635": {
+    "windows": 1043,
+    "physical_dynamic": {
+     "n": 1022,
+     "coverage": 0.98,
+     "mae": 0.0911,
+     "bias": 0.0632,
+     "p95": 0.2045
+    },
+    "codex_map": {
+     "n": 846,
+     "coverage": 0.811,
+     "mae": 0.0818,
+     "bias": 0.0555,
+     "p95": 0.1953
+    }
+   },
+   "00000613--c7e06047bf": {
+    "windows": 182,
+    "physical_dynamic": {
+     "n": 182,
+     "coverage": 1.0,
+     "mae": 0.2508,
+     "bias": -0.2372,
+     "p95": 0.5975
+    },
+    "codex_map": {
+     "n": 0,
+     "coverage": 0.0
+    }
+   },
+   "00000617--dae392e7f2": {
+    "windows": 7436,
+    "physical_dynamic": {
+     "n": 7426,
+     "coverage": 0.999,
+     "mae": 0.1014,
+     "bias": -0.0023,
+     "p95": 0.2687
+    },
+    "codex_map": {
+     "n": 1275,
+     "coverage": 0.171,
+     "mae": 0.1233,
+     "bias": -0.0831,
+     "p95": 0.2787
+    }
+   },
+   "0000061a--705c4643b5": {
+    "windows": 2356,
+    "physical_dynamic": {
+     "n": 2334,
+     "coverage": 0.991,
+     "mae": 0.1305,
+     "bias": 0.0036,
+     "p95": 0.329
+    },
+    "codex_map": {
+     "n": 1595,
+     "coverage": 0.677,
+     "mae": 0.1078,
+     "bias": 0.0017,
+     "p95": 0.2931
+    }
+   },
+   "0000061b--115d338284": {
+    "windows": 11457,
+    "physical_dynamic": {
+     "n": 11372,
+     "coverage": 0.993,
+     "mae": 0.0848,
+     "bias": -0.007,
+     "p95": 0.2277
+    },
+    "codex_map": {
+     "n": 9705,
+     "coverage": 0.847,
+     "mae": 0.0839,
+     "bias": -0.022,
+     "p95": 0.2213
+    }
+   },
+   "0000061f--8e98e3cc45": {
+    "windows": 7667,
+    "physical_dynamic": {
+     "n": 7647,
+     "coverage": 0.997,
+     "mae": 0.0934,
+     "bias": 0.025,
+     "p95": 0.2407
+    },
+    "codex_map": {
+     "n": 6063,
+     "coverage": 0.791,
+     "mae": 0.086,
+     "bias": -0.0106,
+     "p95": 0.2192
+    }
+   },
+   "00000621--87a8f70af0": {
+    "windows": 7583,
+    "physical_dynamic": {
+     "n": 7574,
+     "coverage": 0.999,
+     "mae": 0.1008,
+     "bias": 0.0529,
+     "p95": 0.2477
+    },
+    "codex_map": {
+     "n": 6122,
+     "coverage": 0.807,
+     "mae": 0.0913,
+     "bias": 0.0166,
+     "p95": 0.2316
+    }
+   },
+   "00000623--56b1c108a6": {
+    "windows": 2100,
+    "physical_dynamic": {
+     "n": 2056,
+     "coverage": 0.979,
+     "mae": 0.0921,
+     "bias": 0.014,
+     "p95": 0.2299
+    },
+    "codex_map": {
+     "n": 1254,
+     "coverage": 0.597,
+     "mae": 0.0771,
+     "bias": 0.0226,
+     "p95": 0.1925
+    }
+   },
+   "00000624--ec1d9a5175": {
+    "windows": 3394,
+    "physical_dynamic": {
+     "n": 3383,
+     "coverage": 0.997,
+     "mae": 0.0818,
+     "bias": -0.0084,
+     "p95": 0.2042
+    },
+    "codex_map": {
+     "n": 2744,
+     "coverage": 0.808,
+     "mae": 0.0848,
+     "bias": -0.0306,
+     "p95": 0.2113
+    }
+   },
+   "00000625--5d7dba466b": {
+    "windows": 8149,
+    "physical_dynamic": {
+     "n": 8101,
+     "coverage": 0.994,
+     "mae": 0.1145,
+     "bias": 0.0161,
+     "p95": 0.2906
+    },
+    "codex_map": {
+     "n": 6247,
+     "coverage": 0.767,
+     "mae": 0.0954,
+     "bias": -0.0043,
+     "p95": 0.2418
+    }
+   }
+  }
+ }
+}

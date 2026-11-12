@@ -53,6 +53,27 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, CP):
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 
+def cap_trajectory_accel(speeds, accels, t_idxs, a_max):
+  """Apply an upper acceleration bound to a speed/accel trajectory.
+
+  The old longitudinal API tracks the published trajectory instead of the
+  scalar aTarget, so profile, turn and ramp limits must reach the arrays.
+  Only acceleration above max(a_max, 0) is removed and speeds are lowered by
+  the integral of that excess: speeds never increase and deceleration
+  requests are never weakened. Negative bounds are not turned into forced
+  deceleration; the allowThrottle veto handles coasting separately.
+  """
+  speeds = np.asarray(speeds, dtype=float)
+  accels = np.asarray(accels, dtype=float)
+  cap = max(float(a_max), 0.0)
+  excess = np.maximum(accels - cap, 0.0)
+  if not np.any(excess > 0.0):
+    return speeds, accels
+  dt = np.diff(t_idxs)
+  speed_loss = np.concatenate(([0.0], np.cumsum((excess[1:] + excess[:-1]) / 2.0 * dt)))
+  return np.maximum(speeds - speed_loss, 0.0), accels - excess
+
+
 class LongitudinalPlanner:
   def __init__(self, CP, init_v=0.0, init_a=0.0, dt=DT_MDL):
     self.CP = CP
@@ -73,6 +94,15 @@ class LongitudinalPlanner:
     self.a_desired_trajectory = np.zeros(CONTROL_N)
     self.j_desired_trajectory = np.zeros(CONTROL_N)
     self.solverExecutionTime = 0.0
+
+    # Pedal-only i30: release throttle early from fitted coast capability.
+    self.coast_lift = self.coast_map = None
+    if CP.carName == "i30" and CP.enableGasInterceptor:
+      from openpilot.selfdrive.car.i30.values import I30_EARLY_LIFT_ENABLED
+      if I30_EARLY_LIFT_ENABLED:
+        from openpilot.selfdrive.car.i30.coast_lift import CoastLiftOff
+        from openpilot.selfdrive.car.i30.longitudinal_map import I30LongitudinalMap
+        self.coast_lift, self.coast_map = CoastLiftOff(), I30LongitudinalMap()
 
   @staticmethod
   def parse_model(model_msg, v_ego, taco_tune):
@@ -145,6 +175,12 @@ class LongitudinalPlanner:
     # Don't clip at low speeds since throttle_prob doesn't account for creep
     self.allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED
     self.allow_throttle &= not sm['frogpilotPlan'].disableThrottle
+    if self.coast_lift is not None:
+      lead = sm['radarState'].leadOne
+      pitch = sm['carControl'].orientationNED[1] if len(sm['carControl'].orientationNED) == 3 else float('nan')
+      coast = self.coast_map.coast_accel(v_ego, sm['carState'].engineRpm, pitch)
+      lift = self.coast_lift.update(lead.status and not reset_state, v_ego, lead.dRel, lead.vLead, lead.aLeadK, sm['frogpilotPlan'].tFollow, coast)
+      self.allow_throttle &= not lift
 
     if not self.allow_throttle:
       clipped_accel_coast = max(accel_coast, accel_clip[0])
@@ -176,6 +212,14 @@ class LongitudinalPlanner:
         self.a_desired_trajectory = np.gradient(self.v_desired_trajectory, CONTROL_N_T_IDX)
         self.a_desired_trajectory_full = self.a_desired_trajectory
 
+    # Same per-cycle rate limit as the scalar aTarget clip below.
+    accel_clip = [float(np.clip(accel_clip[idx], self.prev_accel_clip[idx] - 0.05, self.prev_accel_clip[idx] + 0.05)) for idx in range(2)]
+    if frogpilot_toggles.old_long_api:
+      # The old API follows speeds/accels, not aTarget. Cap the trajectory
+      # before it seeds the next MPC state so that state cannot run ahead.
+      self.v_desired_trajectory, self.a_desired_trajectory = cap_trajectory_accel(
+        self.v_desired_trajectory, self.a_desired_trajectory, CONTROL_N_T_IDX, accel_clip[1])
+
     # TODO counter is only needed because radar is glitchy, remove once radar is gone
     self.fcw = self.mpc.crash_cnt > 2 and not sm['carState'].standstill
     if self.fcw:
@@ -203,8 +247,6 @@ class LongitudinalPlanner:
       output_a_target = min(output_a_target_mpc, output_a_target_e2e)
       self.output_should_stop = output_should_stop_e2e or output_should_stop_mpc
 
-    for idx in range(2):
-      accel_clip[idx] = np.clip(accel_clip[idx], self.prev_accel_clip[idx] - 0.05, self.prev_accel_clip[idx] + 0.05)
     self.output_a_target = np.clip(output_a_target, accel_clip[0], accel_clip[1])
     self.prev_accel_clip = accel_clip
 

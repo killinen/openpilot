@@ -42,6 +42,15 @@ def i30_uses_trqi_steering() -> bool:
   return I30_STEERING_COMMAND_MODE == I30SteeringCommandMode.TRQI_TQ_DELTA
 
 
+# Old-long pedal command from the fitted engine/vehicle map (longitudinal_map.py) instead of the
+# legacy linear accel/1.6 conversion. longcontrol computes the pedal and controlsd forwards it in
+# actuators.gas; the carcontroller still sends exactly zero whenever longitudinal is inactive.
+I30_PEDAL_MAP_ENABLED = True
+I30_LEGACY_PEDAL_ACCEL = 1.6  # m/s^2 per full pedal in the legacy linear conversion
+# Planner throttle veto from fitted coast capability (coast_lift.py); only ever removes throttle.
+I30_EARLY_LIFT_ENABLED = True
+
+
 class SteerLimitParams:  # controls running @ 100hz
   MAX_STEERING_TQ = 4             # Nm (original 12), this is for NEMA23, effective max steer torque
   STEER_DELTA_UP = 5 / 100        # 5 Nm/s (10Nm/s original) start quite low value with i30 because the steering is quite light

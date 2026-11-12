@@ -4,7 +4,7 @@ from openpilot.common.numpy_fast import clip, interp
 from opendbc.can.packer import CANPacker
 from openpilot.selfdrive.car import apply_driver_steer_torque_limits
 from openpilot.selfdrive.car.i30 import i30can
-from openpilot.selfdrive.car.i30.values import CarControllerParams, SteerLimitParams, TrqiSteerLimitParams, i30_uses_trqi_steering
+from openpilot.selfdrive.car.i30.values import I30_LEGACY_PEDAL_ACCEL, I30_PEDAL_MAP_ENABLED, CarControllerParams, SteerLimitParams, TrqiSteerLimitParams, i30_uses_trqi_steering
 from openpilot.selfdrive.car.interfaces import CarControllerBase
 
 SAMPLING_FREQ = 100  # Hz
@@ -234,7 +234,11 @@ class CarController(CarControllerBase):
 
     if self.CP.openpilotLongitudinalControl and self.CP.enableGasInterceptor:
       if CC.longActive:
-        pedal_command = interp(self.accel, [0.0, 1.6], [0.0, 1.0])
+        if I30_PEDAL_MAP_ENABLED and frogpilot_toggles.old_long_api and math.isfinite(actuators.gas):
+          # Pedal already mapped by longcontrol (fitted map or its explicit legacy fallback).
+          pedal_command = actuators.gas
+        else:
+          pedal_command = interp(self.accel, [0.0, I30_LEGACY_PEDAL_ACCEL], [0.0, 1.0])
         interceptor_gas_cmd = clip(pedal_command, 0.0, 1.0)
       else:
         interceptor_gas_cmd = 0.0

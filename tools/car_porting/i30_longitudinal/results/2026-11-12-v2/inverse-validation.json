@@ -1,0 +1,37 @@
+{
+ "samples": 39952,
+ "covered": 37525,
+ "coverage": 0.939,
+ "fallback_reasons": {
+  "gear": 2003,
+  "pedal_coverage": 414,
+  "rpm": 10
+ },
+ "mae_pedal_pct": 2.3,
+ "bias_pedal_pct": -0.86,
+ "p95_pedal_pct": 6.99,
+ "pedal_change_per_0p1_mps2_p50_p95": [
+  2.65,
+  6.46
+ ],
+ "zero_pedal_samples": 12976,
+ "zero_pedal_predicted_zero": 10673,
+ "by_gear": {
+  "4": {
+   "n": 4274,
+   "mae": 1.71,
+   "bias": -0.77
+  },
+  "5": {
+   "n": 18642,
+   "mae": 2.07,
+   "bias": -1.23
+  },
+  "6": {
+   "n": 14609,
+   "mae": 2.76,
+   "bias": -0.41
+  }
+ },
+ "legacy_static_mae_pedal_pct": 8.08
+}

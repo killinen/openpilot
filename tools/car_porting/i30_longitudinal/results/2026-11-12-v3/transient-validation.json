@@ -1,0 +1,28 @@
+{
+ "windows": 3353,
+ "routes": 56,
+ "physical_dynamic": {
+  "n": 3353,
+  "rms_mps": 0.358,
+  "bias_mps": -0.053,
+  "p95_mps": 0.686
+ },
+ "physical_static": {
+  "n": 3353,
+  "rms_mps": 0.382,
+  "bias_mps": -0.042,
+  "p95_mps": 0.727
+ },
+ "codex_map": {
+  "n": 1766,
+  "rms_mps": 0.412,
+  "bias_mps": -0.219,
+  "p95_mps": 0.817
+ },
+ "constant_accel": {
+  "n": 3353,
+  "rms_mps": 1.279,
+  "bias_mps": 0.035,
+  "p95_mps": 2.752
+ }
+}

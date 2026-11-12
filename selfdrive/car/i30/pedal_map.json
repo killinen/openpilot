@@ -1,0 +1,345 @@
+{
+ "version": 2,
+ "status": "fitted offline; see tools/car_porting/i30_longitudinal/README.md",
+ "source": {
+  "fit_commit": "a3896569dd6f57445bff5106644a8f6eba4c8af9",
+  "train_routes": 126,
+  "holdout_routes": 56,
+  "n_engine": 887922,
+  "n_vehicle": 885309,
+  "n_grade": 863806
+ },
+ "pedal_bp": [
+  0.0,
+  3.0,
+  6.0,
+  10.0,
+  15.0,
+  20.0,
+  25.0,
+  30.0,
+  40.0,
+  55.0,
+  75.0,
+  100.0
+ ],
+ "rpm_bp": [
+  800.0,
+  1100.0,
+  1400.0,
+  1700.0,
+  2000.0,
+  2400.0,
+  2900.0,
+  3600.0
+ ],
+ "torque": [
+  [
+   6.67,
+   20.342,
+   26.951,
+   35.348,
+   39.96,
+   42.737,
+   43.987,
+   45.237,
+   47.737,
+   51.487,
+   56.487,
+   62.737
+  ],
+  [
+   -5.179,
+   14.722,
+   16.691,
+   28.247,
+   35.164,
+   40.325,
+   42.075,
+   43.325,
+   45.825,
+   49.575,
+   54.575,
+   60.825
+  ],
+  [
+   -9.387,
+   12.447,
+   14.589,
+   21.84,
+   34.097,
+   38.47,
+   45.38,
+   49.721,
+   52.221,
+   55.971,
+   60.971,
+   67.221
+  ],
+  [
+   -11.929,
+   10.059,
+   10.809,
+   16.337,
+   27.28,
+   35.595,
+   41.887,
+   53.109,
+   55.609,
+   59.359,
+   64.359,
+   70.609
+  ],
+  [
+   -12.74,
+   6.323,
+   7.073,
+   12.027,
+   20.015,
+   28.225,
+   39.139,
+   51.899,
+   56.112,
+   59.862,
+   64.862,
+   71.112
+  ],
+  [
+   -12.762,
+   1.68,
+   2.43,
+   4.842,
+   13.119,
+   16.45,
+   28.632,
+   47.571,
+   58.055,
+   61.805,
+   66.805,
+   73.055
+  ],
+  [
+   -13.272,
+   0.813,
+   1.563,
+   2.855,
+   7.342,
+   9.609,
+   17.397,
+   43.393,
+   61.369,
+   65.119,
+   70.119,
+   76.369
+  ],
+  [
+   -14.181,
+   -5.724,
+   -2.978,
+   -0.316,
+   1.478,
+   4.434,
+   7.288,
+   33.527,
+   68.232,
+   71.982,
+   76.982,
+   83.232
+  ]
+ ],
+ "max_pedal": [
+  40.0,
+  25.0,
+  30.0,
+  30.0,
+  55.0,
+  40.0,
+  75.0,
+  40.0
+ ],
+ "saturates": [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true
+ ],
+ "supported": [
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  [
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ]
+ ],
+ "support_min": 30,
+ "min_slope": 0.25,
+ "gears": {
+  "1": {
+   "ratio": 461.01,
+   "tol": 31.39,
+   "k": 0.00011702164615516018,
+   "controllable": false,
+   "note": "calibrated offline; clutch detection disengages outside gears 4-6"
+  },
+  "2": {
+   "ratio": 248.05,
+   "tol": 10.33,
+   "k": 0.00013992035677135245,
+   "controllable": false,
+   "note": "calibrated offline; clutch detection disengages outside gears 4-6"
+  },
+  "3": {
+   "ratio": 173.38,
+   "tol": 5.2,
+   "k": 0.00014944402018531055,
+   "controllable": false,
+   "note": "calibrated offline; clutch detection disengages outside gears 4-6"
+  },
+  "4": {
+   "ratio": 130.6,
+   "tol": 8.0,
+   "k": 0.0001504210363466518,
+   "controllable": true
+  },
+  "5": {
+   "ratio": 105.7,
+   "tol": 6.4,
+   "k": 0.00014886444995127764,
+   "controllable": true
+  },
+  "6": {
+   "ratio": 92.1,
+   "tol": 4.800000000000001,
+   "k": 0.00014631607418557073,
+   "controllable": true
+  }
+ },
+ "drag": {
+  "c0": 0.0361,
+  "c2": 0.0002622
+ },
+ "grade": {
+  "gain": 0.9483,
+  "offset": 0.0968,
+  "max_abs_pitch": 0.09,
+  "pitch_source": "carControl.orientationNED"
+ },
+ "pedal_command": {
+  "scale": 1.0605,
+  "offset": 0.365,
+  "n": 344377,
+  "rms": 1.245
+ },
+ "limits": {
+  "v_min": 5.0,
+  "v_max": 40.0
+ },
+ "dynamics": {
+  "dead_time": 0.04,
+  "tau_up": 0.35,
+  "tau_down": 0.2,
+  "torque_to_accel_delay": 0.08
+ }
+}

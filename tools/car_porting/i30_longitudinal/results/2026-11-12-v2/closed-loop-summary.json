@@ -1,0 +1,764 @@
+{
+ "steady": {
+  "legacy": {
+   "rms_speed_error": 0.132,
+   "max_abs_speed_error": 0.25,
+   "pedal_total_variation": 0.73,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "rms_speed_error": 0.006,
+   "max_abs_speed_error": 0.03,
+   "pedal_total_variation": 0.3,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "rms_speed_error": 0.006,
+   "max_abs_speed_error": 0.03,
+   "pedal_total_variation": 0.3,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "rms_speed_error": 0.006,
+   "max_abs_speed_error": 0.03,
+   "pedal_total_variation": 0.3,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "cruise_drop": {
+  "legacy": {
+   "settle_down_s": 12.899999999999999,
+   "undershoot_mps": 0.31,
+   "settle_up_s": 8.5,
+   "overshoot_after_rise_mps": 0.0,
+   "pedal_total_variation": 2.46,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "settle_down_s": 14.600000000000001,
+   "undershoot_mps": 0.28,
+   "settle_up_s": 10.100000000000001,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.31,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "settle_down_s": 14.600000000000001,
+   "undershoot_mps": 0.28,
+   "settle_up_s": 10.100000000000001,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.31,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "settle_down_s": 14.600000000000001,
+   "undershoot_mps": 0.28,
+   "settle_up_s": 10.100000000000001,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.31,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "speed_limit_drop": {
+  "legacy": {
+   "settle_down_s": 18.2,
+   "undershoot_mps": 0.21,
+   "settle_up_s": 10.799999999999997,
+   "overshoot_after_rise_mps": 0.0,
+   "pedal_total_variation": 2.55,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "settle_down_s": 19.9,
+   "undershoot_mps": 0.25,
+   "settle_up_s": 12.5,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.41,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "settle_down_s": 19.9,
+   "undershoot_mps": 0.25,
+   "settle_up_s": 12.5,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.41,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "settle_down_s": 19.9,
+   "undershoot_mps": 0.25,
+   "settle_up_s": 12.5,
+   "overshoot_after_rise_mps": 0.05,
+   "pedal_total_variation": 2.41,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "lead_slow": {
+  "legacy": {
+   "min_gap_m": 27.09,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.74,
+   "pedal_total_variation": 1.11,
+   "worst_min_gap_over_plants": 24.369790746539252
+  },
+  "map": {
+   "min_gap_m": 25.72,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.79,
+   "pedal_total_variation": 0.71,
+   "worst_min_gap_over_plants": 18.47893983377321
+  },
+  "map+lift": {
+   "min_gap_m": 31.62,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.92,
+   "pedal_total_variation": 1.09,
+   "worst_min_gap_over_plants": 28.868435392257766
+  },
+  "map+lift+gap": {
+   "min_gap_m": 31.62,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.92,
+   "pedal_total_variation": 1.09,
+   "worst_min_gap_over_plants": 28.868435392257766
+  }
+ },
+ "cut_in": {
+  "legacy": {
+   "min_gap_m": 5.37,
+   "contact": false,
+   "time_headway_below_1s": 16.0,
+   "mean_headway_s": 1.33,
+   "pedal_total_variation": 1.22,
+   "worst_min_gap_over_plants": -0.08250643539912517
+  },
+  "map": {
+   "min_gap_m": 5.43,
+   "contact": false,
+   "time_headway_below_1s": 16.6,
+   "mean_headway_s": 1.24,
+   "pedal_total_variation": 0.65,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  },
+  "map+lift": {
+   "min_gap_m": 5.44,
+   "contact": false,
+   "time_headway_below_1s": 16.6,
+   "mean_headway_s": 1.24,
+   "pedal_total_variation": 0.65,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  },
+  "map+lift+gap": {
+   "min_gap_m": 5.44,
+   "contact": false,
+   "time_headway_below_1s": 16.5,
+   "mean_headway_s": 1.25,
+   "pedal_total_variation": 0.66,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  }
+ },
+ "approach": {
+  "legacy": {
+   "min_gap_m": 25.46,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.13,
+   "pedal_total_variation": 0.76,
+   "worst_min_gap_over_plants": 21.985191422275932
+  },
+  "map": {
+   "min_gap_m": 27.62,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.21,
+   "pedal_total_variation": 0.43,
+   "worst_min_gap_over_plants": 14.789106631124355
+  },
+  "map+lift": {
+   "min_gap_m": 28.25,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.33,
+   "pedal_total_variation": 0.87,
+   "worst_min_gap_over_plants": 28.032628745705892
+  },
+  "map+lift+gap": {
+   "min_gap_m": 28.25,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.33,
+   "pedal_total_variation": 0.87,
+   "worst_min_gap_over_plants": 28.032628745705892
+  }
+ },
+ "lead_loss_change": {
+  "legacy": {
+   "min_gap_m": 9.73,
+   "contact": false,
+   "time_headway_below_1s": 12.3,
+   "mean_headway_s": 1.45,
+   "pedal_total_variation": 1.11,
+   "worst_min_gap_over_plants": -0.06426361468470532
+  },
+  "map": {
+   "min_gap_m": 14.13,
+   "contact": false,
+   "time_headway_below_1s": 7.9,
+   "mean_headway_s": 1.5,
+   "pedal_total_variation": 0.69,
+   "worst_min_gap_over_plants": 5.36081419744437
+  },
+  "map+lift": {
+   "min_gap_m": 14.75,
+   "contact": false,
+   "time_headway_below_1s": 7.0,
+   "mean_headway_s": 1.52,
+   "pedal_total_variation": 0.69,
+   "worst_min_gap_over_plants": 4.161825796421454
+  },
+  "map+lift+gap": {
+   "min_gap_m": 14.75,
+   "contact": false,
+   "time_headway_below_1s": 7.0,
+   "mean_headway_s": 1.52,
+   "pedal_total_variation": 0.69,
+   "worst_min_gap_over_plants": 4.161825796421454
+  }
+ },
+ "uphill": {
+  "legacy": {
+   "rms_speed_error": 0.522,
+   "max_abs_speed_error": 1.07,
+   "pedal_total_variation": 1.42,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "rms_speed_error": 0.05,
+   "max_abs_speed_error": 0.16,
+   "pedal_total_variation": 0.6,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "rms_speed_error": 0.05,
+   "max_abs_speed_error": 0.16,
+   "pedal_total_variation": 0.6,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "rms_speed_error": 0.05,
+   "max_abs_speed_error": 0.16,
+   "pedal_total_variation": 0.6,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "downhill": {
+  "legacy": {
+   "rms_speed_error": 0.469,
+   "max_abs_speed_error": 0.76,
+   "pedal_total_variation": 1.06,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "rms_speed_error": 0.235,
+   "max_abs_speed_error": 0.4,
+   "pedal_total_variation": 0.63,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "rms_speed_error": 0.235,
+   "max_abs_speed_error": 0.4,
+   "pedal_total_variation": 0.63,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "rms_speed_error": 0.235,
+   "max_abs_speed_error": 0.4,
+   "pedal_total_variation": 0.63,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "downhill_lead": {
+  "legacy": {
+   "min_gap_m": -271.41,
+   "contact": true,
+   "time_headway_below_1s": 43.9,
+   "mean_headway_s": -3.26,
+   "pedal_total_variation": 0.21,
+   "worst_min_gap_over_plants": -389.30990541104256
+  },
+  "map": {
+   "min_gap_m": -262.04,
+   "contact": true,
+   "time_headway_below_1s": 43.1,
+   "mean_headway_s": -3.06,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -398.3206629796457
+  },
+  "map+lift": {
+   "min_gap_m": -262.04,
+   "contact": true,
+   "time_headway_below_1s": 43.1,
+   "mean_headway_s": -3.06,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -398.3206629796457
+  },
+  "map+lift+gap": {
+   "min_gap_m": -262.04,
+   "contact": true,
+   "time_headway_below_1s": 43.1,
+   "mean_headway_s": -3.06,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -398.3206629796457
+  }
+ },
+ "driver_gas": {
+  "legacy": {
+   "max_pedal_jump_after_reengage": 1.7,
+   "max_underspeed_after": 0.77,
+   "max_overspeed_after": 2.22,
+   "settle_s": 4.300000000000001,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.65,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "max_pedal_jump_after_reengage": 1.17,
+   "max_underspeed_after": 0.29,
+   "max_overspeed_after": 2.49,
+   "settle_s": 5.699999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.2,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "max_pedal_jump_after_reengage": 1.17,
+   "max_underspeed_after": 0.29,
+   "max_overspeed_after": 2.49,
+   "settle_s": 5.699999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.2,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "max_pedal_jump_after_reengage": 1.17,
+   "max_underspeed_after": 0.29,
+   "max_overspeed_after": 2.49,
+   "settle_s": 5.699999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.2,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "brake_tap": {
+  "legacy": {
+   "max_pedal_jump_after_reengage": 6.04,
+   "max_underspeed_after": 3.6,
+   "max_overspeed_after": 0.0,
+   "settle_s": 5.600000000000001,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 2.02,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "max_pedal_jump_after_reengage": 25.0,
+   "max_underspeed_after": 3.3,
+   "max_overspeed_after": 0.05,
+   "settle_s": 5.399999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.45,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "max_pedal_jump_after_reengage": 25.0,
+   "max_underspeed_after": 3.3,
+   "max_overspeed_after": 0.05,
+   "settle_s": 5.399999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.45,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "max_pedal_jump_after_reengage": 25.0,
+   "max_underspeed_after": 3.3,
+   "max_overspeed_after": 0.05,
+   "settle_s": 5.399999999999999,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.45,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "shift_down": {
+  "legacy": {
+   "max_pedal_jump_after_reengage": 2.77,
+   "max_underspeed_after": 1.59,
+   "max_overspeed_after": 0.0,
+   "settle_s": 24.5,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 1.3,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "max_pedal_jump_after_reengage": 6.21,
+   "max_underspeed_after": 1.06,
+   "max_overspeed_after": 0.03,
+   "settle_s": 4.100000000000001,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 0.79,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "max_pedal_jump_after_reengage": 6.21,
+   "max_underspeed_after": 1.06,
+   "max_overspeed_after": 0.03,
+   "settle_s": 4.100000000000001,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 0.79,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "max_pedal_jump_after_reengage": 6.21,
+   "max_underspeed_after": 1.06,
+   "max_overspeed_after": 0.03,
+   "settle_s": 4.100000000000001,
+   "command_while_inactive_max": 0.0,
+   "pedal_total_variation": 0.79,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "pitch_bias": {
+  "legacy": {
+   "rms_speed_error": 0.132,
+   "max_abs_speed_error": 0.25,
+   "pedal_total_variation": 0.73,
+   "worst_min_gap_over_plants": null
+  },
+  "map": {
+   "rms_speed_error": 0.083,
+   "max_abs_speed_error": 0.25,
+   "pedal_total_variation": 0.31,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift": {
+   "rms_speed_error": 0.083,
+   "max_abs_speed_error": 0.25,
+   "pedal_total_variation": 0.31,
+   "worst_min_gap_over_plants": null
+  },
+  "map+lift+gap": {
+   "rms_speed_error": 0.083,
+   "max_abs_speed_error": 0.25,
+   "pedal_total_variation": 0.31,
+   "worst_min_gap_over_plants": null
+  }
+ },
+ "lead_brake": {
+  "legacy": {
+   "min_gap_m": -20.95,
+   "contact": true,
+   "time_headway_below_1s": 22.8,
+   "mean_headway_s": 0.74,
+   "pedal_total_variation": 1.52,
+   "worst_min_gap_over_plants": -37.10819730734943
+  },
+  "map": {
+   "min_gap_m": -23.2,
+   "contact": true,
+   "time_headway_below_1s": 23.5,
+   "mean_headway_s": 0.63,
+   "pedal_total_variation": 1.75,
+   "worst_min_gap_over_plants": -43.28562815949783
+  },
+  "map+lift": {
+   "min_gap_m": -16.78,
+   "contact": true,
+   "time_headway_below_1s": 21.2,
+   "mean_headway_s": 0.86,
+   "pedal_total_variation": 1.91,
+   "worst_min_gap_over_plants": -31.276993872361572
+  },
+  "map+lift+gap": {
+   "min_gap_m": -16.78,
+   "contact": true,
+   "time_headway_below_1s": 20.9,
+   "mean_headway_s": 0.88,
+   "pedal_total_variation": 2.0,
+   "worst_min_gap_over_plants": -31.276993872361572
+  }
+ },
+ "lead_hard_brake": {
+  "legacy": {
+   "min_gap_m": -81.92,
+   "contact": true,
+   "time_headway_below_1s": 45.9,
+   "mean_headway_s": -4.69,
+   "pedal_total_variation": 0.22,
+   "worst_min_gap_over_plants": -131.2020832077128
+  },
+  "map": {
+   "min_gap_m": -84.35,
+   "contact": true,
+   "time_headway_below_1s": 46.0,
+   "mean_headway_s": -4.85,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -139.80101493717302
+  },
+  "map+lift": {
+   "min_gap_m": -82.61,
+   "contact": true,
+   "time_headway_below_1s": 45.9,
+   "mean_headway_s": -4.74,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -124.31862557074419
+  },
+  "map+lift+gap": {
+   "min_gap_m": -82.61,
+   "contact": true,
+   "time_headway_below_1s": 45.9,
+   "mean_headway_s": -4.74,
+   "pedal_total_variation": 0.2,
+   "worst_min_gap_over_plants": -124.31862557074419
+  }
+ },
+ "lead_slow + lead noise": {
+  "legacy": {
+   "min_gap_m": 19.85,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.68,
+   "pedal_total_variation": 2.63,
+   "worst_min_gap_over_plants": 10.672489117444911
+  },
+  "map": {
+   "min_gap_m": 22.38,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.67,
+   "pedal_total_variation": 1.81,
+   "worst_min_gap_over_plants": 9.09187967282594
+  },
+  "map+lift": {
+   "min_gap_m": 30.5,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.9,
+   "pedal_total_variation": 17.2,
+   "worst_min_gap_over_plants": 16.9512832148352
+  },
+  "map+lift+gap": {
+   "min_gap_m": 30.51,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.9,
+   "pedal_total_variation": 17.19,
+   "worst_min_gap_over_plants": 16.9512832148352
+  }
+ },
+ "lead_brake + lead noise": {
+  "legacy": {
+   "min_gap_m": -36.77,
+   "contact": true,
+   "time_headway_below_1s": 32.5,
+   "mean_headway_s": 0.07,
+   "pedal_total_variation": 2.78,
+   "worst_min_gap_over_plants": -55.15574541334149
+  },
+  "map": {
+   "min_gap_m": -33.19,
+   "contact": true,
+   "time_headway_below_1s": 30.0,
+   "mean_headway_s": 0.21,
+   "pedal_total_variation": 2.11,
+   "worst_min_gap_over_plants": -56.52217585906351
+  },
+  "map+lift": {
+   "min_gap_m": -20.99,
+   "contact": true,
+   "time_headway_below_1s": 23.0,
+   "mean_headway_s": 0.82,
+   "pedal_total_variation": 18.22,
+   "worst_min_gap_over_plants": -49.767750350527535
+  },
+  "map+lift+gap": {
+   "min_gap_m": -20.99,
+   "contact": true,
+   "time_headway_below_1s": 22.8,
+   "mean_headway_s": 0.83,
+   "pedal_total_variation": 18.39,
+   "worst_min_gap_over_plants": -49.767750350527535
+  }
+ },
+ "lead_hard_brake + lead noise": {
+  "legacy": {
+   "min_gap_m": -105.35,
+   "contact": true,
+   "time_headway_below_1s": 46.4,
+   "mean_headway_s": -6.12,
+   "pedal_total_variation": 0.8,
+   "worst_min_gap_over_plants": -160.75232855897104
+  },
+  "map": {
+   "min_gap_m": -97.88,
+   "contact": true,
+   "time_headway_below_1s": 46.2,
+   "mean_headway_s": -5.67,
+   "pedal_total_variation": 0.57,
+   "worst_min_gap_over_plants": -159.95463124336084
+  },
+  "map+lift": {
+   "min_gap_m": -89.66,
+   "contact": true,
+   "time_headway_below_1s": 45.8,
+   "mean_headway_s": -5.11,
+   "pedal_total_variation": 3.5,
+   "worst_min_gap_over_plants": -156.84361084486227
+  },
+  "map+lift+gap": {
+   "min_gap_m": -89.66,
+   "contact": true,
+   "time_headway_below_1s": 45.8,
+   "mean_headway_s": -5.11,
+   "pedal_total_variation": 3.5,
+   "worst_min_gap_over_plants": -156.84361084486227
+  }
+ },
+ "cut_in + lead noise": {
+  "legacy": {
+   "min_gap_m": 5.37,
+   "contact": false,
+   "time_headway_below_1s": 16.1,
+   "mean_headway_s": 1.27,
+   "pedal_total_variation": 2.87,
+   "worst_min_gap_over_plants": -0.08250643539912517
+  },
+  "map": {
+   "min_gap_m": 5.38,
+   "contact": false,
+   "time_headway_below_1s": 16.7,
+   "mean_headway_s": 1.19,
+   "pedal_total_variation": 1.79,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  },
+  "map+lift": {
+   "min_gap_m": 5.44,
+   "contact": false,
+   "time_headway_below_1s": 16.1,
+   "mean_headway_s": 1.34,
+   "pedal_total_variation": 15.93,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  },
+  "map+lift+gap": {
+   "min_gap_m": 5.44,
+   "contact": false,
+   "time_headway_below_1s": 16.0,
+   "mean_headway_s": 1.34,
+   "pedal_total_variation": 16.0,
+   "worst_min_gap_over_plants": 0.24280136899153604
+  }
+ },
+ "approach + lead noise": {
+  "legacy": {
+   "min_gap_m": 25.11,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.17,
+   "pedal_total_variation": 2.58,
+   "worst_min_gap_over_plants": 22.72751275861617
+  },
+  "map": {
+   "min_gap_m": 25.7,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.13,
+   "pedal_total_variation": 1.57,
+   "worst_min_gap_over_plants": 17.242603281400534
+  },
+  "map+lift": {
+   "min_gap_m": 27.96,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.73,
+   "pedal_total_variation": 26.19,
+   "worst_min_gap_over_plants": 27.506760671007328
+  },
+  "map+lift+gap": {
+   "min_gap_m": 27.96,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 2.73,
+   "pedal_total_variation": 26.19,
+   "worst_min_gap_over_plants": 27.506760671007328
+  }
+ },
+ "lead_loss_change + lead noise": {
+  "legacy": {
+   "min_gap_m": 17.42,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.6,
+   "pedal_total_variation": 3.61,
+   "worst_min_gap_over_plants": 7.72870289739285
+  },
+  "map": {
+   "min_gap_m": 18.71,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.55,
+   "pedal_total_variation": 2.5,
+   "worst_min_gap_over_plants": 10.117963185656322
+  },
+  "map+lift": {
+   "min_gap_m": 18.31,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.66,
+   "pedal_total_variation": 17.42,
+   "worst_min_gap_over_plants": 10.173225704963102
+  },
+  "map+lift+gap": {
+   "min_gap_m": 18.31,
+   "contact": false,
+   "time_headway_below_1s": 0.0,
+   "mean_headway_s": 1.66,
+   "pedal_total_variation": 17.84,
+   "worst_min_gap_over_plants": 10.173225704963102
+  }
+ },
+ "downhill_lead + lead noise": {
+  "legacy": {
+   "min_gap_m": -288.76,
+   "contact": true,
+   "time_headway_below_1s": 44.8,
+   "mean_headway_s": -3.57,
+   "pedal_total_variation": 0.52,
+   "worst_min_gap_over_plants": -399.6194789981712
+  },
+  "map": {
+   "min_gap_m": -256.28,
+   "contact": true,
+   "time_headway_below_1s": 42.6,
+   "mean_headway_s": -2.93,
+   "pedal_total_variation": 0.23,
+   "worst_min_gap_over_plants": -391.8954846997806
+  },
+  "map+lift": {
+   "min_gap_m": -246.26,
+   "contact": true,
+   "time_headway_below_1s": 41.2,
+   "mean_headway_s": -2.65,
+   "pedal_total_variation": 3.41,
+   "worst_min_gap_over_plants": -365.1910722328373
+  },
+  "map+lift+gap": {
+   "min_gap_m": -246.26,
+   "contact": true,
+   "time_headway_below_1s": 41.2,
+   "mean_headway_s": -2.65,
+   "pedal_total_variation": 3.41,
+   "worst_min_gap_over_plants": -365.1910722328373
+  }
+ }
+}

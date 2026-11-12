@@ -1,3 +1,5 @@
+import math
+
 from cereal import car
 from openpilot.common.numpy_fast import clip, interp
 from openpilot.common.realtime import DT_CTRL
@@ -10,6 +12,24 @@ GAS_INTERCEPTOR_OVERSPEED_MARGIN = 0.25  # m/s
 GAS_INTERCEPTOR_TARGET_ACCEL_MARGIN = 0.05  # m/s
 
 LongCtrlState = car.CarControl.Actuators.LongControlState
+
+# i30 pedal map (old API): integral only trims model error, so it is bounded and may be
+# negative; source changes between map and legacy conversion are made bumpless.
+PEDAL_MAP_INTEGRATOR_LIMIT = 0.5  # m/s^2
+PEDAL_TRANSFER_TIME = 1.0  # s of upward pedal slew limit after a map/legacy switch
+PEDAL_TRANSFER_RATE = 0.4  # pedal fraction per second
+PEDAL_MAP_REENTRY_TIME = 0.5  # s the map must be continuously available before leaving the legacy fallback
+
+
+def load_pedal_map(CP):
+  """Fitted i30 pedal map and the legacy accel-per-full-pedal, or (None, None)."""
+  if CP.carName != "i30" or not CP.enableGasInterceptor:
+    return None, None
+  from openpilot.selfdrive.car.i30.values import I30_PEDAL_MAP_ENABLED, I30_LEGACY_PEDAL_ACCEL
+  if not I30_PEDAL_MAP_ENABLED:
+    return None, None
+  from openpilot.selfdrive.car.i30.longitudinal_map import I30LongitudinalMap
+  return I30LongitudinalMap(), I30_LEGACY_PEDAL_ACCEL
 
 
 def gas_interceptor_integrator_limits(v_ego, v_pid, v_target_1sec, p_term, feedforward):
@@ -113,6 +133,14 @@ class LongControl:
     self.v_pid = 0.0
     self.last_output_accel = 0.0
 
+    self.pedal_map, self.legacy_pedal_accel = load_pedal_map(CP)
+    self.pedal_command = 0.0
+    self.pedal_from_map = False
+    self.pedal_saturation = 0  # -1 at zero pedal (coasting), +1 at the usable pedal limit
+    self.pedal_transfer_timer = 0.0
+    self.pedal_was_active = False
+    self.pedal_map_available_time = 0.0
+
   def reset(self):
     self.pid.reset()
 
@@ -151,8 +179,9 @@ class LongControl:
     """Reset PID controller and change setpoint"""
     self.pid.reset()
     self.v_pid = v_pid
+    self.pedal_saturation = 0
 
-  def update_old_long(self, active, CS, long_plan, accel_limits, t_since_plan, frogpilot_toggles):
+  def update_old_long(self, active, CS, long_plan, accel_limits, t_since_plan, frogpilot_toggles, pitch=float('nan')):
     """Update longitudinal control. This updates the state machine and runs a PID loop"""
     # The old API follows trajectory arrays, so scalar aTarget clipping alone
     # does not enforce the planner's throttle veto on the pedal-only i30.
@@ -218,6 +247,13 @@ class LongControl:
         # ramp-up integral cannot keep requesting throttle above the capped target.
         p_term = interp(CS.vEgo, self.CP.longitudinalTuning.kpBP, self.CP.longitudinalTuning.kpV) * error_deadzone
         integrator_min, integrator_max = gas_interceptor_integrator_limits(CS.vEgo, self.v_pid, v_target_1sec, p_term, a_target)
+        if self.pedal_from_map:
+          # The map supplies road load and grade, so the integral only trims model error:
+          # bounded both ways, and frozen while the pedal is saturated in the error's direction.
+          integrator_min = -PEDAL_MAP_INTEGRATOR_LIMIT
+          integrator_max = PEDAL_MAP_INTEGRATOR_LIMIT if integrator_max is None else clip(integrator_max, -PEDAL_MAP_INTEGRATOR_LIMIT,
+                                                                                           PEDAL_MAP_INTEGRATOR_LIMIT)
+          freeze_integrator |= self.pedal_saturation * error_deadzone > 0
 
       output_accel = self.pid.update(error_deadzone, speed=CS.vEgo,
                                      feedforward=a_target,
@@ -231,4 +267,73 @@ class LongControl:
       output_accel = min(output_accel, 0.0)
     self.last_output_accel = clip(output_accel, accel_limits[0], accel_limits[1])
 
+    if self.pedal_map is not None:
+      max_accel = getattr(frogpilot_toggles, "max_desired_acceleration", math.inf)
+      self.update_pedal_command(active, CS, min(self.last_output_accel, max_accel), throttle_blocked, pitch, max_accel)
+
     return self.last_output_accel
+
+  def update_pedal_command(self, active, CS, accel, throttle_blocked, pitch, max_accel=math.inf):
+    """Interceptor command (0..1) for the old-long i30 path, published via actuators.gas.
+
+    Uses the fitted map when the operating point is covered, otherwise the legacy linear
+    conversion. The throttle veto and inactive state always give exactly zero.
+    """
+    v_ego, rpm = CS.vEgo, getattr(CS, "engineRpm", math.nan)
+    legacy = clip(accel / self.legacy_pedal_accel, 0.0, 1.0)
+    mapped = self.pedal_map.command(accel, v_ego, rpm, pitch) if active else None
+    from_map = mapped is not None
+
+    if not active:
+      self.pedal_command, self.pedal_from_map, self.pedal_saturation, self.pedal_transfer_timer = 0.0, False, 0, 0.0
+      self.pedal_was_active = False
+      self.pedal_map_available_time = 0.0
+      return
+
+    # Hysteresis: once on the legacy fallback, return to the map only after it has been
+    # available continuously, so a coverage boundary cannot make the source chatter.
+    self.pedal_map_available_time = self.pedal_map_available_time + DT_CTRL if from_map else 0.0
+    if from_map and self.pedal_was_active and not self.pedal_from_map and self.pedal_map_available_time < PEDAL_MAP_REENTRY_TIME:
+      from_map = False
+
+    previous = self.pedal_command
+    # Transfer only between two active cycles; on (re)engagement the integral starts from reset.
+    if self.pedal_was_active and from_map != self.pedal_from_map and self.long_control_state == LongCtrlState.pid:
+      # Bumpless transfer: choose the integral so the new conversion reproduces the last pedal.
+      ff_p = self.pid.p + self.pid.f
+      if from_map:
+        a_prev = self.pedal_map.accel(previous, v_ego, rpm, pitch)
+        if a_prev is not None:
+          # If the last pedal is at or beyond what the map can command, a_prev is only a lower
+          # bound (the map caps there): never push the integral negative on that basis.
+          limit = self.pedal_map.command(1e3, v_ego, rpm, pitch)
+          at_limit = limit is not None and self.pedal_map.last_limited and previous >= limit - 1e-6
+          i_min = 0.0 if at_limit else -PEDAL_MAP_INTEGRATOR_LIMIT
+          self.pid.i = clip(a_prev - ff_p, i_min, PEDAL_MAP_INTEGRATOR_LIMIT)
+      else:
+        self.pid.i = max(previous * self.legacy_pedal_accel - ff_p, 0.0)
+      # Re-evaluate this cycle with the transferred integral (vetoes still force zero below).
+      accel = clip(ff_p + self.pid.i, self.pid.neg_limit, self.pid.pos_limit)
+      self.last_output_accel = min(accel, 0.0) if throttle_blocked else accel
+      accel = min(accel, max_accel)
+      legacy = clip(accel / self.legacy_pedal_accel, 0.0, 1.0)
+      if from_map:
+        mapped = self.pedal_map.command(accel, v_ego, rpm, pitch)
+        from_map = mapped is not None
+      self.pedal_transfer_timer = PEDAL_TRANSFER_TIME
+    self.pedal_from_map = from_map
+
+    pedal = mapped if from_map else legacy
+    if self.pedal_transfer_timer > 0.0:
+      # Only increases are slew limited; releasing the pedal is never delayed.
+      self.pedal_transfer_timer = max(self.pedal_transfer_timer - DT_CTRL, 0.0)
+      pedal = min(pedal, previous + PEDAL_TRANSFER_RATE * DT_CTRL)
+    if throttle_blocked:
+      pedal = 0.0
+    self.pedal_was_active = True
+
+    if from_map:
+      self.pedal_saturation = -1 if pedal <= 0.0 else (1 if self.pedal_map.last_limited else 0)
+    else:
+      self.pedal_saturation = 0
+    self.pedal_command = float(pedal)
