@@ -43,15 +43,17 @@ class FrogPilotVCruise:
     v_ego_diff = v_ego_cluster - v_ego
 
     # FrogsGoMoo's Curve Speed Controller
-    if v_ego > CRUISING_SPEED and sm["controlsState"].enabled and self.frogpilot_planner.road_curvature_detected and frogpilot_toggles.curve_speed_controller:
-      self.csc.update_target(v_ego, frogpilot_toggles)
+    # Training gates itself on longActive, so it only records while the driver controls speed.
+    self.csc.log_data(v_ego, sm)
 
+    if v_ego > CRUISING_SPEED and sm["controlsState"].enabled and frogpilot_toggles.curve_speed_controller:
+      self.csc.update_target(v_ego, sm, frogpilot_toggles)
+
+      # Arbitration below keeps this only while the curve target is the lowest cap.
       self.csc_controlling_speed = True
 
       self.csc_target = self.csc.target
     else:
-      self.csc.log_data(v_ego, sm)
-
       self.csc_controlling_speed = False
       self.csc.target_set = False
 

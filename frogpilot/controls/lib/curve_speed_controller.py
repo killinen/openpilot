@@ -13,6 +13,33 @@ PERCENTILE = 90
 ROUNDING_PRECISION = 5
 STEP = 0.001
 
+# Braking envelope for upcoming curves
+CURVE_DECEL = 1.0         # m/s^2, comfortable deceleration while approaching a curve
+CURVE_DECEL_MIN = 0.5     # m/s^2, lowest deceleration used with gentle deceleration profiles
+MIN_CURVATURE_EPS = 1e-5  # 1/m, keeps straight-road speed limits finite
+MIN_PATH_SPEED = 1.0      # m/s, lower bound on model path speed when converting yaw rate to curvature
+REACTION_TIME = 0.75      # s, planner and actuator lag before braking takes effect
+TARGET_FALL_RATE = 2.0    # m/s^2, fastest the target may drop below v_ego (rejects single-frame model spikes)
+TARGET_RISE_RATE = 1.0    # m/s^2, how quickly the target releases when leaving a curve
+MAX_TARGET = 70.0         # m/s, published target when no curve limits speed
+
+def calculate_curve_speed_limit(orientation_rate, velocity, position, v_ego, lateral_acceleration, decel):
+  """Highest speed allowed now so that the car can slow at `decel` and reach every point on
+  the predicted path at or below the speed that gives `lateral_acceleration` there."""
+  orientation_rate = np.abs(np.asarray(orientation_rate, dtype=float))
+  velocity = np.asarray(velocity, dtype=float)
+  position = np.asarray(position, dtype=float)
+  if not (len(orientation_rate) == len(velocity) == len(position) > 0):
+    return float("inf")
+
+  # The path curvature is yaw rate over the model's own predicted speed; using v_ego would
+  # underestimate it whenever the model already expects to slow down for the curve.
+  curvature = orientation_rate / np.maximum(velocity, MIN_PATH_SPEED)
+  curve_speed_squared = lateral_acceleration / np.maximum(curvature, MIN_CURVATURE_EPS)
+
+  braking_distance = np.maximum(position - v_ego * REACTION_TIME, 0)
+  return float(np.sqrt(np.min(curve_speed_squared + 2 * decel * braking_distance)))
+
 class CurveSpeedController:
   def __init__(self, FrogPilotVCruise):
     self.frogpilot_planner = FrogPilotVCruise.frogpilot_planner
@@ -88,18 +115,32 @@ class CurveSpeedController:
 
     params.put_float_nonblocking("CalibratedLateralAcceleration", self.lateral_acceleration)
 
-  def update_target(self, v_ego, frogpilot_toggles):
+  def update_target(self, v_ego, sm, frogpilot_toggles):
     lateral_acceleration = frogpilot_toggles.curve_speed_lateral_acceleration
     if self.frogpilot_planner.frogpilot_weather.weather_id != 0:
       lateral_acceleration -= lateral_acceleration * self.frogpilot_planner.frogpilot_weather.reduce_lateral_acceleration
 
-    if self.target_set:
-      csc_speed = (lateral_acceleration / abs(self.frogpilot_planner.road_curvature))**0.5
-      decel_rate = (v_ego - csc_speed) / self.frogpilot_planner.time_to_curve
+    # Brake no harder than the active deceleration profile lets the planner follow.
+    min_accel = self.frogpilot_planner.frogpilot_acceleration.min_accel
+    decel = float(np.clip(-min_accel, CURVE_DECEL_MIN, CURVE_DECEL)) if min_accel < 0 else CURVE_DECEL
 
-      self.target -= decel_rate * DT_MDL
-      self.target = float(np.clip(self.target, CRUISING_SPEED, csc_speed))
+    # Lane changes bend the predicted path without a curve in the road, so release gently instead.
+    if sm["carState"].leftBlinker or sm["carState"].rightBlinker:
+      speed_limit = MAX_TARGET
     else:
-      self.target_set = True
+      model = sm["modelV2"]
+      speed_limit = calculate_curve_speed_limit(model.orientationRate.z, model.velocity.x, model.position.x,
+                                                v_ego, lateral_acceleration, decel)
+    speed_limit = min(speed_limit, MAX_TARGET)
 
-      self.target = v_ego
+    if not self.target_set:
+      self.target_set = True
+      self.target = max(speed_limit, v_ego)
+
+    # Rate-limit around the previous target so single-frame model spikes cannot snap the cap down
+    # and the release after a curve is gradual. The limits apply only on the far side of v_ego:
+    # a curve that first requires slowing starts the target at v_ego instead of a stale higher
+    # value, and a path that allows v_ego never holds the target below it.
+    target = float(np.clip(speed_limit, self.target - TARGET_FALL_RATE * DT_MDL, self.target + TARGET_RISE_RATE * DT_MDL))
+    target = float(np.clip(target, min(speed_limit, v_ego), max(speed_limit, v_ego)))
+    self.target = max(target, CRUISING_SPEED)

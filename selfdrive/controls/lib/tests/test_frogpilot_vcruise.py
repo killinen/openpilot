@@ -95,9 +95,18 @@ def test_curve_status_clears_when_curve_ends(cruise):
   controller.csc.target = 10.
   assert controller.update(None, 0, True, 30., 20., sm, toggles) == pytest.approx(10.)
   assert controller.csc_controlling_speed
-  controller.frogpilot_planner.road_curvature_detected = False
+  controller.csc.target = 40.  # The curve no longer limits speed.
   assert controller.update(None, 0, True, 30., 20., sm, toggles) == pytest.approx(15.)
   assert not controller.csc_controlling_speed
+
+
+def test_curve_status_clears_when_disengaged(cruise):
+  controller, sm, toggles = cruise
+  controller.csc.target = 10.
+  sm["controlsState"].enabled = False
+  assert controller.update(None, 0, True, 30., 20., sm, toggles) == pytest.approx(15.)
+  assert not controller.csc_controlling_speed
+  assert not controller.csc.target_set
 
 
 def test_forced_stop_takes_precedence_over_curve_status(cruise):
