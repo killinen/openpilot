@@ -33,8 +33,8 @@ def controller(fingerprint=CAR.TOYOTA_PRIUS):
 
 
 @pytest.mark.parametrize('speed_kph,scale', [(0, 1), (30, 1), (35, 1.075), (40, 1.15), (45, 1.3), (50, 1.45),
-                                            (60, 1.45), (90, 1.45), (130, 1.45), (140, 1.45), (150, 1.45),
-                                            (200, 1.45)])
+                                            (60, 1.45), (70, 1.45), (80, 1.35), (90, 1.25), (130, 1.25),
+                                            (200, 1.25)])
 def test_hrr_feedforward_speed_schedule(speed_kph, scale):
   c = controller(CAR.LEXUS_LS600h)
   assert c.torque_feedforward_scale(speed_kph / 3.6) == pytest.approx(scale)

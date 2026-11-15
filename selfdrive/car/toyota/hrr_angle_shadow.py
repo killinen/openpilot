@@ -29,7 +29,10 @@ class AngleShadowResult:
 class HrrAngleShadow:
   VERSION = 2
   FRESH_SECONDS = 0.05
-  BRIDGE_SECONDS = 2.5
+  # On 2026-11-15 (route 000001f9) a drifted OEM offset kept HRR flapping for minutes. Its
+  # good runs were up to 5.5 s apart, so a 2.5 s bridge expired into raw OEM/HRR angles
+  # 12-22 deg wrong. OEM plus the learned offset stays far closer than either raw value.
+  BRIDGE_SECONDS = 10.0
   RECOVERY_SAMPLES = 5
   # HRR v0.1 values: revise these on HRR v0.2 or after any recalibration.
   # Measured HRR minus OEM angle near center. Logs do not support it beyond the envelope.

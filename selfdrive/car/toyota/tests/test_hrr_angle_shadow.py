@@ -46,13 +46,15 @@ def test_flagged_gap_bridges_on_local_reference_and_tracks_motion():
 def test_bridge_covers_longest_logged_gap_then_expires_without_latching():
   ghost = HrrAngleShadow()
   ready(ghost)
-  assert sample(ghost, 1.95, 5, valid=False, wrap=True).usable
-  result = sample(ghost, 3.0, 6, valid=False, wrap=True)
+  # The longest gap between good runs on route 000001f9 was 5.5 s.
+  assert sample(ghost, 5.55, 5, valid=False, wrap=True).usable
+  assert sample(ghost, 9.95, 6, valid=False, wrap=True).usable
+  result = sample(ghost, 10.1, 7, valid=False, wrap=True)
   assert result.mode == 'unavailable'
   assert result.would_disable
-  for i in range(7, 11):
-    assert not sample(ghost, 3.0 + i * .01, i).usable
-  result = sample(ghost, 3.11, 11)
+  for i in range(8, 12):
+    assert not sample(ghost, 10.1 + i * .01, i).usable
+  result = sample(ghost, 10.22, 12)
   assert result.mode == 'trustedHrr'
   assert not result.would_disable
 
