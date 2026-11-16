@@ -23,6 +23,18 @@ TARGET_FALL_RATE = 2.0    # m/s^2, fastest the target may drop below v_ego (reje
 TARGET_RISE_RATE = 1.0    # m/s^2, how quickly the target releases when leaving a curve
 MAX_TARGET = 70.0         # m/s, published target when no curve limits speed
 
+# The model under-predicts how sharp a curve is, more so the further ahead it looks. Measured on
+# two i30 drives (00000629, 0000062e), predicted/actual curvature was about 0.84 now, 0.79 at 1 s,
+# 0.70 at 2 s, 0.57 at 3 s and 0.43 at 4 s. Scale the path curvature by roughly the inverse,
+# capped so that faint far-away bends cannot trigger heavy braking.
+CURVATURE_GAIN_BP = [0., 1., 2., 3., 4.]       # s, model horizon
+CURVATURE_GAIN_V = [1.19, 1.27, 1.42, 1.77, 2.0]
+MODEL_HORIZON = 10.0                            # s, model path horizon (T_IDXS spacing is quadratic in index)
+
+def curvature_gain(n):
+  horizon = MODEL_HORIZON * (np.arange(n) / max(n - 1, 1))**2
+  return np.interp(horizon, CURVATURE_GAIN_BP, CURVATURE_GAIN_V)
+
 def calculate_curve_speed_limit(orientation_rate, velocity, position, v_ego, lateral_acceleration, decel):
   """Highest speed allowed now so that the car can slow at `decel` and reach every point on
   the predicted path at or below the speed that gives `lateral_acceleration` there."""
@@ -34,7 +46,7 @@ def calculate_curve_speed_limit(orientation_rate, velocity, position, v_ego, lat
 
   # The path curvature is yaw rate over the model's own predicted speed; using v_ego would
   # underestimate it whenever the model already expects to slow down for the curve.
-  curvature = orientation_rate / np.maximum(velocity, MIN_PATH_SPEED)
+  curvature = curvature_gain(len(orientation_rate)) * orientation_rate / np.maximum(velocity, MIN_PATH_SPEED)
   curve_speed_squared = lateral_acceleration / np.maximum(curvature, MIN_CURVATURE_EPS)
 
   braking_distance = np.maximum(position - v_ego * REACTION_TIME, 0)

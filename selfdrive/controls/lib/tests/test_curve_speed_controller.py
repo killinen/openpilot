@@ -11,7 +11,7 @@ N = 33
 
 
 @pytest.fixture
-def csc_module(monkeypatch):
+def csc_module_raw(monkeypatch):
   # Load the controller without persistent params or the full openpilot runtime.
   params = SimpleNamespace(get=lambda *args: None, put_float_nonblocking=lambda *args: None, put_nonblocking=lambda *args: None)
   dependencies = {
@@ -28,6 +28,13 @@ def csc_module(monkeypatch):
   module = importlib.util.module_from_spec(spec)
   spec.loader.exec_module(module)
   return module
+
+
+@pytest.fixture
+def csc_module(csc_module_raw, monkeypatch):
+  # Most tests check the braking envelope itself, so they run with the model curvature taken at face value.
+  monkeypatch.setattr(csc_module_raw, "CURVATURE_GAIN_V", [1.0] * len(csc_module_raw.CURVATURE_GAIN_V))
+  return csc_module_raw
 
 
 def path(v_ego, radius=None, curve_start=None):
@@ -166,3 +173,24 @@ def test_deceleration_follows_profile(csc_module, min_accel, decel):
     controller.update_target(v_ego, sm, TOGGLES)
   expected = csc_module.calculate_curve_speed_limit(orientation_rate, velocity, position, v_ego, 2.0, decel)
   assert controller.target == pytest.approx(min(expected, v_ego), rel=1e-3)
+
+
+def test_curvature_gain_grows_with_horizon_and_is_capped(csc_module_raw):
+  gain = csc_module_raw.curvature_gain(N)
+  t = 10 * (np.arange(N) / (N - 1))**2
+  assert gain[0] == pytest.approx(csc_module_raw.CURVATURE_GAIN_V[0])
+  assert np.all(np.diff(gain) >= 0)
+  assert gain[t >= 4.].min() == pytest.approx(max(csc_module_raw.CURVATURE_GAIN_V))
+
+
+def test_curvature_gain_brakes_earlier_for_distant_curve(csc_module_raw):
+  # The model sees far curves as gentler than they are, so a curve 3 s ahead must lower the limit more than face value.
+  args = (*path(17., radius=150., curve_start=50.), 17., 2.0, 1.0)
+  with_gain = csc_module_raw.calculate_curve_speed_limit(*args)
+  csc_module_raw.CURVATURE_GAIN_V = [1.0] * len(csc_module_raw.CURVATURE_GAIN_V)
+  without_gain = csc_module_raw.calculate_curve_speed_limit(*args)
+  assert with_gain < without_gain < 25.
+
+
+def test_curvature_gain_keeps_straight_road_unlimited(csc_module_raw):
+  assert csc_module_raw.calculate_curve_speed_limit(*path(25.), 25., 2.0, 1.0) > 60.
