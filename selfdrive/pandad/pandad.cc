@@ -274,7 +274,7 @@ void can_recv_thread(std::vector<Panda *> pandas) {
 }
 
 std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, IgnitionOverride ignition_override,
-                                      Params &params) {
+                                      Params &params, bool &is_onroad, bool &trqi_ready_onroad_cleared) {
   bool ignition_local = false;
   const uint32_t pandas_cnt = pandas.size();
 
@@ -337,19 +337,22 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     pandaStates.push_back(health);
   }
 
-  const bool trqi_update_requested = params.getBool("TrqiUpdaterRequested");
-  const bool trqi_update_in_progress = params.getBool("TrqiUpdateInProgress");
-  const bool trqi_startup_hold = params.getBool("TrqiUpdateStartupHold");
+  is_onroad = params.getBool("IsOnroad");
   // Physical ignition may be on while hardwared intentionally keeps the
   // driving stack OFFROAD. This is the only ignition-on state where a new
   // updater lease can be granted.
-  const bool trqi_offroad_safe = !params.getBool("IsOnroad") && !params.getBool("IsEngaged");
-  const bool trqi_initial_lease_safe = trqi_offroad_safe && (!ignition_local || trqi_startup_hold);
-  // A persisted in-progress transaction may reacquire the narrow safety mode
-  // after manager restart, but never if openpilot is ONROAD or engaged.
-  const bool trqi_update_active = trqi_offroad_safe &&
-                                  (trqi_update_in_progress ||
-                                   (trqi_update_requested && trqi_initial_lease_safe));
+  // Check the live driving state before reading updater-only Params. The
+  // updater process is stopped ONROAD, so these reads serve no purpose there.
+  bool trqi_update_active = false;
+  if (!is_onroad && !params.getBool("IsEngaged")) {
+    const bool trqi_update_requested = params.getBool("TrqiUpdaterRequested");
+    const bool trqi_update_in_progress = params.getBool("TrqiUpdateInProgress");
+    const bool trqi_startup_hold = params.getBool("TrqiUpdateStartupHold");
+    const bool trqi_initial_lease_safe = !ignition_local || trqi_startup_hold;
+    // A persisted transaction may reacquire the lease after manager restart,
+    // but never while ONROAD or engaged.
+    trqi_update_active = trqi_update_in_progress || (trqi_update_requested && trqi_initial_lease_safe);
+  }
   bool trqi_update_ready = trqi_update_active;
 
   for (uint32_t i = 0; i < pandas_cnt; i++) {
@@ -457,8 +460,15 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
   }
 
-  if (params.getBool("TrqiUpdaterReady") != trqi_update_ready) {
-    params.putBool("TrqiUpdaterReady", trqi_update_ready);
+  // Revoke stale readiness on the first ONROAD iteration, including a pandad
+  // restart while already ONROAD. Only pandad grants readiness; OFFROAD we
+  // still read it every iteration to handle updater release and Params clears.
+  if (!is_onroad || !trqi_ready_onroad_cleared) {
+    trqi_ready_onroad_cleared = false;
+    const bool ready_matches = params.getBool("TrqiUpdaterReady") == trqi_update_ready;
+    const bool ready_synced = ready_matches || params.putBool("TrqiUpdaterReady", trqi_update_ready) == 0;
+    // Retry a failed revocation rather than caching an uncleared ONROAD lease.
+    trqi_ready_onroad_cleared = is_onroad && ready_synced;
   }
 
   pm->send("pandaStates", msg);
@@ -499,6 +509,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
   std::array<int, PANDA_CAN_CNT> applied_can_speeds = {-1, -1, -1};
   bool is_onroad = false;
   bool is_onroad_last = false;
+  bool trqi_ready_onroad_cleared = false;
   std::future<bool> safety_future;
 
   std::vector<std::string> connected_serials;
@@ -525,7 +536,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
       (ignition_override_value == static_cast<int>(IgnitionOverride::OFF)) ? IgnitionOverride::OFF :
       IgnitionOverride::AUTO;
 
-    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, params);
+    auto ignition_opt = send_panda_states(&pm, pandas, ignition_override, params, is_onroad, trqi_ready_onroad_cleared);
 
     if (!ignition_opt) {
       LOGE("Failed to get ignition_opt");
@@ -561,8 +572,6 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
         break;
       }
     }
-
-    is_onroad = params.getBool("IsOnroad");
 
     // set new safety on onroad transition, after params are cleared
     if (is_onroad && !is_onroad_last) {
