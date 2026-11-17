@@ -44,25 +44,27 @@ def apply_rate_limited_steering_limits(apply_torque, apply_torque_last, LIMITS):
   return apply_torque
 
 
-def apply_rate_limited_steering_limits_with_flags(apply_torque, apply_torque_last, LIMITS):
+def apply_rate_limited_steering_limits_with_flags(apply_torque, apply_torque_last, LIMITS, delta_up=None, delta_down=None):
+  delta_up = LIMITS.STEER_DELTA_UP if delta_up is None else delta_up
+  delta_down = LIMITS.STEER_DELTA_DOWN if delta_down is None else delta_down
   delta_up_limited = False
   delta_down_limited = False
   max_limited = False
 
   if apply_torque_last > 0:
-    lower_down = apply_torque_last - LIMITS.STEER_DELTA_DOWN
-    lower_up_floor = -LIMITS.STEER_DELTA_UP
+    lower_down = apply_torque_last - delta_down
+    lower_up_floor = -delta_up
     lower = max(lower_down, lower_up_floor)
-    upper = apply_torque_last + LIMITS.STEER_DELTA_UP
+    upper = apply_torque_last + delta_up
     if apply_torque < lower:
       delta_down_limited = lower == lower_down
       delta_up_limited = lower == lower_up_floor
     elif apply_torque > upper:
       delta_up_limited = True
   else:
-    lower = apply_torque_last - LIMITS.STEER_DELTA_UP
-    upper_down = apply_torque_last + LIMITS.STEER_DELTA_DOWN
-    upper_up_cap = LIMITS.STEER_DELTA_UP
+    lower = apply_torque_last - delta_up
+    upper_down = apply_torque_last + delta_down
+    upper_up_cap = delta_up
     upper = min(upper_down, upper_up_cap)
     if apply_torque < lower:
       delta_up_limited = True
@@ -105,6 +107,27 @@ class CarController(CarControllerBase):
     # sender's synthetic TQ scale, not the old SSC Nm signal.
     self.last_trqi_tq = 0.0
     self.trqi_counter = 0
+    # Catch-up slew gating (see TrqiSteerLimitParams.CATCHUP_*).
+    self.trqi_lat_active_frames = 0
+    self.trqi_driver_holdoff = 0
+    self.trqi_catchup_active = False
+
+  def update_trqi_catchup_gate(self, lat_active, CS):
+    self.trqi_lat_active_frames = min(self.trqi_lat_active_frames + 1, TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES) if lat_active else 0
+
+    # Any sign of the driver on the wheel: firmware passthrough active, requested
+    # or confirming, or the SNR difference above the host threshold.
+    driver_input = bool(CS.out.steeringPressed) or \
+      bool(getattr(CS, "trqi_snr_passthrough_requested", False)) or \
+      bool(getattr(CS, "trqi_snr_passthrough_pending", False)) or \
+      getattr(CS, "trqi_snr_diff_mv", 0.0) >= TrqiSteerLimitParams.CATCHUP_DRIVER_MV
+    if driver_input:
+      self.trqi_driver_holdoff = TrqiSteerLimitParams.CATCHUP_HOLDOFF_FRAMES
+    elif self.trqi_driver_holdoff > 0:
+      self.trqi_driver_holdoff -= 1
+
+  def trqi_catchup_allowed(self):
+    return self.trqi_lat_active_frames >= TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES and self.trqi_driver_holdoff == 0
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     actuators = CC.actuators
@@ -120,6 +143,7 @@ class CarController(CarControllerBase):
       self.last_steer_tq = 0.0
 
       trqi_limit_flags = 0
+      self.update_trqi_catchup_gate(CC.latActive, CS)
       if CC.latActive:
         requested_trqi_tq = actuators.steer * TrqiSteerLimitParams.STEER_MAX
 
@@ -128,8 +152,12 @@ class CarController(CarControllerBase):
         # Lower alpha smooths more, but it also makes steering response slower.
         alpha = TRQI_ALPHA
         filtered_trqi_tq = lowpass_filter(requested_trqi_tq, self.last_trqi_tq, alpha)
+
+        self.trqi_catchup_active = self.trqi_catchup_allowed() and \
+          abs(filtered_trqi_tq - self.last_trqi_tq) > TrqiSteerLimitParams.CATCHUP_GAP
+        delta = TrqiSteerLimitParams.CATCHUP_DELTA if self.trqi_catchup_active else None
         apply_trqi_tq, delta_up_limited, delta_down_limited, max_limited = apply_rate_limited_steering_limits_with_flags(
-          filtered_trqi_tq, self.last_trqi_tq, TrqiSteerLimitParams
+          filtered_trqi_tq, self.last_trqi_tq, TrqiSteerLimitParams, delta, delta
         )
 
         measured_out_tq = abs(getattr(CS, "steering_torque_out", 0.0))
@@ -154,6 +182,7 @@ class CarController(CarControllerBase):
       else:
         apply_trqi_tq = 0.0
         self.steer_rate_limited = False
+        self.trqi_catchup_active = False
 
       self.last_trqi_tq = apply_trqi_tq
       can_sends.append(i30can.create_trqi_torque_command(apply_trqi_tq, CC.latActive, self.trqi_counter, trqi_limit_flags))

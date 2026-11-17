@@ -22,3 +22,17 @@ def test_driver_left_torque_sign_by_backend(monkeypatch, trqi, expected):
   state = carstate.CarState(car.CarParams.new_message(), None)
   ret, _ = state.update_i30(parser(VSM2={"CR_Mdps_StrTq": -2.5}), parser())
   assert ret.steeringTorque == pytest.approx(expected)
+
+
+def test_trqi_snr_difference_matches_firmware_zero(monkeypatch):
+  monkeypatch.setattr(carstate, "i30_uses_trqi_steering", lambda: True)
+  state = carstate.CarState(car.CarParams.new_message(), None)
+  cam = parser(TRQI_VoltageStatus={"SNR1_VIN": 2.400, "SNR2_VIN": 2.495},
+               TRQI_AdcStatus={"SNR_Passthrough_Pending": 1, "SNR_Passthrough_Requested": 0})
+  state.update_i30(parser(), cam)
+  assert state.trqi_snr_diff_mv == pytest.approx(0.0, abs=1e-6)  # firmware zero is -95 mV
+  assert state.trqi_snr_passthrough_pending and not state.trqi_snr_passthrough_requested
+  state.update_i30(parser(), parser(TRQI_VoltageStatus={"SNR1_VIN": 2.400, "SNR2_VIN": 2.325}))
+  assert state.trqi_snr_diff_mv == pytest.approx(170.0)
+  state.update_i30(parser(), parser(TRQI_VoltageStatus={"SNR1_VIN": 2.400, "SNR2_VIN": 2.665}))
+  assert state.trqi_snr_diff_mv == pytest.approx(170.0)

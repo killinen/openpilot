@@ -5,7 +5,7 @@ from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
 from openpilot.selfdrive.car.i30.gear import (GearEstimator, I30_GEAR_RATIO_WINDOWS, I30_MIN_CLUTCH_SPEED,
                                            I30_MIN_CLUTCH_RPM, I30_CLUTCH_RELEASE_TOL_MULTIPLIER)
-from openpilot.selfdrive.car.i30.values import DBC, Buttons, CarControllerParams, i30_uses_trqi_steering
+from openpilot.selfdrive.car.i30.values import DBC, Buttons, CarControllerParams, TrqiSteerLimitParams, i30_uses_trqi_steering
 
 PREV_BUTTON_SAMPLES = 8
 
@@ -50,6 +50,9 @@ class CarState(CarStateBase):
     self.trqi_limit = False
     self.trqi_host_command_limited = False
     self.trqi_mcu_temp_high = False
+    self.trqi_snr_passthrough_requested = False
+    self.trqi_snr_passthrough_pending = False
+    self.trqi_snr_diff_mv = 0.0
 
   def update(self, cp, cp_cam, frogpilot_toggles):
     return self.update_i30(cp, cp_cam)
@@ -158,6 +161,12 @@ class CarState(CarStateBase):
       else:
         self.trqi_mcu_temp_high = False
       ret.steeringPressed = bool(cp_cam.vl["TRQI_AdcStatus"]["SNR_Passthrough_Active"])
+      self.trqi_snr_passthrough_requested = bool(cp_cam.vl["TRQI_AdcStatus"]["SNR_Passthrough_Requested"])
+      self.trqi_snr_passthrough_pending = bool(cp_cam.vl["TRQI_AdcStatus"]["SNR_Passthrough_Pending"])
+      # Same driver-torque difference the firmware compares against its 250 mV
+      # passthrough threshold (absolute value, mV).
+      snr_diff_mv = (cp_cam.vl["TRQI_VoltageStatus"]["SNR1_VIN"] - cp_cam.vl["TRQI_VoltageStatus"]["SNR2_VIN"]) * 1000.0
+      self.trqi_snr_diff_mv = abs(snr_diff_mv - TrqiSteerLimitParams.SNR_ZERO_DIFF_MV)
       self.i30_angle_offset_needed = True
       self.i30_angle_aligned = False
       self.i30_ssc_angle_initialized = False
@@ -168,6 +177,9 @@ class CarState(CarStateBase):
       self.trqi_limit = False
       self.trqi_host_command_limited = False
       self.trqi_mcu_temp_high = False
+      self.trqi_snr_passthrough_requested = False
+      self.trqi_snr_passthrough_pending = False
+      self.trqi_snr_diff_mv = 0.0
       ret.steeringTorqueEps = cp_cam.vl["STEERING_STATUS"]['STEERING_TORQUE']
 
       ssc_can_valid = bool(getattr(cp_cam, "can_valid", False))
@@ -254,6 +266,7 @@ class CarState(CarStateBase):
       messages.append(("TRQI_IOStatus", 10))
       messages.append(("TRQI_FaultStatus", 10))
       messages.append(("TRQI_McuStatus", 1))
+      messages.append(("TRQI_VoltageStatus", 10))
     else:
       messages.append(("STEERING_STATUS", 20))  # Checks if SSC is connected
     if CP.enableGasInterceptor:

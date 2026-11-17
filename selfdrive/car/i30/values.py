@@ -72,6 +72,24 @@ class TrqiSteerLimitParams:  # controls running @ 100hz
   STEER_STEP = 1
   STEER_MAX = 1000.0
 
+  # Catch-up slew: when the applied command lags the request by more than
+  # CATCHUP_GAP, both windup and unwind may move CATCHUP_DELTA per frame instead
+  # of the nominal 6. Targets curve entry/exit lag; near-straight driving never
+  # opens a 3 Nm gap, so it keeps the nominal slew. TRQI firmware accepts
+  # 100 + 40 Ncm per 10 ms frame, so 15 stays well inside its step check.
+  CATCHUP_DELTA = 15.0
+  CATCHUP_GAP = 300.0
+  # Catch-up is disabled while the driver touches the wheel and for
+  # CATCHUP_HOLDOFF_FRAMES afterwards, so openpilot never winds up faster against
+  # the driver. CATCHUP_DRIVER_MV mirrors the firmware SNR1-SNR2 difference
+  # (about 342 mV/Nm), so 170 mV is about 0.5 Nm, below the 250 mV passthrough
+  # threshold. CATCHUP_ENGAGE_FRAMES keeps the engage ramp at the nominal slew.
+  CATCHUP_DRIVER_MV = 170.0
+  CATCHUP_HOLDOFF_FRAMES = 100
+  CATCHUP_ENGAGE_FRAMES = 100
+  # Firmware CANCTR_SNR_PASSTHROUGH_ZERO_DIFF_MV.
+  SNR_ZERO_DIFF_MV = -95.0
+
   RELAY_ENABLED = 1
   RELAYE_ENABLED = 1
 

@@ -49,3 +49,25 @@ controls checks. The full legacy Hyundai-community module also contains two
 0x231 delta-command tests that fail identically on the original source because
 that legacy command is not allowed by the transmit list. This change does not
 re-enable it.
+
+## Catch-up slew (2026-11-17)
+
+The nominal host slew is still 6 Ncm/frame. When the applied command lags the
+request by more than `CATCHUP_GAP` (300 Ncm), windup and unwind may both move
+`CATCHUP_DELTA` (15 Ncm/frame). This targets curve entry/exit, where the
+request swings about 24 Nm in about 1.2 s while the nominal slew needs about 4 s.
+Near-straight driving never opens a 3 Nm gap.
+
+Catch-up is blocked:
+
+- during the first `CATCHUP_ENGAGE_FRAMES` (1 s) of lateral control, so the engage ramp is unchanged;
+- while the driver touches the wheel (SNR passthrough active, requested or
+  pending, or the firmware-identical `|SNR1-SNR2+95 mV|` at or above 170 mV, about 0.5 Nm,
+  read from `TRQI_VoltageStatus`), and for `CATCHUP_HOLDOFF_FRAMES` (1 s) afterwards.
+
+The measured-output guard still blocks windup above 12 Nm. Panda only bounds
+0x232 magnitude, and TRQI firmware allows 100 + 40 Ncm per frame, so neither
+limit changes. In a closed-loop replay of 1.7 h of drives after 1bc81708a, the
+catch-up slew cut ramp-lag episodes by 80-90% and p99.9 tracking error by 40%,
+for +1-3% wheel twitch.
+Rerun the offline simulator before changing these values; see `LATERAL_SIM.md`.

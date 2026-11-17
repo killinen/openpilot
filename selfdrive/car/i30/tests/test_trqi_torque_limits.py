@@ -20,8 +20,9 @@ def test_safety_param_tracks_selected_backend(tmp_path, monkeypatch, toggle, trq
   assert cp.safetyConfigs[0].safetyParam == Panda.FLAG_I30_LONGITUDINAL | (Panda.FLAG_I30_TRQI if trqi else 0)
 
 
-def state(output_torque=0.0):
-  return SimpleNamespace(out=car.CarState.new_message(steeringTorque=0.0), steering_torque_out=output_torque)
+def state(output_torque=0.0, pressed=False, snr_diff_mv=0.0, requested=False, pending=False):
+  return SimpleNamespace(out=car.CarState.new_message(steeringTorque=0.0, steeringPressed=pressed), steering_torque_out=output_torque,
+                         trqi_snr_diff_mv=snr_diff_mv, trqi_snr_passthrough_requested=requested, trqi_snr_passthrough_pending=pending)
 
 
 def command(steer):
@@ -37,7 +38,7 @@ def demand(messages):
 
 
 @pytest.mark.parametrize('sign', [-1, 1])
-def test_reaches_twelve_nm_without_changing_slew(tmp_path, monkeypatch, sign):
+def test_reaches_twelve_nm_with_nominal_engage_ramp_then_catchup(tmp_path, monkeypatch, sign):
   _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
   controller, _ = new_controller(module)
   cc = command(sign*1.2)
@@ -45,13 +46,86 @@ def test_reaches_twelve_nm_without_changing_slew(tmp_path, monkeypatch, sign):
   for _ in range(205):
     applied, messages = controller.update(cc, state(), 0, SimpleNamespace())
     outputs.append(demand(messages))
+  steps = [abs(b-a) for a, b in zip([0, *outputs], outputs, strict=False)]
+  limits = values.TrqiSteerLimitParams
+  # The engage ramp keeps the nominal slew; catch-up starts only after it.
   assert outputs[0] == sign*6
-  assert max(abs(b-a) for a, b in zip(outputs, outputs[1:], strict=False)) <= 6
+  assert max(steps[:limits.CATCHUP_ENGAGE_FRAMES - 1]) == 6
+  assert max(steps) == 15
   assert outputs[-1] == sign*1200
   assert applied.steer == pytest.approx(sign*1.2)
   applied, messages = controller.update(command(sign*1.5), state(), 0, SimpleNamespace())
   assert demand(messages) == sign*1200
   assert values.TrqiSteerLimitParams.STEER_MAX == 1000
+
+
+def settled(module, tq, frames=200):
+  controller, _ = new_controller(module)
+  for _ in range(frames):
+    controller.update(command(tq / 1000), state(), 0, SimpleNamespace())
+  assert controller.last_trqi_tq == pytest.approx(tq)
+  return controller
+
+
+@pytest.mark.parametrize('sign', [-1, 1])
+def test_catchup_unwinds_curve_exit_and_returns_to_nominal(tmp_path, monkeypatch, sign):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, sign*1000)
+  outputs = [demand(controller.update(command(-sign*1.0), state(), 0, SimpleNamespace())[1]) for _ in range(200)]
+  steps = [b-a for a, b in zip([sign*1000, *outputs], outputs, strict=False)]
+  assert steps[0] == -sign*15
+  # Once within the gap the nominal 6 Ncm/frame finishes the move.
+  gap = [abs(-sign*1000 - o) for o in outputs]
+  assert all(abs(st) == 6 for st, g in zip(steps[1:], gap, strict=False) if 6 < g <= 300)
+  assert outputs[-1] == -sign*1000
+
+
+def test_small_gap_keeps_nominal_slew(tmp_path, monkeypatch):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 200)
+  _, messages = controller.update(command(.5), state(), 0, SimpleNamespace())
+  assert demand(messages) == 206  # gap exactly 300 does not boost
+  _, messages = controller.update(command(.51), state(), 0, SimpleNamespace())
+  assert demand(messages) == 221  # 304 > 300 boosts
+
+
+@pytest.mark.parametrize('driver', [dict(pressed=True), dict(requested=True), dict(pending=True), dict(snr_diff_mv=170.0)])
+def test_driver_input_blocks_catchup_with_holdoff(tmp_path, monkeypatch, driver):
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 1000)
+  _, messages = controller.update(command(-1.0), state(**driver), 0, SimpleNamespace())
+  assert demand(messages) == 994
+  holdoff = values.TrqiSteerLimitParams.CATCHUP_HOLDOFF_FRAMES
+  outputs = [demand(controller.update(command(-1.0), state(), 0, SimpleNamespace())[1]) for _ in range(holdoff)]
+  # Nominal slew for the driver frame plus holdoff - 1 frames, then catch-up.
+  assert outputs[holdoff - 2] == 994 - 6*(holdoff - 1)
+  assert outputs[holdoff - 1] == outputs[holdoff - 2] - 15
+
+
+def test_driver_torque_below_threshold_does_not_block(tmp_path, monkeypatch):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 1000)
+  _, messages = controller.update(command(-1.0), state(snr_diff_mv=169.0), 0, SimpleNamespace())
+  assert demand(messages) == 985
+
+
+def test_catchup_respects_measured_output_guard(tmp_path, monkeypatch):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 600)
+  _, messages = controller.update(command(1.2), state(12.1), 0, SimpleNamespace())
+  assert demand(messages) == 600
+  _, messages = controller.update(command(0.0), state(12.1), 0, SimpleNamespace())
+  assert demand(messages) == 585
+
+
+def test_disengage_resets_catchup(tmp_path, monkeypatch):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 1000)
+  off = car.CarControl.new_message(latActive=False).as_reader()
+  controller.update(off, state(), 0, SimpleNamespace())
+  assert controller.last_trqi_tq == 0
+  _, messages = controller.update(command(1.0), state(), 0, SimpleNamespace())
+  assert demand(messages) == 6
 
 
 def test_normal_range_torque_scale_is_preserved(tmp_path, monkeypatch):
