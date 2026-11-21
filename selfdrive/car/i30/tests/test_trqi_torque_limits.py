@@ -95,17 +95,50 @@ def test_small_gap_keeps_nominal_slew(tmp_path, monkeypatch):
   assert demand(messages) == 221  # 304 > 300 boosts
 
 
-@pytest.mark.parametrize('driver', [dict(pressed=True), dict(requested=True), dict(pending=True), dict(snr_diff_mv=170.0)])
-def test_driver_input_blocks_catchup_with_holdoff(tmp_path, monkeypatch, driver):
+DRIVER_FLAGS = [dict(pressed=True), dict(requested=True), dict(pending=True)]
+
+
+@pytest.mark.parametrize('sign', [-1, 1])
+@pytest.mark.parametrize('driver', DRIVER_FLAGS)
+def test_driver_flags_block_catchup_both_ways_with_holdoff(tmp_path, monkeypatch, driver, sign):
+  # Passthrough active (steeringPressed), requested or pending: nominal slew for unwind and
+  # windup, at any speed, until the hold-off has run out.
   _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
-  controller = settled(module, 1000)
-  _, messages = controller.update(command(-1.0), state(**driver), 0, SimpleNamespace())
-  assert demand(messages) == 994
   holdoff = values.TrqiSteerLimitParams.CATCHUP_HOLDOFF_FRAMES
-  outputs = [demand(controller.update(command(-1.0), state(), 0, SimpleNamespace())[1]) for _ in range(holdoff)]
-  # Nominal slew for the driver frame plus holdoff - 1 frames, then catch-up.
-  assert outputs[holdoff - 2] == 994 - 6*(holdoff - 1)
-  assert outputs[holdoff - 1] == outputs[holdoff - 2] - 15
+  for v_ego in (8.0, 30.0):
+    controller = settled(module, sign*1000)
+    assert run(controller, -sign*1.0, 1, v_ego=v_ego, **driver) == [sign*994]
+    outputs = run(controller, -sign*1.0, holdoff, v_ego=v_ego)
+    # Nominal slew for the driver frame plus holdoff - 1 frames, then catch-up.
+    assert outputs[holdoff - 2] == sign*(994 - 6*(holdoff - 1))
+    assert outputs[holdoff - 1] == outputs[holdoff - 2] - sign*15
+  controller = settled(module, 0)
+  assert run(controller, sign*1.0, 1, v_ego=8.0, **driver) == [sign*6]
+
+
+@pytest.mark.parametrize('sign', [-1, 1])
+def test_analog_only_driver_estimate_keeps_low_speed_unwind(tmp_path, monkeypatch, sign):
+  # Tight-turn exit: the SNR estimate reads ~0.5 Nm at 10-12 Nm EPS output with no flag set.
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  limit = values.TrqiSteerLimitParams.CATCHUP_ANALOG_UNWIND_MAX_SPEED
+  controller = settled(module, sign*1000)
+  outputs = run(controller, -sign*1.0, 90, v_ego=limit - 1.0, snr_diff_mv=200.0)
+  steps = [b-a for a, b in zip([sign*1000, *outputs], outputs, strict=False)]
+  assert steps[0] == -sign*15
+  # Crossing zero into the opposite windup stays nominal while the analog hold-off lasts.
+  crossed = next(i for i, o in enumerate(outputs) if o*sign < 0)
+  assert abs(outputs[crossed]) <= 6
+  assert all(abs(st) <= 6 for st in steps[crossed + 1:])
+  # Above the speed limit the analog estimate blocks unwind too.
+  controller = settled(module, sign*1000)
+  assert run(controller, -sign*1.0, 1, v_ego=limit + 1.0, snr_diff_mv=200.0) == [sign*994]
+
+
+@pytest.mark.parametrize('mv,step', [(169.0, 15), (170.0, 6)])
+def test_analog_threshold_blocks_windup(tmp_path, monkeypatch, mv, step):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 0)
+  assert run(controller, 1.0, 1, v_ego=12.0, snr_diff_mv=mv) == [step]
 
 
 LANE_SIGNALS = [dict(left_blinker=True), dict(right_blinker=True), dict(lane_change_left=True), dict(lane_change_right=True)]
@@ -175,13 +208,6 @@ def test_unwind_catchup_kept_at_highway_speed(tmp_path, monkeypatch, sign):
   # The crossing step itself: the opposite-side part is bounded by the faded windup rate.
   assert abs(outputs[crossed]) <= 6
   assert all(abs(st) <= 6 for st in steps[crossed + 1:])
-
-
-def test_driver_torque_below_threshold_does_not_block(tmp_path, monkeypatch):
-  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
-  controller = settled(module, 1000)
-  _, messages = controller.update(command(-1.0), state(snr_diff_mv=169.0), 0, SimpleNamespace())
-  assert demand(messages) == 985
 
 
 def test_catchup_respects_measured_output_guard(tmp_path, monkeypatch):

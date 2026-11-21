@@ -61,9 +61,16 @@ Near-straight driving never opens a 3 Nm gap.
 Catch-up is blocked:
 
 - during the first `CATCHUP_ENGAGE_FRAMES` (1 s) of lateral control, so the engage ramp is unchanged;
-- while the driver touches the wheel (SNR passthrough active, requested or
-  pending, or the firmware-identical `|SNR1-SNR2+95 mV|` at or above 170 mV, about 0.5 Nm,
-  read from `TRQI_VoltageStatus`), and for `CATCHUP_HOLDOFF_FRAMES` (1 s) afterwards;
+- while the driver touches the wheel, and for `CATCHUP_HOLDOFF_FRAMES` (1 s) afterwards.
+  SNR passthrough active (`steeringPressed`), requested or pending blocks both directions
+  at any speed. The firmware-identical `|SNR1-SNR2+95 mV|` at or above 170 mV (about
+  0.5 Nm, read from `TRQI_VoltageStatus`) blocks windup. On its own, with no flag in the
+  hold-off, it still allows unwind toward zero below 60 km/h
+  (`CATCHUP_ANALOG_UNWIND_MAX_SPEED`, added 2026-11-20). That estimate rises about
+  0.04 Nm per Nm of EPS output. On tight low-speed turn exits it tripped while openpilot
+  held 8-12 Nm, blocked the unwind, and the car kept turning (00000640 at 128 s:
+  0.040 1/m against 0.014 requested). Whether the driver's hands were on the wheel then is
+  not known from the logs;
 - during lane changes (added 2026-11-20). This covers a physical blinker, or the model lane
   change: controlsd sets `CC.leftBlinker` / `CC.rightBlinker` while `laneChangeState` is not
   off, which can outlast the blinker. It also covers `CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES`

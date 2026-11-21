@@ -86,6 +86,14 @@ class TrqiSteerLimitParams:  # controls running @ 100hz
   # threshold. CATCHUP_ENGAGE_FRAMES keeps the engage ramp at the nominal slew.
   CATCHUP_DRIVER_MV = 170.0
   CATCHUP_HOLDOFF_FRAMES = 100
+  # A driver gate held only by the analog SNR estimate (no pressed or passthrough
+  # requested/pending/active flag in the hold-off) still allows catch-up unwind toward
+  # zero below CATCHUP_ANALOG_UNWIND_MAX_SPEED (m/s, 60 km/h). The estimate rises about
+  # 0.04 Nm per Nm of EPS output, so on tight low-speed turn exits it trips the gate
+  # while openpilot holds 8-12 Nm. On the 2026-11-20 drive that blocked the unwind and
+  # the car kept turning (00000640 at 128 s: 0.040 1/m vs 0.014 requested). Windup
+  # never uses this exception.
+  CATCHUP_ANALOG_UNWIND_MAX_SPEED = 16.67
   CATCHUP_ENGAGE_FRAMES = 100
   # Lane changes: catch-up is off while a blinker is on or the model lane change is active
   # (controlsd sets CC blinkers while laneChangeState is not off, which can outlast the
