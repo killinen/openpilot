@@ -87,6 +87,20 @@ class TrqiSteerLimitParams:  # controls running @ 100hz
   CATCHUP_DRIVER_MV = 170.0
   CATCHUP_HOLDOFF_FRAMES = 100
   CATCHUP_ENGAGE_FRAMES = 100
+  # Lane changes: catch-up is off while a blinker is on or the model lane change is active
+  # (controlsd sets CC blinkers while laneChangeState is not off, which can outlast the
+  # blinker), and for CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES afterwards. On the 2026-11-20
+  # highway drive the boost fired in 45 of 46 lane changes and p90 lane-change lateral jerk
+  # was 5.4 m/s^3 vs 2.9 before catch-up. The gate applies once speed has exceeded
+  # CATCHUP_LANE_CHANGE_MIN_SPEED (m/s, 50 km/h) during the episode, so a blinker at a
+  # junction or roundabout approached slowly keeps catch-up, and a lane change never
+  # switches policy mid-manoeuvre by crossing the threshold.
+  CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES = 100
+  CATCHUP_LANE_CHANGE_MIN_SPEED = 13.9
+  # Windup catch-up fades to the nominal slew between these speeds (m/s, 70 -> 90 km/h);
+  # unwind keeps CATCHUP_DELTA. A precaution against fast highway torque build-up: on the
+  # 2026-11-20 drive it changed 1 of 132 ordinary highway curve entries, by at most 0.18 Nm.
+  CATCHUP_WINDUP_FADE_BP = [19.44, 25.0]
   # Firmware CANCTR_SNR_PASSTHROUGH_ZERO_DIFF_MV.
   SNR_ZERO_DIFF_MV = -95.0
 

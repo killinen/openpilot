@@ -63,7 +63,25 @@ Catch-up is blocked:
 - during the first `CATCHUP_ENGAGE_FRAMES` (1 s) of lateral control, so the engage ramp is unchanged;
 - while the driver touches the wheel (SNR passthrough active, requested or
   pending, or the firmware-identical `|SNR1-SNR2+95 mV|` at or above 170 mV, about 0.5 Nm,
-  read from `TRQI_VoltageStatus`), and for `CATCHUP_HOLDOFF_FRAMES` (1 s) afterwards.
+  read from `TRQI_VoltageStatus`), and for `CATCHUP_HOLDOFF_FRAMES` (1 s) afterwards;
+- during lane changes (added 2026-11-20). This covers a physical blinker, or the model lane
+  change: controlsd sets `CC.leftBlinker` / `CC.rightBlinker` while `laneChangeState` is not
+  off, which can outlast the blinker. It also covers `CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES`
+  (1 s) afterwards. The gate applies once speed has exceeded 50 km/h during the episode
+  (`CATCHUP_LANE_CHANGE_MIN_SPEED`, latched until the hold-off ends). So a blinker at a
+  slowly approached junction keeps catch-up, and crossing 50 km/h never switches policy
+  mid-manoeuvre.
+
+Windup catch-up also fades with speed (2026-11-20). It is 15 Ncm/frame up to 70 km/h,
+then falls linearly to the nominal 6 at 90 km/h (`CATCHUP_WINDUP_FADE_BP`). Unwind keeps 15.
+
+Why: on the 575 km highway drive of 2026-11-20 (0000063e-00000640), catch-up fired in 45
+of 46 lane changes. The 90th-percentile lane-change lateral jerk was 5.4 m/s^3 (wheel) and
+5.9 (yaw), against 2.9 / 3.2 before catch-up. In a replay of the logged commands, the
+physical blinker plus 1 s left fast steps in 4 of the 46; the model state removes those.
+The windup fade is a precaution against fast highway torque build-up: it changed 1 of 132
+ordinary highway curve entries, by at most 0.18 Nm. The sharp "curve entry" cases first
+blamed on catch-up were lane-change tails.
 
 The measured-output guard still blocks windup above 12 Nm. Panda only bounds
 0x232 magnitude, and TRQI firmware allows 100 + 40 Ncm per frame, so neither

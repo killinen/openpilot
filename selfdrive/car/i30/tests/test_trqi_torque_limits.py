@@ -20,15 +20,21 @@ def test_safety_param_tracks_selected_backend(tmp_path, monkeypatch, toggle, trq
   assert cp.safetyConfigs[0].safetyParam == Panda.FLAG_I30_LONGITUDINAL | (Panda.FLAG_I30_TRQI if trqi else 0)
 
 
-def state(output_torque=0.0, pressed=False, snr_diff_mv=0.0, requested=False, pending=False):
-  return SimpleNamespace(out=car.CarState.new_message(steeringTorque=0.0, steeringPressed=pressed), steering_torque_out=output_torque,
+def state(output_torque=0.0, pressed=False, snr_diff_mv=0.0, requested=False, pending=False, left_blinker=False, right_blinker=False, v_ego=15.0):
+  out = car.CarState.new_message(steeringTorque=0.0, steeringPressed=pressed, leftBlinker=left_blinker, rightBlinker=right_blinker, vEgo=v_ego)
+  return SimpleNamespace(out=out, steering_torque_out=output_torque,
                          trqi_snr_diff_mv=snr_diff_mv, trqi_snr_passthrough_requested=requested, trqi_snr_passthrough_pending=pending)
 
 
-def command(steer):
-  cc = car.CarControl.new_message(latActive=True)
+def command(steer, lane_change_left=False, lane_change_right=False):
+  cc = car.CarControl.new_message(latActive=True, leftBlinker=lane_change_left, rightBlinker=lane_change_right)
   cc.actuators.steer = steer
   return cc.as_reader()
+
+
+def run(controller, steer, frames, **kw):
+  cmd_kw = {k: kw.pop(k) for k in ('lane_change_left', 'lane_change_right') if k in kw}
+  return [demand(controller.update(command(steer, **cmd_kw), state(**kw), 0, SimpleNamespace())[1]) for _ in range(frames)]
 
 
 def demand(messages):
@@ -100,6 +106,75 @@ def test_driver_input_blocks_catchup_with_holdoff(tmp_path, monkeypatch, driver)
   # Nominal slew for the driver frame plus holdoff - 1 frames, then catch-up.
   assert outputs[holdoff - 2] == 994 - 6*(holdoff - 1)
   assert outputs[holdoff - 1] == outputs[holdoff - 2] - 15
+
+
+LANE_SIGNALS = [dict(left_blinker=True), dict(right_blinker=True), dict(lane_change_left=True), dict(lane_change_right=True)]
+
+
+@pytest.mark.parametrize('signal', LANE_SIGNALS)
+def test_lane_change_blocks_catchup_with_holdoff(tmp_path, monkeypatch, signal):
+  # Physical blinker, or the model lane change (CC blinkers) outlasting it.
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 1000)
+  on = run(controller, -1.0, 100, **signal)
+  assert on[-1] == 1000 - 6*100
+  holdoff = values.TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES
+  off = run(controller, -1.0, holdoff)
+  # Nominal for holdoff - 1 frames after the signal clears, then catch-up resumes.
+  assert off[holdoff - 2] == on[-1] - 6*(holdoff - 1)
+  assert off[holdoff - 1] == off[holdoff - 2] - 15
+
+
+@pytest.mark.parametrize('signal', LANE_SIGNALS)
+def test_lane_change_gate_needs_speed_above_threshold(tmp_path, monkeypatch, signal):
+  # Junction or roundabout below 50 km/h with the blinker on keeps catch-up.
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, 1000)
+  assert run(controller, -1.0, 1, v_ego=12.0, **signal) == [985]
+
+
+def test_lane_change_gate_latches_for_the_episode(tmp_path, monkeypatch):
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  limit = values.TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_MIN_SPEED
+  # Signal starts above the threshold, speed then drops below it: stays gated.
+  controller = settled(module, 1000)
+  run(controller, 1.0, 10, v_ego=limit + 1.0, right_blinker=True)
+  assert run(controller, -1.0, 1, v_ego=limit - 3.0, right_blinker=True) == [994]
+  # Below the threshold first, then accelerating above it: gated from then on.
+  controller = settled(module, 1000)
+  assert run(controller, -1.0, 1, v_ego=limit - 3.0, right_blinker=True) == [985]
+  assert run(controller, -1.0, 1, v_ego=limit + 1.0, right_blinker=True) == [979]
+  assert run(controller, -1.0, 1, v_ego=limit - 3.0) == [973]
+  # The latch clears once the hold-off has run out.
+  controller = settled(module, 1000)
+  run(controller, 1.0, 10, v_ego=limit + 1.0, right_blinker=True)
+  run(controller, 1.0, values.TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES, v_ego=limit - 3.0)
+  assert run(controller, -1.0, 1, v_ego=limit - 3.0) == [985]
+
+
+@pytest.mark.parametrize('v_ego,windup_step', [(15.0, 15), (19.44, 15), (22.22, 10.5), (25.0, 6), (33.0, 6)])
+def test_windup_catchup_fades_with_speed(tmp_path, monkeypatch, v_ego, windup_step):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller, _ = new_controller(module)
+  run(controller, 0.0, 200, v_ego=v_ego)
+  # Curve entry: a big request from zero grows at the speed-faded catch-up rate.
+  assert abs(run(controller, 1.0, 1, v_ego=v_ego)[0] - windup_step) <= 0.5
+
+
+@pytest.mark.parametrize('sign', [-1, 1])
+def test_unwind_catchup_kept_at_highway_speed(tmp_path, monkeypatch, sign):
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller, _ = new_controller(module)
+  run(controller, sign*1.0, 200, v_ego=30.0)
+  assert controller.last_trqi_tq == pytest.approx(sign*1000)
+  outputs = run(controller, -sign*1.0, 120, v_ego=30.0)
+  steps = [b-a for a, b in zip([sign*1000, *outputs], outputs, strict=False)]
+  # Unwind toward zero at the full catch-up rate, then windup the other way at nominal.
+  assert steps[0] == -sign*15
+  crossed = next(i for i, o in enumerate(outputs) if o*sign < 0)
+  # The crossing step itself: the opposite-side part is bounded by the faded windup rate.
+  assert abs(outputs[crossed]) <= 6
+  assert all(abs(st) <= 6 for st in steps[crossed + 1:])
 
 
 def test_driver_torque_below_threshold_does_not_block(tmp_path, monkeypatch):

@@ -110,9 +110,11 @@ class CarController(CarControllerBase):
     # Catch-up slew gating (see TrqiSteerLimitParams.CATCHUP_*).
     self.trqi_lat_active_frames = 0
     self.trqi_driver_holdoff = 0
+    self.trqi_lane_change_holdoff = 0
+    self.trqi_lane_change_gated = False
     self.trqi_catchup_active = False
 
-  def update_trqi_catchup_gate(self, lat_active, CS):
+  def update_trqi_catchup_gate(self, lat_active, CS, lane_change=False):
     self.trqi_lat_active_frames = min(self.trqi_lat_active_frames + 1, TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES) if lat_active else 0
 
     # Any sign of the driver on the wheel: firmware passthrough active, requested
@@ -126,8 +128,21 @@ class CarController(CarControllerBase):
     elif self.trqi_driver_holdoff > 0:
       self.trqi_driver_holdoff -= 1
 
+    # Lane changes keep the nominal slew. `lane_change` is the model lane-change state (CC
+    # blinkers), which can outlast the physical blinker. The speed condition latches for the
+    # episode so crossing 50 km/h never switches policy mid-manoeuvre.
+    if CS.out.leftBlinker or CS.out.rightBlinker or lane_change:
+      self.trqi_lane_change_holdoff = TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES
+    elif self.trqi_lane_change_holdoff > 0:
+      self.trqi_lane_change_holdoff -= 1
+    if self.trqi_lane_change_holdoff == 0:
+      self.trqi_lane_change_gated = False
+    elif CS.out.vEgo > TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_MIN_SPEED:
+      self.trqi_lane_change_gated = True
+
   def trqi_catchup_allowed(self):
-    return self.trqi_lat_active_frames >= TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES and self.trqi_driver_holdoff == 0
+    return self.trqi_lat_active_frames >= TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES and self.trqi_driver_holdoff == 0 and \
+      not self.trqi_lane_change_gated
 
   def update(self, CC, CS, now_nanos, frogpilot_toggles):
     actuators = CC.actuators
@@ -143,7 +158,7 @@ class CarController(CarControllerBase):
       self.last_steer_tq = 0.0
 
       trqi_limit_flags = 0
-      self.update_trqi_catchup_gate(CC.latActive, CS)
+      self.update_trqi_catchup_gate(CC.latActive, CS, CC.leftBlinker or CC.rightBlinker)
       if CC.latActive:
         requested_trqi_tq = actuators.steer * TrqiSteerLimitParams.STEER_MAX
 
@@ -155,9 +170,13 @@ class CarController(CarControllerBase):
 
         self.trqi_catchup_active = self.trqi_catchup_allowed() and \
           abs(filtered_trqi_tq - self.last_trqi_tq) > TrqiSteerLimitParams.CATCHUP_GAP
-        delta = TrqiSteerLimitParams.CATCHUP_DELTA if self.trqi_catchup_active else None
+        delta_up = delta_down = None
+        if self.trqi_catchup_active:
+          delta_down = TrqiSteerLimitParams.CATCHUP_DELTA
+          delta_up = interp(CS.out.vEgo, TrqiSteerLimitParams.CATCHUP_WINDUP_FADE_BP,
+                            [TrqiSteerLimitParams.CATCHUP_DELTA, TrqiSteerLimitParams.STEER_DELTA_UP])
         apply_trqi_tq, delta_up_limited, delta_down_limited, max_limited = apply_rate_limited_steering_limits_with_flags(
-          filtered_trqi_tq, self.last_trqi_tq, TrqiSteerLimitParams, delta, delta
+          filtered_trqi_tq, self.last_trqi_tq, TrqiSteerLimitParams, delta_up, delta_down
         )
 
         measured_out_tq = abs(getattr(CS, "steering_torque_out", 0.0))
