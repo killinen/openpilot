@@ -25,6 +25,11 @@ class CarInterface(CarInterfaceBase):
       return hrr_lateral.TORQUE_KI
     return super().get_torque_ki()
 
+  def get_torque_deadband_comp(self, v_ego: float) -> float:
+    if self.CP.carFingerprint in HRR_CAR:
+      return hrr_lateral.torque_deadband_comp(v_ego)
+    return super().get_torque_deadband_comp(v_ego)
+
   @staticmethod
   def get_pid_accel_limits(CP, current_speed, cruise_speed):
     return CarControllerParams(CP).ACCEL_MIN, CarControllerParams(CP).ACCEL_MAX

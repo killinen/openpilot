@@ -262,6 +262,11 @@ class CarInterfaceBase(ABC):
     """Car-specific torque controller integral gain, or None for the controller default."""
     return None
 
+  def get_torque_deadband_comp(self, v_ego: float) -> float:
+    """Extra torque, in the direction of the requested lateral acceleration, that the torque
+    controller adds to overcome a steering deadband near centre. 0 disables it."""
+    return 0.0
+
   def torque_from_lateral_accel_linear(self, lateral_acceleration: float, torque_params: car.CarParams.LateralTorqueTuning) -> float:
     # The default is a linear relationship between torque and lateral acceleration (accounting for road roll and steering friction)
     return lateral_acceleration / float(torque_params.latAccelFactor)

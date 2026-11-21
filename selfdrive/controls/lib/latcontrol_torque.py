@@ -29,6 +29,9 @@ KP_INTERP = [250, 120, 65, 30, 11.5, 5.5, 3.5, 2.0, KP]
 
 LP_FILTER_CUTOFF_HZ = 1.2
 LAT_ACCEL_REQUEST_BUFFER_SECONDS = 1.0
+# Width (m/s^2) of the tanh that shapes the deadband compensation torque. Wide, so it does
+# not add a step at zero that would chatter on straights.
+DEADBAND_COMP_WIDTH = 0.3
 VERSION = 0
 
 class LatControlTorque(LatControl):
@@ -39,6 +42,8 @@ class LatControlTorque(LatControl):
     self.lateral_accel_from_torque = CI.lateral_accel_from_torque()
     self.torque_feedforward_scale = CI.get_torque_feedforward_scale
     car_ki = CI.get_torque_ki()
+    self.torque_deadband_comp = CI.get_torque_deadband_comp
+    self.deadband_torque = 0.0
     self.pid = PIDController([INTERP_SPEEDS, KP_INTERP], KI if car_ki is None else car_ki, KD, rate=1/self.dt)
     self.update_limits()
     self.steering_angle_deadzone_deg = self.torque_params.steeringAngleDeadzoneDeg
@@ -54,8 +59,11 @@ class LatControlTorque(LatControl):
     self.update_limits()
 
   def update_limits(self):
-    self.pid.set_limits(self.lateral_accel_from_torque(self.steer_max, self.torque_params),
-                        self.lateral_accel_from_torque(-self.steer_max, self.torque_params))
+    # Full deadband compensation is reached well before the limit, so the linear map only
+    # needs to reach steer_max minus it.
+    torque_limit = self.steer_max - self.deadband_torque
+    self.pid.set_limits(self.lateral_accel_from_torque(torque_limit, self.torque_params),
+                        self.lateral_accel_from_torque(-torque_limit, self.torque_params))
 
   def update(self, active, CS, VM, params, steer_limited_by_safety, desired_curvature, curvature_limited, lat_delay, llk, model_data, frogpilot_toggles):
     pid_log = log.ControlsState.LateralTorqueState.new_message()
@@ -64,6 +72,11 @@ class LatControlTorque(LatControl):
       output_torque = 0.0
       pid_log.active = False
     else:
+      deadband_torque = self.torque_deadband_comp(CS.vEgo)
+      if deadband_torque != self.deadband_torque:
+        self.deadband_torque = deadband_torque
+        self.update_limits()
+
       measured_curvature = -VM.calc_curvature(math.radians(CS.steeringAngleDeg - params.angleOffsetDeg), CS.vEgo, params.roll)
       roll_compensation = params.roll * ACCELERATION_DUE_TO_GRAVITY
       curvature_deadzone = abs(VM.calc_curvature(math.radians(self.steering_angle_deadzone_deg), CS.vEgo, 0.0))
@@ -102,6 +115,9 @@ class LatControlTorque(LatControl):
                                         speed=CS.vEgo,
                                         freeze_integrator=freeze_integrator)
       output_torque = self.torque_from_lateral_accel(output_lataccel, self.torque_params)
+      if self.deadband_torque > 0.0:
+        output_torque += self.deadband_torque * math.tanh(output_lataccel / DEADBAND_COMP_WIDTH)
+        output_torque = float(np.clip(output_torque, -self.steer_max, self.steer_max))
 
       pid_log.active = True
       pid_log.p = float(self.pid.p)

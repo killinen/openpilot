@@ -18,3 +18,15 @@ def torque_feedforward_scale(v_ego: float) -> float:
   # to 1.25 from 70 to 90 km/h. Below 40 km/h there is almost no engaged data, so it tapers to 1.0 at
   # 30 km/h. Remove when validated HRR firmware owns this.
   return float(interp(v_ego * 3.6, [30.0, 40.0, 50.0, 70.0, 90.0], [1.0, 1.15, 1.45, 1.45, 1.25]))
+
+
+def torque_deadband_comp(v_ego: float) -> float:
+  # Below about 0.1 command the EPS gives almost no assist, and rack friction adds about 45 EPS units
+  # more, so the wheel does not move until the command reaches about 0.2. At 30-70 km/h the car sat
+  # 0.10-0.15 m right of where the model asked and steered too little of its small corrections.
+  # In the LS600h sim (2026-11-22, 21 drives) 0.10 at 50-70 km/h cut slow tracking error 15% for 12%
+  # more torque rate. It starts at 35 km/h (no engaged data below, steep low-speed Kp) and is gone by
+  # 90 km/h, so the motorway tuning, where jitter matters most, is unchanged. The torque learner only
+  # supplies latAccelOffset here (lateral accel factor and friction are fixed), which the map's odd
+  # shape barely biases.
+  return float(interp(v_ego * 3.6, [35.0, 50.0, 70.0, 90.0], [0.0, 0.10, 0.10, 0.0]))
