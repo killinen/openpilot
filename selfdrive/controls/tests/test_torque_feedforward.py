@@ -148,3 +148,31 @@ def test_hrr_live_params_keep_deadband_limits():
   steer, _, _ = c.update(True, cs, FakeVM(), params, False, .2 / (60 / 3.6)**2, False, .33, llk, None, None)
   out = c.pid.control
   assert -steer == pytest.approx(out / 1.2 + .1 * math.tanh(out / DEADBAND_COMP_WIDTH))
+
+
+@pytest.mark.parametrize('direction', [-1, 1])
+@pytest.mark.parametrize('freeze', [False, True])
+def test_hrr_lowered_limit_clamps_integral(direction, freeze):
+  c = controller(CAR.LEXUS_LS600h)
+  c.update_live_torque_params(1.63, 0.0, .07)
+  c.pid.i = direction * 1.60  # inside the motorway limit of 1.63
+  cs, params, llk = inputs(speed=60 / 3.6)
+  cs.steeringPressed = freeze
+  c.update(True, cs, FakeVM(), params, False, 0.0, False, .33, llk, None, None)
+  assert c.pid.pos_limit == pytest.approx(.9 * 1.63)
+  assert abs(c.pid.i) <= .9 * 1.63 + 1e-9
+  assert np.sign(c.pid.i) == direction
+
+
+def test_hrr_reengage_starts_without_old_integral():
+  c = controller(CAR.LEXUS_LS600h)
+  c.pid.i = .5
+  c.reset()  # what controlsd does every frame lateral is inactive
+  assert c.pid.i == 0.0
+
+
+def test_other_cars_keep_integral_on_disengage():
+  c = controller()
+  c.pid.i = .5
+  c.reset()
+  assert c.pid.i == .5

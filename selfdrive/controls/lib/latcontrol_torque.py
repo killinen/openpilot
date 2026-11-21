@@ -44,6 +44,9 @@ class LatControlTorque(LatControl):
     car_ki = CI.get_torque_ki()
     self.torque_deadband_comp = CI.get_torque_deadband_comp
     self.deadband_torque = 0.0
+    # With deadband compensation, an integral left over from the last engagement would be
+    # amplified on the first frames of the next one, so it starts from zero instead.
+    self.reset_integral_on_disengage = any(self.torque_deadband_comp(v) > 0.0 for v in np.arange(0.0, 70.0, 0.5))
     self.pid = PIDController([INTERP_SPEEDS, KP_INTERP], KI if car_ki is None else car_ki, KD, rate=1/self.dt)
     self.update_limits()
     self.steering_angle_deadzone_deg = self.torque_params.steeringAngleDeadzoneDeg
@@ -64,6 +67,13 @@ class LatControlTorque(LatControl):
     torque_limit = self.steer_max - self.deadband_torque
     self.pid.set_limits(self.lateral_accel_from_torque(torque_limit, self.torque_params),
                         self.lateral_accel_from_torque(-torque_limit, self.torque_params))
+    # A lowered limit must not leave integral above it, which would have to unwind first.
+    self.pid.i = float(np.clip(self.pid.i, self.pid.neg_limit, self.pid.pos_limit))
+
+  def reset(self):
+    super().reset()
+    if self.reset_integral_on_disengage:
+      self.pid.reset()
 
   def update(self, active, CS, VM, params, steer_limited_by_safety, desired_curvature, curvature_limited, lat_delay, llk, model_data, frogpilot_toggles):
     pid_log = log.ControlsState.LateralTorqueState.new_message()
