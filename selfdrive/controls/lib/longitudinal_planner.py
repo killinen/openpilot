@@ -102,7 +102,7 @@ class LongitudinalPlanner:
       if I30_EARLY_LIFT_ENABLED:
         from openpilot.selfdrive.car.i30.coast_lift import CoastLiftOff
         from openpilot.selfdrive.car.i30.longitudinal_map import I30LongitudinalMap
-        self.coast_lift, self.coast_map = CoastLiftOff(), I30LongitudinalMap()
+        self.coast_lift, self.coast_map = CoastLiftOff(dt), I30LongitudinalMap()
 
   @staticmethod
   def parse_model(model_msg, v_ego, taco_tune):

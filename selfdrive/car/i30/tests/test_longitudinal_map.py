@@ -3,7 +3,8 @@ import math
 
 import pytest
 
-from openpilot.selfdrive.car.i30.coast_lift import CoastLiftOff, needed_accel
+from openpilot.selfdrive.car.i30.coast_lift import (MARGIN_FLOOR, OPENING_REF, SEVERE_NEED, SHORT_HEADWAY_FRACTION, STOP_DISTANCE,
+                                                    CoastLiftOff, needed_accel)
 from openpilot.selfdrive.car.i30.longitudinal_map import CALIBRATION_PATH, I30LongitudinalMap
 
 K = 1.5e-4
@@ -125,19 +126,107 @@ def test_needed_accel_kinematics():
   # 10 m/s closing with 50 m of margin and no delay: 1 m/s^2.
   assert needed_accel(80.0, 25.0, 15.0, 0.0, 30.0, 0.0) == pytest.approx(-1.0)
   assert needed_accel(80.0, 15.0, 25.0, 0.0, 30.0, 0.5) == 0.0
-  assert needed_accel(31.0, 25.0, 15.0, 0.0, 30.0, 0.5) == -10.0
+  # Margin used up near the desired gap: the stopping distance is floored, not a cliff.
+  assert needed_accel(31.0, 25.0, 15.0, 0.0, 30.0, 0.5) == pytest.approx(-100.0 / (2.0 * MARGIN_FLOOR))
+
+
+def test_needed_accel_is_continuous_across_the_margin_floor():
+  # 2 m/s closing, desired 40 m, no delay: margins from 1.5 to 4.5 m either side of the floor.
+  needs = [needed_accel(40.0 + m, 22.0, 20.0, 0.0, 40.0, 0.0) for m in (1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5)]
+  assert all(b >= a for a, b in zip(needs, needs[1:], strict=False))
+  assert needs[3] == pytest.approx(-4.0 / (2.0 * MARGIN_FLOOR))
+  assert needs[-1] == pytest.approx(-4.0 / 9.0)
+  assert all(abs(b - a) < 0.1 for a, b in zip(needs, needs[1:], strict=False))
+
+
+def test_short_headway_closing_is_severe():
+  desired = 1.5 * 21.0 + STOP_DISTANCE
+  # 10 m behind and closing 1 m/s: severe even though the floored kinematic need is small.
+  assert needed_accel(10.0, 22.0, 21.0, 0.0, desired, 0.5) == SEVERE_NEED
+  # Closing below SHORT_HEADWAY_CLOSING stays kinematic (noise around steady close following).
+  assert needed_accel(10.0, 22.0, 21.8, 0.0, desired, 0.5) > -0.1
+  # Just outside the short-headway fraction the floor applies again.
+  d = SHORT_HEADWAY_FRACTION * desired + 0.1
+  assert needed_accel(d, 22.0, 21.0, 0.0, desired, 0.0) == pytest.approx(-1.0 / (2.0 * MARGIN_FLOOR))
+
+
+def test_braking_lead_at_equal_speed_is_continuous():
+  # 60 m behind a lead braking at 2 m/s^2: equal speed and barely closing give the same need,
+  # and the lead braking fades out as the gap opens at OPENING_REF.
+  equal = needed_accel(60.0, 22.0, 22.0, -2.0, 39.0, 0.5)
+  closing = needed_accel(60.0, 22.0, 21.999, -2.0, 39.0, 0.5)
+  assert equal == pytest.approx(-2.0) and closing == pytest.approx(-2.0, abs=1e-3)
+  assert needed_accel(60.0, 22.0, 22.0 + OPENING_REF / 2, -2.0, 39.0, 0.5) == pytest.approx(-1.0)
+  assert needed_accel(60.0, 22.0, 22.0 + OPENING_REF, -2.0, 39.0, 0.5) == 0.0
 
 
 def test_lift_off_hysteresis_and_capability():
   lift = CoastLiftOff()
   # Far, slowly closing: no veto.
   assert not lift.update(True, 22.0, 120.0, 21.0, 0.0, 1.45, -0.4)
-  # Close and closing: needed decel exceeds half of coast capability -> veto.
+  # Close and closing: needed decel exceeds 0.7 of coast capability -> veto (the lead state
+  # jumps 60 m closer, which reseeds the need filter).
   assert lift.update(True, 22.0, 60.0, 18.0, 0.0, 1.45, -0.4)
-  # Need between release (0.08) and lift (0.2) thresholds: stays latched, but would not lift fresh.
+  # Need between release (0.112) and lift (0.28) thresholds: stays latched, but would not lift fresh.
   assert lift.update(True, 22.0, 60.0, 19.5, 0.0, 1.45, -0.4)
   assert not CoastLiftOff().update(True, 22.0, 60.0, 19.5, 0.0, 1.45, -0.4)
-  assert not lift.update(True, 22.0, 70.0, 22.0, 0.0, 1.45, -0.4)
+  # No longer closing: the filtered need decays and the veto releases within 0.5 s.
+  states = [lift.update(True, 22.0, 60.0, 22.0, 0.0, 1.45, -0.4) for _ in range(10)]
+  assert states[0] and not states[-1]
+
+
+def test_steady_following_noise_does_not_chatter():
+  # 2026-11-20 logs: following ~4.5 m inside the desired gap with vision vLead noise
+  # (closing 0.14 m/s median, frame jumps > 0.5 m/s) toggled the old veto ~690 times/h.
+  lift = CoastLiftOff()
+  noise = [0.3, -0.2, 0.6, -0.1, 0.1, -0.4, 0.8, 0.0, 0.2, -0.3]
+  toggles, last = 0, False
+  for i in range(1200):  # 60 s at 20 Hz
+    v_lead = 25.0 - 0.14 - noise[i % len(noise)]
+    state = lift.update(True, 25.0, 1.9 * 25.0 + 6.0 - 4.5, v_lead, 0.0, 1.9, -0.43)
+    toggles += state != last
+    last = state
+  assert toggles == 0
+
+
+def test_single_frame_lead_speed_spike_does_not_veto():
+  lift = CoastLiftOff()
+  for _ in range(20):
+    assert not lift.update(True, 25.0, 60.0, 24.5, 0.0, 1.9, -0.43)
+  # One frame where vision vLead drops by 2 m/s.
+  assert not lift.update(True, 25.0, 60.0, 22.5, 0.0, 1.9, -0.43)
+
+
+@pytest.mark.parametrize('distance,closing,a_lead', [(10.0, 1.0, 0.0), (10.0, 1.4, 0.0), (25.0, 1.4, 0.0), (25.0, 4.0, 0.0),
+                                                     (10.0, 0.0, -2.0), (60.0, 0.0, -2.0)])
+def test_closer_lead_vetoes_on_first_frame(distance, closing, a_lead):
+  # A valid far lead replaced by a closer one (cut-in, same lead status), or a braking lead.
+  lift = CoastLiftOff()
+  for _ in range(20):
+    assert not lift.update(True, 22.0, 100.0, 22.0, 0.0, 1.5, -0.4)
+  assert lift.update(True, 22.0, distance, 22.0 - closing, a_lead, 1.5, -0.4)
+
+
+def test_reacquired_lead_seeds_filter_from_raw_need():
+  lift = CoastLiftOff()
+  for _ in range(20):
+    lift.update(True, 22.0, 45.0, 22.0, 0.0, 1.5, -0.4)
+  assert not lift.update(False, 22.0, 45.0, 20.0, 0.0, 1.5, -0.4)
+  # First valid sample after the drop: margin 45 - 36 - 1 = 8 m, need -4/16 = -0.25 > -0.28,
+  # so no veto; at 3 m/s closing, margin 45 - 34.5 - 1.5 = 9 m and the need -9/18 = -0.5
+  # vetoes at once.
+  assert not lift.update(True, 22.0, 45.0, 20.0, 0.0, 1.5, -0.4)
+  lift.update(False, 22.0, 45.0, 19.0, 0.0, 1.5, -0.4)
+  assert lift.update(True, 22.0, 45.0, 19.0, 0.0, 1.5, -0.4)
+
+
+def test_filter_uses_planner_dt():
+  # The same step in need releases in fewer updates at a slower update rate.
+  def frames_to_release(dt):
+    lift = CoastLiftOff(dt)
+    assert lift.update(True, 22.0, 60.0, 18.0, 0.0, 1.45, -0.4)
+    return next(i for i in range(1, 100) if not lift.update(True, 22.0, 60.0, 22.0, 0.0, 1.45, -0.4))
+  assert frames_to_release(0.1) < frames_to_release(0.05)
 
 
 def test_weaker_coast_lifts_earlier():
