@@ -1,7 +1,7 @@
 from cereal import car, custom
 from panda import Panda
 from panda.python import uds
-from openpilot.common.numpy_fast import interp
+from openpilot.selfdrive.car.toyota import hrr_lateral
 from openpilot.selfdrive.car.toyota.values import Ecu, CAR, DBC, ToyotaFlags, CarControllerParams, TSS2_CAR, RADAR_ACC_CAR, NO_DSU_CAR, \
                                         MIN_ACC_SPEED, EPS_SCALE, UNSUPPORTED_DSU_CAR, NO_STOP_TIMER_CAR, ANGLE_CONTROL_CAR, STOP_AND_GO_CAR, HRR_CAR
 from openpilot.selfdrive.car import create_button_events, get_safety_config
@@ -17,19 +17,12 @@ SteerControlType = car.CarParams.SteerControlType
 class CarInterface(CarInterfaceBase):
   def get_torque_feedforward_scale(self, v_ego: float) -> float:
     if self.CP.carFingerprint in HRR_CAR:
-      # Temporary motion-response compensation for HRR v0.1. 1.45 at motorway speed
-      # rang at about 1.3 Hz in high-torque curves (routes 000001f8/f9, 96-123 km/h),
-      # which 1.25 rarely did, so it tapers back to 1.25 from 70 to 90 km/h. Below 40 km/h
-      # there is almost no engaged data, so it tapers to 1.0 at 30 km/h. Remove when
-      # validated HRR firmware owns this.
-      return float(interp(v_ego * 3.6, [30.0, 40.0, 50.0, 70.0, 90.0], [1.0, 1.15, 1.45, 1.45, 1.25]))
+      return hrr_lateral.torque_feedforward_scale(v_ego)
     return super().get_torque_feedforward_scale(v_ego)
 
   def get_torque_ki(self) -> float | None:
     if self.CP.carFingerprint in HRR_CAR:
-      # Steady curves lagged the setpoint by 22-26% with Ki 0.3. Ki averages measurement
-      # noise, unlike friction or Kp, which raised jitter most at motorway speed.
-      return 0.45
+      return hrr_lateral.TORQUE_KI
     return super().get_torque_ki()
 
   @staticmethod
