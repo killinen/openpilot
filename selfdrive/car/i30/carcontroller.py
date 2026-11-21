@@ -198,8 +198,13 @@ class CarController(CarControllerBase):
 
           # Once the measured MDPS output torque is already above the target
           # window, block only further windup. Still allow the controller to
-          # unwind toward zero so the measured output torque can fall again.
-          if abs(apply_trqi_tq) > abs(self.last_trqi_tq):
+          # unwind toward zero so the measured output torque can fall again. A step
+          # that would cross zero stops at zero: the unwind completes, and windup on
+          # the opposite side waits until the guard clears.
+          if self.last_trqi_tq != 0.0 and apply_trqi_tq * self.last_trqi_tq < 0.0:
+            max_limited = True
+            apply_trqi_tq = 0.0
+          elif abs(apply_trqi_tq) > abs(self.last_trqi_tq):
             max_limited |= abs(apply_trqi_tq - self.last_trqi_tq) > 1e-6
             apply_trqi_tq = self.last_trqi_tq
 

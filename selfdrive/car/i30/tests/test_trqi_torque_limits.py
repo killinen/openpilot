@@ -219,6 +219,21 @@ def test_catchup_respects_measured_output_guard(tmp_path, monkeypatch):
   assert demand(messages) == 585
 
 
+@pytest.mark.parametrize('sign', [-1, 1])
+@pytest.mark.parametrize('initial', [2, 4, 8])
+def test_output_guard_reversal_unwinds_to_zero_and_holds(tmp_path, monkeypatch, sign, initial):
+  # Above 12 Nm measured output, a reversing request (nominal slew under the driver gate)
+  # must finish the unwind at zero rather than hold residual torque or wind up the other way.
+  _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
+  controller = settled(module, sign*initial)
+  outputs = run(controller, -sign*1.0, 5, output_torque=12.1, pressed=True)
+  assert all(o*sign >= 0 for o in outputs)
+  assert outputs[-1] == 0
+  # Just below the threshold the reversal proceeds normally.
+  controller = settled(module, sign*initial)
+  assert run(controller, -sign*1.0, 1, output_torque=11.9, pressed=True) == [sign*(initial - 6)]
+
+
 def test_disengage_resets_catchup(tmp_path, monkeypatch):
   _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
   controller = settled(module, 1000)
