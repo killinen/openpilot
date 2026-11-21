@@ -234,6 +234,36 @@ def test_output_guard_reversal_unwinds_to_zero_and_holds(tmp_path, monkeypatch, 
   assert run(controller, -sign*1.0, 1, output_torque=11.9, pressed=True) == [sign*(initial - 6)]
 
 
+def test_overlapping_gates_must_all_clear(tmp_path, monkeypatch):
+  # A driver flag that clears before the lane-change hold-off does not re-enable catch-up.
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  holdoff = values.TrqiSteerLimitParams.CATCHUP_HOLDOFF_FRAMES
+  lane_holdoff = values.TrqiSteerLimitParams.CATCHUP_LANE_CHANGE_HOLDOFF_FRAMES
+  controller = settled(module, 1000)
+  run(controller, -1.0, 1, pressed=True, right_blinker=True)
+  run(controller, -1.0, 50, right_blinker=True)
+  outputs = run(controller, -1.0, max(holdoff, lane_holdoff) + 1)
+  steps = [b-a for a, b in zip(outputs, outputs[1:], strict=False)]
+  # The driver hold-off has run out inside this window, but the lane-change hold-off (reloaded
+  # 50 frames later) has not: nominal until it ends, then catch-up.
+  assert all(st == -6 for st in steps[:lane_holdoff - 2])
+  assert steps[lane_holdoff - 1] == -15
+
+
+def test_driver_input_while_disengaged_holds_off_after_reengage(tmp_path, monkeypatch):
+  # Hold-offs keep counting while lateral control is off; the engage ramp restarts on re-engage.
+  _, values, module = controller_modules(tmp_path, monkeypatch, b'1')
+  engage = values.TrqiSteerLimitParams.CATCHUP_ENGAGE_FRAMES
+  controller = settled(module, 0)
+  off = car.CarControl.new_message(latActive=False).as_reader()
+  for _ in range(5):
+    controller.update(off, state(pressed=True), 0, SimpleNamespace())
+  outputs = run(controller, 1.0, engage + 1)
+  steps = [b-a for a, b in zip([0, *outputs], outputs, strict=False)]
+  assert all(st == 6 for st in steps[:engage - 1])
+  assert steps[engage] == 15
+
+
 def test_disengage_resets_catchup(tmp_path, monkeypatch):
   _, _, module = controller_modules(tmp_path, monkeypatch, b'1')
   controller = settled(module, 1000)
