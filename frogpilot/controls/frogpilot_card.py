@@ -101,6 +101,13 @@ class FrogPilotCard:
     self.always_on_lateral_enabled &= not (carState.brakePressed and carState.vEgo < self.car.frogpilot_toggles.always_on_lateral_pause_speed) or carState.standstill
     self.always_on_lateral_enabled &= not any(event.immediateDisable for events in (sm["onroadEvents"], sm["frogpilotOnroadEvents"]) for event in events if event.name != EventName.speedTooLow) or self.car.frogpilot_toggles.frogs_go_moo
 
+    if self.car.CP.carName == "motorhome":
+      # Cruise cancellation/pedals may leave steering active, but driver
+      # monitoring, CAN and steering faults must still stop motorhome AOL.
+      self.always_on_lateral_enabled &= carState.canValid and not (carState.steerFaultTemporary or carState.steerFaultPermanent)
+      self.always_on_lateral_enabled &= not any(event.softDisable or event.immediateDisable
+        for events in (sm["onroadEvents"], sm["frogpilotOnroadEvents"]) for event in events)
+
     if sm.updated["frogpilotPlan"] or any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in carState.buttonEvents):
       self.accel_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in carState.buttonEvents)
 

@@ -21,7 +21,7 @@ private:
   void updateToggles();
 
   bool forceOpenDescriptions;
-  bool started;
+  bool started = false;
 
   std::map<QString, AbstractControl*> toggles;
 
@@ -38,6 +38,7 @@ private:
 
   ParamControl *disableOpenpilotLong;
   ParamControl *forceFingerprint;
+  ParamControl *motorhomeSSC;
 
   Params params;
   Params params_default{"/dev/shm/params_default"};
