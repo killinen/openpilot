@@ -43,6 +43,9 @@ _GUARD = threading.Lock()
 _FAILURE_LOG_LOCK = threading.Lock()
 # The NAS receives up to 4 at once. Eight jobs keep all 4 busy with 4 more being prepared.
 SENDER_JOBS = 8
+# Each live job polls its GCS status. With 8 jobs, a 1 s interval sent GCS 5-8
+# requests a second; a confirmed receipt is seen at most 3 s later.
+STATUS_POLL_SECONDS = 3
 _PREPARE_SLOTS = threading.BoundedSemaphore(4)
 _WORMHOLE_SLOTS = threading.BoundedSemaphore(4)
 CONVERSION_META = ".opnas-rlog-conversion.json"
@@ -615,7 +618,7 @@ def transfer_job(root, job, client, facts, binary, source, stop):
 
       def receipt(force=False):
         nonlocal last_status, status
-        if force or time.monotonic() - last_status >= 1:
+        if force or time.monotonic() - last_status >= STATUS_POLL_SECONDS:
           import requests
 
           try:
