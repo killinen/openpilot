@@ -40,6 +40,7 @@ ALLOWED = {
 MAX_BYTES = 4 * 1024**3
 STABLE_SECONDS = 120
 _GUARD = threading.Lock()
+_FAILURE_LOG_LOCK = threading.Lock()
 # The NAS receives up to 4 at once. Eight jobs keep all 4 busy with 4 more being prepared.
 SENDER_JOBS = 8
 # Each live job polls its GCS status. With 8 jobs, a 1 s interval sent GCS 5-8
@@ -689,6 +690,12 @@ def failure_reason(exc):
 
 def record_failure(root, job, stage, reason):
   """Keep a bounded local record; this sender has no other log."""
+  # Concurrent jobs share one log and temporary file.
+  with _FAILURE_LOG_LOCK:
+    _record_failure(root, job, stage, reason)
+
+
+def _record_failure(root, job, stage, reason):
   try:
     path = Path(root).parent / ".opnas-sender-failures.jsonl"
     lines = path.read_text().splitlines()[-(FAILURE_LOG_LINES - 1) :] if path.exists() else []
