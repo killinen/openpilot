@@ -68,13 +68,20 @@ and four Wormhole sends at once. The additional prepared offers feed the NAS's
 four receiving slots. Inventory scans run in a separate standard-library-only
 Python process so heavy log-analysis threads do not delay those scans.
 
+Offer announcements retry transient connection errors and timeouts, checking
+whether GCS already accepted the offer before retrying. Failed status polls leave
+active sends running until a verified receipt, explicit cancellation or transfer
+deadline. Failures report the preparation/sending/receipt stage to GCS and retain
+the latest 300 records in `.opnas-sender-failures.jsonl` beside the realdata
+directory. Wormhole failures include the exit status and last two output lines.
+
 The Pi retains protected-drive, free-space and checksum checks for both routes.
 Interrupted direct downloads are discarded and restarted through Wormhole rather
 than resumed. Different routed subnets, VPNs and isolated guest networks fall back.
 
 Hardware-independent checks:
 
-    python -m pytest -c /dev/null --confcutdir=tools/teletyped/tests tools/teletyped/tests/test_archive_lan.py
+    python -m pytest -c /dev/null --confcutdir=tools/teletyped/tests tools/teletyped/tests/test_archive_lan.py tools/teletyped/tests/test_archive_sender.py
 
 Cross-repository TLS, fallback and manifest contract tests live in
 `../OP-NAS/tests/test_lan_transfer.py` and `test_gcs_integration.py`.
