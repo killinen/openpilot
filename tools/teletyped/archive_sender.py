@@ -499,6 +499,27 @@ def local_offer(source, stack, archive: Path, job: dict, network: str, permitted
   return stack.enter_context(source.serve_archive(archive, address, permitted))
 
 
+def publish_inventory(client, inventory, previous_revision):
+  from requests import HTTPError
+
+  revision = hashlib.sha256(
+    json.dumps(inventory["segments"], sort_keys=True, separators=(",", ":")).encode()
+  ).hexdigest()
+  if previous_revision == revision:
+    checkin = {
+      key: value for key, value in inventory.items() if key not in {"segments", "protocol"}
+    }
+    checkin["manifest_revision"] = revision
+    try:
+      client.post("/inventory/check-in", checkin)
+      return revision
+    except HTTPError as exc:
+      if exc.response is None or exc.response.status_code not in {404, 405, 409}:
+        raise
+  response = client.post("/inventory", inventory) or {}
+  return revision if response.get("manifest_revision") == revision else None
+
+
 class ArchiveAPI:
   """One persistent HTTPS session per worker, with existing JWT and DNS support."""
 
@@ -724,6 +745,7 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
 
   futures = {}
   next_inventory = next_claim = 0.0
+  inventory_revision = None
   claim_id = None
   try:
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="archive-send") as pool:
@@ -766,7 +788,7 @@ def run_pipeline(root, device_id, client, facts, binary, source, stop, workers=2
                   shutil.disk_usage(root.parent).free + allocated - 512 * 1024**2,
                 ),
               )
-              client.post("/inventory", inventory)
+              inventory_revision = publish_inventory(client, inventory, inventory_revision)
               next_inventory = time.monotonic() + 30
             while len(futures) < workers and time.monotonic() >= next_claim and not stop.is_set():
               claim_id = claim_id or uuid.uuid4().hex
