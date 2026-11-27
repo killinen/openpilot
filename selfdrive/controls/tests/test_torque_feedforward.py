@@ -50,7 +50,7 @@ def test_feedforward_schedule_preserves_other_cars(speed_kph):
 
 
 def test_hrr_uses_raised_integral_gain():
-  assert controller(CAR.LEXUS_LS600h).pid.k_i == pytest.approx(0.45)
+  assert controller(CAR.LEXUS_LS600h).pid.k_i == pytest.approx(0.6)
   assert controller().pid.k_i == pytest.approx(0.3)
 
 

@@ -8,8 +8,10 @@ that plant and belong to the HRR car only. Evaluate changes offline with ~/OPstu
 from openpilot.common.numpy_fast import interp
 
 # Steady curves lagged the setpoint by 22-26% with Ki 0.3. Ki averages measurement noise, unlike
-# friction or Kp, which raised jitter most at motorway speed.
-TORQUE_KI = 0.45
+# friction or Kp, which raised jitter most at motorway speed. 0.45 shipped first. In the LS600h sim
+# (2026-11-27, refit on 28 drives with the deadband map) 0.6 cut tracking error 2-4% at every speed
+# for 1-4% more torque rate, a better trade than Kp 1.0. 0.75 doubled both.
+TORQUE_KI = 0.6
 
 
 def torque_feedforward_scale(v_ego: float) -> float:
