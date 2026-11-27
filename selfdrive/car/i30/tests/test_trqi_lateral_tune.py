@@ -100,3 +100,22 @@ def test_doubling_friction_and_threshold_only_adds_torque_above_old_threshold():
   assert friction_term(0.6, 0.14, 0.2) == pytest.approx(friction_term(0.3, 0.07, 0.2))
   assert friction_term(0.3, 0.07, 0.5) == pytest.approx(0.07 * LAT_ACCEL_FACTOR)
   assert friction_term(0.6, 0.14, 0.5) == pytest.approx(0.14 * LAT_ACCEL_FACTOR * 0.5 / 0.6)
+
+
+def test_lane_change_jerk_limit_only_for_trqi_above_60_kph(monkeypatch):
+  ci = i30_interface.CarInterface.__new__(i30_interface.CarInterface)
+  monkeypatch.setattr(i30_interface, "i30_uses_trqi_steering", lambda: True)
+  assert ci.get_lane_change_max_lateral_jerk(25.0) == i30_interface.TRQI_LANE_CHANGE_MAX_LATERAL_JERK
+  assert ci.get_lane_change_max_lateral_jerk(15.0) is None
+  monkeypatch.setattr(i30_interface, "i30_uses_trqi_steering", lambda: False)
+  assert ci.get_lane_change_max_lateral_jerk(25.0) is None
+  assert CarInterfaceBase.get_lane_change_max_lateral_jerk(ci, 25.0) is None
+
+
+def test_clip_curvature_lane_change_jerk_limit():
+  from openpilot.selfdrive.controls.lib.drive_helpers import DT_CTRL, clip_curvature
+  v = 30.0
+  default, _ = clip_curvature(v, 0.0, 1.0, 0.0)
+  softer, _ = clip_curvature(v, 0.0, 1.0, 0.0, 2.0)
+  assert default == pytest.approx(3.0 / v**2 * DT_CTRL)
+  assert softer == pytest.approx(2.0 / v**2 * DT_CTRL)

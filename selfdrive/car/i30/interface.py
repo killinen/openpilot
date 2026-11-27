@@ -14,6 +14,12 @@ BUTTONS_DICT = {Buttons.RES_ACCEL: ButtonType.accelCruise, Buttons.SET_DECEL: Bu
                 Buttons.GAP_DIST: ButtonType.gapAdjustCruise, Buttons.CANCEL: ButtonType.cancel}
 TRQI_FRICTION_THRESHOLD = 0.6  # m/s^2
 TRQI_SETPOINT_FILTER_TAU = 0.05  # s
+# Lane changes above 60 km/h: the model asks for ~2 m/s^3 and the car delivers ~3 m/s^3 at the
+# counter-steer, where the 6 Ncm/frame slew leaves the wheel stuck and it then snaps through centre
+# (2026-11-20/25 drives: real jerk / demand 3.1 vs 2.2 before Nov 18). 2.0 keeps the model's peak and
+# costs ~0.14 m median open-loop path deviation; lower values cost much more (1.5: 0.36 m).
+TRQI_LANE_CHANGE_MAX_LATERAL_JERK = 2.0  # m/s^3
+TRQI_LANE_CHANGE_JERK_MIN_SPEED = 16.67  # m/s, 60 km/h
 
 
 class CarInterface(CarInterfaceBase):
@@ -29,6 +35,11 @@ class CarInterface(CarInterfaceBase):
   def get_torque_setpoint_filter_tau(self) -> float:
     # Smooths the 20 Hz model steps before P and feedforward amplify them.
     return TRQI_SETPOINT_FILTER_TAU if i30_uses_trqi_steering() else super().get_torque_setpoint_filter_tau()
+
+  def get_lane_change_max_lateral_jerk(self, v_ego: float) -> float | None:
+    if i30_uses_trqi_steering() and v_ego > TRQI_LANE_CHANGE_JERK_MIN_SPEED:
+      return TRQI_LANE_CHANGE_MAX_LATERAL_JERK
+    return super().get_lane_change_max_lateral_jerk(v_ego)
 
   @staticmethod
   def get_steer_max(CP) -> float:

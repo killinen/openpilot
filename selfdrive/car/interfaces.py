@@ -270,6 +270,10 @@ class CarInterfaceBase(ABC):
     # Seconds; 0 passes the desired lateral acceleration through unfiltered.
     return 0.0
 
+  def get_lane_change_max_lateral_jerk(self, v_ego: float) -> float | None:
+    # m/s^3 limit on the desired curvature rate during a model lane change; None keeps the default.
+    return None
+
   def torque_from_lateral_accel_linear(self, lateral_acceleration: float, torque_params: car.CarParams.LateralTorqueTuning) -> float:
     # The default is a linear relationship between torque and lateral acceleration (accounting for road roll and steering friction)
     return lateral_acceleration / float(torque_params.latAccelFactor)

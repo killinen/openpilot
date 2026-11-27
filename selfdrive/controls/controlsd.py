@@ -23,7 +23,7 @@ from openpilot.selfdrive.car.gm.values import CC_ONLY_CAR, GMFlags
 from openpilot.selfdrive.car.i30.carcontroller import ANGLE_MAX, ANGLE_MAX_BP, TRQI_OUT_TQ_LIMIT_THRESHOLD
 from openpilot.selfdrive.car.i30.values import i30_uses_trqi_steering
 from openpilot.selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
-from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature
+from openpilot.selfdrive.controls.lib.drive_helpers import MAX_LATERAL_JERK, VCruiseHelper, clip_curvature
 from openpilot.selfdrive.controls.lib.events import Events, ET
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -42,6 +42,7 @@ SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
 LANE_DEPARTURE_THRESHOLD = 0.1
 CAMERA_OFFSET = 0.04
+LANE_CHANGE_JERK_HOLD_S = 1.0  # keep the car's lane-change jerk limit this long after the model lane change ends
 
 REPLAY = "REPLAY" in os.environ
 SIMULATION = "SIMULATION" in os.environ
@@ -165,6 +166,7 @@ class Controls:
     self.i30_trqi_out_tq_limited = False
     self.curvature = 0.0
     self.desired_curvature = 0.0
+    self.last_lane_change_frame = -10**9
     self.experimental_mode = False
     self.personality = self.read_personality_param()
     self.v_cruise_helper = VCruiseHelper(self.CP)
@@ -686,7 +688,17 @@ class Controls:
       # Steering PID loop and lateral MPC
       # Reset desired curvature to current to avoid violating the limits on engage
       new_desired_curvature = model_v2.action.desiredCurvature if CC.latActive else self.curvature
-      self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
+      # Cars may soften the curvature rate during a model lane change, held 1 s after it ends to cover the
+      # final counter-steer.
+      if model_v2.meta.laneChangeState in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
+        self.last_lane_change_frame = self.sm.frame
+      max_lateral_jerk = MAX_LATERAL_JERK
+      if (self.sm.frame - self.last_lane_change_frame) * DT_CTRL <= LANE_CHANGE_JERK_HOLD_S:
+        lane_change_jerk = self.CI.get_lane_change_max_lateral_jerk(CS.vEgo)
+        if lane_change_jerk is not None:
+          max_lateral_jerk = lane_change_jerk
+      self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll,
+                                                                 max_lateral_jerk)
       lat_delay = self.sm["liveDelay"].lateralDelay + LAT_SMOOTH_SECONDS
 
       actuators.curvature = self.desired_curvature
